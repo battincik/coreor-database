@@ -1,0 +1,42 @@
+name: Deploy to gold.vm.coreor.net
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: gold-vm
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v2
+
+      - name: Pull latest changes
+        run: |
+          cd ~/coreor-apps/web.database.coreor.net
+          git pull origin main
+
+      - name: Install dependencies
+        run: |
+          cd ~/coreor-apps/web.database.coreor.net
+          npm install
+
+      - name: Build project
+        run: |
+          cd ~/coreor-apps/web.database.coreor.net
+          npm run build
+
+      - name: Fix package-lock.json conflicts (if any)
+        run: |
+          cd ~/coreor-apps/web.database.coreor.net
+          if git status | grep -q "package-lock.json"; then
+            git checkout -- package-lock.json
+            git pull origin main
+          fi
+
+      - name: Restart application on port 3302
+        run: |
+          cd ~/coreor-apps/web.database.coreor.net
+          pm2 start npm --name "web.database.coreor.net" -- run start -- -p 3302 || pm2 restart web.database.coreor.net
