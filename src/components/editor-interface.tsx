@@ -22,9 +22,10 @@ export default function EditorInterface() {
     }
   }, []);
 
-  const handleDatabaseSelect = (dbName: string) => {
+  const handleDatabaseSelect = (dbName: string | null) => {
     setSelectedDatabase(dbName);
-    setActiveTab('database');
+    setSelectedTable(null);
+    setActiveTab(dbName ? 'database' : 'sql-editor');
   };
 
   const handleTableSelect = (tableName: string | null) => {

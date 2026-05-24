@@ -1,15 +1,16 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useEffect, useContext } from 'react';
+import { useEffect, useContext, useMemo } from 'react';
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Database, Table as TableIcon, Code, Key, Link, RefreshCw, Filter, SortAsc } from 'lucide-react';
+import { Database, Table as TableIcon, Code, Key, Link, RefreshCw, Filter, SortAsc, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { DatabasePanelProps } from 'types';
+import { useAuth } from '@/context/AuthContext';
 import { DatabaseContext } from '@/context/DatabaseContext';
+import { fetchServerTables, fetchTableData as fetchTableDataFromApi, fetchTableInfo as fetchTableInfoFromApi } from '@/lib/databaseApi';
 
 function highlightSQL(sql: string): React.ReactNode {
   const keywords = ['SELECT', 'FROM', 'WHERE', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE', 'DROP', 'ALTER', 'ADD', 'COLUMN', 'BETWEEN', 'AND', 'OR', 'NOT', 'NULL', 'IS', 'LIKE', 'IN', 'AS', 'JOIN', 'ON', 'ORDER', 'BY', 'GROUP', 'HAVING', 'DISTINCT', 'LIMIT', 'OFFSET', 'UNION', 'ALL', 'EXISTS', 'CASE', 'WHEN', 'THEN', 'END'];
@@ -57,27 +58,17 @@ function highlightSQL(sql: string): React.ReactNode {
 }
 
 export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setActiveTab, onDatabaseSelect, onTableSelect }: DatabasePanelProps) {
-  const { databases, setDatabases, tableInfo, setTableInfo, databaseTables, setDatabaseTables, tableData, setTableData } = useContext(DatabaseContext)!;
-
-  const fetchDatabases = async () => {
-    try {
-      const response = await fetch(`https://api.coreor.net/battincik/databases`);
-      if (!response.ok) throw new Error('Veritabanları yüklenemedi.');
-      const data = await response.json();
-      const formattedData = Object.entries(data).map(([name, tables]) => ({ name, tables: tables as string[] }));
-      setDatabases(formattedData);
-    } catch (error) {
-      console.error('Veritabanları yüklenirken bir hata oluştu:', error);
-    }
-  };
+  const { databases, setDatabases, tableInfo, setTableInfo, databaseTables, setDatabaseTables, tableData, setTableData, servers, activeServerId, loadServers } = useContext(DatabaseContext)!;
+  const { activeToken } = useAuth();
+  const activeServer = useMemo(() => servers.find(server => server.id === activeServerId) ?? null, [servers, activeServerId]);
+  const [sortConfig, setSortConfig] = React.useState<{ column: string | null; direction: 'asc' | 'desc' }>({ column: null, direction: 'asc' });
 
   const fetchDatabaseTables = async () => {
-    if (selectedDatabase) {
+    if (selectedDatabase && activeServerId) {
       try {
-        const response = await fetch(`https://api.coreor.net/battincik/${selectedDatabase}/tables`);
-        if (!response.ok) throw new Error('Tablo bilgileri yüklenemedi.');
-        const data = await response.json();
-        setDatabaseTables(data.tables);
+        const data = await fetchServerTables(activeServerId, activeToken);
+        setDatabases(data.databases || []);
+        setDatabaseTables([]);
       } catch (error) {
         console.error('Tablo bilgileri yüklenirken bir hata oluştu:', error);
       }
@@ -85,19 +76,21 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
   };
 
   useEffect(() => {
+    const currentServer = servers.find(server => server.id === activeServerId) ?? servers[0];
+
+    setDatabases(currentServer?.databases || []);
+  }, [servers, activeServerId]);
+
+  useEffect(() => {
     if (activeTab === 'database') {
       fetchDatabaseTables();
     }
-  }, [activeTab, selectedDatabase]);
+  }, [activeTab, selectedDatabase, activeServerId]);
 
   const handleRefreshTables = () => {
     setDatabaseTables([]);
     fetchDatabaseTables();
   };
-
-  useEffect(() => {
-    fetchDatabases();
-  }, []);
 
   useEffect(() => {
     if (selectedTable) {
@@ -108,17 +101,39 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
 
   const handleRefreshDatabases = () => {
     setDatabases([]);
-    fetchDatabases();
+    loadServers();
+  };
+
+  const handleSortByColumn = (column: string) => {
+    setSortConfig(prev => {
+      if (prev.column === column) {
+        return {
+          column,
+          direction: prev.direction === 'asc' ? 'desc' : 'asc'
+        };
+      }
+
+      return {
+        column,
+        direction: 'asc'
+      };
+    });
+  };
+
+  const handleToolbarSort = () => {
+    const firstColumn = tableInfo?.columns?.[0]?.Field;
+
+    if (firstColumn) {
+      handleSortByColumn(firstColumn);
+    }
   };
 
   useEffect(() => {
     setTableInfo(null);
     const fetchTableInfo = async () => {
-      if (selectedDatabase && selectedTable) {
+      if (selectedDatabase && selectedTable && activeServerId) {
         try {
-          const response = await fetch(`https://api.coreor.net/battincik/${selectedDatabase}/tables/${selectedTable}/info`);
-          if (!response.ok) throw new Error('Tablo bilgileri yüklenemedi.');
-          const data = await response.json();
+          const data = await fetchTableInfoFromApi(activeServerId, selectedDatabase, selectedTable, activeToken);
           setTableInfo(data);
         } catch (error) {
           console.error('Tablo bilgileri yüklenirken bir hata oluştu:', error);
@@ -133,12 +148,11 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
 
   useEffect(() => {
     setTableData([]);
-    const fetchTableData = async () => {
-      if (activeTab === 'table-data' && selectedDatabase && selectedTable) {
+    const loadTableData = async () => {
+      if (activeTab === 'table-data' && selectedDatabase && selectedTable && activeServerId) {
         try {
-          const response = await fetch(`https://api.coreor.net/battincik/${selectedDatabase}/tables/${selectedTable}/data`);
-          if (!response.ok) throw new Error('Tablo verileri yüklenemedi.');
-          const data = await response.json();
+          const sortParam = sortConfig.column ? `${sortConfig.direction === 'desc' ? '-' : ''}${sortConfig.column}` : null;
+          const data = await fetchTableDataFromApi(activeServerId, selectedDatabase, selectedTable, 512, activeToken, sortParam);
           setTableData(data.data || []);
         } catch (error) {
           console.error('Tablo verileri yüklenirken bir hata oluştu:', error);
@@ -146,12 +160,16 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
       }
     };
 
-    fetchTableData();
-  }, [activeTab, selectedDatabase, selectedTable]);
+    loadTableData();
+  }, [activeTab, selectedDatabase, selectedTable, activeServerId, sortConfig]);
 
-  const handleDatabaseSelect = (dbName: string) => {
+  useEffect(() => {
+    setSortConfig({ column: null, direction: 'asc' });
+  }, [selectedDatabase, selectedTable]);
+
+  const handleDatabaseSelect = (dbName: string | null) => {
     onDatabaseSelect(dbName);
-    if (activeTab !== 'table-data') {
+    if (dbName && activeTab !== 'table-data') {
       setActiveTab('database');
     }
   };
@@ -200,6 +218,7 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
                   <RefreshCw className="h-4 w-4" />
                   Refresh
                 </button>
+                {activeServer && <span className="text-[11px] text-muted-foreground">Server: {activeServer.name}</span>}
                 <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                   <Filter className="h-4 w-4" />
                   Filter
@@ -417,8 +436,8 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
                   <Filter className="h-4 w-4" />
                   Filter
                 </button>
-                <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-                  <SortAsc className="h-4 w-4" />
+                <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={handleToolbarSort}>
+                  <ArrowUpDown className="h-4 w-4" />
                   Sort
                 </button>
               </div>
@@ -427,8 +446,19 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
                 <TableHeader>
                   <TableRow>
                     {tableInfo?.columns.map((column, colIndex) => (
-                      <TableHead key={colIndex} className="border bg-[#101010] text-muted-foreground whitespace-nowrap">
-                        {column.Field}
+                      <TableHead
+                        key={colIndex}
+                        className="border bg-[#101010] text-muted-foreground whitespace-nowrap cursor-pointer select-none"
+                        onClick={() => handleSortByColumn(column.Field)}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {column.Field}
+                          {sortConfig.column === column.Field ? (
+                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3 opacity-50" />
+                          )}
+                        </span>
                       </TableHead>
                     ))}
                   </TableRow>

@@ -12,12 +12,28 @@ export type ProviderType = 'github' | 'google' | 'twitter' | 'facebook' | 'apple
 export interface DatabasePanelProps {
     selectedDatabase: string | null;
     selectedTable: string | null;
+    selectedServerId?: string | null;
     activeTab: string;
     setActiveTab: (tab: string) => void;
     query: string;
     setQuery: (query: string) => void;
-    onDatabaseSelect: (dbName: string) => void;
+    onDatabaseSelect: (dbName: string | null) => void;
     onTableSelect: (tableName: string | null) => void;
+}
+
+export interface DatabaseServerConfig {
+    id: string;
+    name: string;
+    baseUrl?: string;
+    host?: string;
+    port?: number;
+    username?: string;
+    password?: string;
+    databaseName?: string;
+    databaseType?: 'mysql' | 'mariadb' | 'postgresql';
+    version?: string;
+    visibleTo?: string[];
+    databases?: { name: string; tables: string[] }[];
 }
 
 export interface TableInfo {
@@ -78,7 +94,8 @@ export interface ResultsPanelProps {
 }
 
 export interface SidebarProps {
-    onDatabaseSelect: (dbName: string) => void;
+    selectedServerId?: string | null;
+    onDatabaseSelect: (dbName: string | null) => void;
     onTableSelect: (tableName: string | null) => void;
     selectedDatabase: string | null;
     selectedTable: string | null;
