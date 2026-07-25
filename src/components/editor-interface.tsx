@@ -1,24 +1,28 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
+import { FilePlus2, Plus, RefreshCw, Server } from 'lucide-react';
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Sidebar } from '@/components/sidebar';
 import { DatabasePanel } from '@/components/database-panel';
 import Topbar from './Topbar';
 import BottomBar from './BottomBar';
+import { AppContextMenuProvider, useAppContextMenu } from '@/components/app-context-menu';
+import { DatabaseContext } from '@/context/DatabaseContext';
+import { openQueryTab } from '@/lib/queryWorkspaceEvents';
 
-export default function EditorInterface() {
+function EditorWorkspace() {
   const [selectedDatabase, setSelectedDatabase] = useState<string | null>(null);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('sql-editor');
   const [query, setQuery] = useState('SELECT * FROM users LIMIT 10;');
   const [showTopbar, setShowTopbar] = useState(false);
+  const { openContextMenu } = useAppContextMenu();
+  const { activeServerId, servers } = useContext(DatabaseContext)!;
+  const activeServer = servers.find(server => server.id === activeServerId) ?? null;
 
   useEffect(() => {
-    const userAgent = window.navigator.userAgent;
-    if (userAgent.includes('CoreorApp')) {
-      setShowTopbar(true);
-    }
+    if (window.navigator.userAgent.includes('CoreorApp')) setShowTopbar(true);
   }, []);
 
   const handleDatabaseSelect = (dbName: string | null) => {
@@ -29,13 +33,47 @@ export default function EditorInterface() {
 
   const handleTableSelect = (tableName: string | null) => {
     setSelectedTable(tableName);
-    if (tableName) {
-      setActiveTab(activeTab === 'table-data' ? 'table-data' : 'table');
-    }
+    if (tableName) setActiveTab(activeTab === 'table-data' ? 'table-data' : 'table');
   };
 
   return (
-    <div className="flex h-screen flex-col">
+    <div
+      className="flex h-screen flex-col"
+      onContextMenu={event => openContextMenu(
+        event,
+        [
+          {
+            id: 'new-global-query',
+            label: 'Yeni sunucu geneli sorgu',
+            icon: FilePlus2,
+            disabled: !activeServer,
+            onSelect: () => openQueryTab({ serverId: activeServerId, databaseName: null, title: 'Genel sorgu' })
+          },
+          {
+            id: 'new-database-query',
+            label: selectedDatabase ? `${selectedDatabase} için yeni sorgu` : 'Veritabanı sorgusu',
+            icon: Plus,
+            disabled: !activeServer || !selectedDatabase,
+            onSelect: () => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase || 'Sorgu' })
+          },
+          { id: 'separator-1', separator: true },
+          {
+            id: 'refresh-view',
+            label: 'Aktif görünümü yenile',
+            icon: RefreshCw,
+            disabled: !activeServer,
+            onSelect: () => window.dispatchEvent(new Event('coreor:refresh-active-view'))
+          },
+          {
+            id: 'add-server',
+            label: 'Yeni sunucu ekle',
+            icon: Server,
+            onSelect: () => window.dispatchEvent(new Event('coreor:open-server-modal'))
+          }
+        ],
+        activeServer ? `${activeServer.name} çalışma alanı` : 'Coreor Database'
+      )}
+    >
       {showTopbar && <Topbar />}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1 overflow-hidden">
@@ -49,5 +87,13 @@ export default function EditorInterface() {
         <BottomBar selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
       </div>
     </div>
+  );
+}
+
+export default function EditorInterface() {
+  return (
+    <AppContextMenuProvider>
+      <EditorWorkspace />
+    </AppContextMenuProvider>
   );
 }
