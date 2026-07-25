@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   CheckCircle2,
   Clipboard,
@@ -10,7 +10,7 @@ import {
   Loader2,
   Play,
   Server,
-  TerminalSquare,
+  Terminal,
   XCircle
 } from 'lucide-react';
 import type { DatabaseServerConfig, EditorQueryTab } from 'types';
@@ -152,7 +152,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
 
         <div className="flex min-h-0 flex-col bg-black/20">
           <div className="flex h-8 shrink-0 items-center gap-2 border-b border-zinc-800 px-2 text-[10px] text-zinc-500">
-            <TerminalSquare className="h-3.5 w-3.5" />
+            <Terminal className="h-3.5 w-3.5" />
             <span>Sonuç</span>
             {tab.isRunning && <span className="ml-1 inline-flex items-center gap-1 text-cyan-400"><Loader2 className="h-3 w-3 animate-spin" /> Çalıştırılıyor</span>}
             {!tab.isRunning && tab.error && <span className="ml-1 inline-flex items-center gap-1 text-red-400"><XCircle className="h-3 w-3" /> Hata</span>}
