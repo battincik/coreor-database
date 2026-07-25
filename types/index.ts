@@ -165,6 +165,7 @@ export interface EditorQueryTab {
   databaseName: string | null;
   sql: string;
   isRunning: boolean;
+  runImmediately?: boolean;
   error?: string | null;
   result?: QueryExecutionResult | null;
   createdAt: string;
