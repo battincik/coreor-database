@@ -21,19 +21,31 @@ export interface DatabasePanelProps {
     onTableSelect: (tableName: string | null) => void;
 }
 
+export type DatabaseEngine = 'mysql' | 'mariadb' | 'postgresql';
+export type DatabaseSslMode = 'required' | 'preferred' | 'disabled';
+
 export interface DatabaseServerConfig {
     id: string;
     name: string;
+    /**
+     * Tarayıcının bağlanacağı HTTPS connector adresi. `baseUrl` eski kayıtlarla
+     * geriye uyumluluk için korunuyor; yeni kayıtlarda `connectorUrl` tercih edilir.
+     */
+    connectorUrl?: string;
     baseUrl?: string;
     host?: string;
     port?: number;
     username?: string;
     password?: string;
     databaseName?: string;
-    databaseType?: 'mysql' | 'mariadb' | 'postgresql';
+    databaseType?: DatabaseEngine;
     version?: string;
+    sslMode?: DatabaseSslMode;
+    connectionTimeoutMs?: number;
     visibleTo?: string[];
     databases?: { name: string; tables: string[] }[];
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface TableInfo {
@@ -84,7 +96,7 @@ export interface Tab {
     id: string;
     label: string;
     content: string;
-    type: "table" | "query";
+    type: 'table' | 'query';
     dbName?: string;
     tableName?: string;
 }
