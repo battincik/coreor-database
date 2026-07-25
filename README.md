@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Coreor Web Database
 
-## Getting Started
+Tarayıcı üzerinden birden fazla MySQL sunucusunu yönetmek için geliştirilen, HeidiSQL çalışma mantığını modern bir web arayüzüne taşıyan Next.js uygulaması.
 
-First, run the development server:
+## Güncel mimari
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Kullanıcı oturumu NextAuth ve GitHub sağlayıcısı ile yönetilir.
+- MySQL sunucu profilleri aktif kullanıcı hesabına göre ayrılır.
+- Host, kullanıcı adı ve parola tarayıcı IndexedDB içinde AES-256-GCM ile şifrelenir.
+- Merkezi `api.coreor.net` sunucu kayıt servisi kullanılmaz.
+- Tarayıcının raw MySQL TCP bağlantısı açamaması nedeniyle sorgular her MySQL ağına yakın çalışan stateless HTTPS connector üzerinden iletilir.
+- Connector sunucu profillerini veya parolaları kalıcı olarak saklamaz.
+
+Ayrıntılı güvenlik modeli ve connector endpoint sözleşmesi için [`docs/browser-vault-and-connector.md`](docs/browser-vault-and-connector.md) dosyasına bakın.
+
+## Gereksinimler
+
+- Node.js 22+
+- Next.js 15
+- GitHub OAuth uygulaması
+- MySQL ağına erişebilen Coreor uyumlu HTTPS connector
+
+## Ortam değişkenleri
+
+```env
+GITHUB_ID=
+GITHUB_SECRET=
+NEXTAUTH_SECRET=
+NEXTAUTH_URL=http://localhost:3302
+
+# Opsiyonel. Her sunucu profilinde farklı connector URL girilebilir.
+NEXT_PUBLIC_DATABASE_CONNECTOR_URL=
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Geliştirme
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Uygulama varsayılan Next.js geliştirme portunda açılır. Üretim başlangıç komutu `3302` portunu kullanır:
 
-## Learn More
+```bash
+npm run build
+npm run start
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Güvenlik notları
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- MySQL `root` kullanıcısını tarayıcı istemcisine tanımlamayın.
+- Ayrı, en az yetkili bir MySQL hesabı oluşturun.
+- MySQL TLS ve connector HTTPS bağlantısını zorunlu tutun.
+- Connector CORS politikasını yalnızca uygulamanın origin'i ile sınırlandırın.
+- Connector request body ve parolalarını loglamayın.
+- IndexedDB aynı cihaz/tarayıcı profiline özeldir; cihazlar arası senkronizasyon sağlamaz.
+- XSS riskine karşı CSP, Trusted Types, bağımlılık denetimi ve sıkı connector ağ erişimi uygulanmalıdır.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Yol haritası
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Stateless MySQL connector referans paketi
+- Sunucu düzenleme, silme ve bağlantı testi
+- SQL editörünün `/v1/query` endpoint'ine bağlanması
+- Transaction yönetimi ve sorgu iptali
+- Şifreli vault export/import
+- Zero-knowledge cihazlar arası senkronizasyon
+- MariaDB ve PostgreSQL connector adaptörleri
