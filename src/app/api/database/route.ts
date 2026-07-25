@@ -10,7 +10,10 @@ export const maxDuration = 120;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_REQUESTS = 120;
 const SESSION_COOKIE_PREFIXES = ['next-auth.session-token', '__Secure-next-auth.session-token'];
+const SYSTEM_DATABASES = new Set(['information_schema', 'performance_schema', 'sys']);
 const requestBuckets = new Map<string, { count: number; resetAt: number }>();
+
+type DatabaseRequest = Parameters<typeof executeDatabaseRequest>[0];
 
 function noStoreHeaders() {
   return {
@@ -119,6 +122,66 @@ function normalizeRouteError(error: unknown) {
   return new DatabaseServiceError('Beklenmeyen bir veritabanı API hatası oluştu.', 500, code);
 }
 
+function resultRows(result: unknown) {
+  if (!result || typeof result !== 'object') {
+    return [] as Array<Record<string, unknown>>;
+  }
+
+  const rows = (result as { rows?: unknown }).rows;
+  return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
+}
+
+async function executeCompatibleCatalogRequest(payload: DatabaseRequest) {
+  const result = await executeDatabaseRequest({
+    ...payload,
+    action: 'query',
+    database: undefined,
+    sql: `
+      SELECT
+        schema_source.SCHEMA_NAME AS databaseName,
+        NULL AS tableName
+      FROM information_schema.SCHEMATA AS schema_source
+
+      UNION ALL
+
+      SELECT
+        table_source.TABLE_SCHEMA AS databaseName,
+        table_source.TABLE_NAME AS tableName
+      FROM information_schema.TABLES AS table_source
+      WHERE table_source.TABLE_TYPE = 'BASE TABLE'
+
+      ORDER BY databaseName, tableName
+    `
+  });
+
+  const databaseMap = new Map<string, string[]>();
+
+  for (const row of resultRows(result)) {
+    const databaseName = String(row.databaseName ?? '');
+
+    if (!databaseName || SYSTEM_DATABASES.has(databaseName)) {
+      continue;
+    }
+
+    if (!databaseMap.has(databaseName)) {
+      databaseMap.set(databaseName, []);
+    }
+
+    if (row.tableName) {
+      const tableName = String(row.tableName);
+      const databaseTables = databaseMap.get(databaseName)!;
+
+      if (!databaseTables.includes(tableName)) {
+        databaseTables.push(tableName);
+      }
+    }
+  }
+
+  return {
+    databases: Array.from(databaseMap, ([name, tables]) => ({ name, tables }))
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     assertSameOrigin(request);
@@ -139,8 +202,8 @@ export async function POST(request: NextRequest) {
     const identity = user.id || user.email || 'authenticated-user';
     applyRateLimit(identity);
 
-    const payload = (await request.json()) as Parameters<typeof executeDatabaseRequest>[0];
-    const result = await executeDatabaseRequest(payload);
+    const payload = (await request.json()) as DatabaseRequest;
+    const result = payload.action === 'catalog' ? await executeCompatibleCatalogRequest(payload) : await executeDatabaseRequest(payload);
 
     return NextResponse.json(result, {
       status: 200,
