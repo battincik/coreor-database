@@ -1,3 +1,5 @@
+'use client';
+
 import type {
   DatabaseApiAction,
   DatabaseConnectionPayload,
@@ -5,6 +7,7 @@ import type {
   TableInfo
 } from 'types';
 import { readEncryptedServerProfiles, writeEncryptedServerProfiles } from '@/lib/secureVault';
+import { recordActivity } from '@/lib/activityConsole';
 
 const DATABASE_API_PATH = '/api/database';
 const profileMutationQueues = new Map<string, Promise<void>>();
@@ -22,6 +25,14 @@ interface ProfileMutationResult<T> {
   servers: DatabaseServerConfig[];
   result: T;
 }
+
+const ACTION_TITLES: Record<DatabaseApiAction, string> = {
+  test: 'Bağlantı testi',
+  catalog: 'Veritabanı kataloğu',
+  'table-info': 'Tablo yapısı',
+  'table-data': 'Tablo verileri',
+  query: 'SQL sorgusu'
+};
 
 function createServerId() {
   if (typeof window !== 'undefined' && 'randomUUID' in window.crypto) {
@@ -66,10 +77,37 @@ async function readApiResponse<T>(response: Response) {
 
   if (!response.ok) {
     const errorBody = body as DatabaseErrorPayload | null;
-    throw new Error(errorBody?.message || errorBody?.error || `Veritabanı isteği başarısız oldu (${response.status}).`);
+    const error = new Error(errorBody?.message || errorBody?.error || `Veritabanı isteği başarısız oldu (${response.status}).`) as Error & { code?: string };
+    error.code = errorBody?.error;
+    throw error;
   }
 
   return body as T;
+}
+
+function activityCategory(action: DatabaseApiAction) {
+  if (action === 'test') return 'connection' as const;
+  if (action === 'catalog') return 'catalog' as const;
+  if (action === 'table-info') return 'schema' as const;
+  if (action === 'table-data') return 'data' as const;
+  return 'query' as const;
+}
+
+function resultMetrics(action: DatabaseApiAction, result: unknown) {
+  const payload = result as {
+    databases?: unknown[];
+    columns?: unknown[];
+    data?: unknown[];
+    rows?: unknown[];
+    affectedRows?: number;
+  } | null;
+
+  if (!payload) return {};
+  if (action === 'catalog') return { rowCount: payload.databases?.length };
+  if (action === 'table-info') return { rowCount: payload.columns?.length };
+  if (action === 'table-data') return { rowCount: payload.data?.length };
+  if (action === 'query') return { rowCount: payload.rows?.length, affectedRows: payload.affectedRows };
+  return {};
 }
 
 async function requestDatabaseApi<T>(
@@ -80,6 +118,24 @@ async function requestDatabaseApi<T>(
   const controller = new AbortController();
   const timeoutMs = Math.min(Math.max(server.connectionTimeoutMs ?? 20_000, 3_000), 120_000);
   const timeout = window.setTimeout(() => controller.abort(), timeoutMs + 5_000);
+  const startedAt = performance.now();
+  const databaseName = typeof payload.database === 'string' ? payload.database : server.databaseName;
+  const tableName = typeof payload.table === 'string' ? payload.table : undefined;
+  const sql = typeof payload.sql === 'string' ? payload.sql : undefined;
+  const category = activityCategory(action);
+
+  recordActivity({
+    level: action === 'query' ? 'sql' : 'info',
+    category,
+    title: `${ACTION_TITLES[action]} başlatıldı`,
+    message: action === 'query' ? 'Sorgu Next.js API üzerinden yürütülüyor.' : `${server.name} üzerinde işlem yürütülüyor.`,
+    serverId: server.id,
+    serverName: server.name,
+    host: server.host,
+    databaseName,
+    tableName,
+    sql
+  });
 
   try {
     const response = await fetch(DATABASE_API_PATH, {
@@ -99,17 +155,51 @@ async function requestDatabaseApi<T>(
       })
     });
 
-    return await readApiResponse<T>(response);
+    const result = await readApiResponse<T>(response);
+    const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
+
+    recordActivity({
+      level: 'success',
+      category,
+      title: `${ACTION_TITLES[action]} tamamlandı`,
+      message: `${server.name} işlemi başarıyla tamamladı.`,
+      serverId: server.id,
+      serverName: server.name,
+      host: server.host,
+      databaseName,
+      tableName,
+      sql,
+      durationMs,
+      ...resultMetrics(action, result)
+    });
+
+    return result;
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error(`Next.js veritabanı API ${Math.round(timeoutMs / 1000)} saniye içinde yanıt vermedi.`);
-    }
+    const normalizedError =
+      error instanceof DOMException && error.name === 'AbortError'
+        ? new Error(`Next.js veritabanı API ${Math.round(timeoutMs / 1000)} saniye içinde yanıt vermedi.`)
+        : error instanceof TypeError
+          ? new Error('Next.js veritabanı API erişilemedi. Uygulama sunucusunu ve ağ erişimini kontrol edin.')
+          : error instanceof Error
+            ? error
+            : new Error('Bilinmeyen veritabanı hatası.');
 
-    if (error instanceof TypeError) {
-      throw new Error('Next.js veritabanı API erişilemedi. Uygulama sunucusunu ve ağ erişimini kontrol edin.');
-    }
+    recordActivity({
+      level: 'error',
+      category,
+      title: `${ACTION_TITLES[action]} başarısız`,
+      message: normalizedError.message,
+      serverId: server.id,
+      serverName: server.name,
+      host: server.host,
+      databaseName,
+      tableName,
+      sql,
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      errorCode: (normalizedError as Error & { code?: string }).code
+    });
 
-    throw error;
+    throw normalizedError;
   } finally {
     window.clearTimeout(timeout);
   }
@@ -171,7 +261,29 @@ export async function fetchDatabaseServers(accountId?: string | null) {
     return [];
   }
 
-  return (await readEncryptedServerProfiles(accountId)) as DatabaseServerCatalogItem[];
+  const startedAt = performance.now();
+
+  try {
+    const servers = (await readEncryptedServerProfiles(accountId)) as DatabaseServerCatalogItem[];
+    recordActivity({
+      level: 'success',
+      category: 'vault',
+      title: 'Şifreli sunucu kasası açıldı',
+      message: servers.length > 0 ? `${servers.length} sunucu profili yüklendi.` : 'Kasa boş; henüz sunucu profili bulunmuyor.',
+      durationMs: Math.round(performance.now() - startedAt),
+      rowCount: servers.length
+    });
+    return servers;
+  } catch (error) {
+    recordActivity({
+      level: 'error',
+      category: 'vault',
+      title: 'Şifreli sunucu kasası açılamadı',
+      message: error instanceof Error ? error.message : 'Kasa okunurken bilinmeyen hata oluştu.',
+      durationMs: Math.round(performance.now() - startedAt)
+    });
+    throw error;
+  }
 }
 
 export async function createDatabaseServer(server: DatabaseServerConfig, accountId?: string | null) {
@@ -198,7 +310,7 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
     updatedAt: now
   };
 
-  return mutateServerProfiles(accountId, servers => {
+  const savedServer = await mutateServerProfiles(accountId, servers => {
     const existingIndex = servers.findIndex(item => item.id === nextServer.id);
     const nextServers = [...servers];
 
@@ -210,6 +322,18 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
 
     return { servers: nextServers, result: nextServer };
   });
+
+  recordActivity({
+    level: 'success',
+    category: 'vault',
+    title: 'Sunucu profili şifrelendi',
+    message: `${nextServer.name} güvenli tarayıcı kasasına kaydedildi.`,
+    serverId: nextServer.id,
+    serverName: nextServer.name,
+    host: nextServer.host
+  });
+
+  return savedServer;
 }
 
 export async function testDatabaseConnection(server: DatabaseServerConfig) {
