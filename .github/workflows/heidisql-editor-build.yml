@@ -1,0 +1,28 @@
+name: HeidiSQL editor build
+
+on:
+  push:
+    branches:
+      - feature/heidisql-schema-editor-and-catalog
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build
+        env:
+          GITHUB_ID: build-placeholder
+          GITHUB_SECRET: build-placeholder-secret
+          NEXTAUTH_SECRET: build-placeholder-nextauth-secret-that-is-long-enough
+          NEXTAUTH_URL: http://localhost:3000
+          DATABASE_ALLOWED_HOSTS: 127.0.0.1,localhost
+          DATABASE_ALLOWED_PORTS: 3306
