@@ -98,17 +98,16 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
   const addServer = async (server: Omit<DatabaseServerConfig, 'id'>) => {
     if (!activeToken) {
-      throw new Error('Sunucu eklemek için giriş yapmalısın.');
+      throw new Error('Sunucu eklemek için giriş yapmalısınız.');
     }
 
+    const engine = server.databaseType || 'mysql';
     const now = new Date().toISOString();
     const nextServer: DatabaseServerConfig = {
       id: createServerId(),
       name: server.name.trim(),
-      connectorUrl: server.connectorUrl?.trim().replace(/\/+$/, '') || server.baseUrl?.trim().replace(/\/+$/, '') || undefined,
-      baseUrl: server.connectorUrl?.trim().replace(/\/+$/, '') || server.baseUrl?.trim().replace(/\/+$/, '') || undefined,
-      databaseType: server.databaseType || 'mysql',
-      version: server.version || '8.0',
+      databaseType: engine,
+      version: server.version || (engine === 'mariadb' ? '12.3' : '8.4'),
       host: server.host?.trim(),
       port: server.port ?? 3306,
       username: server.username?.trim(),
@@ -128,7 +127,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     try {
       await fetchServerTables(nextServer.id, activeToken);
     } catch (error) {
-      console.warn('Sunucu kaydedildi ancak ilk bağlantı testi başarısız oldu:', error);
+      console.warn('Sunucu güvenli kasaya kaydedildi ancak ilk bağlantı kurulamadı:', error);
     }
 
     await loadServers();
