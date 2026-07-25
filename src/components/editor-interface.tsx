@@ -12,7 +12,6 @@ export default function EditorInterface() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('sql-editor');
   const [query, setQuery] = useState('SELECT * FROM users LIMIT 10;');
-
   const [showTopbar, setShowTopbar] = useState(false);
 
   useEffect(() => {
@@ -31,19 +30,15 @@ export default function EditorInterface() {
   const handleTableSelect = (tableName: string | null) => {
     setSelectedTable(tableName);
     if (tableName) {
-      if (activeTab === 'table-data') {
-        setActiveTab('table-data');
-      } else {
-        setActiveTab('table');
-      }
+      setActiveTab(activeTab === 'table-data' ? 'table-data' : 'table');
     }
   };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex h-screen flex-col">
       {showTopbar && <Topbar />}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <ResizablePanelGroup direction="horizontal" className="flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1 overflow-hidden">
           <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
             <Sidebar onDatabaseSelect={handleDatabaseSelect} onTableSelect={handleTableSelect} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
           </ResizablePanel>
@@ -51,7 +46,7 @@ export default function EditorInterface() {
             <DatabasePanel selectedDatabase={selectedDatabase} selectedTable={selectedTable} activeTab={activeTab} setActiveTab={setActiveTab} query={query} setQuery={setQuery} onDatabaseSelect={handleDatabaseSelect} onTableSelect={handleTableSelect} />
           </ResizablePanel>
         </ResizablePanelGroup>
-        <BottomBar />
+        <BottomBar selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
       </div>
     </div>
   );

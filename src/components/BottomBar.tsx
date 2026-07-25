@@ -1,165 +1,200 @@
-import { useState, useEffect } from 'react';
-import { Terminal } from 'lucide-react';
+'use client';
+
+import { useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, Filter, Terminal, Trash2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DatabaseContext } from '@/context/DatabaseContext';
+import {
+  clearActivities,
+  exportActivities,
+  getActivitiesServerSnapshot,
+  getActivitiesSnapshot,
+  recordActivity,
+  subscribeActivities,
+  type ActivityEntry
+} from '@/lib/activityConsole';
 
-export default function BottomBar() {
-  const toggleConsole = () => {
-    setIsConsoleOpen(prev => !prev);
-  };
+interface BottomBarProps {
+  selectedDatabase?: string | null;
+  selectedTable?: string | null;
+}
 
+type ConsoleFilter = 'all' | 'sql' | 'errors';
+
+const CATEGORY_LABELS: Record<ActivityEntry['category'], string> = {
+  system: 'Sistem',
+  vault: 'Kasa',
+  connection: 'Bağlantı',
+  catalog: 'Katalog',
+  schema: 'Şema',
+  data: 'Veri',
+  query: 'SQL',
+  navigation: 'Gezinme'
+};
+
+function formatClock(timestamp: string) {
+  return new Intl.DateTimeFormat('tr-TR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    fractionalSecondDigits: 3
+  }).format(new Date(timestamp));
+}
+
+function statusIcon(level: ActivityEntry['level']) {
+  if (level === 'success') return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />;
+  if (level === 'error') return <XCircle className="h-3.5 w-3.5 text-red-400" />;
+  if (level === 'warning') return <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />;
+  if (level === 'sql') return <Terminal className="h-3.5 w-3.5 text-cyan-400" />;
+  return <Clock className="h-3.5 w-3.5 text-zinc-500" />;
+}
+
+function downloadActivityLog() {
+  const blob = new Blob([exportActivities()], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `coreor-database-activity-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export default function BottomBar({ selectedDatabase, selectedTable }: BottomBarProps) {
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
-  const [consoleLogs, setConsoleLogs] = useState<string[]>([
-    `[${new Date().toISOString()}] SELECT * FROM users;`,
-    `[${new Date().toISOString()}] INSERT INTO orders (id, user_id, total) VALUES (1, 101, 250.50);`,
-    `[${new Date().toISOString()}] UPDATE products SET price = 19.99 WHERE id = 5;`,
-    `[${new Date().toISOString()}] DELETE FROM sessions WHERE expired = true;`,
-    `[${new Date().toISOString()}] SELECT COUNT(*) FROM logs WHERE level = 'error';`,
-    `[${new Date().toISOString()}] CREATE TABLE customers (id INT, name VARCHAR(255), email VARCHAR(255));`,
-    `[${new Date().toISOString()}] DROP TABLE temp_data;`,
-    `[${new Date().toISOString()}] ALTER TABLE orders ADD COLUMN discount FLOAT;`,
-    `[${new Date().toISOString()}] SELECT * FROM employees WHERE department = 'HR';`,
-    `[${new Date().toISOString()}] SELECT * FROM orders WHERE total > 100;`,
-    `[${new Date().toISOString()}] SELECT * FROM products WHERE stock < 10;`,
-    `[${new Date().toISOString()}] SELECT * FROM users WHERE last_login > '2023-01-01';`,
-    `[${new Date().toISOString()}] SELECT * FROM payments WHERE status = 'completed';`,
-    `[${new Date().toISOString()}] SELECT * FROM logs WHERE timestamp > NOW() - INTERVAL 1 DAY;`,
-    `[${new Date().toISOString()}] SELECT * FROM orders WHERE user_id = 101;`,
-    `[${new Date().toISOString()}] SELECT * FROM products WHERE category = 'electronics';`,
-    `[${new Date().toISOString()}] SELECT * FROM users WHERE email LIKE '%@gmail.com';`,
-    `[${new Date().toISOString()}] SELECT * FROM orders WHERE created_at BETWEEN '2023-01-01' AND '2023-12-31';`,
-    `[${new Date().toISOString()}] SELECT * FROM products WHERE price BETWEEN 10 AND 50;`,
-    `[${new Date().toISOString()}] SELECT * FROM users WHERE name LIKE 'John%';`,
-    `[${new Date().toISOString()}] SELECT * FROM orders WHERE status = 'shipped';`,
-    `[${new Date().toISOString()}] SELECT * FROM products WHERE name LIKE '%phone%';`,
-    `[${new Date().toISOString()}] SELECT * FROM users WHERE role = 'admin';`,
-    `[${new Date().toISOString()}] SELECT * FROM orders WHERE payment_method = 'credit_card';`,
-    `[${new Date().toISOString()}] SELECT * FROM products WHERE brand = 'Apple';`,
-    `[${new Date().toISOString()}] SELECT * FROM users WHERE country = 'USA';`,
-    `[${new Date().toISOString()}] SELECT * FROM orders WHERE shipping_address LIKE '%New York%';`,
-    `[${new Date().toISOString()}] SELECT * FROM products WHERE rating > 4.5;`,
-    `[${new Date().toISOString()}] SELECT * FROM users WHERE age > 30;`,
-    `[${new Date().toISOString()}] SELECT * FROM orders WHERE quantity > 5;`,
-    `[${new Date().toISOString()}] SELECT * FROM products WHERE color = 'red';`,
-    `[${new Date().toISOString()}] SELECT * FROM users WHERE subscription = 'premium';`,
-    `[${new Date().toISOString()}] SELECT * FROM orders WHERE delivery_date < NOW();`,
-    `[${new Date().toISOString()}] SELECT * FROM products WHERE weight < 1.5;`,
-    `[${new Date().toISOString()}] SELECT * FROM users WHERE phone IS NOT NULL;`,
-    `[${new Date().toISOString()}] SELECT * FROM orders WHERE tracking_number IS NOT NULL;`,
-    `[${new Date().toISOString()}] SELECT * FROM products WHERE dimensions IS NOT NULL;`,
-    `[${new Date().toISOString()}] SELECT * FROM users WHERE created_at > '2022-01-01';`,
-    `[${new Date().toISOString()}] SELECT * FROM orders WHERE updated_at > '2023-01-01';`,
-    `[${new Date().toISOString()}] SELECT * FROM products WHERE sku IS NOT NULL;`,
-    `[${new Date().toISOString()}] SELECT * FROM users WHERE status = 'active';`,
-    `[${new Date().toISOString()}] SELECT * FROM orders WHERE refunded = true;`,
-    `[${new Date().toISOString()}] SELECT * FROM products WHERE discontinued = false;`,
-    `[${new Date().toISOString()}] SELECT * FROM users WHERE verified = true;`,
-    `[${new Date().toISOString()}] SELECT * FROM orders WHERE coupon_code IS NOT NULL;`,
-    `[${new Date().toISOString()}] SELECT * FROM products WHERE featured = true;`,
-    `[${new Date().toISOString()}] SELECT * FROM users WHERE referred_by IS NOT NULL;`,
-    `[${new Date().toISOString()}] SELECT * FROM orders WHERE gift_wrapped = true;`,
-    `[${new Date().toISOString()}] SELECT * FROM products WHERE on_sale = true;`,
-    `[${new Date().toISOString()}] SELECT * FROM users WHERE loyalty_points > 100;`
-  ]);
-  const [isConsoleWindowOpen, setIsConsoleWindowOpen] = useState(false);
-  const [serverStats, setServerStats] = useState({
-    uptime: '12:34:56',
-    connections: 10,
-    queries: 12345,
-    server: 'MySQL 8.0.28',
-    host: '127.0.0.1',
-    port: 3306
-  });
+  const [filter, setFilter] = useState<ConsoleFilter>('all');
+  const endRef = useRef<HTMLDivElement | null>(null);
+  const hasRecordedSession = useRef(false);
+  const activityEntries = useSyncExternalStore(subscribeActivities, getActivitiesSnapshot, getActivitiesServerSnapshot);
+  const { servers, activeServerId, isServersLoading } = useContext(DatabaseContext)!;
+  const activeServer = servers.find(server => server.id === activeServerId) ?? null;
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setServerStats(prev => ({
-        ...prev,
-        queries: prev.queries + Math.floor(Math.random() * 10)
-      }));
-      setConsoleLogs(prev => [...prev]);
-    }, 5000);
-
-    return () => clearInterval(interval);
+    if (hasRecordedSession.current) return;
+    hasRecordedSession.current = true;
+    recordActivity({
+      level: 'info',
+      category: 'system',
+      title: 'Editör oturumu hazır',
+      message: 'Veritabanı işlemleri bu konsolda gerçek zamanlı listelenecek.'
+    });
   }, []);
 
+  const filteredEntries = useMemo(() => {
+    if (filter === 'sql') {
+      return activityEntries.filter(entry => entry.category === 'query' || Boolean(entry.sql));
+    }
+
+    if (filter === 'errors') {
+      return activityEntries.filter(entry => entry.level === 'error' || entry.level === 'warning');
+    }
+
+    return activityEntries;
+  }, [activityEntries, filter]);
+
+  const metrics = useMemo(() => {
+    const successful = activityEntries.filter(entry => entry.level === 'success').length;
+    const failed = activityEntries.filter(entry => entry.level === 'error').length;
+    const queries = activityEntries.filter(entry => entry.category === 'query' && entry.level !== 'info').length;
+    const lastDuration = [...activityEntries].reverse().find(entry => typeof entry.durationMs === 'number')?.durationMs;
+
+    return { successful, failed, queries, lastDuration };
+  }, [activityEntries]);
+
+  useEffect(() => {
+    if (isConsoleOpen) {
+      endRef.current?.scrollIntoView({ block: 'end' });
+    }
+  }, [filteredEntries.length, isConsoleOpen]);
+
   return (
-    <>
-      {isConsoleWindowOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-background p-4 rounded-md shadow-lg w-3/4 h-3/4 overflow-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold">Console</h2>
-              <Button className="text-sm text-red-500 hover:underline" onClick={() => setIsConsoleWindowOpen(false)}>
-                Close
+    <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 text-xs">
+      <div className={`flex flex-col transition-[height] duration-200 ${isConsoleOpen ? 'h-56' : 'h-8'}`}>
+        <div className="flex h-8 shrink-0 items-center justify-between border-b border-zinc-800/80 px-2">
+          <button type="button" className="flex min-w-0 items-center gap-2 text-zinc-300 hover:text-white" onClick={() => setIsConsoleOpen(previous => !previous)}>
+            <Terminal className="h-3.5 w-3.5" />
+            <span className="font-medium">İşlem konsolu</span>
+            <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400">{activityEntries.length}</span>
+            {isConsoleOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+          </button>
+
+          {isConsoleOpen && (
+            <div className="flex items-center gap-1">
+              <div className="mr-1 flex items-center rounded-md border border-zinc-800 bg-black/20 p-0.5">
+                <Filter className="mx-1 h-3 w-3 text-zinc-500" />
+                {(['all', 'sql', 'errors'] as ConsoleFilter[]).map(item => (
+                  <button
+                    key={item}
+                    type="button"
+                    className={`rounded px-2 py-1 text-[10px] ${filter === item ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-200'}`}
+                    onClick={() => setFilter(item)}
+                  >
+                    {item === 'all' ? 'Tümü' : item === 'sql' ? 'SQL' : 'Hatalar'}
+                  </button>
+                ))}
+              </div>
+              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-white" onClick={downloadActivityLog} title="Konsolu dışa aktar">
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-red-400" onClick={clearActivities} title="Konsolu temizle">
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <div className="h-full overflow-y-auto">
-              <pre className="text-muted-foreground whitespace-pre pl-2 pr-4">
-                {consoleLogs.map((log, index) => (
-                  <div key={index} className="text-left">
-                    <code>{highlightSQL(log)}</code>
+          )}
+        </div>
+
+        {isConsoleOpen && (
+          <div className="min-h-0 flex-1 overflow-auto font-mono">
+            {filteredEntries.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-[11px] text-zinc-600">Bu filtre için henüz işlem kaydı yok.</div>
+            ) : (
+              <div className="divide-y divide-zinc-900">
+                {filteredEntries.map(entry => (
+                  <div key={entry.id} className="grid grid-cols-[84px_20px_minmax(110px,0.5fr)_minmax(180px,1fr)_auto] items-start gap-2 px-2 py-1.5 text-[11px] hover:bg-white/[0.025]">
+                    <span className="tabular-nums text-zinc-600">{formatClock(entry.timestamp)}</span>
+                    <span className="pt-0.5">{statusIcon(entry.level)}</span>
+                    <div className="min-w-0">
+                      <div className="truncate text-zinc-300">{CATEGORY_LABELS[entry.category]}</div>
+                      <div className="truncate text-[10px] text-zinc-600">{entry.serverName || 'Coreor'}</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className={`truncate ${entry.level === 'error' ? 'text-red-300' : entry.level === 'warning' ? 'text-amber-300' : 'text-zinc-200'}`}>{entry.title}</div>
+                      {entry.message && <div className="truncate text-[10px] text-zinc-500">{entry.message}</div>}
+                      {entry.sql && <code className="mt-1 block max-w-full truncate rounded bg-black/40 px-1.5 py-1 text-[10px] text-cyan-300">{entry.sql}</code>}
+                    </div>
+                    <div className="flex items-center gap-2 whitespace-nowrap text-[10px] text-zinc-600">
+                      {entry.databaseName && <span>{entry.databaseName}{entry.tableName ? `.${entry.tableName}` : ''}</span>}
+                      {typeof entry.rowCount === 'number' && <span>{entry.rowCount} satır</span>}
+                      {typeof entry.affectedRows === 'number' && <span>{entry.affectedRows} etkilendi</span>}
+                      {typeof entry.durationMs === 'number' && <span>{entry.durationMs} ms</span>}
+                    </div>
                   </div>
                 ))}
-              </pre>
-            </div>
-          </div>
-        </div>
-      )}
-      <div className={`bg-background text-xs text-left cursor-pointer py-2 px-2 border-t ${isConsoleOpen ? 'h-40' : 'h-8'} transition-all duration-300`} onClick={toggleConsole}>
-        <div className="flex items-center gap-2">
-          <Terminal className="h-4 w-4" />
-          <span>Console</span>
-        </div>
-        {isConsoleOpen && (
-          <div className="mt-2 h-full overflow-y-auto pb-4 overscroll-contain">
-            <pre className="text-muted-foreground whitespace-pre pl-2 pr-4 scroll-padding-bottom-4">
-              {consoleLogs.map((log, index) => (
-                <div key={index} className="text-left">
-                  <code>{highlightSQL(log)}</code>
-                </div>
-              ))}
-            </pre>
+                <div ref={endRef} />
+              </div>
+            )}
           </div>
         )}
       </div>
-      <div className={`bg-background text-xs text-left py-1 px-3 border-t border-t-muted-foreground flex justify-between items-center`}>
-        <div className="flex gap-4 divide-x divide-muted-foreground">
-          <span className="pr-4">Server: {serverStats.server}</span>
-          <span className="pl-4 pr-4">Host: {serverStats.host}</span>
-          <span className="pl-4 pr-4">Port: {serverStats.port}</span>
-          <span className="pl-4 pr-4">Uptime: {serverStats.uptime}</span>
-          <span className="pl-4 pr-4">Connections: {serverStats.connections}</span>
-          <span className="pl-4">Queries: {serverStats.queries}</span>
+
+      <div className="flex h-7 items-center justify-between overflow-hidden border-t border-zinc-800 px-2 text-[10px] text-zinc-500">
+        <div className="flex min-w-0 items-center divide-x divide-zinc-800">
+          <span className="pr-3 text-zinc-300">
+            {isServersLoading ? 'Sunucu kasası okunuyor' : activeServer ? `${activeServer.databaseType === 'mariadb' ? 'MariaDB' : 'MySQL'} ${activeServer.version || ''}` : 'Sunucu bağlı değil'}
+          </span>
+          {activeServer && (
+            <>
+              <span className="px-3">{activeServer.host}:{activeServer.port || 3306}</span>
+              <span className="px-3">{selectedDatabase || activeServer.databaseName || 'Veritabanı seçilmedi'}{selectedTable ? ` / ${selectedTable}` : ''}</span>
+            </>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-3 pl-3 tabular-nums">
+          <span>{metrics.queries} SQL</span>
+          <span className="text-emerald-500/80">{metrics.successful} başarılı</span>
+          <span className={metrics.failed > 0 ? 'text-red-400' : ''}>{metrics.failed} hata</span>
+          {typeof metrics.lastDuration === 'number' && <span>son: {metrics.lastDuration} ms</span>}
         </div>
       </div>
-    </>
+    </div>
   );
-}
-
-function highlightSQL(sql: string): React.ReactNode {
-  const keywords = ['SELECT', 'FROM', 'WHERE', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE', 'DROP', 'ALTER', 'ADD', 'COLUMN', 'BETWEEN', 'AND', 'OR', 'NOT', 'NULL', 'IS', 'LIKE', 'IN', 'AS', 'JOIN', 'ON', 'ORDER', 'BY', 'GROUP', 'HAVING', 'DISTINCT', 'LIMIT', 'OFFSET', 'UNION', 'ALL', 'EXISTS', 'CASE', 'WHEN', 'THEN', 'END'];
-  const regex = new RegExp(`\\b(${keywords.join('|')})\\b`, 'gi');
-
-  return sql.split(/(\s+)/).map((part, index) => {
-    if (regex.test(part)) {
-      return (
-        <span key={index} className="text-blue-500 font-bold">
-          {part.toUpperCase()}
-        </span>
-      );
-    } else if (/^['"].*['"]$/.test(part)) {
-      return (
-        <span key={index} className="text-green-500">
-          {part}
-        </span>
-      );
-    } else if (/^\d+$/.test(part)) {
-      return (
-        <span key={index} className="text-purple-500">
-          {part}
-        </span>
-      );
-    }
-    return part;
-  });
 }

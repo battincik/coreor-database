@@ -23,7 +23,11 @@
     "whatsNew": "Yenilikler",
     "products": "Ürünler",
     "support": "Destek",
-    "loading": "Yükleniyor...",
+    "loading": "Yükleniyor…",
+    "servers": "Sunucular",
+    "selectServer": "Sunucu seç",
+    "tables": "Tablolar",
+    "databases": "Veritabanları",
     "language.settingsTitle": "Dil Ayarları",
     "language.chinese": "Çince",
     "language.chineseNative": "中文",
@@ -64,7 +68,5 @@
     "language.tamil": "Tamilce",
     "language.tamilNative": "தமிழ்",
     "language.turkish": "Türkçe",
-    "language.turkishNative": "Türkçe",
-    "tables": "Tablolar",
-    "databases": "Veritabanları"
+    "language.turkishNative": "Türkçe"
 }

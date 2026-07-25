@@ -5,6 +5,7 @@ import React, { createContext, useEffect, useState, ReactNode, useCallback } fro
 import { TableInfo, DatabaseTable, DatabaseServerConfig } from 'types';
 import { useAuth } from '@/context/AuthContext';
 import { createDatabaseServer, fetchDatabaseServers, fetchServerTables } from '@/lib/databaseApi';
+import { recordActivity } from '@/lib/activityConsole';
 
 interface DatabaseContextType {
   databases: { name: string; tables: string[] }[];
@@ -19,6 +20,9 @@ interface DatabaseContextType {
   setServers: React.Dispatch<React.SetStateAction<DatabaseServerConfig[]>>;
   activeServerId: string | null;
   setActiveServerId: React.Dispatch<React.SetStateAction<string | null>>;
+  isServersLoading: boolean;
+  isAddingServer: boolean;
+  serversError: string | null;
   loadServers: () => Promise<void>;
   addServer: (server: Omit<DatabaseServerConfig, 'id'>) => Promise<void>;
 }
@@ -45,9 +49,13 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
   const [tableData, setTableData] = useState<Record<string, any>[]>([]);
   const [servers, setServers] = useState<DatabaseServerConfig[]>([]);
   const [activeServerId, setActiveServerId] = useState<string | null>(null);
+  const [isServersLoading, setIsServersLoading] = useState(true);
+  const [isAddingServer, setIsAddingServer] = useState(false);
+  const [serversError, setServersError] = useState<string | null>(null);
 
   const loadServers = useCallback(async () => {
     if (!isReady) {
+      setIsServersLoading(true);
       return;
     }
 
@@ -55,8 +63,13 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       setServers([]);
       setActiveServerId(null);
       setDatabases([]);
+      setServersError(null);
+      setIsServersLoading(false);
       return;
     }
+
+    setIsServersLoading(true);
+    setServersError(null);
 
     try {
       const storedServers = await fetchDatabaseServers(activeToken);
@@ -73,10 +86,19 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
         return storedServers[0]?.id || null;
       });
+
+      if (storedServers.length === 0) {
+        setDatabases([]);
+      }
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Şifreli sunucu kasası yüklenemedi.';
       console.error('Şifreli sunucu kasası yüklenirken bir hata oluştu:', error);
       setServers([]);
       setActiveServerId(null);
+      setDatabases([]);
+      setServersError(message);
+    } finally {
+      setIsServersLoading(false);
     }
   }, [activeToken, isReady]);
 
@@ -101,6 +123,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       throw new Error('Sunucu eklemek için giriş yapmalısınız.');
     }
 
+    setIsAddingServer(true);
     const engine = server.databaseType || 'mysql';
     const now = new Date().toISOString();
     const nextServer: DatabaseServerConfig = {
@@ -121,16 +144,28 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       updatedAt: now
     };
 
-    await createDatabaseServer(nextServer, activeToken);
-    setActiveServerId(nextServer.id);
-
     try {
-      await fetchServerTables(nextServer.id, activeToken);
-    } catch (error) {
-      console.warn('Sunucu güvenli kasaya kaydedildi ancak ilk bağlantı kurulamadı:', error);
-    }
+      await createDatabaseServer(nextServer, activeToken);
+      setActiveServerId(nextServer.id);
 
-    await loadServers();
+      try {
+        await fetchServerTables(nextServer.id, activeToken);
+      } catch (error) {
+        recordActivity({
+          level: 'warning',
+          category: 'connection',
+          title: 'Sunucu kaydedildi, katalog alınamadı',
+          message: error instanceof Error ? error.message : 'İlk bağlantı kurulamadı.',
+          serverId: nextServer.id,
+          serverName: nextServer.name,
+          host: nextServer.host
+        });
+      }
+
+      await loadServers();
+    } finally {
+      setIsAddingServer(false);
+    }
   };
 
   return (
@@ -148,6 +183,9 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         setServers,
         activeServerId,
         setActiveServerId,
+        isServersLoading,
+        isAddingServer,
+        serversError,
         loadServers,
         addServer
       }}

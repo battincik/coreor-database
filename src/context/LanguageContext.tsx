@@ -1,21 +1,23 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import englishTranslations from '@/locales/en.json';
 
 interface LanguageContextProps {
   language: string;
   translations: Record<string, string>;
+  isLoading: boolean;
   setLanguage: (lang: string) => void;
+  t: (key: string, fallback?: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextProps | undefined>(undefined);
 
 export const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
-  const [language, setLanguage] = useState('en'); // Default language
-  const [translations, setTranslations] = useState<Record<string, string>>({});
+  const [language, setLanguage] = useState('en');
+  const [translations, setTranslations] = useState<Record<string, string>>(englishTranslations);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Check localStorage on initial render
   useEffect(() => {
     const storedLanguage = localStorage.getItem('language');
     if (storedLanguage && storedLanguage !== language) {
@@ -23,41 +25,55 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
     }
   }, []);
 
-  // Update localStorage when language changes
   const updateLanguage = (lang: string) => {
     setLanguage(lang);
     localStorage.setItem('language', lang);
   };
 
-  // Listen to localStorage changes from other tabs
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'language' && e.newValue && e.newValue !== language) {
-        setLanguage(e.newValue);
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'language' && event.newValue && event.newValue !== language) {
+        setLanguage(event.newValue);
       }
     };
+
     window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [language]);
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadTranslations = async () => {
+      setIsLoading(true);
+
       try {
         const translationsModule = await import(`@/locales/${language}.json`);
-        setTranslations(translationsModule.default);
-      } catch (error) {
+        if (!cancelled) {
+          setTranslations({ ...englishTranslations, ...translationsModule.default });
+        }
+      } catch {
         console.warn(`Could not load translations for language: ${language}. Falling back to English.`);
-        const fallbackModule = await import(`@/locales/en.json`);
-        setTranslations(fallbackModule.default);
+        if (!cancelled) {
+          setTranslations(englishTranslations);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadTranslations();
+
+    return () => {
+      cancelled = true;
+    };
   }, [language]);
 
-  return <LanguageContext.Provider value={{ language, translations, setLanguage: updateLanguage }}>{children}</LanguageContext.Provider>;
+  const t = (key: string, fallback?: string) => translations[key] || fallback || key;
+
+  return <LanguageContext.Provider value={{ language, translations, isLoading, setLanguage: updateLanguage, t }}>{children}</LanguageContext.Provider>;
 };
 
 export const useLanguage = () => {
