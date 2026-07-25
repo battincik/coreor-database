@@ -6,9 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
+  AlertTriangle,
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  Code,
+  Copy,
   Database,
   LogOut,
   Moon,
@@ -31,7 +34,7 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { signOut, useSession } from 'next-auth/react';
 import { useTheme } from 'next-themes';
-import type { SidebarProps } from 'types';
+import type { DatabaseServerConfig, SidebarProps } from 'types';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import { DatabaseContext } from '@/context/DatabaseContext';
@@ -40,6 +43,8 @@ import { useAuth } from '@/context/AuthContext';
 import { fetchServerTables, fetchTableInfo } from '@/lib/databaseApi';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-state';
 import { recordActivity } from '@/lib/activityConsole';
+import { useAppContextMenu } from '@/components/app-context-menu';
+import { openQueryTab, qualifiedSqlName, quoteSqlIdentifier } from '@/lib/queryWorkspaceEvents';
 
 type ColumnMeta = { name: string; type: string };
 
@@ -61,12 +66,22 @@ function initials(name?: string | null, email?: string | null) {
     .join('');
 }
 
+function tableTemplate(databaseName: string, tableName: string, kind: 'insert' | 'update' | 'delete' | 'truncate' | 'drop') {
+  const table = qualifiedSqlName(databaseName, tableName);
+  if (kind === 'insert') return `INSERT INTO ${table} (\n  \`column_name\`\n) VALUES (\n  'value'\n);`;
+  if (kind === 'update') return `UPDATE ${table}\nSET \`column_name\` = 'new_value'\nWHERE \`primary_key\` = 'value'\nLIMIT 1;`;
+  if (kind === 'delete') return `DELETE FROM ${table}\nWHERE \`primary_key\` = 'value'\nLIMIT 1;`;
+  if (kind === 'truncate') return `-- DİKKAT: Bu işlem tablodaki tüm satırları kalıcı olarak siler.\nTRUNCATE TABLE ${table};`;
+  return `-- DİKKAT: Bu işlem tabloyu ve içindeki tüm verileri kalıcı olarak siler.\nDROP TABLE ${table};`;
+}
+
 export function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatabase, selectedTable }: SidebarProps) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const { data: session } = useSession();
   const { t } = useLanguage();
   const { activeToken } = useAuth();
+  const { openContextMenu } = useAppContextMenu();
   const {
     servers,
     activeServerId,
@@ -151,11 +166,12 @@ export function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatabase, sel
     recordActivity({ level: 'info', category: 'navigation', title: 'Veritabanı seçildi', serverId, serverName: serverItem?.name, host: serverItem?.host, databaseName });
   };
 
-  const selectTable = (serverId: string, databaseName: string, tableName: string) => {
+  const selectTable = (serverId: string, databaseName: string, tableName: string, view: 'structure' | 'data' = 'structure') => {
     const serverItem = servers.find(item => item.id === serverId);
     setActiveServerId(serverId);
     onDatabaseSelect(databaseName);
     onTableSelect(tableName);
+    window.dispatchEvent(new CustomEvent('coreor:open-table-view', { detail: { view } }));
     recordActivity({ level: 'info', category: 'navigation', title: 'Tablo seçildi', serverId, serverName: serverItem?.name, host: serverItem?.host, databaseName, tableName });
   };
 
@@ -184,6 +200,76 @@ export function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatabase, sel
     }
   };
 
+  const openServerMenu = (event: React.MouseEvent, serverItem: DatabaseServerConfig) => {
+    const endpoint = `${serverItem.host || ''}:${serverItem.port || 3306}`;
+    openContextMenu(event, [
+      { id: 'server-query', label: 'Yeni sunucu geneli sorgu', icon: Code, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName: null, title: `${serverItem.name} sorgu` }) },
+      { id: 'server-test', label: 'Bağlantı ve sürüm sorgusu', icon: Server, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName: null, title: 'Bağlantı bilgisi', sql: 'SELECT VERSION() AS version, CURRENT_USER() AS currentUser, DATABASE() AS currentDatabase;', runImmediately: true }) },
+      { id: 'separator-1', separator: true },
+      { id: 'server-refresh', label: 'Kataloğu yenile', icon: RefreshCw, onSelect: () => loadCatalog(serverItem.id) },
+      { id: 'server-copy', label: 'Host ve portu kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(endpoint) }
+    ], serverItem.name);
+  };
+
+  const openDatabaseMenu = (event: React.MouseEvent, serverItem: DatabaseServerConfig, databaseName: string) => {
+    const quotedDatabase = quoteSqlIdentifier(databaseName);
+    openContextMenu(event, [
+      { id: 'database-open', label: 'Veritabanını aç', icon: Database, onSelect: () => selectDatabase(serverItem.id, databaseName) },
+      { id: 'database-query', label: 'Yeni sorgu sekmesi', icon: Code, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: databaseName }) },
+      { id: 'database-show-tables', label: 'SHOW TABLES çalıştır', icon: Table, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${databaseName} tabloları`, sql: 'SHOW FULL TABLES;', runImmediately: true }) },
+      {
+        id: 'database-size',
+        label: 'Tablo boyutlarını sorgula',
+        icon: Search,
+        onSelect: () => openQueryTab({
+          serverId: serverItem.id,
+          databaseName,
+          title: `${databaseName} boyutları`,
+          sql: `SELECT TABLE_NAME, ENGINE, TABLE_ROWS, ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) AS size_mb\nFROM information_schema.TABLES\nWHERE TABLE_SCHEMA = ${`'${databaseName.replace(/'/g, "''")}'`}\nORDER BY DATA_LENGTH + INDEX_LENGTH DESC;`,
+          runImmediately: true
+        })
+      },
+      { id: 'separator-1', separator: true },
+      { id: 'database-create-table', label: 'CREATE TABLE taslağı', icon: Plus, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: 'Yeni tablo', sql: `CREATE TABLE ${quotedDatabase}.\`new_table\` (\n  \`id\` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (\`id\`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;` }) },
+      { id: 'database-copy', label: 'Veritabanı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(databaseName) },
+      { id: 'database-refresh', label: 'Kataloğu yenile', icon: RefreshCw, onSelect: () => loadCatalog(serverItem.id) }
+    ], databaseName);
+  };
+
+  const openTableMenu = (event: React.MouseEvent, serverItem: DatabaseServerConfig, databaseName: string, tableName: string) => {
+    const table = qualifiedSqlName(databaseName, tableName);
+    openContextMenu(event, [
+      { id: 'table-data', label: 'Verileri aç', icon: Table, onSelect: () => selectTable(serverItem.id, databaseName, tableName, 'data') },
+      { id: 'table-structure', label: 'Tablo yapısını aç', icon: Database, onSelect: () => selectTable(serverItem.id, databaseName, tableName, 'structure') },
+      { id: 'separator-1', separator: true },
+      {
+        id: 'table-read-queries',
+        label: 'Okuma sorguları',
+        icon: Search,
+        children: [
+          { id: 'select-100', label: 'İlk 100 satır', icon: Table, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} SELECT`, sql: `SELECT * FROM ${table}\nLIMIT 100;`, runImmediately: true }) },
+          { id: 'select-count', label: 'Satır sayısı', icon: Search, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} COUNT`, sql: `SELECT COUNT(*) AS totalRows FROM ${table};`, runImmediately: true }) },
+          { id: 'describe', label: 'DESCRIBE', icon: Database, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} DESCRIBE`, sql: `DESCRIBE ${table};`, runImmediately: true }) },
+          { id: 'show-create', label: 'SHOW CREATE TABLE', icon: Code, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} CREATE`, sql: `SHOW CREATE TABLE ${table};`, runImmediately: true }) }
+        ]
+      },
+      {
+        id: 'table-write-queries',
+        label: 'Değişiklik sorgusu oluştur',
+        icon: Code,
+        children: [
+          { id: 'insert-template', label: 'INSERT taslağı', icon: Plus, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} INSERT`, sql: tableTemplate(databaseName, tableName, 'insert') }) },
+          { id: 'update-template', label: 'UPDATE taslağı', icon: Code, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} UPDATE`, sql: tableTemplate(databaseName, tableName, 'update') }) },
+          { id: 'delete-template', label: 'DELETE taslağı', icon: AlertTriangle, danger: true, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} DELETE`, sql: tableTemplate(databaseName, tableName, 'delete') }) },
+          { id: 'truncate-template', label: 'TRUNCATE taslağı', icon: AlertTriangle, danger: true, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} TRUNCATE`, sql: tableTemplate(databaseName, tableName, 'truncate') }) },
+          { id: 'drop-template', label: 'DROP TABLE taslağı', icon: AlertTriangle, danger: true, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} DROP`, sql: tableTemplate(databaseName, tableName, 'drop') }) }
+        ]
+      },
+      { id: 'separator-2', separator: true },
+      { id: 'table-copy', label: 'Tam tablo adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(table) }
+    ], `${databaseName}.${tableName}`);
+  };
+
   const renderTree = () => {
     if (isServersLoading) return <LoadingState compact title="Sunucu kasası açılıyor" description="Şifreli profiller okunuyor." />;
     if (serversError) return <ErrorState compact title="Sunucular yüklenemedi" description={serversError} actionLabel="Tekrar dene" onAction={loadServers} />;
@@ -195,7 +281,7 @@ export function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatabase, sel
       const databases = serverItem.databases || [];
       return (
         <div key={serverItem.id} className="space-y-0.5">
-          <button type="button" className={`flex w-full items-center justify-between rounded px-1.5 py-1.5 text-left text-xs hover:bg-muted/50 ${activeServerId === serverItem.id ? 'bg-muted/40 text-primary' : ''}`} onClick={() => selectServer(serverItem.id)}>
+          <button type="button" className={`flex w-full items-center justify-between rounded px-1.5 py-1.5 text-left text-xs hover:bg-muted/50 ${activeServerId === serverItem.id ? 'bg-muted/40 text-primary' : ''}`} onClick={() => selectServer(serverItem.id)} onContextMenu={event => openServerMenu(event, serverItem)}>
             <span className="flex min-w-0 items-center gap-1.5">
               {serverExpanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
               <Server className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
@@ -217,7 +303,7 @@ export function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatabase, sel
                 const databaseExpanded = Boolean(expandedDatabases[serverItem.id]?.[database.name]);
                 return (
                   <div key={database.name}>
-                    <div className={`flex items-center gap-1 rounded px-1 py-1 text-xs hover:bg-muted/50 ${selectedDatabase === database.name && activeServerId === serverItem.id ? 'bg-muted/30 text-primary' : ''}`}>
+                    <div className={`flex items-center gap-1 rounded px-1 py-1 text-xs hover:bg-muted/50 ${selectedDatabase === database.name && activeServerId === serverItem.id ? 'bg-muted/30 text-primary' : ''}`} onContextMenu={event => openDatabaseMenu(event, serverItem, database.name)}>
                       <button type="button" onClick={() => toggleDatabase(serverItem.id, database.name)}>{databaseExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}</button>
                       <button type="button" className="flex min-w-0 flex-1 items-center gap-1 text-left" onClick={() => selectDatabase(serverItem.id, database.name)}>
                         <Database className="h-3 w-3 shrink-0 text-emerald-500" /><span className="truncate">{database.name}</span><span className="ml-auto text-[10px] text-muted-foreground">{database.tables.length}</span>
@@ -231,7 +317,7 @@ export function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatabase, sel
                           const tableExpanded = Boolean(expandedTables[serverItem.id]?.[key]);
                           return (
                             <div key={tableName}>
-                              <div className={`flex items-center gap-1 rounded px-1 py-1 text-xs hover:bg-muted/50 ${selectedDatabase === database.name && selectedTable === tableName ? 'bg-muted/30 text-primary' : ''}`}>
+                              <div className={`flex items-center gap-1 rounded px-1 py-1 text-xs hover:bg-muted/50 ${selectedDatabase === database.name && selectedTable === tableName ? 'bg-muted/30 text-primary' : ''}`} onContextMenu={event => openTableMenu(event, serverItem, database.name, tableName)}>
                                 <button type="button" onClick={() => toggleTable(serverItem.id, database.name, tableName)}>{tableExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}</button>
                                 <button type="button" className="flex min-w-0 flex-1 items-center gap-1 text-left" onClick={() => selectTable(serverItem.id, database.name, tableName)}><Table className="h-3 w-3 shrink-0 text-blue-500" /><span className="truncate">{tableName}</span></button>
                               </div>
