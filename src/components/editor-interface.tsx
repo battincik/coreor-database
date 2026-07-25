@@ -1,10 +1,11 @@
 'use client';
 
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { Code, Plus, RefreshCw, Server } from 'lucide-react';
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Sidebar } from '@/components/sidebar';
 import { DatabasePanel } from '@/components/database-panel';
+import { DatabaseMenuBar } from '@/components/database-menu-bar';
 import Topbar from './Topbar';
 import BottomBar from './BottomBar';
 import { AppContextMenuProvider, useAppContextMenu } from '@/components/app-context-menu';
@@ -17,6 +18,7 @@ function EditorWorkspace() {
   const [activeTab, setActiveTab] = useState('sql-editor');
   const [query, setQuery] = useState('SELECT * FROM users LIMIT 10;');
   const [showTopbar, setShowTopbar] = useState(false);
+  const lastTableView = useRef<'table' | 'table-data'>('table-data');
   const { openContextMenu } = useAppContextMenu();
   const { activeServerId, servers } = useContext(DatabaseContext)!;
   const activeServer = servers.find(server => server.id === activeServerId) ?? null;
@@ -25,15 +27,19 @@ function EditorWorkspace() {
     if (window.navigator.userAgent.includes('CoreorApp')) setShowTopbar(true);
   }, []);
 
-  const handleDatabaseSelect = (dbName: string | null) => {
-    setSelectedDatabase(dbName);
+  useEffect(() => {
+    if (activeTab === 'table' || activeTab === 'table-data') lastTableView.current = activeTab;
+  }, [activeTab]);
+
+  const handleDatabaseSelect = (databaseName: string | null) => {
+    setSelectedDatabase(databaseName);
     setSelectedTable(null);
-    setActiveTab(dbName ? 'database' : 'sql-editor');
+    setActiveTab(databaseName ? 'database' : 'sql-editor');
   };
 
   const handleTableSelect = (tableName: string | null) => {
     setSelectedTable(tableName);
-    if (tableName) setActiveTab(activeTab === 'table-data' ? 'table-data' : 'table');
+    if (tableName) setActiveTab(lastTableView.current);
   };
 
   return (
@@ -75,9 +81,10 @@ function EditorWorkspace() {
       )}
     >
       {showTopbar && <Topbar />}
+      <DatabaseMenuBar selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1 overflow-hidden">
-          <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+          <ResizablePanel defaultSize={20} minSize={15} maxSize={32}>
             <Sidebar onDatabaseSelect={handleDatabaseSelect} onTableSelect={handleTableSelect} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
           </ResizablePanel>
           <ResizablePanel defaultSize={80} className="overflow-hidden">
