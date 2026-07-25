@@ -1,30 +1,19 @@
-import type { DatabaseServerConfig, TableInfo } from 'types';
+import type {
+  DatabaseApiAction,
+  DatabaseConnectionPayload,
+  DatabaseServerConfig,
+  TableInfo
+} from 'types';
 import { readEncryptedServerProfiles, writeEncryptedServerProfiles } from '@/lib/secureVault';
 
-/**
- * Eski isim geriye uyumluluk için korunuyor. Bu değer artık merkezi Coreor API'si
- * değil, opsiyonel varsayılan stateless database connector adresidir.
- */
-export const DEFAULT_DATABASE_API_BASE = process.env.NEXT_PUBLIC_DATABASE_CONNECTOR_URL ?? '';
-export const DEFAULT_DATABASE_CONNECTOR_URL = DEFAULT_DATABASE_API_BASE;
-
+const DATABASE_API_PATH = '/api/database';
 const profileMutationQueues = new Map<string, Promise<void>>();
 
 export interface DatabaseServerCatalogItem extends DatabaseServerConfig {
   databases: { name: string; tables: string[] }[];
 }
 
-interface ConnectorConnectionPayload {
-  engine: NonNullable<DatabaseServerConfig['databaseType']>;
-  host: string;
-  port: number;
-  username: string;
-  password: string;
-  database?: string;
-  sslMode: NonNullable<DatabaseServerConfig['sslMode']>;
-}
-
-interface ConnectorErrorPayload {
+interface DatabaseErrorPayload {
   error?: string;
   message?: string;
 }
@@ -42,111 +31,82 @@ function createServerId() {
   return `server-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.trim().replace(/\/+$/, '');
-}
-
-export function buildDatabaseApiUrl(baseUrl: string, path: string) {
-  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-
-  return `${normalizedBaseUrl}${normalizedPath}`;
-}
-
-function getConnectorBaseUrl(server: DatabaseServerConfig) {
-  const configuredUrl = server.connectorUrl || server.baseUrl || DEFAULT_DATABASE_CONNECTOR_URL;
-
-  if (!configuredUrl) {
-    throw new Error('Bu sunucu için HTTPS connector adresi tanımlı değil. Tarayıcı MySQL 3306/TCP portuna doğrudan bağlanamaz.');
+function createConnectionPayload(server: DatabaseServerConfig): DatabaseConnectionPayload {
+  if (server.databaseType !== 'mysql' && server.databaseType !== 'mariadb') {
+    throw new Error('Bu sunucu profili desteklenen MySQL veya MariaDB motorlarından birini kullanmıyor.');
   }
 
-  let connectorUrl: URL;
-
-  try {
-    connectorUrl = new URL(configuredUrl);
-  } catch {
-    throw new Error('Database connector adresi geçerli bir URL değil.');
-  }
-
-  const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(connectorUrl.hostname);
-
-  if (connectorUrl.protocol !== 'https:' && !(isLocalhost && connectorUrl.protocol === 'http:')) {
-    throw new Error('Database connector üretim ortamında HTTPS kullanmalıdır.');
-  }
-
-  return normalizeBaseUrl(connectorUrl.toString());
-}
-
-function createConnectionPayload(server: DatabaseServerConfig): ConnectorConnectionPayload {
   if (!server.host?.trim() || !server.username?.trim() || !server.password) {
     throw new Error('Host, kullanıcı adı ve parola eksik.');
   }
 
   return {
-    engine: server.databaseType ?? 'mysql',
+    engine: server.databaseType,
     host: server.host.trim(),
     port: server.port ?? 3306,
     username: server.username.trim(),
     password: server.password,
     database: server.databaseName?.trim() || undefined,
-    sslMode: server.sslMode ?? 'required'
+    sslMode: server.sslMode ?? 'required',
+    connectTimeoutMs: server.connectionTimeoutMs ?? 20_000
   };
 }
 
-async function readConnectorResponse<T>(response: Response) {
+async function readApiResponse<T>(response: Response) {
   const rawBody = await response.text();
-  let body: T | ConnectorErrorPayload | null = null;
+  let body: T | DatabaseErrorPayload | null = null;
 
   if (rawBody) {
     try {
-      body = JSON.parse(rawBody) as T | ConnectorErrorPayload;
+      body = JSON.parse(rawBody) as T | DatabaseErrorPayload;
     } catch {
-      if (!response.ok) {
-        throw new Error(`Connector isteği başarısız oldu (${response.status}).`);
-      }
-
-      throw new Error('Connector geçerli JSON döndürmedi.');
+      throw new Error(response.ok ? 'Next.js veritabanı API geçerli JSON döndürmedi.' : `Veritabanı isteği başarısız oldu (${response.status}).`);
     }
   }
 
   if (!response.ok) {
-    const errorBody = body as ConnectorErrorPayload | null;
-    throw new Error(errorBody?.message || errorBody?.error || `Connector isteği başarısız oldu (${response.status}).`);
+    const errorBody = body as DatabaseErrorPayload | null;
+    throw new Error(errorBody?.message || errorBody?.error || `Veritabanı isteği başarısız oldu (${response.status}).`);
   }
 
   return body as T;
 }
 
-async function requestConnector<T>(server: DatabaseServerConfig, path: string, payload: Record<string, unknown> = {}) {
+async function requestDatabaseApi<T>(
+  server: DatabaseServerConfig,
+  action: DatabaseApiAction,
+  payload: Record<string, unknown> = {}
+) {
   const controller = new AbortController();
   const timeoutMs = Math.min(Math.max(server.connectionTimeoutMs ?? 20_000, 3_000), 120_000);
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs + 5_000);
 
   try {
-    const response = await fetch(buildDatabaseApiUrl(getConnectorBaseUrl(server), path), {
+    const response = await fetch(DATABASE_API_PATH, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json'
       },
-      credentials: 'omit',
+      credentials: 'same-origin',
       cache: 'no-store',
-      referrerPolicy: 'no-referrer',
+      referrerPolicy: 'same-origin',
       signal: controller.signal,
       body: JSON.stringify({
+        action,
         connection: createConnectionPayload(server),
         ...payload
       })
     });
 
-    return await readConnectorResponse<T>(response);
+    return await readApiResponse<T>(response);
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error(`Database connector ${timeoutMs / 1000} saniye içinde yanıt vermedi.`);
+      throw new Error(`Next.js veritabanı API ${Math.round(timeoutMs / 1000)} saniye içinde yanıt vermedi.`);
     }
 
     if (error instanceof TypeError) {
-      throw new Error('Database connector erişilemedi. HTTPS sertifikasını, CORS ayarlarını ve ağ erişimini kontrol et.');
+      throw new Error('Next.js veritabanı API erişilemedi. Uygulama sunucusunu ve ağ erişimini kontrol edin.');
     }
 
     throw error;
@@ -196,14 +156,14 @@ async function mutateServerProfiles<T>(accountId: string, mutation: (servers: Da
 }
 
 async function updateCachedDatabases(accountId: string, serverId: string, databases: { name: string; tables: string[] }[]) {
-  await mutateServerProfiles(accountId, servers => {
-    const updatedAt = new Date().toISOString();
-
-    return {
-      servers: servers.map(server => (server.id === serverId ? { ...server, databases, updatedAt } : server)),
-      result: undefined
-    };
-  });
+  await mutateServerProfiles(accountId, servers => ({
+    servers: servers.map(server =>
+      server.id === serverId
+        ? { ...server, databases, updatedAt: new Date().toISOString() }
+        : server
+    ),
+    result: undefined
+  }));
 }
 
 export async function fetchDatabaseServers(accountId?: string | null) {
@@ -220,19 +180,19 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
   }
 
   const now = new Date().toISOString();
-  const normalizedConnectorUrl = normalizeBaseUrl(server.connectorUrl || server.baseUrl || DEFAULT_DATABASE_CONNECTOR_URL);
   const nextServer: DatabaseServerConfig = {
-    ...server,
     id: server.id || createServerId(),
     name: server.name.trim(),
-    connectorUrl: normalizedConnectorUrl || undefined,
-    baseUrl: normalizedConnectorUrl || undefined,
-    host: server.host?.trim(),
-    username: server.username?.trim(),
-    databaseName: server.databaseName?.trim(),
     databaseType: server.databaseType ?? 'mysql',
+    version: server.version || (server.databaseType === 'mariadb' ? '12.3' : '8.4'),
+    host: server.host?.trim(),
     port: server.port ?? 3306,
+    username: server.username?.trim(),
+    password: server.password,
+    databaseName: server.databaseName?.trim(),
     sslMode: server.sslMode ?? 'required',
+    connectionTimeoutMs: server.connectionTimeoutMs ?? 20_000,
+    visibleTo: [],
     databases: server.databases ?? [],
     createdAt: server.createdAt ?? now,
     updatedAt: now
@@ -248,34 +208,34 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
       nextServers.push(nextServer);
     }
 
-    return {
-      servers: nextServers,
-      result: nextServer
-    };
+    return { servers: nextServers, result: nextServer };
   });
+}
+
+export async function testDatabaseConnection(server: DatabaseServerConfig) {
+  return requestDatabaseApi<{ connection: { version?: string; databaseName?: string | null; currentUser?: string } }>(server, 'test');
 }
 
 export async function fetchServerTables(serverId: string, accountId?: string | null) {
   const server = await requireServer(accountId, serverId);
-  const response = await requestConnector<{ databases?: { name: string; tables: string[] }[] } | { name: string; tables: string[] }[]>(server, '/v1/catalog');
-  const databases = Array.isArray(response) ? response : response?.databases;
+  const response = await requestDatabaseApi<{ databases: { name: string; tables: string[] }[] }>(server, 'catalog');
 
-  if (!Array.isArray(databases)) {
-    throw new Error('Connector katalog yanıtı geçersiz.');
+  if (!Array.isArray(response?.databases)) {
+    throw new Error('Next.js veritabanı API katalog yanıtı geçersiz.');
   }
 
-  await updateCachedDatabases(accountId!, serverId, databases);
+  await updateCachedDatabases(accountId!, serverId, response.databases);
 
   return {
     serverId,
-    databases
+    databases: response.databases
   };
 }
 
 export async function fetchTableInfo(serverId: string, databaseName: string, tableName: string, accountId?: string | null) {
   const server = await requireServer(accountId, serverId);
 
-  return requestConnector<TableInfo>(server, '/v1/table-info', {
+  return requestDatabaseApi<TableInfo>(server, 'table-info', {
     database: databaseName,
     table: tableName
   });
@@ -284,7 +244,7 @@ export async function fetchTableInfo(serverId: string, databaseName: string, tab
 export async function fetchTableData(serverId: string, databaseName: string, tableName: string, limit = 512, accountId?: string | null, sort?: string | null) {
   const server = await requireServer(accountId, serverId);
 
-  return requestConnector<{ data: Record<string, unknown>[]; total?: number }>(server, '/v1/table-data', {
+  return requestDatabaseApi<{ data: Record<string, unknown>[]; limit: number }>(server, 'table-data', {
     database: databaseName,
     table: tableName,
     limit: Math.min(Math.max(limit, 1), 5_000),
@@ -299,7 +259,12 @@ export async function executeDatabaseQuery(serverId: string, sql: string, accoun
     throw new Error('Çalıştırılacak SQL sorgusu boş olamaz.');
   }
 
-  return requestConnector<{ rows: Record<string, unknown>[]; affectedRows?: number; fields?: unknown[] }>(server, '/v1/query', {
+  return requestDatabaseApi<{
+    rows: Record<string, unknown>[];
+    affectedRows?: number;
+    insertId?: string | number;
+    fields?: Array<{ name: string; type: number }>;
+  }>(server, 'query', {
     database: databaseName || server.databaseName || undefined,
     sql
   });
