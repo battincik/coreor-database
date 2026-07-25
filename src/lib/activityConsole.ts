@@ -114,7 +114,9 @@ export function clearActivities() {
 
 export function subscribeActivities(listener: () => void) {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 export function getActivitiesSnapshot() {
