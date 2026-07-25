@@ -31,6 +31,22 @@ function EditorWorkspace() {
     if (activeTab === 'table' || activeTab === 'table-data') lastTableView.current = activeTab;
   }, [activeTab]);
 
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const view = (event as CustomEvent<{ view?: 'structure' | 'data' }>).detail?.view;
+      if (view === 'data') {
+        lastTableView.current = 'table-data';
+        setActiveTab('table-data');
+      }
+      if (view === 'structure') {
+        lastTableView.current = 'table';
+        setActiveTab('table');
+      }
+    };
+    window.addEventListener('coreor:open-table-view', handler);
+    return () => window.removeEventListener('coreor:open-table-view', handler);
+  }, []);
+
   const handleDatabaseSelect = (databaseName: string | null) => {
     setSelectedDatabase(databaseName);
     setSelectedTable(null);
