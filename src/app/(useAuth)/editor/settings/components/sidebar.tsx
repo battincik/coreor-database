@@ -1,65 +1,84 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { LogOut, ArrowLeft, Search } from 'lucide-react';
+import { ArrowLeft, LogOut, Search, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { useLanguage } from '@/context/LanguageContext';
 import { settingsItems, iconMap, routeMap } from '@/lib/settingsConfig';
 
 export function SettingsSidebar({ activeTab }: { activeTab?: string }) {
   const router = useRouter();
-  const { translations } = useLanguage();
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredItems = settingsItems.map(section => ({
-    ...section,
-    items: section.items.filter(item => translations[item]?.toLowerCase().includes(searchQuery.toLowerCase()))
-  }));
+  const filteredItems = useMemo(
+    () =>
+      settingsItems
+        .map(section => ({
+          ...section,
+          items: section.items.filter(item => t(item, item).toLocaleLowerCase('tr-TR').includes(searchQuery.toLocaleLowerCase('tr-TR')))
+        }))
+        .filter(section => section.items.length > 0),
+    [searchQuery, t]
+  );
 
   return (
-    <div className="flex flex-col h-full w-72 border-r border-zinc-700 dark:bg-zinc-950 overflow-hidden">
-      <div className="flex-shrink-0 py-2 border-b border-zinc-700">
-        <div className="flex items-center justify-between px-2">
-          <div className="flex items-center">
-            <Button variant="ghost" size="icon" onClick={() => router.push('/editor')} className="mr-2">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h2 className="text-lg font-semibold">{translations.settings || 'Settings'}</h2>
+    <aside className="flex h-full w-72 shrink-0 flex-col overflow-hidden border-r border-zinc-800 bg-zinc-950">
+      <div className="shrink-0 border-b border-zinc-800 p-2">
+        <div className="flex items-center gap-2 px-1 py-1">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/editor')} className="h-8 w-8">
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Editöre dön</span>
+          </Button>
+          <div className="flex min-w-0 items-center gap-2">
+            <Settings className="h-4 w-4 text-emerald-400" />
+            <div>
+              <h2 className="text-sm font-semibold">{t('settings', 'Ayarlar')}</h2>
+              <p className="text-[10px] text-muted-foreground">Hesap ve uygulama tercihleri</p>
+            </div>
           </div>
         </div>
-        <div className="p-2">
-          <div className="relative">
-            <Input placeholder={translations.search || 'Search'} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="h-8 text-sm" />
-            <Search className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          </div>
+
+        <div className="relative mt-2">
+          <Input placeholder={`${t('search', 'Ara')}…`} value={searchQuery} onChange={event => setSearchQuery(event.target.value)} className="h-8 pr-8 text-xs" />
+          <Search className="absolute right-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="p-2 space-y-1">
-          {filteredItems.map(
-            section =>
-              section.items.length > 0 && (
-                <div key={section.category}>
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase m-2">{translations[section.category]}</h3>
-                  {section.items.map(item => (
-                    <Button key={item} variant="ghost" className={`w-full flex items-center gap-2 justify-start text-sm ${activeTab === item ? 'bg-muted/30 text-primary' : ''}`} onClick={() => router.push(routeMap[item] || '/')}>
-                      {iconMap[item]}
-                      {translations[item] || item}
-                    </Button>
-                  ))}
-                </div>
-              )
-          )}
-          <Button variant="ghost" className="w-full flex items-center gap-2 justify-start text-sm text-red-500" onClick={() => router.push('/logout')}>
-            <LogOut className="h-4 w-4" />
-            {translations.logout || 'Log Out'}
-          </Button>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="space-y-3 p-2">
+          {filteredItems.length === 0 && <div className="rounded-lg border border-dashed border-zinc-800 px-3 py-6 text-center text-xs text-muted-foreground">Ayar bulunamadı.</div>}
+          {filteredItems.map(section => (
+            <div key={section.category}>
+              <h3 className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-600">{t(section.category, section.category)}</h3>
+              <div className="space-y-0.5">
+                {section.items.map(item => (
+                  <Button
+                    key={item}
+                    variant="ghost"
+                    className={`h-8 w-full justify-start gap-2 px-2 text-xs ${activeTab === item ? 'bg-muted/50 text-primary' : 'text-zinc-400 hover:text-zinc-100'}`}
+                    onClick={() => router.push(routeMap[item] || '/editor/settings')}
+                  >
+                    {iconMap[item]}
+                    <span className="truncate">{t(item, item)}</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </ScrollArea>
-    </div>
+
+      <div className="shrink-0 border-t border-zinc-800 p-2">
+        <Button variant="ghost" className="h-8 w-full justify-start gap-2 px-2 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300" onClick={() => signOut({ callbackUrl: '/' })}>
+          <LogOut className="h-4 w-4" />
+          {t('logout', 'Çıkış yap')}
+        </Button>
+      </div>
+    </aside>
   );
 }
