@@ -22,7 +22,7 @@ export interface DatabasePanelProps {
 
 export type DatabaseEngine = 'mysql' | 'mariadb';
 export type DatabaseSslMode = 'required' | 'preferred' | 'disabled';
-export type DatabaseApiAction = 'test' | 'catalog' | 'table-info' | 'table-data' | 'query';
+export type DatabaseApiAction = 'test' | 'catalog' | 'table-info' | 'table-data' | 'update-cell' | 'query';
 
 export interface DatabaseConnectionPayload {
   engine: DatabaseEngine;
@@ -30,7 +30,7 @@ export interface DatabaseConnectionPayload {
   port: number;
   username: string;
   password: string;
-  database?: string;
+  database?: string | null;
   sslMode: DatabaseSslMode;
   connectTimeoutMs?: number;
 }
@@ -109,6 +109,21 @@ export interface TableDataResponse {
   _meta?: DatabaseQueryMeta;
 }
 
+export interface TableCellUpdateInput {
+  database: string;
+  table: string;
+  column: string;
+  value: unknown;
+  primaryKey: Record<string, unknown>;
+}
+
+export interface TableCellUpdateResponse {
+  affectedRows: number;
+  changedRows?: number;
+  value: unknown;
+  _meta?: DatabaseQueryMeta;
+}
+
 export interface TableInfo {
   columns: {
     Field: string;
@@ -131,6 +146,40 @@ export interface TableInfo {
   }[];
   createSQL: string;
   _meta?: DatabaseQueryMeta;
+}
+
+export interface QueryExecutionResult {
+  rows: Record<string, unknown>[];
+  affectedRows?: number;
+  insertId?: string | number;
+  warningStatus?: number;
+  fields?: Array<{ name: string; type: number }>;
+  maximumRows?: number;
+  _meta?: DatabaseQueryMeta;
+}
+
+export interface EditorQueryTab {
+  id: string;
+  title: string;
+  serverId: string | null;
+  databaseName: string | null;
+  sql: string;
+  isRunning: boolean;
+  runImmediately?: boolean;
+  error?: string | null;
+  result?: QueryExecutionResult | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GridRuntimeStatus {
+  page: number;
+  pageSize: number;
+  totalRows: number;
+  totalPages: number;
+  filters: number;
+  sorts: number;
+  isLoading: boolean;
 }
 
 export interface DatabaseTable {

@@ -4,17 +4,24 @@ import { useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore 
 import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
+  ArrowUpDown,
   Check,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Clock,
   Copy,
+  Database,
   Download,
+  Filter,
+  Server,
+  Table,
   Terminal,
   Trash2,
   X,
   XCircle
 } from 'lucide-react';
+import type { GridRuntimeStatus } from 'types';
 import { Button } from '@/components/ui/button';
 import { DatabaseContext } from '@/context/DatabaseContext';
 import {
@@ -32,6 +39,16 @@ interface BottomBarProps {
 }
 
 type ConsoleFilter = 'all' | 'success' | 'errors';
+
+const EMPTY_GRID_STATUS: GridRuntimeStatus = {
+  page: 1,
+  pageSize: 50,
+  totalRows: 0,
+  totalPages: 1,
+  filters: 0,
+  sorts: 0,
+  isLoading: false
+};
 
 function formatClock(timestamp: string) {
   return new Intl.DateTimeFormat('tr-TR', {
@@ -66,7 +83,7 @@ function statusLabel(level: ActivityEntry['level']) {
 function queryTarget(entry: ActivityEntry) {
   const databaseTarget = entry.databaseName
     ? `${entry.databaseName}${entry.tableName ? `.${entry.tableName}` : ''}`
-    : entry.tableName || 'veritabanı yok';
+    : entry.tableName || 'sunucu geneli';
 
   return `${entry.serverName || 'Coreor'} • ${databaseTarget}`;
 }
@@ -79,6 +96,36 @@ function downloadActivityLog() {
   anchor.download = `coreor-sql-log-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+function StatusTooltip({
+  children,
+  title,
+  rows,
+  align = 'left'
+}: {
+  children: React.ReactNode;
+  title: string;
+  rows: Array<{ label: string; value: React.ReactNode; tone?: 'normal' | 'success' | 'warning' | 'danger' }>;
+  align?: 'left' | 'right';
+}) {
+  return (
+    <div className="group relative flex h-full items-center">
+      {children}
+      <div className={`pointer-events-none absolute bottom-[calc(100%+7px)] z-[180] hidden w-72 rounded-lg border border-zinc-800 bg-zinc-950/98 p-3 shadow-2xl backdrop-blur group-hover:block ${align === 'right' ? 'right-0' : 'left-0'}`}>
+        <div className="mb-2 border-b border-zinc-800 pb-2 text-[11px] font-semibold text-zinc-200">{title}</div>
+        <div className="space-y-1.5">
+          {rows.map((row, index) => (
+            <div key={`${row.label}-${index}`} className="flex items-start justify-between gap-4 text-[10px] leading-4">
+              <span className="shrink-0 text-zinc-600">{row.label}</span>
+              <span className={`min-w-0 break-all text-right ${row.tone === 'success' ? 'text-emerald-400' : row.tone === 'warning' ? 'text-amber-400' : row.tone === 'danger' ? 'text-red-400' : 'text-zinc-300'}`}>{row.value}</span>
+            </div>
+          ))}
+        </div>
+        <div className={`absolute -bottom-1 h-2 w-2 rotate-45 border-b border-r border-zinc-800 bg-zinc-950 ${align === 'right' ? 'right-5' : 'left-5'}`} />
+      </div>
+    </div>
+  );
 }
 
 function QueryDetailModal({ entry, onClose }: { entry: ActivityEntry | null; onClose: () => void }) {
@@ -97,7 +144,7 @@ function QueryDetailModal({ entry, onClose }: { entry: ActivityEntry | null; onC
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
       <button type="button" aria-label="Kapat" className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
         <div className="flex items-start justify-between border-b border-zinc-800 px-5 py-4">
@@ -141,7 +188,7 @@ function QueryDetailModal({ entry, onClose }: { entry: ActivityEntry | null; onC
             </div>
             <div className="rounded-lg border border-zinc-800 p-3">
               <div className="text-[10px] uppercase tracking-wider text-zinc-600">Hedef</div>
-              <div className="mt-1 font-mono text-zinc-200">{entry.databaseName || '—'}{entry.tableName ? `.${entry.tableName}` : ''}</div>
+              <div className="mt-1 font-mono text-zinc-200">{entry.databaseName || 'Sunucu geneli'}{entry.tableName ? `.${entry.tableName}` : ''}</div>
               {entry.errorCode && <div className="mt-0.5 text-[11px] text-red-400">{entry.errorCode}</div>}
             </div>
           </div>
@@ -180,6 +227,7 @@ export default function BottomBar({ selectedDatabase, selectedTable }: BottomBar
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [filter, setFilter] = useState<ConsoleFilter>('all');
   const [selectedEntry, setSelectedEntry] = useState<ActivityEntry | null>(null);
+  const [gridStatus, setGridStatus] = useState<GridRuntimeStatus>(EMPTY_GRID_STATUS);
   const endRef = useRef<HTMLDivElement | null>(null);
   const queryEntries = useSyncExternalStore(subscribeActivities, getActivitiesSnapshot, getActivitiesServerSnapshot);
   const { servers, activeServerId, isServersLoading } = useContext(DatabaseContext)!;
@@ -194,13 +242,28 @@ export default function BottomBar({ selectedDatabase, selectedTable }: BottomBar
   const metrics = useMemo(() => {
     const successful = queryEntries.filter(entry => entry.level === 'success').length;
     const failed = queryEntries.filter(entry => entry.level === 'error').length;
-    const lastDuration = [...queryEntries].reverse().find(entry => typeof entry.durationMs === 'number')?.durationMs;
-    return { successful, failed, lastDuration };
+    const warnings = queryEntries.filter(entry => entry.level === 'warning').length;
+    const durations = queryEntries.map(entry => entry.durationMs).filter((duration): duration is number => typeof duration === 'number');
+    const averageDuration = durations.length ? Math.round(durations.reduce((total, duration) => total + duration, 0) / durations.length) : undefined;
+    const lastEntry = queryEntries.at(-1);
+    const successRate = queryEntries.length ? Math.round((successful / queryEntries.length) * 100) : 0;
+    return { successful, failed, warnings, averageDuration, lastEntry, successRate };
   }, [queryEntries]);
+
+  useEffect(() => {
+    const handler = (event: Event) => setGridStatus((event as CustomEvent<GridRuntimeStatus>).detail || EMPTY_GRID_STATUS);
+    window.addEventListener('coreor:grid-status', handler);
+    return () => window.removeEventListener('coreor:grid-status', handler);
+  }, []);
 
   useEffect(() => {
     if (isConsoleOpen) endRef.current?.scrollIntoView({ block: 'end' });
   }, [filteredEntries.length, isConsoleOpen]);
+
+  const engineName = activeServer?.databaseType === 'mariadb' ? 'MariaDB' : 'MySQL';
+  const targetName = selectedDatabase
+    ? `${selectedDatabase}${selectedTable ? `.${selectedTable}` : ''}`
+    : activeServer?.databaseName || 'Sunucu geneli';
 
   return (
     <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 text-xs">
@@ -252,7 +315,7 @@ export default function BottomBar({ selectedDatabase, selectedTable }: BottomBar
                     <span className="min-w-0 truncate text-zinc-500" title={queryTarget(entry)}>
                       <span className="text-zinc-200">{entry.serverName || 'Coreor'}</span>
                       <span className="mx-1 text-zinc-700">•</span>
-                      <span>{entry.databaseName || 'veritabanı yok'}{entry.tableName ? `.${entry.tableName}` : ''}</span>
+                      <span>{entry.databaseName || 'sunucu geneli'}{entry.tableName ? `.${entry.tableName}` : ''}</span>
                     </span>
                     <code className={`block min-w-0 truncate ${entry.level === 'error' ? 'text-red-300' : 'text-cyan-300'}`}>{entry.sql}</code>
                     <div className="flex items-center gap-2 whitespace-nowrap pr-1 text-[10px] text-zinc-600">
@@ -269,23 +332,107 @@ export default function BottomBar({ selectedDatabase, selectedTable }: BottomBar
         )}
       </div>
 
-      <div className="flex h-7 items-center justify-between overflow-hidden border-t border-zinc-800 px-2 text-[10px] text-zinc-500">
-        <div className="flex min-w-0 items-center divide-x divide-zinc-800">
-          <span className="pr-3 text-zinc-300">
-            {isServersLoading ? 'Sunucu kasası okunuyor' : activeServer ? `${activeServer.databaseType === 'mariadb' ? 'MariaDB' : 'MySQL'} ${activeServer.version || ''}` : 'Sunucu bağlı değil'}
-          </span>
+      <div className="flex h-7 items-center justify-between overflow-visible border-t border-zinc-800 px-1 text-[10px] text-zinc-500">
+        <div className="flex h-full min-w-0 items-center divide-x divide-zinc-800">
+          <StatusTooltip
+            title="Bağlantı profili"
+            rows={[
+              { label: 'Motor', value: activeServer ? engineName : 'Bağlı değil' },
+              { label: 'Sürüm profili', value: activeServer?.version || '—' },
+              { label: 'TLS modu', value: activeServer?.sslMode || '—', tone: activeServer?.sslMode === 'required' ? 'success' : activeServer ? 'warning' : 'normal' },
+              { label: 'Bağlantı timeout', value: activeServer ? `${activeServer.connectionTimeoutMs || 20_000} ms` : '—' }
+            ]}
+          >
+            <span className="flex h-full items-center gap-1 px-2 text-zinc-300"><Server className="h-3 w-3" />{isServersLoading ? 'Kasa okunuyor' : activeServer ? `${engineName} ${activeServer.version || ''}` : 'Sunucu yok'}</span>
+          </StatusTooltip>
+
           {activeServer && (
-            <>
-              <span className="px-3">{activeServer.host}:{activeServer.port || 3306}</span>
-              <span className="px-3">{selectedDatabase || activeServer.databaseName || 'Veritabanı seçilmedi'}{selectedTable ? ` / ${selectedTable}` : ''}</span>
-            </>
+            <StatusTooltip
+              title="Ağ ve kullanıcı"
+              rows={[
+                { label: 'Sunucu adı', value: activeServer.name },
+                { label: 'Host', value: activeServer.host || '—' },
+                { label: 'Port', value: activeServer.port || 3306 },
+                { label: 'Kullanıcı', value: activeServer.username || '—' }
+              ]}
+            >
+              <span className="flex h-full items-center px-2 font-mono">{activeServer.host}:{activeServer.port || 3306}</span>
+            </StatusTooltip>
+          )}
+
+          <StatusTooltip
+            title="Aktif hedef"
+            rows={[
+              { label: 'Veritabanı', value: selectedDatabase || activeServer?.databaseName || 'Sunucu geneli' },
+              { label: 'Tablo', value: selectedTable || '—' },
+              { label: 'Katalog veritabanı', value: activeServer?.databases?.length || 0 },
+              { label: 'Katalog tablo', value: activeServer?.databases?.reduce((total, database) => total + database.tables.length, 0) || 0 }
+            ]}
+          >
+            <span className="flex h-full max-w-64 items-center gap-1 truncate px-2"><Database className="h-3 w-3" /><span className="truncate">{targetName}</span></span>
+          </StatusTooltip>
+
+          {selectedTable && (
+            <StatusTooltip
+              title="Tablo gridi"
+              rows={[
+                { label: 'Sayfa', value: `${gridStatus.page.toLocaleString('tr-TR')} / ${gridStatus.totalPages.toLocaleString('tr-TR')}` },
+                { label: 'Sayfa boyutu', value: gridStatus.pageSize.toLocaleString('tr-TR') },
+                { label: 'Toplam satır', value: gridStatus.totalRows.toLocaleString('tr-TR') },
+                { label: 'Aktif filtre', value: gridStatus.filters },
+                { label: 'Sıralama kolonu', value: gridStatus.sorts },
+                { label: 'Durum', value: gridStatus.isLoading ? 'Yükleniyor' : 'Hazır', tone: gridStatus.isLoading ? 'warning' : 'success' }
+              ]}
+            >
+              <span className="flex h-full items-center gap-1 px-2"><Table className="h-3 w-3" />{gridStatus.page}/{gridStatus.totalPages} • {gridStatus.pageSize}</span>
+            </StatusTooltip>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-3 pl-3 tabular-nums">
-          <span>{queryEntries.length} SQL</span>
-          <span className="text-emerald-500/80">{metrics.successful} başarılı</span>
-          <span className={metrics.failed > 0 ? 'text-red-400' : ''}>{metrics.failed} hata</span>
-          {typeof metrics.lastDuration === 'number' && <span>son: {metrics.lastDuration} ms</span>}
+
+        <div className="flex h-full shrink-0 items-center divide-x divide-zinc-800 pl-1 tabular-nums">
+          <StatusTooltip
+            title="SQL performansı"
+            align="right"
+            rows={[
+              { label: 'Toplam sorgu', value: queryEntries.length },
+              { label: 'Başarılı', value: metrics.successful, tone: 'success' },
+              { label: 'Hata', value: metrics.failed, tone: metrics.failed ? 'danger' : 'normal' },
+              { label: 'Uyarı', value: metrics.warnings, tone: metrics.warnings ? 'warning' : 'normal' },
+              { label: 'Başarı oranı', value: `%${metrics.successRate}`, tone: metrics.successRate >= 95 ? 'success' : metrics.successRate >= 75 ? 'warning' : 'danger' },
+              { label: 'Ortalama süre', value: metrics.averageDuration === undefined ? '—' : `${metrics.averageDuration} ms` },
+              { label: 'Son sorgu', value: metrics.lastEntry ? formatClock(metrics.lastEntry.timestamp) : '—' }
+            ]}
+          >
+            <span className="flex h-full items-center gap-1 px-2"><Terminal className="h-3 w-3" />{queryEntries.length} SQL</span>
+          </StatusTooltip>
+
+          <StatusTooltip
+            title="Aktif grid koşulları"
+            align="right"
+            rows={[
+              { label: 'Filtre', value: gridStatus.filters },
+              { label: 'Sıralama', value: gridStatus.sorts },
+              { label: 'Yükleme', value: gridStatus.isLoading ? 'Devam ediyor' : 'Beklemede', tone: gridStatus.isLoading ? 'warning' : 'normal' }
+            ]}
+          >
+            <span className="flex h-full items-center gap-2 px-2">
+              <span className={gridStatus.filters ? 'text-cyan-400' : ''}><Filter className="inline h-3 w-3" /> {gridStatus.filters}</span>
+              <span className={gridStatus.sorts ? 'text-cyan-400' : ''}><ArrowUpDown className="inline h-3 w-3" /> {gridStatus.sorts}</span>
+            </span>
+          </StatusTooltip>
+
+          <StatusTooltip
+            title="Son sorgu"
+            align="right"
+            rows={[
+              { label: 'Zaman', value: metrics.lastEntry ? formatDateTime(metrics.lastEntry.timestamp) : '—' },
+              { label: 'Durum', value: metrics.lastEntry ? statusLabel(metrics.lastEntry.level) : '—', tone: metrics.lastEntry?.level === 'error' ? 'danger' : metrics.lastEntry ? 'success' : 'normal' },
+              { label: 'Süre', value: metrics.lastEntry?.durationMs === undefined ? '—' : `${metrics.lastEntry.durationMs} ms` },
+              { label: 'Hedef', value: metrics.lastEntry ? queryTarget(metrics.lastEntry) : '—' }
+            ]}
+          >
+            <span className="flex h-full items-center gap-1 px-2"><Clock className="h-3 w-3" />{metrics.lastEntry?.durationMs === undefined ? '—' : `${metrics.lastEntry.durationMs} ms`}</span>
+          </StatusTooltip>
         </div>
       </div>
 

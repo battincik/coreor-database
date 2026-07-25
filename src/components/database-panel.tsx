@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Code,
+  Copy,
   Database,
   Filter,
   Key,
@@ -21,25 +22,42 @@ import {
   Search,
   Server,
   Table as TableIcon,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react';
 import type {
   DatabasePanelProps,
+  EditorQueryTab,
+  GridRuntimeStatus,
   TableDataFilter,
   TableDataFilterOperator,
   TableDataPagination,
-  TableDataSort
+  TableDataSort,
+  TableInfo
 } from 'types';
 import { useAuth } from '@/context/AuthContext';
 import { DatabaseContext } from '@/context/DatabaseContext';
 import {
   fetchServerTables,
   fetchTableData as fetchTableDataFromApi,
-  fetchTableInfo as fetchTableInfoFromApi
+  fetchTableInfo as fetchTableInfoFromApi,
+  updateTableCell
 } from '@/lib/databaseApi';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-state';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useAppContextMenu } from '@/components/app-context-menu';
+import { QueryWorkspace } from '@/components/query-workspace';
+import {
+  OPEN_QUERY_TAB_EVENT,
+  openQueryTab,
+  qualifiedSqlName,
+  quoteSqlIdentifier,
+  toSqlLiteral,
+  type OpenQueryTabDetail
+} from '@/lib/queryWorkspaceEvents';
+
+const QUERY_TABS_STORAGE_KEY = 'coreor:query-tabs:v1';
 
 const INITIAL_PAGINATION: TableDataPagination = {
   page: 1,
@@ -63,6 +81,14 @@ const FILTER_OPERATORS: Array<{ value: TableDataFilterOperator; label: string; n
   { value: 'isNotNull', label: 'NULL değil', needsValue: false }
 ];
 
+type EditingCell = {
+  rowIndex: number;
+  column: string;
+  draft: string;
+  originalValue: unknown;
+  isSaving: boolean;
+};
+
 function highlightSQL(sql: string): React.ReactNode {
   const keywords = ['SELECT', 'FROM', 'WHERE', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE', 'DROP', 'ALTER', 'ADD', 'COLUMN', 'BETWEEN', 'AND', 'OR', 'NOT', 'NULL', 'IS', 'LIKE', 'IN', 'AS', 'JOIN', 'ON', 'ORDER', 'BY', 'GROUP', 'HAVING', 'DISTINCT', 'LIMIT', 'OFFSET', 'UNION', 'ALL', 'EXISTS', 'CASE', 'WHEN', 'THEN', 'END'];
   const dataTypes = ['VARCHAR', 'CHAR', 'TEXT', 'INT', 'INTEGER', 'BIGINT', 'SMALLINT', 'DECIMAL', 'NUMERIC', 'FLOAT', 'DOUBLE', 'DATE', 'DATETIME', 'TIMESTAMP', 'TIME', 'BOOLEAN'];
@@ -83,9 +109,13 @@ function openServerModal() {
   window.dispatchEvent(new Event('coreor:open-server-modal'));
 }
 
-function createFilterId() {
+function createId(prefix: string) {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
-  return `filter-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function createFilterId() {
+  return createId('filter');
 }
 
 function operatorNeedsValue(operator: TableDataFilterOperator) {
@@ -99,6 +129,69 @@ function useDebouncedValue<T>(value: T, delay: number) {
     return () => window.clearTimeout(timeout);
   }, [value, delay]);
   return debouncedValue;
+}
+
+function displayValue(value: unknown) {
+  if (value === null) return '(NULL)';
+  if (value === undefined) return '';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function parseEditedValue(draft: string, columnType: string, originalValue: unknown) {
+  const type = columnType.toUpperCase();
+  if (/\b(JSON)\b/.test(type)) return JSON.parse(draft);
+  if (/\b(TINYINT|SMALLINT|MEDIUMINT|INT|INTEGER|BIGINT|DECIMAL|NUMERIC|FLOAT|DOUBLE|REAL|BIT|YEAR)\b/.test(type)) {
+    const numeric = Number(draft);
+    if (!Number.isFinite(numeric)) throw new Error('Bu kolon sayısal bir değer bekliyor.');
+    return numeric;
+  }
+  if (/\b(BOOL|BOOLEAN)\b/.test(type)) {
+    const normalized = draft.trim().toLocaleLowerCase('tr-TR');
+    if (['1', 'true', 'evet'].includes(normalized)) return 1;
+    if (['0', 'false', 'hayır'].includes(normalized)) return 0;
+    throw new Error('Boolean değer için 1/0 veya true/false kullanın.');
+  }
+  if (typeof originalValue === 'number') {
+    const numeric = Number(draft);
+    if (!Number.isFinite(numeric)) throw new Error('Geçerli bir sayı girin.');
+    return numeric;
+  }
+  return draft;
+}
+
+function primaryKeyObject(row: Record<string, unknown>, tableInfo: TableInfo | null) {
+  const keyColumns = tableInfo?.columns.filter(column => column.Key === 'PRI').map(column => column.Field) || [];
+  if (keyColumns.length === 0 || keyColumns.some(column => row[column] === undefined)) return null;
+  return Object.fromEntries(keyColumns.map(column => [column, row[column]]));
+}
+
+function primaryKeySql(primaryKey: Record<string, unknown>) {
+  return Object.entries(primaryKey)
+    .map(([column, value]) => `${quoteSqlIdentifier(column)} <=> ${toSqlLiteral(value)}`)
+    .join(' AND ');
+}
+
+function hydrateQueryTabs(): EditorQueryTab[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(window.sessionStorage.getItem(QUERY_TABS_STORAGE_KEY) || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed.slice(-20).map(item => ({
+      id: String(item.id || createId('query')),
+      title: String(item.title || 'Sorgu'),
+      serverId: typeof item.serverId === 'string' ? item.serverId : null,
+      databaseName: typeof item.databaseName === 'string' ? item.databaseName : null,
+      sql: String(item.sql || ''),
+      isRunning: false,
+      error: null,
+      result: null,
+      createdAt: String(item.createdAt || new Date().toISOString()),
+      updatedAt: String(item.updatedAt || new Date().toISOString())
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export function DatabasePanel({
@@ -123,6 +216,7 @@ export function DatabasePanel({
     serversError
   } = useContext(DatabaseContext)!;
   const { activeToken } = useAuth();
+  const { openContextMenu } = useAppContextMenu();
   const activeServer = useMemo(() => servers.find(server => server.id === activeServerId) ?? null, [servers, activeServerId]);
   const selectedDatabaseItem = databases.find(database => database.name === selectedDatabase);
 
@@ -132,6 +226,8 @@ export function DatabasePanel({
   const [tableInfoError, setTableInfoError] = useState<string | null>(null);
   const [isTableDataLoading, setIsTableDataLoading] = useState(false);
   const [tableDataError, setTableDataError] = useState<string | null>(null);
+  const [cellEditError, setCellEditError] = useState<string | null>(null);
+  const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
@@ -148,6 +244,9 @@ export function DatabasePanel({
   const [tableNameSort, setTableNameSort] = useState<'asc' | 'desc'>('asc');
   const [tableListPage, setTableListPage] = useState(1);
   const tableListPageSize = 100;
+
+  const [queryTabs, setQueryTabs] = useState<EditorQueryTab[]>([]);
+  const queryTabsHydrated = useRef(false);
 
   const effectiveFilters = useMemo(
     () =>
@@ -169,6 +268,77 @@ export function DatabasePanel({
   }, [selectedDatabaseItem?.tables, tableNameSearch, tableNameSort]);
   const tableListTotalPages = Math.max(1, Math.ceil(visibleTableNames.length / tableListPageSize));
   const pagedTableNames = visibleTableNames.slice((tableListPage - 1) * tableListPageSize, tableListPage * tableListPageSize);
+
+  const createQueryTab = useCallback((detail: OpenQueryTabDetail = {}) => {
+    const now = new Date().toISOString();
+    const id = createId('query');
+    const databaseName = detail.databaseName === undefined ? selectedDatabase : detail.databaseName;
+    const serverId = detail.serverId || activeServerId || servers[0]?.id || null;
+    const tab: EditorQueryTab = {
+      id,
+      title: detail.title || (databaseName ? `${databaseName} sorgu` : 'Genel sorgu'),
+      serverId,
+      databaseName: databaseName || null,
+      sql: detail.sql || '',
+      isRunning: false,
+      runImmediately: detail.runImmediately,
+      error: null,
+      result: null,
+      createdAt: now,
+      updatedAt: now
+    };
+    setQueryTabs(previous => [...previous.slice(-19), tab]);
+    setActiveTab(`query:${id}`);
+    return id;
+  }, [selectedDatabase, activeServerId, servers, setActiveTab]);
+
+  const updateQueryTab = useCallback((id: string, patch: Partial<EditorQueryTab>) => {
+    setQueryTabs(previous => previous.map(tab => tab.id === id ? { ...tab, ...patch } : tab));
+  }, []);
+
+  const closeQueryTab = useCallback((id: string) => {
+    setQueryTabs(previous => {
+      const index = previous.findIndex(tab => tab.id === id);
+      const next = previous.filter(tab => tab.id !== id);
+      if (activeTab === `query:${id}`) {
+        const fallback = next[Math.max(0, index - 1)];
+        setActiveTab(fallback ? `query:${fallback.id}` : selectedTable ? 'table-data' : selectedDatabase ? 'database' : 'sql-editor');
+      }
+      return next;
+    });
+  }, [activeTab, selectedTable, selectedDatabase, setActiveTab]);
+
+  const duplicateQueryTab = useCallback((tab: EditorQueryTab) => {
+    createQueryTab({
+      serverId: tab.serverId,
+      databaseName: tab.databaseName,
+      title: `${tab.title} kopya`,
+      sql: tab.sql
+    });
+  }, [createQueryTab]);
+
+  useEffect(() => {
+    setQueryTabs(hydrateQueryTabs());
+    queryTabsHydrated.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!queryTabsHydrated.current) return;
+    try {
+      window.sessionStorage.setItem(
+        QUERY_TABS_STORAGE_KEY,
+        JSON.stringify(queryTabs.map(({ result: _result, error: _error, isRunning: _isRunning, runImmediately: _runImmediately, ...tab }) => tab))
+      );
+    } catch {
+      // Sorgu sekmesi kalıcılığı editör akışını durdurmamalıdır.
+    }
+  }, [queryTabs]);
+
+  useEffect(() => {
+    const handler = (event: Event) => createQueryTab((event as CustomEvent<OpenQueryTabDetail>).detail || {});
+    window.addEventListener(OPEN_QUERY_TAB_EVENT, handler);
+    return () => window.removeEventListener(OPEN_QUERY_TAB_EVENT, handler);
+  }, [createQueryTab]);
 
   const loadCatalog = async () => {
     if (!activeServerId || !activeToken || isCatalogLoading) return;
@@ -200,6 +370,8 @@ export function DatabasePanel({
     setTableData([]);
     setTableInfoError(null);
     setTableDataError(null);
+    setCellEditError(null);
+    setEditingCell(null);
     setTableNameSearch('');
     setTableListPage(1);
   }, [selectedDatabase]);
@@ -211,6 +383,8 @@ export function DatabasePanel({
     setSorts([]);
     setFilters([]);
     setIsFilterPanelOpen(false);
+    setEditingCell(null);
+    setCellEditError(null);
     totalCache.current = null;
   }, [selectedDatabase, selectedTable, activeServerId]);
 
@@ -282,9 +456,14 @@ export function DatabasePanel({
     loadTableData();
   }, [activeTab, selectedDatabase, selectedTable, activeServerId, activeToken, page, pageSize, sorts, effectiveFilterKey, refreshNonce]);
 
-  const handleSortByColumn = (column: string, additive = false) => {
+  const handleSortByColumn = (column: string, additive = false, forcedDirection?: 'asc' | 'desc') => {
     setPage(1);
     setSorts(previous => {
+      if (forcedDirection) {
+        if (!additive) return [{ column, direction: forcedDirection }];
+        return [...previous.filter(sort => sort.column !== column), { column, direction: forcedDirection }];
+      }
+
       const existingIndex = previous.findIndex(sort => sort.column === column);
       const existing = existingIndex >= 0 ? previous[existingIndex] : null;
       let nextForColumn: TableDataSort | null = null;
@@ -303,13 +482,10 @@ export function DatabasePanel({
     setRefreshNonce(previous => previous + 1);
   };
 
-  const addFilter = () => {
-    const firstColumn = tableInfo?.columns[0]?.Field;
+  const addFilter = (columnName?: string, operator: TableDataFilterOperator = 'contains', value = '') => {
+    const firstColumn = columnName || tableInfo?.columns[0]?.Field;
     if (!firstColumn) return;
-    setFilters(previous => [
-      ...previous,
-      { id: createFilterId(), column: firstColumn, operator: 'contains', value: '' }
-    ]);
+    setFilters(previous => [...previous, { id: createFilterId(), column: firstColumn, operator, value }]);
     setIsFilterPanelOpen(true);
   };
 
@@ -327,10 +503,10 @@ export function DatabasePanel({
     setActiveTab('database');
   };
 
-  const handleTableSelect = (databaseName: string, tableName: string) => {
+  const handleTableSelect = (databaseName: string, tableName: string, view: 'structure' | 'data' = 'data') => {
     if (selectedDatabase !== databaseName) onDatabaseSelect(databaseName);
     onTableSelect(tableName);
-    setActiveTab('table-data');
+    setActiveTab(view === 'data' ? 'table-data' : 'table');
   };
 
   const retryTableInfo = async () => {
@@ -346,6 +522,150 @@ export function DatabasePanel({
     }
   };
 
+  useEffect(() => {
+    const openTableView = (event: Event) => {
+      const view = (event as CustomEvent<{ view?: 'structure' | 'data' }>).detail?.view;
+      if (view === 'data') setActiveTab('table-data');
+      if (view === 'structure') setActiveTab('table');
+    };
+    const refreshActiveView = () => {
+      if (activeTab === 'table-data') refreshTableData();
+      else if (activeTab === 'table') void retryTableInfo();
+      else if (activeTab === 'database' || activeTab === 'sql-editor') void loadCatalog();
+    };
+
+    window.addEventListener('coreor:open-table-view', openTableView);
+    window.addEventListener('coreor:refresh-active-view', refreshActiveView);
+    return () => {
+      window.removeEventListener('coreor:open-table-view', openTableView);
+      window.removeEventListener('coreor:refresh-active-view', refreshActiveView);
+    };
+  }, [activeTab, selectedDatabase, selectedTable, activeServerId, activeToken]);
+
+  useEffect(() => {
+    const detail: GridRuntimeStatus = {
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      totalRows: pagination.totalRows,
+      totalPages: pagination.totalPages,
+      filters: effectiveFilters.length,
+      sorts: sorts.length,
+      isLoading: isTableDataLoading
+    };
+    window.dispatchEvent(new CustomEvent<GridRuntimeStatus>('coreor:grid-status', { detail }));
+  }, [pagination, effectiveFilters.length, sorts.length, isTableDataLoading]);
+
+  const saveCell = async (rowIndex: number, column: TableInfo['columns'][number], valueOverride?: unknown) => {
+    if (!selectedDatabase || !selectedTable || !activeServerId || !activeToken || !tableInfo) return;
+    const row = tableData[rowIndex];
+    const primaryKey = primaryKeyObject(row, tableInfo);
+    if (!primaryKey) {
+      setCellEditError('Bu tabloda primary key bulunmadığı için güvenli hücre düzenleme kapalıdır.');
+      return;
+    }
+
+    const editor = editingCell?.rowIndex === rowIndex && editingCell.column === column.Field ? editingCell : null;
+    let nextValue = valueOverride;
+    try {
+      if (arguments.length < 3) nextValue = parseEditedValue(editor?.draft || '', column.Type, row[column.Field]);
+    } catch (error) {
+      setCellEditError(error instanceof Error ? error.message : 'Hücre değeri dönüştürülemedi.');
+      return;
+    }
+
+    setCellEditError(null);
+    if (editor) setEditingCell({ ...editor, isSaving: true });
+    try {
+      await updateTableCell(activeServerId, {
+        database: selectedDatabase,
+        table: selectedTable,
+        column: column.Field,
+        value: nextValue,
+        primaryKey
+      }, activeToken);
+      setTableData(previous => previous.map((item, index) => index === rowIndex ? { ...item, [column.Field]: nextValue } : item));
+      setEditingCell(null);
+    } catch (error) {
+      setCellEditError(error instanceof Error ? error.message : 'Hücre güncellenemedi.');
+      if (editor) setEditingCell({ ...editor, isSaving: false });
+    }
+  };
+
+  const startCellEdit = (rowIndex: number, column: TableInfo['columns'][number]) => {
+    const row = tableData[rowIndex];
+    if (!primaryKeyObject(row, tableInfo)) {
+      setCellEditError('Hücre düzenleme için tabloda primary key bulunmalıdır.');
+      return;
+    }
+    const value = row[column.Field];
+    setCellEditError(null);
+    setEditingCell({
+      rowIndex,
+      column: column.Field,
+      draft: value === null || value === undefined ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value),
+      originalValue: value,
+      isSaving: false
+    });
+  };
+
+  const openCellMenu = (event: React.MouseEvent, row: Record<string, unknown>, rowIndex: number, column: TableInfo['columns'][number]) => {
+    const value = row[column.Field];
+    const primaryKey = primaryKeyObject(row, tableInfo);
+    const table = selectedDatabase && selectedTable ? qualifiedSqlName(selectedDatabase, selectedTable) : '';
+    const whereSql = primaryKey ? primaryKeySql(primaryKey) : '';
+    const rowColumns = tableInfo?.columns.map(item => item.Field) || Object.keys(row);
+    const insertSql = table
+      ? `INSERT INTO ${table} (${rowColumns.map(quoteSqlIdentifier).join(', ')})\nVALUES (${rowColumns.map(name => toSqlLiteral(row[name])).join(', ')});`
+      : '';
+
+    openContextMenu(event, [
+      { id: 'edit-cell', label: 'Hücreyi düzenle', icon: Code, disabled: !primaryKey, onSelect: () => startCellEdit(rowIndex, column) },
+      { id: 'set-null', label: 'NULL yap', icon: Trash2, disabled: !primaryKey || column.Null !== 'YES' || value === null, onSelect: () => saveCell(rowIndex, column, null) },
+      { id: 'separator-1', separator: true },
+      { id: 'copy-value', label: 'Hücre değerini kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(value === null ? 'NULL' : displayValue(value)) },
+      { id: 'copy-row', label: 'Satırı JSON olarak kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(JSON.stringify(row, null, 2)) },
+      { id: 'filter-value', label: value === null ? 'NULL değerleri filtrele' : 'Bu değere göre filtrele', icon: Filter, onSelect: () => addFilter(column.Field, value === null ? 'isNull' : 'equals', value === null ? '' : String(value)) },
+      { id: 'separator-2', separator: true },
+      { id: 'insert-query', label: 'Bu satırdan INSERT oluştur', icon: Plus, disabled: !table, onSelect: () => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: `${selectedTable} INSERT`, sql: insertSql }) },
+      { id: 'update-query', label: 'Bu hücre için UPDATE oluştur', icon: Code, disabled: !primaryKey || !table, onSelect: () => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: `${selectedTable} UPDATE`, sql: `UPDATE ${table}\nSET ${quoteSqlIdentifier(column.Field)} = ${toSqlLiteral(value)}\nWHERE ${whereSql}\nLIMIT 1;` }) },
+      { id: 'delete-query', label: 'Bu satır için DELETE oluştur', icon: Trash2, danger: true, disabled: !primaryKey || !table, onSelect: () => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: `${selectedTable} DELETE`, sql: `-- Çalıştırmadan önce koşulu doğrulayın.\nDELETE FROM ${table}\nWHERE ${whereSql}\nLIMIT 1;` }) }
+    ], `${column.Field}: ${displayValue(value)}`);
+  };
+
+  const openColumnMenu = (event: React.MouseEvent, column: TableInfo['columns'][number]) => {
+    openContextMenu(event, [
+      { id: 'sort-asc', label: 'Artan sırala', icon: ArrowUp, onSelect: () => handleSortByColumn(column.Field, false, 'asc') },
+      { id: 'sort-desc', label: 'Azalan sırala', icon: ArrowDown, onSelect: () => handleSortByColumn(column.Field, false, 'desc') },
+      { id: 'add-sort-asc', label: 'Çoklu sıralamaya ekle', icon: ArrowUpDown, onSelect: () => handleSortByColumn(column.Field, true, 'asc') },
+      { id: 'separator-1', separator: true },
+      { id: 'filter-contains', label: 'Bu kolona filtre ekle', icon: Filter, onSelect: () => addFilter(column.Field) },
+      { id: 'copy-column', label: 'Kolon adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(column.Field) },
+      { id: 'clear-sorts', label: 'Tüm sıralamaları temizle', icon: Trash2, disabled: sorts.length === 0, onSelect: () => setSorts([]) }
+    ], `${column.Field} • ${column.Type}`);
+  };
+
+  const openDatabaseMenu = (event: React.MouseEvent, databaseName: string) => {
+    openContextMenu(event, [
+      { id: 'open-database', label: 'Veritabanını aç', icon: Database, onSelect: () => handleDatabaseSelect(databaseName) },
+      { id: 'new-query', label: 'Yeni sorgu sekmesi', icon: Code, onSelect: () => createQueryTab({ serverId: activeServerId, databaseName, title: databaseName }) },
+      { id: 'show-tables', label: 'SHOW TABLES çalıştır', icon: TableIcon, onSelect: () => createQueryTab({ serverId: activeServerId, databaseName, title: `${databaseName} tabloları`, sql: 'SHOW FULL TABLES;', runImmediately: true }) },
+      { id: 'copy-name', label: 'Veritabanı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(databaseName) }
+    ], databaseName);
+  };
+
+  const openTableMenu = (event: React.MouseEvent, databaseName: string, tableName: string) => {
+    const table = qualifiedSqlName(databaseName, tableName);
+    openContextMenu(event, [
+      { id: 'open-data', label: 'Verileri aç', icon: TableIcon, onSelect: () => handleTableSelect(databaseName, tableName, 'data') },
+      { id: 'open-structure', label: 'Yapıyı aç', icon: Database, onSelect: () => handleTableSelect(databaseName, tableName, 'structure') },
+      { id: 'separator-1', separator: true },
+      { id: 'select-100', label: 'İlk 100 satırı sorgula', icon: Search, onSelect: () => createQueryTab({ serverId: activeServerId, databaseName, title: `${tableName} SELECT`, sql: `SELECT * FROM ${table}\nLIMIT 100;`, runImmediately: true }) },
+      { id: 'count', label: 'Satır sayısını sorgula', icon: Search, onSelect: () => createQueryTab({ serverId: activeServerId, databaseName, title: `${tableName} COUNT`, sql: `SELECT COUNT(*) AS totalRows FROM ${table};`, runImmediately: true }) },
+      { id: 'describe', label: 'DESCRIBE çalıştır', icon: Code, onSelect: () => createQueryTab({ serverId: activeServerId, databaseName, title: `${tableName} DESCRIBE`, sql: `DESCRIBE ${table};`, runImmediately: true }) },
+      { id: 'copy', label: 'Tam tablo adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(table) }
+    ], `${databaseName}.${tableName}`);
+  };
+
   if (isServersLoading) return <LoadingState title="Çalışma alanı hazırlanıyor" description="Şifreli sunucu profilleri ve son seçimler yükleniyor." />;
   if (serversError) return <ErrorState title="Çalışma alanı açılamadı" description={serversError} actionLabel="Tekrar dene" onAction={loadServers} />;
   if (servers.length === 0) return <EmptyState icon={Server} title="İlk sunucunuzu ekleyin" description="MySQL veya MariaDB sunucusu eklediğinizde veritabanları ve tablolar burada görüntülenecek." actionLabel="Sunucu ekle" onAction={openServerModal} />;
@@ -353,8 +673,8 @@ export function DatabasePanel({
   return (
     <div className="flex h-full flex-col">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full flex-col">
-        <div className="shrink-0 border-b border-zinc-800">
-          <TabsList className="h-8 justify-start bg-transparent">
+        <div className="flex h-8 shrink-0 items-center overflow-x-auto border-b border-zinc-800">
+          <TabsList className="h-8 shrink-0 justify-start bg-transparent">
             <TabsTrigger value="sql-editor" className="h-8 px-3 text-xs data-[state=active]:bg-background" icon={<Database className="h-4 w-4" />}>Veritabanları</TabsTrigger>
             {selectedDatabase && <TabsTrigger value="database" className="h-8 px-3 text-xs data-[state=active]:bg-background" icon={<Database className="h-4 w-4" />}>{selectedDatabase}</TabsTrigger>}
             {selectedDatabase && selectedTable && (
@@ -363,7 +683,16 @@ export function DatabasePanel({
                 <TabsTrigger value="table-data" className="h-8 px-3 text-xs data-[state=active]:bg-background" icon={<TableIcon className="h-4 w-4" />}>Veri: {selectedTable}</TabsTrigger>
               </>
             )}
+            {queryTabs.map(tab => (
+              <div key={tab.id} className="flex h-8 items-center border-r border-zinc-800">
+                <TabsTrigger value={`query:${tab.id}`} className="h-8 max-w-48 border-r-0 px-2 text-xs data-[state=active]:bg-background" icon={<Code className="h-3.5 w-3.5" />}>
+                  <span className="truncate">{tab.title}</span>
+                </TabsTrigger>
+                <button type="button" className="mr-1 flex h-5 w-5 items-center justify-center rounded text-zinc-600 hover:bg-zinc-800 hover:text-white" onClick={event => { event.stopPropagation(); closeQueryTab(tab.id); }} title="Sorgu sekmesini kapat"><X className="h-3 w-3" /></button>
+              </div>
+            ))}
           </TabsList>
+          <Button type="button" variant="ghost" size="icon" className="ml-1 h-7 w-7 shrink-0" onClick={() => createQueryTab({ databaseName: selectedDatabase || null })} title="Yeni sorgu sekmesi"><Plus className="h-3.5 w-3.5" /></Button>
         </div>
 
         <TabsContent value="sql-editor" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
@@ -371,6 +700,7 @@ export function DatabasePanel({
             <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={loadCatalog} disabled={isCatalogLoading}>
               <RefreshCw className={`h-3.5 w-3.5 ${isCatalogLoading ? 'animate-spin' : ''}`} /> Yenile
             </button>
+            <button type="button" className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300" onClick={() => createQueryTab({ databaseName: null })}><Plus className="h-3.5 w-3.5" /> Genel sorgu</button>
             <span className="text-[11px] text-muted-foreground">Sunucu: {activeServer?.name}</span>
           </div>
           {isCatalogLoading ? (
@@ -383,7 +713,7 @@ export function DatabasePanel({
             <ScrollArea className="h-[calc(100%-2rem)]">
               <Table size="sm" className="w-full border-collapse">
                 <TableHeader><TableRow className="hover:bg-transparent"><TableHead className="border-b border-r border-zinc-800 bg-zinc-950">Veritabanı</TableHead><TableHead className="border-b border-zinc-800 bg-zinc-950">Tablo sayısı</TableHead></TableRow></TableHeader>
-                <TableBody>{databases.map(database => <TableRow key={database.name} className={`cursor-pointer hover:bg-muted/40 ${selectedDatabase === database.name ? 'bg-muted/30' : ''}`} onClick={() => handleDatabaseSelect(database.name)}><TableCell className="border-r border-zinc-800 py-1.5 font-medium"><span className="flex items-center gap-2"><Database className="h-4 w-4 text-emerald-500" />{database.name}</span></TableCell><TableCell className="py-1.5 tabular-nums">{database.tables.length}</TableCell></TableRow>)}</TableBody>
+                <TableBody>{databases.map(database => <TableRow key={database.name} className={`cursor-pointer hover:bg-muted/40 ${selectedDatabase === database.name ? 'bg-muted/30' : ''}`} onClick={() => handleDatabaseSelect(database.name)} onContextMenu={event => openDatabaseMenu(event, database.name)}><TableCell className="border-r border-zinc-800 py-1.5 font-medium"><span className="flex items-center gap-2"><Database className="h-4 w-4 text-emerald-500" />{database.name}</span></TableCell><TableCell className="py-1.5 tabular-nums">{database.tables.length}</TableCell></TableRow>)}</TableBody>
               </Table>
             </ScrollArea>
           )}
@@ -392,6 +722,7 @@ export function DatabasePanel({
         <TabsContent value="database" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden p-0">
           <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 border-b border-zinc-800 px-2 py-1">
             <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={loadCatalog}><RefreshCw className="h-3.5 w-3.5" /> Yenile</button>
+            <button type="button" className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300" onClick={() => createQueryTab({ databaseName: selectedDatabase })}><Plus className="h-3.5 w-3.5" /> Sorgu</button>
             <div className="relative min-w-52 max-w-sm flex-1">
               <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" />
               <Input value={tableNameSearch} onChange={event => setTableNameSearch(event.target.value)} placeholder="Tablo ara" className="h-7 pl-7 text-xs" />
@@ -412,7 +743,7 @@ export function DatabasePanel({
               <ScrollArea className="min-h-0 flex-1">
                 <Table size="sm" className="w-full">
                   <TableHeader><TableRow><TableHead className="sticky top-0 border-b border-r border-zinc-800 bg-zinc-950">Tablo adı</TableHead><TableHead className="sticky top-0 border-b border-r border-zinc-800 bg-zinc-950">Motor</TableHead><TableHead className="sticky top-0 border-b border-zinc-800 bg-zinc-950">İşlem</TableHead></TableRow></TableHeader>
-                  <TableBody>{pagedTableNames.map(tableName => <TableRow key={tableName} className="cursor-pointer hover:bg-muted/40" onClick={() => handleTableSelect(selectedDatabase, tableName)}><TableCell className="border-r border-zinc-800 py-1.5 font-medium"><span className="flex items-center gap-2"><TableIcon className="h-4 w-4 text-blue-500" />{tableName}</span></TableCell><TableCell className="border-r border-zinc-800 py-1.5">{activeServer?.databaseType === 'mariadb' ? 'MariaDB' : 'MySQL'}</TableCell><TableCell className="py-1.5 text-xs text-emerald-400">Verileri aç</TableCell></TableRow>)}</TableBody>
+                  <TableBody>{pagedTableNames.map(tableName => <TableRow key={tableName} className="cursor-pointer hover:bg-muted/40" onClick={() => handleTableSelect(selectedDatabase, tableName)} onContextMenu={event => openTableMenu(event, selectedDatabase, tableName)}><TableCell className="border-r border-zinc-800 py-1.5 font-medium"><span className="flex items-center gap-2"><TableIcon className="h-4 w-4 text-blue-500" />{tableName}</span></TableCell><TableCell className="border-r border-zinc-800 py-1.5">{activeServer?.databaseType === 'mariadb' ? 'MariaDB' : 'MySQL'}</TableCell><TableCell className="py-1.5 text-xs text-emerald-400">Verileri aç</TableCell></TableRow>)}</TableBody>
                 </Table>
               </ScrollArea>
               <div className="flex h-9 shrink-0 items-center justify-end gap-2 border-t border-zinc-800 px-2 text-[11px] text-zinc-500">
@@ -452,7 +783,8 @@ export function DatabasePanel({
             <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={refreshTableData}><RefreshCw className={`h-3.5 w-3.5 ${isTableDataLoading ? 'animate-spin' : ''}`} /> Yenile</button>
             <button type="button" className={`flex items-center gap-1 text-xs hover:text-foreground ${isFilterPanelOpen ? 'text-cyan-400' : 'text-muted-foreground'}`} onClick={() => setIsFilterPanelOpen(previous => !previous)}><Filter className="h-3.5 w-3.5" /> Filtre {effectiveFilters.length > 0 && `(${effectiveFilters.length})`}</button>
             <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => setSorts([])} disabled={sorts.length === 0}><ArrowUpDown className="h-3.5 w-3.5" /> Sıralamayı temizle</button>
-            <span className="ml-auto text-[10px] text-zinc-600">Başlığa tıkla; çoklu sıralama için Shift + tıkla</span>
+            <button type="button" className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300" onClick={() => selectedDatabase && selectedTable && createQueryTab({ databaseName: selectedDatabase, title: `${selectedTable} sorgu`, sql: `SELECT * FROM ${qualifiedSqlName(selectedDatabase, selectedTable)}\nLIMIT 100;` })}><Code className="h-3.5 w-3.5" /> Sorguya aç</button>
+            <span className="ml-auto text-[10px] text-zinc-600">Sağ tık: hücre işlemleri • Shift+tık: çoklu sıralama</span>
           </div>
 
           {isFilterPanelOpen && tableInfo && (
@@ -473,12 +805,14 @@ export function DatabasePanel({
                 );
               })}
               <div className="flex items-center gap-2">
-                <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={addFilter}><Plus className="h-3.5 w-3.5" /> Filtre ekle</Button>
+                <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => addFilter()}><Plus className="h-3.5 w-3.5" /> Filtre ekle</Button>
                 {filters.length > 0 && <Button type="button" variant="ghost" size="sm" className="h-7 text-[11px] text-zinc-500" onClick={() => setFilters([])}>Tümünü temizle</Button>}
                 <span className="text-[10px] text-zinc-600">Filtreler 350 ms bekleme sonrasında sunucuda uygulanır.</span>
               </div>
             </div>
           )}
+
+          {cellEditError && <div className="shrink-0 border-b border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[11px] text-red-300">{cellEditError}</div>}
 
           {!tableInfo && isTableInfoLoading ? (
             <LoadingState title="Kolon bilgileri hazırlanıyor" />
@@ -503,9 +837,10 @@ export function DatabasePanel({
                           const sortIndex = sorts.findIndex(sort => sort.column === column.Field);
                           const sort = sortIndex >= 0 ? sorts[sortIndex] : null;
                           return (
-                            <TableHead key={column.Field} className="sticky top-0 z-10 cursor-pointer whitespace-nowrap border bg-zinc-950 select-none" onClick={event => handleSortByColumn(column.Field, event.shiftKey)}>
+                            <TableHead key={column.Field} className="sticky top-0 z-10 cursor-pointer whitespace-nowrap border bg-zinc-950 select-none" onClick={event => handleSortByColumn(column.Field, event.shiftKey)} onContextMenu={event => openColumnMenu(event, column)}>
                               <span className="inline-flex items-center gap-1">
                                 {column.Field}
+                                {column.Key === 'PRI' && <Key className="h-3 w-3 text-amber-400" />}
                                 {sort ? sort.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-cyan-400" /> : <ArrowDown className="h-3 w-3 text-cyan-400" /> : <ArrowUpDown className="h-3 w-3 opacity-35" />}
                                 {sorts.length > 1 && sort && <span className="rounded bg-cyan-500/15 px-1 text-[9px] text-cyan-300">{sortIndex + 1}</span>}
                               </span>
@@ -519,9 +854,35 @@ export function DatabasePanel({
                         <TableRow key={(pagination.page - 1) * pagination.pageSize + rowIndex}>
                           {tableInfo.columns.map(column => {
                             const value = row[column.Field];
-                            const displayValue = value === null ? '(NULL)' : typeof value === 'object' ? JSON.stringify(value) : String(value);
+                            const text = displayValue(value);
                             const className = value === null ? 'text-zinc-500 italic' : typeof value === 'number' ? 'text-blue-400' : typeof value === 'boolean' ? 'text-purple-400' : typeof value === 'object' ? 'text-amber-400' : 'text-green-400';
-                            return <TableCell key={column.Field} className={`max-w-[520px] truncate whitespace-nowrap border py-1 font-mono text-xs ${className}`} title={displayValue}>{displayValue}</TableCell>;
+                            const isEditing = editingCell?.rowIndex === rowIndex && editingCell.column === column.Field;
+                            return (
+                              <TableCell key={column.Field} className={`max-w-[520px] truncate whitespace-nowrap border p-0 font-mono text-xs ${className}`} title={isEditing ? undefined : text} onDoubleClick={() => startCellEdit(rowIndex, column)} onContextMenu={event => openCellMenu(event, row, rowIndex, column)}>
+                                {isEditing ? (
+                                  <input
+                                    autoFocus
+                                    value={editingCell.draft}
+                                    disabled={editingCell.isSaving}
+                                    className="h-7 min-w-32 w-full border-0 bg-cyan-500/10 px-2 font-mono text-xs text-cyan-100 outline-none ring-1 ring-inset ring-cyan-500/50"
+                                    onChange={event => setEditingCell(current => current ? { ...current, draft: event.target.value } : current)}
+                                    onKeyDown={event => {
+                                      if (event.key === 'Enter') {
+                                        event.preventDefault();
+                                        void saveCell(rowIndex, column);
+                                      }
+                                      if (event.key === 'Escape') {
+                                        event.preventDefault();
+                                        setEditingCell(null);
+                                        setCellEditError(null);
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="truncate px-2 py-1">{text}</div>
+                                )}
+                              </TableCell>
+                            );
                           })}
                         </TableRow>
                       ))}
@@ -538,6 +899,8 @@ export function DatabasePanel({
               <span>{pagination.totalRows.toLocaleString('tr-TR')} satır</span>
               <span>•</span>
               <span>{pagination.totalPages.toLocaleString('tr-TR')} sayfa</span>
+              <span>•</span>
+              <span>{tableInfo.columns.filter(column => column.Key === 'PRI').length > 0 ? 'Hücre düzenleme açık' : 'Primary key yok: düzenleme kapalı'}</span>
               <label className="ml-auto flex items-center gap-1.5">
                 Sayfa boyutu
                 <select value={pageSize} onChange={event => setPageSize(Number(event.target.value))} className="h-7 rounded border border-zinc-800 bg-zinc-950 px-2 text-[11px] text-zinc-300">
@@ -552,6 +915,18 @@ export function DatabasePanel({
             </div>
           )}
         </TabsContent>
+
+        {queryTabs.map(tab => (
+          <TabsContent key={tab.id} value={`query:${tab.id}`} className="m-0 min-h-0 flex-1 overflow-hidden p-0">
+            <QueryWorkspace
+              tab={tab}
+              servers={servers}
+              accountId={activeToken}
+              onChange={patch => updateQueryTab(tab.id, patch)}
+              onDuplicate={() => duplicateQueryTab(tab)}
+            />
+          </TabsContent>
+        ))}
       </Tabs>
     </div>
   );

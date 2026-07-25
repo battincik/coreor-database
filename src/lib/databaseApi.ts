@@ -6,6 +6,9 @@ import type {
   DatabaseQueryMeta,
   DatabaseQueryStatement,
   DatabaseServerConfig,
+  QueryExecutionResult,
+  TableCellUpdateInput,
+  TableCellUpdateResponse,
   TableDataFilter,
   TableDataResponse,
   TableDataSort,
@@ -40,6 +43,7 @@ interface DatabaseRequestError extends Error {
 
 interface RequestOptions {
   requestKey?: string;
+  connectionDatabase?: string | null;
 }
 
 export interface FetchTableDataOptions {
@@ -56,6 +60,7 @@ const ACTION_TITLES: Record<DatabaseApiAction, string> = {
   catalog: 'Veritabanı kataloğu',
   'table-info': 'Tablo yapısı',
   'table-data': 'Tablo verileri',
+  'update-cell': 'Hücre güncelleme',
   query: 'SQL sorgusu'
 };
 
@@ -64,7 +69,7 @@ function createServerId() {
   return `server-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function createConnectionPayload(server: DatabaseServerConfig): DatabaseConnectionPayload {
+function createConnectionPayload(server: DatabaseServerConfig, databaseOverride?: string | null): DatabaseConnectionPayload {
   if (server.databaseType !== 'mysql' && server.databaseType !== 'mariadb') {
     throw new Error('Bu sunucu profili desteklenen MySQL veya MariaDB motorlarından birini kullanmıyor.');
   }
@@ -78,7 +83,7 @@ function createConnectionPayload(server: DatabaseServerConfig): DatabaseConnecti
     port: server.port ?? 3306,
     username: server.username.trim(),
     password: server.password,
-    database: server.databaseName?.trim() || undefined,
+    database: databaseOverride === undefined ? server.databaseName?.trim() || undefined : databaseOverride,
     sslMode: server.sslMode ?? 'required',
     connectTimeoutMs: server.connectionTimeoutMs ?? 20_000
   };
@@ -156,6 +161,18 @@ function fallbackStatements(action: DatabaseApiAction, payload: Record<string, u
     return [{ label: 'Tablo satırları', sql: `SELECT * FROM ${database}.${table}` }];
   }
 
+  if (action === 'update-cell') {
+    const primaryKey = Object.entries((payload.primaryKey as Record<string, unknown>) || {});
+    const whereSql = primaryKey.map(([key]) => `${quoteLogIdentifier(key)} <=> ?`).join(' AND ');
+    return [
+      {
+        label: 'Hücre güncelleme',
+        sql: `UPDATE ${database}.${table} SET ${quoteLogIdentifier(payload.column)} = ? WHERE ${whereSql} LIMIT 1`,
+        parameters: [payload.value, ...primaryKey.map(([, value]) => value)]
+      }
+    ];
+  }
+
   return [{ label: 'SQL editörü sorgusu', sql: String(payload.sql || '') }];
 }
 
@@ -172,6 +189,7 @@ function resultMetrics(action: DatabaseApiAction, result: unknown) {
   if (action === 'catalog') return { rowCount: payload.databases?.length };
   if (action === 'table-info') return { rowCount: payload.columns?.length };
   if (action === 'table-data') return { rowCount: payload.data?.length };
+  if (action === 'update-cell') return { affectedRows: payload.affectedRows };
   if (action === 'query') return { rowCount: payload.rows?.length, affectedRows: payload.affectedRows };
   return {};
 }
@@ -219,9 +237,7 @@ async function requestDatabaseApi<T>(
   payload: Record<string, unknown> = {},
   options: RequestOptions = {}
 ) {
-  if (options.requestKey) {
-    inFlightControllers.get(options.requestKey)?.abort();
-  }
+  if (options.requestKey) inFlightControllers.get(options.requestKey)?.abort();
 
   const controller = new AbortController();
   if (options.requestKey) inFlightControllers.set(options.requestKey, controller);
@@ -229,7 +245,7 @@ async function requestDatabaseApi<T>(
   const timeoutMs = Math.min(Math.max(server.connectionTimeoutMs ?? 20_000, 3_000), 120_000);
   const timeout = window.setTimeout(() => controller.abort(), timeoutMs + 5_000);
   const startedAt = performance.now();
-  const databaseName = typeof payload.database === 'string' ? payload.database : server.databaseName;
+  const databaseName = typeof payload.database === 'string' ? payload.database : undefined;
   const tableName = typeof payload.table === 'string' ? payload.table : undefined;
 
   try {
@@ -242,7 +258,7 @@ async function requestDatabaseApi<T>(
       signal: controller.signal,
       body: JSON.stringify({
         action,
-        connection: createConnectionPayload(server),
+        connection: createConnectionPayload(server, options.connectionDatabase),
         ...payload
       })
     });
@@ -407,7 +423,7 @@ export async function fetchTableInfo(
     server,
     'table-info',
     { database: databaseName, table: tableName },
-    { requestKey: `table-info:${serverId}:${databaseName}:${tableName}` }
+    { requestKey: `table-info:${serverId}:${databaseName}:${tableName}`, connectionDatabase: databaseName }
   );
 }
 
@@ -432,7 +448,21 @@ export async function fetchTableData(
       includeTotal: options.includeTotal ?? true,
       knownTotalRows: options.knownTotalRows
     },
-    { requestKey: `table-data:${serverId}:${databaseName}:${tableName}` }
+    { requestKey: `table-data:${serverId}:${databaseName}:${tableName}`, connectionDatabase: databaseName }
+  );
+}
+
+export async function updateTableCell(
+  serverId: string,
+  input: TableCellUpdateInput,
+  accountId?: string | null
+) {
+  const server = await requireServer(accountId, serverId);
+  return requestDatabaseApi<TableCellUpdateResponse>(
+    server,
+    'update-cell',
+    input as unknown as Record<string, unknown>,
+    { connectionDatabase: input.database }
   );
 }
 
@@ -445,14 +475,11 @@ export async function executeDatabaseQuery(
   const server = await requireServer(accountId, serverId);
   if (!sql.trim()) throw new Error('Çalıştırılacak SQL sorgusu boş olamaz.');
 
-  return requestDatabaseApi<{
-    rows: Record<string, unknown>[];
-    affectedRows?: number;
-    insertId?: string | number;
-    fields?: Array<{ name: string; type: number }>;
-    _meta?: DatabaseQueryMeta;
-  }>(server, 'query', {
-    database: databaseName || server.databaseName || undefined,
-    sql
-  });
+  const selectedDatabase = databaseName === undefined ? server.databaseName || undefined : databaseName;
+  return requestDatabaseApi<QueryExecutionResult>(
+    server,
+    'query',
+    { database: selectedDatabase, sql },
+    { connectionDatabase: selectedDatabase }
+  );
 }
