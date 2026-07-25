@@ -10,10 +10,7 @@ export const maxDuration = 120;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_REQUESTS = 120;
 const SESSION_COOKIE_PREFIXES = ['next-auth.session-token', '__Secure-next-auth.session-token'];
-const SYSTEM_DATABASES = new Set(['information_schema', 'performance_schema', 'sys']);
 const requestBuckets = new Map<string, { count: number; resetAt: number }>();
-
-type DatabaseRequest = Parameters<typeof executeDatabaseRequest>[0];
 
 function noStoreHeaders() {
   return {
@@ -24,18 +21,12 @@ function noStoreHeaders() {
 
 function assertSameOrigin(request: NextRequest) {
   const origin = request.headers.get('origin');
-
-  if (!origin) {
-    return;
-  }
-
+  if (!origin) return;
   const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
   const expectedHost = forwardedHost || request.headers.get('host');
 
   try {
-    if (!expectedHost || new URL(origin).host !== expectedHost) {
-      throw new Error('origin mismatch');
-    }
+    if (!expectedHost || new URL(origin).host !== expectedHost) throw new Error('origin mismatch');
   } catch {
     throw new DatabaseServiceError('Çapraz origin veritabanı isteği reddedildi.', 403, 'CROSS_ORIGIN_REQUEST_REJECTED');
   }
@@ -80,17 +71,13 @@ function unauthorizedResponse(request: NextRequest) {
 
 function applyRateLimit(identity: string) {
   const now = Date.now();
-
   if (requestBuckets.size > 1_000) {
     for (const [key, bucket] of requestBuckets) {
-      if (bucket.resetAt <= now) {
-        requestBuckets.delete(key);
-      }
+      if (bucket.resetAt <= now) requestBuckets.delete(key);
     }
   }
 
   const bucket = requestBuckets.get(identity);
-
   if (!bucket || bucket.resetAt <= now) {
     requestBuckets.set(identity, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
     return;
@@ -99,116 +86,39 @@ function applyRateLimit(identity: string) {
   if (bucket.count >= RATE_LIMIT_REQUESTS) {
     throw new DatabaseServiceError('Çok fazla veritabanı isteği gönderildi. Bir dakika sonra tekrar deneyin.', 429, 'DATABASE_RATE_LIMITED');
   }
-
   bucket.count += 1;
 }
 
 function normalizeRouteError(error: unknown) {
-  if (error instanceof DatabaseServiceError) {
-    return error;
-  }
-
+  if (error instanceof DatabaseServiceError) return error;
   const candidate = error as { code?: string; message?: string };
   const code = candidate?.code || 'DATABASE_API_ERROR';
-
   if (['ENOTFOUND', 'EAI_AGAIN'].includes(code)) {
     return new DatabaseServiceError('Veritabanı host adresi çözümlenemedi.', 422, code);
   }
-
   if (['ETIMEDOUT', 'ECONNREFUSED'].includes(code)) {
     return new DatabaseServiceError('Veritabanı sunucusuna bağlanılamadı.', 504, code);
   }
-
-  return new DatabaseServiceError('Beklenmeyen bir veritabanı API hatası oluştu.', 500, code);
-}
-
-function resultRows(result: unknown) {
-  if (!result || typeof result !== 'object') {
-    return [] as Array<Record<string, unknown>>;
-  }
-
-  const rows = (result as { rows?: unknown }).rows;
-  return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
-}
-
-async function executeCompatibleCatalogRequest(payload: DatabaseRequest) {
-  const result = await executeDatabaseRequest({
-    ...payload,
-    action: 'query',
-    database: undefined,
-    sql: `
-      SELECT
-        schema_source.SCHEMA_NAME AS databaseName,
-        NULL AS tableName
-      FROM information_schema.SCHEMATA AS schema_source
-
-      UNION ALL
-
-      SELECT
-        table_source.TABLE_SCHEMA AS databaseName,
-        table_source.TABLE_NAME AS tableName
-      FROM information_schema.TABLES AS table_source
-      WHERE table_source.TABLE_TYPE = 'BASE TABLE'
-
-      ORDER BY databaseName, tableName
-    `
-  });
-
-  const databaseMap = new Map<string, string[]>();
-
-  for (const row of resultRows(result)) {
-    const databaseName = String(row.databaseName ?? '');
-
-    if (!databaseName || SYSTEM_DATABASES.has(databaseName)) {
-      continue;
-    }
-
-    if (!databaseMap.has(databaseName)) {
-      databaseMap.set(databaseName, []);
-    }
-
-    if (row.tableName) {
-      const tableName = String(row.tableName);
-      const databaseTables = databaseMap.get(databaseName)!;
-
-      if (!databaseTables.includes(tableName)) {
-        databaseTables.push(tableName);
-      }
-    }
-  }
-
-  return {
-    databases: Array.from(databaseMap, ([name, tables]) => ({ name, tables }))
-  };
+  return new DatabaseServiceError(candidate?.message || 'Beklenmeyen bir veritabanı API hatası oluştu.', 500, code);
 }
 
 export async function POST(request: NextRequest) {
   try {
     assertSameOrigin(request);
-
     const contentLength = Number(request.headers.get('content-length') || 0);
-
     if (contentLength > 1_000_000) {
       throw new DatabaseServiceError('Veritabanı isteği izin verilen boyutu aşıyor.', 413, 'DATABASE_REQUEST_TOO_LARGE');
     }
 
     const session = await getServerSession(authOptions);
-
-    if (!session?.user) {
-      return unauthorizedResponse(request);
-    }
+    if (!session?.user) return unauthorizedResponse(request);
 
     const user = session.user as typeof session.user & { id?: string };
-    const identity = user.id || user.email || 'authenticated-user';
-    applyRateLimit(identity);
+    applyRateLimit(user.id || user.email || 'authenticated-user');
 
-    const payload = (await request.json()) as DatabaseRequest;
-    const result = payload.action === 'catalog' ? await executeCompatibleCatalogRequest(payload) : await executeDatabaseRequest(payload);
-
-    return NextResponse.json(result, {
-      status: 200,
-      headers: noStoreHeaders()
-    });
+    const payload = (await request.json()) as Parameters<typeof executeDatabaseRequest>[0];
+    const result = await executeDatabaseRequest(payload);
+    return NextResponse.json(result, { status: 200, headers: noStoreHeaders() });
   } catch (error) {
     if (error instanceof SyntaxError) {
       return NextResponse.json(
@@ -218,9 +128,12 @@ export async function POST(request: NextRequest) {
     }
 
     const databaseError = normalizeRouteError(error);
-
     return NextResponse.json(
-      { error: databaseError.code, message: databaseError.message },
+      {
+        error: databaseError.code,
+        message: databaseError.message,
+        _meta: databaseError.queryMeta
+      },
       { status: databaseError.status, headers: noStoreHeaders() }
     );
   }

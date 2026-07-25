@@ -1,15 +1,28 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import mysql from 'mysql2/promise';
-import type { DatabaseApiAction, DatabaseConnectionPayload, TableInfo } from 'types';
+import type {
+  DatabaseApiAction,
+  DatabaseConnectionPayload,
+  DatabaseQueryMeta,
+  DatabaseQueryStatement,
+  TableDataFilter,
+  TableDataFilterOperator,
+  TableDataSort,
+  TableInfo
+} from 'types';
 
 interface DatabaseApiRequest {
   action: DatabaseApiAction;
   connection: DatabaseConnectionPayload;
   database?: string;
   table?: string;
-  limit?: number;
-  sort?: string;
+  page?: number;
+  pageSize?: number;
+  sorts?: TableDataSort[];
+  filters?: TableDataFilter[];
+  includeTotal?: boolean;
+  knownTotalRows?: number;
   sql?: string;
 }
 
@@ -17,7 +30,8 @@ export class DatabaseServiceError extends Error {
   constructor(
     message: string,
     public readonly status = 422,
-    public readonly code = 'DATABASE_REQUEST_FAILED'
+    public readonly code = 'DATABASE_REQUEST_FAILED',
+    public queryMeta?: DatabaseQueryMeta
   ) {
     super(message);
     this.name = 'DatabaseServiceError';
@@ -25,6 +39,18 @@ export class DatabaseServiceError extends Error {
 }
 
 const SYSTEM_DATABASES = new Set(['information_schema', 'performance_schema', 'sys']);
+const FILTER_OPERATORS = new Set<TableDataFilterOperator>([
+  'contains',
+  'equals',
+  'startsWith',
+  'endsWith',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'isNull',
+  'isNotNull'
+]);
 
 function splitEnvironmentList(value: string | undefined) {
   return (value ?? '')
@@ -34,15 +60,11 @@ function splitEnvironmentList(value: string | undefined) {
 }
 
 function matchesHostPattern(host: string, pattern: string) {
-  if (pattern === '*') {
-    return true;
-  }
-
+  if (pattern === '*') return true;
   if (pattern.startsWith('*.')) {
     const suffix = pattern.slice(1);
     return host.endsWith(suffix) && host.length > suffix.length;
   }
-
   return host === pattern;
 }
 
@@ -53,11 +75,7 @@ function isExplicitlyAllowedHost(host: string) {
 
 function assertAllowedPort(port: number) {
   const configuredPorts = splitEnvironmentList(process.env.DATABASE_ALLOWED_PORTS || '3306');
-
-  if (configuredPorts.includes('*')) {
-    return;
-  }
-
+  if (configuredPorts.includes('*')) return;
   if (!configuredPorts.includes(String(port))) {
     throw new DatabaseServiceError(
       `Port ${port} sunucu tarafında izinli değil. DATABASE_ALLOWED_PORTS değerini güncelleyin.`,
@@ -69,13 +87,8 @@ function assertAllowedPort(port: number) {
 
 function isReservedIpv4(address: string) {
   const octets = address.split('.').map(Number);
-
-  if (octets.length !== 4 || octets.some(value => !Number.isInteger(value) || value < 0 || value > 255)) {
-    return true;
-  }
-
+  if (octets.length !== 4 || octets.some(value => !Number.isInteger(value) || value < 0 || value > 255)) return true;
   const [a, b, c] = octets;
-
   return (
     a === 0 ||
     a === 10 ||
@@ -86,8 +99,7 @@ function isReservedIpv4(address: string) {
     (a === 192 && b === 0 && c === 0) ||
     (a === 192 && b === 0 && c === 2) ||
     (a === 192 && b === 168) ||
-    (a === 198 && b === 18) ||
-    (a === 198 && b === 19) ||
+    (a === 198 && (b === 18 || b === 19)) ||
     (a === 198 && b === 51 && c === 100) ||
     (a === 203 && b === 0 && c === 113) ||
     a >= 224
@@ -97,16 +109,9 @@ function isReservedIpv4(address: string) {
 function isReservedAddress(address: string) {
   const normalizedAddress = address.toLowerCase();
   const family = isIP(normalizedAddress);
-
-  if (family === 4) {
-    return isReservedIpv4(normalizedAddress);
-  }
-
+  if (family === 4) return isReservedIpv4(normalizedAddress);
   if (family === 6) {
-    if (normalizedAddress.startsWith('::ffff:')) {
-      return isReservedIpv4(normalizedAddress.slice(7));
-    }
-
+    if (normalizedAddress.startsWith('::ffff:')) return isReservedIpv4(normalizedAddress.slice(7));
     return (
       normalizedAddress === '::' ||
       normalizedAddress === '::1' ||
@@ -117,13 +122,11 @@ function isReservedAddress(address: string) {
       normalizedAddress.startsWith('2001:db8:')
     );
   }
-
   return true;
 }
 
 async function resolveAllowedHost(host: string) {
   const normalizedHost = host.trim().toLowerCase();
-
   if (!normalizedHost || normalizedHost.length > 253 || /[\s/\\]/.test(normalizedHost)) {
     throw new DatabaseServiceError('Geçerli bir MySQL host adresi girilmelidir.', 422, 'INVALID_DATABASE_HOST');
   }
@@ -145,10 +148,7 @@ async function resolveAllowedHost(host: string) {
     );
   }
 
-  return {
-    originalHost: normalizedHost,
-    resolvedHost: resolvedAddresses[0].address
-  };
+  return { originalHost: normalizedHost, resolvedHost: resolvedAddresses[0].address };
 }
 
 function boundedInteger(value: unknown, fallback: number, minimum: number, maximum: number) {
@@ -163,7 +163,6 @@ function parseConnection(value: DatabaseConnectionPayload) {
 
   const host = value.host?.trim();
   const username = value.username?.trim();
-
   if (!host || !username || !value.password) {
     throw new DatabaseServiceError('Host, kullanıcı adı ve parola zorunludur.', 422, 'INCOMPLETE_DATABASE_CONNECTION');
   }
@@ -179,11 +178,9 @@ function parseConnection(value: DatabaseConnectionPayload) {
 
 function quoteIdentifier(identifier: string, fieldName: string) {
   const normalized = identifier?.trim();
-
   if (!normalized || normalized.length > 128 || normalized.includes('\0')) {
     throw new DatabaseServiceError(`${fieldName} geçersiz.`, 422, 'INVALID_DATABASE_IDENTIFIER');
   }
-
   return `\`${normalized.replace(/`/g, '``')}\``;
 }
 
@@ -196,114 +193,165 @@ function records(value: unknown) {
 }
 
 function jsonSafe(value: unknown): unknown {
-  if (typeof value === 'bigint') {
-    return value.toString();
-  }
-
-  if (Buffer.isBuffer(value)) {
-    return { type: 'binary', base64: value.toString('base64') };
-  }
-
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(jsonSafe);
-  }
-
+  if (typeof value === 'bigint') return value.toString();
+  if (Buffer.isBuffer(value)) return { type: 'binary', base64: value.toString('base64') };
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map(jsonSafe);
   if (value && typeof value === 'object') {
     return Object.fromEntries(Object.entries(value).map(([key, nestedValue]) => [key, jsonSafe(nestedValue)]));
   }
-
   return value;
+}
+
+function pushStatement(statements: DatabaseQueryStatement[], sql: string, parameters: unknown[] = [], label?: string) {
+  statements.push({ sql: sql.trim(), parameters: parameters.map(jsonSafe), label });
+}
+
+function withMeta<T extends Record<string, unknown>>(result: T, statements: DatabaseQueryStatement[]) {
+  return { ...result, _meta: { statements } satisfies DatabaseQueryMeta };
 }
 
 function limitSelectStatement(sql: string, maximumRows: number) {
   const trimmed = sql.trim().replace(/;+\s*$/, '');
-
-  if (!/^select\b/i.test(trimmed)) {
-    return trimmed;
-  }
-
+  if (!/^select\b/i.test(trimmed)) return trimmed;
   const trailingLimit = /\blimit\s+(?:(\d+)\s*,\s*)?(\d+)\s*$/i.exec(trimmed);
-
-  if (!trailingLimit) {
-    return `${trimmed} LIMIT ${maximumRows}`;
-  }
-
+  if (!trailingLimit) return `${trimmed} LIMIT ${maximumRows}`;
   const offset = trailingLimit[1];
   const requestedRows = boundedInteger(trailingLimit[2], maximumRows, 1, maximumRows);
   const replacement = offset ? `LIMIT ${offset}, ${requestedRows}` : `LIMIT ${requestedRows}`;
-
   return `${trimmed.slice(0, trailingLimit.index)}${replacement}`;
 }
 
-async function catalog(connection: Awaited<ReturnType<typeof mysql.createConnection>>) {
-  const [rows] = await connection.query(`
-    SELECT
-      schemas.SCHEMA_NAME AS databaseName,
-      tables.TABLE_NAME AS tableName
-    FROM information_schema.SCHEMATA AS schemas
-    LEFT JOIN information_schema.TABLES AS tables
-      ON tables.TABLE_SCHEMA = schemas.SCHEMA_NAME
-      AND tables.TABLE_TYPE = 'BASE TABLE'
-    ORDER BY schemas.SCHEMA_NAME, tables.TABLE_NAME
-  `);
+function normalizeSorts(value: unknown): TableDataSort[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .slice(0, 5)
+    .filter(item => item && typeof item.column === 'string' && (item.direction === 'asc' || item.direction === 'desc'))
+    .map(item => ({ column: item.column.trim(), direction: item.direction }));
+}
 
-  const databaseMap = new Map<string, string[]>();
+function normalizeFilters(value: unknown): TableDataFilter[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .slice(0, 12)
+    .filter(item => item && typeof item.column === 'string' && FILTER_OPERATORS.has(item.operator))
+    .map(item => ({
+      id: typeof item.id === 'string' ? item.id : undefined,
+      column: item.column.trim(),
+      operator: item.operator,
+      value: typeof item.value === 'string' ? item.value : undefined
+    }));
+}
 
-  for (const row of records(rows)) {
-    const databaseName = String(row.databaseName ?? '');
+function buildWhereClause(filters: TableDataFilter[]) {
+  const clauses: string[] = [];
+  const parameters: unknown[] = [];
 
-    if (!databaseName || SYSTEM_DATABASES.has(databaseName)) {
-      continue;
-    }
+  for (const filter of filters) {
+    const column = quoteIdentifier(filter.column, 'Filtre kolonu');
+    const value = filter.value ?? '';
 
-    if (!databaseMap.has(databaseName)) {
-      databaseMap.set(databaseName, []);
-    }
-
-    if (row.tableName) {
-      databaseMap.get(databaseName)!.push(String(row.tableName));
+    switch (filter.operator) {
+      case 'contains':
+        if (!value) break;
+        clauses.push(`CAST(${column} AS CHAR) LIKE ?`);
+        parameters.push(`%${value}%`);
+        break;
+      case 'startsWith':
+        if (!value) break;
+        clauses.push(`CAST(${column} AS CHAR) LIKE ?`);
+        parameters.push(`${value}%`);
+        break;
+      case 'endsWith':
+        if (!value) break;
+        clauses.push(`CAST(${column} AS CHAR) LIKE ?`);
+        parameters.push(`%${value}`);
+        break;
+      case 'equals':
+        clauses.push(`${column} <=> ?`);
+        parameters.push(value);
+        break;
+      case 'gt':
+      case 'gte':
+      case 'lt':
+      case 'lte': {
+        if (!value) break;
+        const operator = filter.operator === 'gt' ? '>' : filter.operator === 'gte' ? '>=' : filter.operator === 'lt' ? '<' : '<=';
+        clauses.push(`${column} ${operator} ?`);
+        parameters.push(value);
+        break;
+      }
+      case 'isNull':
+        clauses.push(`${column} IS NULL`);
+        break;
+      case 'isNotNull':
+        clauses.push(`${column} IS NOT NULL`);
+        break;
     }
   }
 
   return {
-    databases: Array.from(databaseMap, ([name, tables]) => ({ name, tables }))
+    sql: clauses.length > 0 ? ` WHERE ${clauses.join(' AND ')}` : '',
+    parameters
   };
+}
+
+async function catalog(
+  connection: Awaited<ReturnType<typeof mysql.createConnection>>,
+  timeoutMs: number,
+  statements: DatabaseQueryStatement[]
+) {
+  const sql = `
+    SELECT schema_source.SCHEMA_NAME AS databaseName, NULL AS tableName
+    FROM information_schema.SCHEMATA AS schema_source
+    UNION ALL
+    SELECT table_source.TABLE_SCHEMA AS databaseName, table_source.TABLE_NAME AS tableName
+    FROM information_schema.TABLES AS table_source
+    WHERE table_source.TABLE_TYPE = 'BASE TABLE'
+    ORDER BY databaseName, tableName
+  `;
+  pushStatement(statements, sql, [], 'Veritabanı ve tablo kataloğu');
+  const [rows] = await connection.query({ sql, timeout: timeoutMs });
+  const databaseMap = new Map<string, string[]>();
+
+  for (const row of records(rows)) {
+    const databaseName = String(row.databaseName ?? '');
+    if (!databaseName || SYSTEM_DATABASES.has(databaseName)) continue;
+    if (!databaseMap.has(databaseName)) databaseMap.set(databaseName, []);
+    if (row.tableName) {
+      const tableName = String(row.tableName);
+      const tables = databaseMap.get(databaseName)!;
+      if (!tables.includes(tableName)) tables.push(tableName);
+    }
+  }
+
+  return withMeta({ databases: Array.from(databaseMap, ([name, tables]) => ({ name, tables })) }, statements);
 }
 
 async function tableInfo(
   connection: Awaited<ReturnType<typeof mysql.createConnection>>,
   databaseName: string,
-  tableName: string
+  tableName: string,
+  timeoutMs: number,
+  statements: DatabaseQueryStatement[]
 ): Promise<TableInfo> {
-  const [columnRows] = await connection.execute(
-    `SELECT COLUMN_NAME AS Field, COLUMN_TYPE AS Type, IS_NULLABLE AS \`Null\`, COLUMN_KEY AS \`Key\`, COLUMN_DEFAULT AS \`Default\`, EXTRA AS Extra
-     FROM information_schema.COLUMNS
-     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
-     ORDER BY ORDINAL_POSITION`,
-    [databaseName, tableName]
-  );
+  const columnSql = `SELECT COLUMN_NAME AS Field, COLUMN_TYPE AS Type, IS_NULLABLE AS \`Null\`, COLUMN_KEY AS \`Key\`, COLUMN_DEFAULT AS \`Default\`, EXTRA AS Extra
+    FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION`;
+  const indexSql = `SELECT INDEX_NAME AS Key_name, COLUMN_NAME AS Column_name, NON_UNIQUE AS Non_unique, SEQ_IN_INDEX AS Seq_in_index
+    FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY INDEX_NAME, SEQ_IN_INDEX`;
+  const foreignKeySql = `SELECT COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
+    FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND REFERENCED_TABLE_NAME IS NOT NULL ORDER BY ORDINAL_POSITION`;
+  const createSql = `SHOW CREATE TABLE ${qualifiedTable(databaseName, tableName)}`;
+  const parameters = [databaseName, tableName];
 
-  const [indexRows] = await connection.execute(
-    `SELECT INDEX_NAME AS Key_name, COLUMN_NAME AS Column_name, NON_UNIQUE AS Non_unique, SEQ_IN_INDEX AS Seq_in_index
-     FROM information_schema.STATISTICS
-     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
-     ORDER BY INDEX_NAME, SEQ_IN_INDEX`,
-    [databaseName, tableName]
-  );
-
-  const [foreignKeyRows] = await connection.execute(
-    `SELECT COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
-     FROM information_schema.KEY_COLUMN_USAGE
-     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND REFERENCED_TABLE_NAME IS NOT NULL
-     ORDER BY ORDINAL_POSITION`,
-    [databaseName, tableName]
-  );
-
-  const [createRows] = await connection.query(`SHOW CREATE TABLE ${qualifiedTable(databaseName, tableName)}`);
+  pushStatement(statements, columnSql, parameters, 'Kolon bilgileri');
+  const [columnRows] = await connection.query({ sql: columnSql, timeout: timeoutMs }, parameters);
+  pushStatement(statements, indexSql, parameters, 'İndeks bilgileri');
+  const [indexRows] = await connection.query({ sql: indexSql, timeout: timeoutMs }, parameters);
+  pushStatement(statements, foreignKeySql, parameters, 'Foreign key bilgileri');
+  const [foreignKeyRows] = await connection.query({ sql: foreignKeySql, timeout: timeoutMs }, parameters);
+  pushStatement(statements, createSql, [], 'CREATE TABLE tanımı');
+  const [createRows] = await connection.query({ sql: createSql, timeout: timeoutMs });
   const createRecord = records(createRows)[0] ?? {};
 
   return {
@@ -326,82 +374,112 @@ async function tableInfo(
       REFERENCED_TABLE_NAME: String(row.REFERENCED_TABLE_NAME ?? ''),
       REFERENCED_COLUMN_NAME: String(row.REFERENCED_COLUMN_NAME ?? '')
     })),
-    createSQL: String(createRecord['Create Table'] ?? createRecord['Create View'] ?? '')
+    createSQL: String(createRecord['Create Table'] ?? createRecord['Create View'] ?? ''),
+    _meta: { statements }
   };
 }
 
 async function tableData(
   connection: Awaited<ReturnType<typeof mysql.createConnection>>,
-  databaseName: string,
-  tableName: string,
-  requestedLimit: number | undefined,
-  sort: string | undefined
+  input: DatabaseApiRequest,
+  timeoutMs: number,
+  statements: DatabaseQueryStatement[]
 ) {
-  const maximumRows = boundedInteger(process.env.DATABASE_MAX_RESULT_ROWS, 5_000, 100, 50_000);
-  const limit = boundedInteger(requestedLimit, 512, 1, maximumRows);
-  let orderClause = '';
+  const databaseName = input.database ?? '';
+  const tableName = input.table ?? '';
+  const table = qualifiedTable(databaseName, tableName);
+  const maximumPageSize = boundedInteger(process.env.DATABASE_MAX_PAGE_SIZE, 500, 25, 5_000);
+  const pageSize = boundedInteger(input.pageSize, 50, 10, maximumPageSize);
+  const requestedPage = boundedInteger(input.page, 1, 1, 10_000_000);
+  const sorts = normalizeSorts(input.sorts);
+  const filters = normalizeFilters(input.filters);
+  const where = buildWhereClause(filters);
+  const orderSql = sorts.length
+    ? ` ORDER BY ${sorts.map(sort => `${quoteIdentifier(sort.column, 'Sıralama kolonu')} ${sort.direction.toUpperCase()}`).join(', ')}`
+    : '';
 
-  if (sort) {
-    const descending = sort.startsWith('-');
-    const columnName = descending ? sort.slice(1) : sort;
-    orderClause = ` ORDER BY ${quoteIdentifier(columnName, 'Sıralama kolonu')} ${descending ? 'DESC' : 'ASC'}`;
+  const knownTotal = Number.isFinite(Number(input.knownTotalRows)) ? Math.max(0, Number(input.knownTotalRows)) : undefined;
+  const shouldCount = input.includeTotal !== false || knownTotal === undefined;
+  let totalRows = knownTotal ?? 0;
+
+  if (shouldCount) {
+    const countSql = `SELECT COUNT(*) AS totalRows FROM ${table}${where.sql}`;
+    pushStatement(statements, countSql, where.parameters, 'Toplam satır sayısı');
+    const [countRows] = await connection.query({ sql: countSql, timeout: timeoutMs }, where.parameters);
+    totalRows = Number(records(countRows)[0]?.totalRows ?? 0);
   }
 
-  const [rows] = await connection.query(`SELECT * FROM ${qualifiedTable(databaseName, tableName)}${orderClause} LIMIT ${limit}`);
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * pageSize;
+  const dataSql = `SELECT * FROM ${table}${where.sql}${orderSql} LIMIT ${pageSize} OFFSET ${offset}`;
+  pushStatement(statements, dataSql, where.parameters, 'Tablo satırları');
+  const [rows] = await connection.query({ sql: dataSql, timeout: timeoutMs }, where.parameters);
 
-  return {
-    data: jsonSafe(rows),
-    limit
-  };
+  return withMeta(
+    {
+      data: jsonSafe(rows) as Record<string, unknown>[],
+      pagination: {
+        page,
+        pageSize,
+        totalRows,
+        totalPages,
+        hasPreviousPage: page > 1,
+        hasNextPage: page < totalPages
+      },
+      sorts,
+      filters
+    },
+    statements
+  );
 }
 
 async function queryDatabase(
   connection: Awaited<ReturnType<typeof mysql.createConnection>>,
   sql: string,
-  timeoutMs: number
+  timeoutMs: number,
+  statements: DatabaseQueryStatement[]
 ) {
-  if (!sql.trim()) {
-    throw new DatabaseServiceError('Çalıştırılacak SQL sorgusu boş olamaz.', 422, 'EMPTY_SQL_QUERY');
-  }
-
+  if (!sql.trim()) throw new DatabaseServiceError('Çalıştırılacak SQL sorgusu boş olamaz.', 422, 'EMPTY_SQL_QUERY');
   const maximumRows = boundedInteger(process.env.DATABASE_MAX_RESULT_ROWS, 5_000, 100, 50_000);
   const limitedSql = limitSelectStatement(sql, maximumRows);
+  pushStatement(statements, limitedSql, [], 'SQL editörü sorgusu');
   const [result, fields] = await connection.query({ sql: limitedSql, timeout: timeoutMs });
 
   if (Array.isArray(result)) {
-    return {
-      rows: jsonSafe(result),
-      fields: fields?.map(field => ({ name: field.name, type: field.type })) ?? [],
-      maximumRows
-    };
+    return withMeta(
+      {
+        rows: jsonSafe(result) as Record<string, unknown>[],
+        fields: fields?.map(field => ({ name: field.name, type: field.type })) ?? [],
+        maximumRows
+      },
+      statements
+    );
   }
 
   const header = result as unknown as Record<string, unknown>;
-  return {
-    rows: [],
-    affectedRows: Number(header.affectedRows ?? 0),
-    insertId: jsonSafe(header.insertId),
-    warningStatus: Number(header.warningStatus ?? 0)
-  };
+  return withMeta(
+    {
+      rows: [],
+      affectedRows: Number(header.affectedRows ?? 0),
+      insertId: jsonSafe(header.insertId),
+      warningStatus: Number(header.warningStatus ?? 0)
+    },
+    statements
+  );
 }
 
 function normalizeDatabaseError(error: unknown) {
-  if (error instanceof DatabaseServiceError) {
-    return error;
-  }
-
+  if (error instanceof DatabaseServiceError) return error;
   const candidate = error as { code?: string; message?: string };
   const code = candidate?.code ?? 'DATABASE_CONNECTION_FAILED';
   const message = candidate?.message ?? 'Veritabanı işlemi başarısız oldu.';
-
   if (['ETIMEDOUT', 'PROTOCOL_SEQUENCE_TIMEOUT', 'ECONNREFUSED'].includes(code)) {
     return new DatabaseServiceError('Veritabanı sunucusuna zamanında bağlanılamadı.', 504, code);
   }
-
   if (['ENOTFOUND', 'EAI_AGAIN'].includes(code)) {
     return new DatabaseServiceError('Veritabanı host adresi çözümlenemedi.', 422, code);
   }
-
   return new DatabaseServiceError(message, 422, code);
 }
 
@@ -418,6 +496,7 @@ export async function executeDatabaseRequest(input: DatabaseApiRequest) {
         };
 
   let connection: Awaited<ReturnType<typeof mysql.createConnection>> | null = null;
+  const statements: DatabaseQueryStatement[] = [];
 
   try {
     connection = await mysql.createConnection({
@@ -442,28 +521,27 @@ export async function executeDatabaseRequest(input: DatabaseApiRequest) {
 
     switch (input.action) {
       case 'test': {
-        const [rows] = await connection.query({
-          sql: 'SELECT VERSION() AS version, DATABASE() AS databaseName, CURRENT_USER() AS currentUser',
-          timeout: queryTimeoutMs
-        });
-        return { connection: jsonSafe(records(rows)[0] ?? {}) };
+        const sql = 'SELECT VERSION() AS version, DATABASE() AS databaseName, CURRENT_USER() AS currentUser';
+        pushStatement(statements, sql, [], 'Bağlantı testi');
+        const [rows] = await connection.query({ sql, timeout: queryTimeoutMs });
+        return withMeta({ connection: jsonSafe(records(rows)[0] ?? {}) as Record<string, unknown> }, statements);
       }
       case 'catalog':
-        return await catalog(connection);
+        return await catalog(connection, queryTimeoutMs, statements);
       case 'table-info':
-        return await tableInfo(connection, input.database ?? '', input.table ?? '');
+        return await tableInfo(connection, input.database ?? '', input.table ?? '', queryTimeoutMs, statements);
       case 'table-data':
-        return await tableData(connection, input.database ?? '', input.table ?? '', input.limit, input.sort);
+        return await tableData(connection, input, queryTimeoutMs, statements);
       case 'query':
-        return await queryDatabase(connection, input.sql ?? '', queryTimeoutMs);
+        return await queryDatabase(connection, input.sql ?? '', queryTimeoutMs, statements);
       default:
         throw new DatabaseServiceError('Desteklenmeyen veritabanı işlemi.', 422, 'UNSUPPORTED_DATABASE_ACTION');
     }
   } catch (error) {
-    throw normalizeDatabaseError(error);
+    const normalized = normalizeDatabaseError(error);
+    if (!normalized.queryMeta && statements.length > 0) normalized.queryMeta = { statements };
+    throw normalized;
   } finally {
-    if (connection) {
-      await connection.end().catch(() => undefined);
-    }
+    if (connection) await connection.end().catch(() => undefined);
   }
 }
