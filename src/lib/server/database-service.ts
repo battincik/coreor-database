@@ -15,8 +15,11 @@ import type {
 interface DatabaseApiRequest {
   action: DatabaseApiAction;
   connection: DatabaseConnectionPayload;
-  database?: string;
+  database?: string | null;
   table?: string;
+  column?: string;
+  value?: unknown;
+  primaryKey?: Record<string, unknown>;
   page?: number;
   pageSize?: number;
   sorts?: TableDataSort[];
@@ -434,6 +437,55 @@ async function tableData(
   );
 }
 
+async function updateCell(
+  connection: Awaited<ReturnType<typeof mysql.createConnection>>,
+  input: DatabaseApiRequest,
+  timeoutMs: number,
+  statements: DatabaseQueryStatement[]
+) {
+  const databaseName = input.database ?? '';
+  const tableName = input.table ?? '';
+  const columnName = input.column ?? '';
+  const primaryKeyEntries = Object.entries(input.primaryKey || {});
+
+  if (primaryKeyEntries.length === 0 || primaryKeyEntries.length > 8) {
+    throw new DatabaseServiceError(
+      'Hücre düzenleme için 1 ile 8 kolon arasında primary key değeri gereklidir.',
+      422,
+      'PRIMARY_KEY_REQUIRED'
+    );
+  }
+
+  const whereSql = primaryKeyEntries
+    .map(([key]) => `${quoteIdentifier(key, 'Primary key kolonu')} <=> ?`)
+    .join(' AND ');
+  const sql = `UPDATE ${qualifiedTable(databaseName, tableName)} SET ${quoteIdentifier(columnName, 'Güncellenecek kolon')} = ? WHERE ${whereSql} LIMIT 1`;
+  const parameters = [input.value, ...primaryKeyEntries.map(([, value]) => value)];
+
+  pushStatement(statements, sql, parameters, 'Hücre güncelleme');
+  const [result] = await connection.query({ sql, timeout: timeoutMs }, parameters);
+  const header = result as unknown as Record<string, unknown>;
+  const affectedRows = Number(header.affectedRows ?? 0);
+
+  if (affectedRows === 0) {
+    throw new DatabaseServiceError(
+      'Primary key ile eşleşen satır bulunamadı veya değer değişmedi.',
+      409,
+      'ROW_NOT_UPDATED',
+      { statements }
+    );
+  }
+
+  return withMeta(
+    {
+      affectedRows,
+      changedRows: Number(header.changedRows ?? affectedRows),
+      value: jsonSafe(input.value)
+    },
+    statements
+  );
+}
+
 async function queryDatabase(
   connection: Awaited<ReturnType<typeof mysql.createConnection>>,
   sql: string,
@@ -474,6 +526,7 @@ function normalizeDatabaseError(error: unknown) {
   const candidate = error as { code?: string; message?: string };
   const code = candidate?.code ?? 'DATABASE_CONNECTION_FAILED';
   const message = candidate?.message ?? 'Veritabanı işlemi başarısız oldu.';
+
   if (['ETIMEDOUT', 'PROTOCOL_SEQUENCE_TIMEOUT', 'ECONNREFUSED'].includes(code)) {
     return new DatabaseServiceError('Veritabanı sunucusuna zamanında bağlanılamadı.', 504, code);
   }
@@ -499,12 +552,13 @@ export async function executeDatabaseRequest(input: DatabaseApiRequest) {
   const statements: DatabaseQueryStatement[] = [];
 
   try {
+    const connectionDatabase = input.database === null ? undefined : input.database || connectionInput.database || undefined;
     connection = await mysql.createConnection({
       host: resolvedHost.resolvedHost,
       port: connectionInput.port,
       user: connectionInput.username,
       password: connectionInput.password,
-      database: input.database || connectionInput.database || undefined,
+      database: connectionDatabase || undefined,
       connectTimeout: connectionInput.connectTimeoutMs,
       charset: 'utf8mb4',
       dateStrings: true,
@@ -532,6 +586,8 @@ export async function executeDatabaseRequest(input: DatabaseApiRequest) {
         return await tableInfo(connection, input.database ?? '', input.table ?? '', queryTimeoutMs, statements);
       case 'table-data':
         return await tableData(connection, input, queryTimeoutMs, statements);
+      case 'update-cell':
+        return await updateCell(connection, input, queryTimeoutMs, statements);
       case 'query':
         return await queryDatabase(connection, input.sql ?? '', queryTimeoutMs, statements);
       default:
