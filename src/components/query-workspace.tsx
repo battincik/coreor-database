@@ -3,14 +3,13 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   CheckCircle2,
-  Clipboard,
   Copy,
   Database,
-  Eraser,
   Loader2,
   Play,
   Server,
   Terminal,
+  Trash2,
   XCircle
 } from 'lucide-react';
 import type { DatabaseServerConfig, EditorQueryTab } from 'types';
@@ -90,8 +89,8 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
         { id: 'run', label: 'Sorguyu çalıştır', icon: Play, shortcut: 'Ctrl+Enter', disabled: tab.isRunning || !tab.sql.trim(), onSelect: runQuery },
         { id: 'separator-1', separator: true },
         { id: 'copy', label: 'SQL metnini kopyala', icon: Copy, disabled: !tab.sql.trim(), onSelect: () => navigator.clipboard.writeText(tab.sql) },
-        { id: 'duplicate', label: 'Sekmeyi çoğalt', icon: Clipboard, onSelect: onDuplicate },
-        { id: 'clear', label: 'Editörü temizle', icon: Eraser, disabled: !tab.sql, onSelect: () => onChange({ sql: '', result: null, error: null }) }
+        { id: 'duplicate', label: 'Sekmeyi çoğalt', icon: Copy, onSelect: onDuplicate },
+        { id: 'clear', label: 'Editörü temizle', icon: Trash2, disabled: !tab.sql, onSelect: () => onChange({ sql: '', result: null, error: null }) }
       ],
       tab.databaseName ? `${tab.databaseName} sorgusu` : 'Sunucu geneli sorgu'
     );
@@ -182,7 +181,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
                               title={text}
                               onContextMenu={event => openContextMenu(event, [
                                 { id: 'copy-cell', label: 'Hücre değerini kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(text) },
-                                { id: 'copy-row', label: 'Satırı JSON olarak kopyala', icon: Clipboard, onSelect: () => navigator.clipboard.writeText(JSON.stringify(row, null, 2)) }
+                                { id: 'copy-row', label: 'Satırı JSON olarak kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(JSON.stringify(row, null, 2)) }
                               ], `${column} sonucu`)}
                             >
                               {text}
