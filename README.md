@@ -25,6 +25,18 @@ Ayrıntılı güvenlik ve dağıtım modeli için [`docs/browser-vault-and-next-
 
 ## Ortam değişkenleri
 
+Önce örnek dosyayı kopyalayın:
+
+```bash
+cp .env.example .env.local
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
 ```env
 GITHUB_ID=
 GITHUB_SECRET=
@@ -42,6 +54,22 @@ DATABASE_ALLOWED_PORTS=3306,3307
 DATABASE_QUERY_TIMEOUT_MS=30000
 DATABASE_MAX_RESULT_ROWS=5000
 ```
+
+Kararlı bir `NEXTAUTH_SECRET` üretmek için:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+Üretilen değeri `.env.local` içindeki `NEXTAUTH_SECRET` alanına yazın. Bu değer uygulama yeniden başladığında, branch değiştirildiğinde veya deploy edildiğinde değiştirilmemelidir. Secret değişirse önceden oluşturulmuş JWT oturum çerezleri çözülemez ve kullanıcıların yeniden giriş yapması gerekir.
+
+`NEXTAUTH_SECRET` tanımlanmadığında uygulama geriye uyumluluk için `GITHUB_SECRET` üzerinden kararlı, uygulamaya özel bir oturum anahtarı türetir. Bu davranış geliştirme kurulumlarının bozulmasını engeller; üretimde bağımsız bir `NEXTAUTH_SECRET` kullanılması önerilir.
+
+Mevcut kurulumda `JWEDecryptionFailed` veya `decryption operation failed` hatası oluştuysa:
+
+1. Sabit bir `NEXTAUTH_SECRET` tanımlayın.
+2. Next.js sunucusunu tamamen yeniden başlatın.
+3. Tarayıcıdaki eski oturumu kapatıp GitHub ile yeniden giriş yapın. Veritabanı API'si okunamayan eski oturum çerezlerini otomatik temizler.
 
 `DATABASE_ALLOWED_HOSTS=*` ve `DATABASE_ALLOWED_PORTS=*` teknik olarak desteklenir ancak internete açık kurulumlarda önerilmez.
 
@@ -72,6 +100,7 @@ Sürüm seçimi profil metadatasıdır. Gerçek uyumluluk `mysql2` protokol sür
 - Her kullanıcı veya proje için en az yetkili ayrı veritabanı hesabı oluşturun.
 - Üretimde web uygulamasını HTTPS üzerinden yayınlayın.
 - Mümkünse veritabanı TLS bağlantısını ve sertifika doğrulamasını zorunlu tutun.
+- `NEXTAUTH_SECRET` değerini kaynak koda veya repoya eklemeyin ve kurulumlar arasında değiştirmeyin.
 - `DATABASE_ALLOWED_HOSTS` ve `DATABASE_ALLOWED_PORTS` değerlerini dar tutun; bu ayarlar sunucu tarafı ağ erişimini sınırlar.
 - Route Handler oturum, aynı-origin, request boyutu ve temel rate-limit kontrolleri uygular.
 - IndexedDB aynı cihaz/tarayıcı profiline özeldir; cihazlar arası senkronizasyon sağlamaz.
