@@ -25,7 +25,8 @@ function assertSameOrigin(request: NextRequest) {
     return;
   }
 
-  const expectedHost = request.headers.get('x-forwarded-host') || request.headers.get('host');
+  const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const expectedHost = forwardedHost || request.headers.get('host');
 
   try {
     if (!expectedHost || new URL(origin).host !== expectedHost) {
@@ -38,6 +39,15 @@ function assertSameOrigin(request: NextRequest) {
 
 function applyRateLimit(identity: string) {
   const now = Date.now();
+
+  if (requestBuckets.size > 1_000) {
+    for (const [key, bucket] of requestBuckets) {
+      if (bucket.resetAt <= now) {
+        requestBuckets.delete(key);
+      }
+    }
+  }
+
   const bucket = requestBuckets.get(identity);
 
   if (!bucket || bucket.resetAt <= now) {
@@ -50,6 +60,25 @@ function applyRateLimit(identity: string) {
   }
 
   bucket.count += 1;
+}
+
+function normalizeRouteError(error: unknown) {
+  if (error instanceof DatabaseServiceError) {
+    return error;
+  }
+
+  const candidate = error as { code?: string; message?: string };
+  const code = candidate?.code || 'DATABASE_API_ERROR';
+
+  if (['ENOTFOUND', 'EAI_AGAIN'].includes(code)) {
+    return new DatabaseServiceError('Veritabanı host adresi çözümlenemedi.', 422, code);
+  }
+
+  if (['ETIMEDOUT', 'ECONNREFUSED'].includes(code)) {
+    return new DatabaseServiceError('Veritabanı sunucusuna bağlanılamadı.', 504, code);
+  }
+
+  return new DatabaseServiceError('Beklenmeyen bir veritabanı API hatası oluştu.', 500, code);
 }
 
 export async function POST(request: NextRequest) {
@@ -90,10 +119,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const databaseError =
-      error instanceof DatabaseServiceError
-        ? error
-        : new DatabaseServiceError('Beklenmeyen bir veritabanı API hatası oluştu.', 500, 'DATABASE_API_ERROR');
+    const databaseError = normalizeRouteError(error);
 
     return NextResponse.json(
       { error: databaseError.code, message: databaseError.message },
