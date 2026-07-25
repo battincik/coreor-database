@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -9,6 +9,8 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
   Code,
   Database,
   Filter,
@@ -16,16 +18,50 @@ import {
   Link,
   Plus,
   RefreshCw,
+  Search,
   Server,
-  SortAsc,
-  Table as TableIcon
+  Table as TableIcon,
+  Trash2
 } from 'lucide-react';
-import type { DatabasePanelProps } from 'types';
+import type {
+  DatabasePanelProps,
+  TableDataFilter,
+  TableDataFilterOperator,
+  TableDataPagination,
+  TableDataSort
+} from 'types';
 import { useAuth } from '@/context/AuthContext';
 import { DatabaseContext } from '@/context/DatabaseContext';
-import { fetchServerTables, fetchTableData as fetchTableDataFromApi, fetchTableInfo as fetchTableInfoFromApi } from '@/lib/databaseApi';
+import {
+  fetchServerTables,
+  fetchTableData as fetchTableDataFromApi,
+  fetchTableInfo as fetchTableInfoFromApi
+} from '@/lib/databaseApi';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-state';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
+const INITIAL_PAGINATION: TableDataPagination = {
+  page: 1,
+  pageSize: 50,
+  totalRows: 0,
+  totalPages: 1,
+  hasPreviousPage: false,
+  hasNextPage: false
+};
+
+const FILTER_OPERATORS: Array<{ value: TableDataFilterOperator; label: string; needsValue: boolean }> = [
+  { value: 'contains', label: 'İçerir', needsValue: true },
+  { value: 'equals', label: 'Eşittir', needsValue: true },
+  { value: 'startsWith', label: 'İle başlar', needsValue: true },
+  { value: 'endsWith', label: 'İle biter', needsValue: true },
+  { value: 'gt', label: 'Büyüktür', needsValue: true },
+  { value: 'gte', label: 'Büyük/eşit', needsValue: true },
+  { value: 'lt', label: 'Küçüktür', needsValue: true },
+  { value: 'lte', label: 'Küçük/eşit', needsValue: true },
+  { value: 'isNull', label: 'NULL', needsValue: false },
+  { value: 'isNotNull', label: 'NULL değil', needsValue: false }
+];
 
 function highlightSQL(sql: string): React.ReactNode {
   const keywords = ['SELECT', 'FROM', 'WHERE', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE', 'DROP', 'ALTER', 'ADD', 'COLUMN', 'BETWEEN', 'AND', 'OR', 'NOT', 'NULL', 'IS', 'LIKE', 'IN', 'AS', 'JOIN', 'ON', 'ORDER', 'BY', 'GROUP', 'HAVING', 'DISTINCT', 'LIMIT', 'OFFSET', 'UNION', 'ALL', 'EXISTS', 'CASE', 'WHEN', 'THEN', 'END'];
@@ -47,7 +83,32 @@ function openServerModal() {
   window.dispatchEvent(new Event('coreor:open-server-modal'));
 }
 
-export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setActiveTab, onDatabaseSelect, onTableSelect }: DatabasePanelProps) {
+function createFilterId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  return `filter-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function operatorNeedsValue(operator: TableDataFilterOperator) {
+  return FILTER_OPERATORS.find(item => item.value === operator)?.needsValue ?? true;
+}
+
+function useDebouncedValue<T>(value: T, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedValue(value), delay);
+    return () => window.clearTimeout(timeout);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
+export function DatabasePanel({
+  selectedDatabase,
+  selectedTable,
+  activeTab,
+  setActiveTab,
+  onDatabaseSelect,
+  onTableSelect
+}: DatabasePanelProps) {
   const {
     databases,
     setDatabases,
@@ -63,7 +124,8 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
   } = useContext(DatabaseContext)!;
   const { activeToken } = useAuth();
   const activeServer = useMemo(() => servers.find(server => server.id === activeServerId) ?? null, [servers, activeServerId]);
-  const [sortConfig, setSortConfig] = useState<{ column: string | null; direction: 'asc' | 'desc' }>({ column: null, direction: 'asc' });
+  const selectedDatabaseItem = databases.find(database => database.name === selectedDatabase);
+
   const [isCatalogLoading, setIsCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [isTableInfoLoading, setIsTableInfoLoading] = useState(false);
@@ -71,20 +133,54 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
   const [isTableDataLoading, setIsTableDataLoading] = useState(false);
   const [tableDataError, setTableDataError] = useState<string | null>(null);
 
-  const selectedDatabaseItem = databases.find(database => database.name === selectedDatabase);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [pagination, setPagination] = useState<TableDataPagination>(INITIAL_PAGINATION);
+  const [sorts, setSorts] = useState<TableDataSort[]>([]);
+  const [filters, setFilters] = useState<TableDataFilter[]>([]);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const debouncedFilters = useDebouncedValue(filters, 350);
+  const requestSequence = useRef(0);
+  const totalCache = useRef<{ key: string; totalRows: number } | null>(null);
+
+  const [tableNameSearch, setTableNameSearch] = useState('');
+  const [tableNameSort, setTableNameSort] = useState<'asc' | 'desc'>('asc');
+  const [tableListPage, setTableListPage] = useState(1);
+  const tableListPageSize = 100;
+
+  const effectiveFilters = useMemo(
+    () =>
+      debouncedFilters.filter(filter => {
+        if (!filter.column) return false;
+        if (!operatorNeedsValue(filter.operator)) return true;
+        return Boolean(filter.value?.trim());
+      }),
+    [debouncedFilters]
+  );
+  const effectiveFilterKey = useMemo(() => JSON.stringify(effectiveFilters), [effectiveFilters]);
+  const tableDataCacheKey = `${activeServerId || ''}:${selectedDatabase || ''}:${selectedTable || ''}:${effectiveFilterKey}`;
+
+  const visibleTableNames = useMemo(() => {
+    const normalizedSearch = tableNameSearch.trim().toLocaleLowerCase('tr-TR');
+    const names = (selectedDatabaseItem?.tables || []).filter(name => !normalizedSearch || name.toLocaleLowerCase('tr-TR').includes(normalizedSearch));
+    names.sort((left, right) => left.localeCompare(right, 'tr-TR') * (tableNameSort === 'asc' ? 1 : -1));
+    return names;
+  }, [selectedDatabaseItem?.tables, tableNameSearch, tableNameSort]);
+  const tableListTotalPages = Math.max(1, Math.ceil(visibleTableNames.length / tableListPageSize));
+  const pagedTableNames = visibleTableNames.slice((tableListPage - 1) * tableListPageSize, tableListPage * tableListPageSize);
 
   const loadCatalog = async () => {
     if (!activeServerId || !activeToken || isCatalogLoading) return;
-
     setIsCatalogLoading(true);
     setCatalogError(null);
-
     try {
       const data = await fetchServerTables(activeServerId, activeToken);
       setDatabases(data.databases || []);
       await loadServers();
     } catch (error) {
-      setCatalogError(error instanceof Error ? error.message : 'Veritabanı kataloğu yüklenemedi.');
+      const code = (error as Error & { code?: string }).code;
+      if (code !== 'REQUEST_SUPERSEDED') setCatalogError(error instanceof Error ? error.message : 'Veritabanı kataloğu yüklenemedi.');
     } finally {
       setIsCatalogLoading(false);
     }
@@ -95,10 +191,7 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
     const cachedDatabases = currentServer?.databases || [];
     setDatabases(cachedDatabases);
     setCatalogError(null);
-
-    if (currentServer && cachedDatabases.length === 0 && activeToken) {
-      loadCatalog();
-    }
+    if (currentServer && cachedDatabases.length === 0 && activeToken) loadCatalog();
   }, [activeServerId, activeToken]);
 
   useEffect(() => {
@@ -107,7 +200,28 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
     setTableData([]);
     setTableInfoError(null);
     setTableDataError(null);
+    setTableNameSearch('');
+    setTableListPage(1);
   }, [selectedDatabase]);
+
+  useEffect(() => {
+    setPage(1);
+    setPageSize(50);
+    setPagination(INITIAL_PAGINATION);
+    setSorts([]);
+    setFilters([]);
+    setIsFilterPanelOpen(false);
+    totalCache.current = null;
+  }, [selectedDatabase, selectedTable, activeServerId]);
+
+  useEffect(() => {
+    setPage(1);
+    totalCache.current = null;
+  }, [effectiveFilterKey, pageSize]);
+
+  useEffect(() => {
+    setTableListPage(1);
+  }, [tableNameSearch, tableNameSort, selectedDatabase]);
 
   useEffect(() => {
     const loadTableInfo = async () => {
@@ -119,12 +233,12 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
       setIsTableInfoLoading(true);
       setTableInfoError(null);
       setTableInfo(null);
-
       try {
         const data = await fetchTableInfoFromApi(activeServerId, selectedDatabase, selectedTable, activeToken);
         setTableInfo(data);
       } catch (error) {
-        setTableInfoError(error instanceof Error ? error.message : 'Tablo yapısı yüklenemedi.');
+        const code = (error as Error & { code?: string }).code;
+        if (code !== 'REQUEST_SUPERSEDED') setTableInfoError(error instanceof Error ? error.message : 'Tablo yapısı yüklenemedi.');
       } finally {
         setIsTableInfoLoading(false);
       }
@@ -136,34 +250,75 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
   useEffect(() => {
     const loadTableData = async () => {
       if (activeTab !== 'table-data' || !selectedDatabase || !selectedTable || !activeServerId || !activeToken) return;
-
+      const sequence = ++requestSequence.current;
       setIsTableDataLoading(true);
       setTableDataError(null);
-      setTableData([]);
 
+      const cachedTotal = totalCache.current?.key === tableDataCacheKey ? totalCache.current.totalRows : undefined;
       try {
-        const sortParam = sortConfig.column ? `${sortConfig.direction === 'desc' ? '-' : ''}${sortConfig.column}` : null;
-        const data = await fetchTableDataFromApi(activeServerId, selectedDatabase, selectedTable, 512, activeToken, sortParam);
-        setTableData(data.data || []);
+        const response = await fetchTableDataFromApi(activeServerId, selectedDatabase, selectedTable, activeToken, {
+          page,
+          pageSize,
+          sorts,
+          filters: effectiveFilters,
+          includeTotal: cachedTotal === undefined,
+          knownTotalRows: cachedTotal
+        });
+
+        if (sequence !== requestSequence.current) return;
+        setTableData(response.data || []);
+        setPagination(response.pagination);
+        totalCache.current = { key: tableDataCacheKey, totalRows: response.pagination.totalRows };
+        if (response.pagination.page !== page) setPage(response.pagination.page);
       } catch (error) {
-        setTableDataError(error instanceof Error ? error.message : 'Tablo verileri yüklenemedi.');
+        if (sequence !== requestSequence.current) return;
+        const code = (error as Error & { code?: string }).code;
+        if (code !== 'REQUEST_SUPERSEDED') setTableDataError(error instanceof Error ? error.message : 'Tablo verileri yüklenemedi.');
       } finally {
-        setIsTableDataLoading(false);
+        if (sequence === requestSequence.current) setIsTableDataLoading(false);
       }
     };
 
     loadTableData();
-  }, [activeTab, selectedDatabase, selectedTable, activeServerId, activeToken, sortConfig]);
+  }, [activeTab, selectedDatabase, selectedTable, activeServerId, activeToken, page, pageSize, sorts, effectiveFilterKey, refreshNonce]);
 
-  useEffect(() => {
-    setSortConfig({ column: null, direction: 'asc' });
-  }, [selectedDatabase, selectedTable]);
+  const handleSortByColumn = (column: string, additive = false) => {
+    setPage(1);
+    setSorts(previous => {
+      const existingIndex = previous.findIndex(sort => sort.column === column);
+      const existing = existingIndex >= 0 ? previous[existingIndex] : null;
+      let nextForColumn: TableDataSort | null = null;
+      if (!existing) nextForColumn = { column, direction: 'asc' };
+      else if (existing.direction === 'asc') nextForColumn = { column, direction: 'desc' };
 
-  const handleSortByColumn = (column: string) => {
-    setSortConfig(previous => ({
-      column,
-      direction: previous.column === column && previous.direction === 'asc' ? 'desc' : 'asc'
-    }));
+      if (!additive) return nextForColumn ? [nextForColumn] : [];
+      const next = previous.filter(sort => sort.column !== column);
+      if (nextForColumn) next.push(nextForColumn);
+      return next;
+    });
+  };
+
+  const refreshTableData = () => {
+    totalCache.current = null;
+    setRefreshNonce(previous => previous + 1);
+  };
+
+  const addFilter = () => {
+    const firstColumn = tableInfo?.columns[0]?.Field;
+    if (!firstColumn) return;
+    setFilters(previous => [
+      ...previous,
+      { id: createFilterId(), column: firstColumn, operator: 'contains', value: '' }
+    ]);
+    setIsFilterPanelOpen(true);
+  };
+
+  const updateFilter = (id: string | undefined, patch: Partial<TableDataFilter>) => {
+    setFilters(previous => previous.map(filter => (filter.id === id ? { ...filter, ...patch } : filter)));
+  };
+
+  const removeFilter = (id: string | undefined) => {
+    setFilters(previous => previous.filter(filter => filter.id !== id));
   };
 
   const handleDatabaseSelect = (databaseName: string) => {
@@ -191,21 +346,9 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
     }
   };
 
-  const retryTableData = () => {
-    setSortConfig(previous => ({ ...previous }));
-  };
-
-  if (isServersLoading) {
-    return <LoadingState title="Çalışma alanı hazırlanıyor" description="Şifreli sunucu profilleri ve son seçimler yükleniyor." />;
-  }
-
-  if (serversError) {
-    return <ErrorState title="Çalışma alanı açılamadı" description={serversError} actionLabel="Tekrar dene" onAction={loadServers} />;
-  }
-
-  if (servers.length === 0) {
-    return <EmptyState icon={Server} title="İlk sunucunuzu ekleyin" description="MySQL veya MariaDB sunucusu eklediğinizde veritabanları, tablolar ve işlem geçmişi burada görüntülenecek." actionLabel="Sunucu ekle" onAction={openServerModal} />;
-  }
+  if (isServersLoading) return <LoadingState title="Çalışma alanı hazırlanıyor" description="Şifreli sunucu profilleri ve son seçimler yükleniyor." />;
+  if (serversError) return <ErrorState title="Çalışma alanı açılamadı" description={serversError} actionLabel="Tekrar dene" onAction={loadServers} />;
+  if (servers.length === 0) return <EmptyState icon={Server} title="İlk sunucunuzu ekleyin" description="MySQL veya MariaDB sunucusu eklediğinizde veritabanları ve tablolar burada görüntülenecek." actionLabel="Sunucu ekle" onAction={openServerModal} />;
 
   return (
     <div className="flex h-full flex-col">
@@ -239,56 +382,45 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
           ) : (
             <ScrollArea className="h-[calc(100%-2rem)]">
               <Table size="sm" className="w-full border-collapse">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="border-b border-r border-zinc-800 bg-zinc-950 text-muted-foreground">Veritabanı</TableHead>
-                    <TableHead className="border-b border-zinc-800 bg-zinc-950 text-muted-foreground">Tablo sayısı</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {databases.map(database => (
-                    <TableRow key={database.name} className={`cursor-pointer hover:bg-muted/40 ${selectedDatabase === database.name ? 'bg-muted/30' : ''}`} onClick={() => handleDatabaseSelect(database.name)}>
-                      <TableCell className="border-r border-zinc-800 py-1.5 font-medium"><span className="flex items-center gap-2"><Database className="h-4 w-4 text-emerald-500" />{database.name}</span></TableCell>
-                      <TableCell className="py-1.5 tabular-nums">{database.tables.length}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
+                <TableHeader><TableRow className="hover:bg-transparent"><TableHead className="border-b border-r border-zinc-800 bg-zinc-950">Veritabanı</TableHead><TableHead className="border-b border-zinc-800 bg-zinc-950">Tablo sayısı</TableHead></TableRow></TableHeader>
+                <TableBody>{databases.map(database => <TableRow key={database.name} className={`cursor-pointer hover:bg-muted/40 ${selectedDatabase === database.name ? 'bg-muted/30' : ''}`} onClick={() => handleDatabaseSelect(database.name)}><TableCell className="border-r border-zinc-800 py-1.5 font-medium"><span className="flex items-center gap-2"><Database className="h-4 w-4 text-emerald-500" />{database.name}</span></TableCell><TableCell className="py-1.5 tabular-nums">{database.tables.length}</TableCell></TableRow>)}</TableBody>
               </Table>
             </ScrollArea>
           )}
         </TabsContent>
 
-        <TabsContent value="database" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
-          <div className="flex h-8 items-center gap-3 border-b border-zinc-800 px-2">
+        <TabsContent value="database" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+          <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 border-b border-zinc-800 px-2 py-1">
             <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={loadCatalog}><RefreshCw className="h-3.5 w-3.5" /> Yenile</button>
-            <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"><Filter className="h-3.5 w-3.5" /> Filtre</button>
-            <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"><SortAsc className="h-3.5 w-3.5" /> Sırala</button>
+            <div className="relative min-w-52 max-w-sm flex-1">
+              <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" />
+              <Input value={tableNameSearch} onChange={event => setTableNameSearch(event.target.value)} placeholder="Tablo ara" className="h-7 pl-7 text-xs" />
+            </div>
+            <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => setTableNameSort(previous => previous === 'asc' ? 'desc' : 'asc')}>
+              {tableNameSort === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />} Ada göre
+            </button>
+            <span className="ml-auto text-[10px] text-zinc-600">{visibleTableNames.length.toLocaleString('tr-TR')} tablo</span>
           </div>
           {!selectedDatabase ? (
             <EmptyState icon={Database} title="Veritabanı seçilmedi" description="Sol ağaçtan veya veritabanları listesinden bir veritabanı seçin." />
           ) : !selectedDatabaseItem || selectedDatabaseItem.tables.length === 0 ? (
             <EmptyState icon={TableIcon} title="Bu veritabanında tablo yok" description="Kullanıcının tablo görüntüleme yetkisini kontrol edin veya kataloğu yenileyin." actionLabel="Yenile" onAction={loadCatalog} />
+          ) : visibleTableNames.length === 0 ? (
+            <EmptyState icon={Search} title="Eşleşen tablo yok" description="Tablo arama metnini değiştirin." actionLabel="Aramayı temizle" onAction={() => setTableNameSearch('')} />
           ) : (
-            <ScrollArea className="h-[calc(100%-2rem)]">
-              <Table size="sm" className="w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="border-b border-r border-zinc-800 bg-zinc-950 text-muted-foreground">Tablo adı</TableHead>
-                    <TableHead className="border-b border-r border-zinc-800 bg-zinc-950 text-muted-foreground">Motor</TableHead>
-                    <TableHead className="border-b border-zinc-800 bg-zinc-950 text-muted-foreground">İşlem</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedDatabaseItem.tables.map(tableName => (
-                    <TableRow key={tableName} className="cursor-pointer hover:bg-muted/40" onClick={() => handleTableSelect(selectedDatabase, tableName)}>
-                      <TableCell className="border-r border-zinc-800 py-1.5 font-medium"><span className="flex items-center gap-2"><TableIcon className="h-4 w-4 text-blue-500" />{tableName}</span></TableCell>
-                      <TableCell className="border-r border-zinc-800 py-1.5">{activeServer?.databaseType === 'mariadb' ? 'MariaDB' : 'MySQL'}</TableCell>
-                      <TableCell className="py-1.5 text-xs text-emerald-400">Verileri aç</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+            <>
+              <ScrollArea className="min-h-0 flex-1">
+                <Table size="sm" className="w-full">
+                  <TableHeader><TableRow><TableHead className="sticky top-0 border-b border-r border-zinc-800 bg-zinc-950">Tablo adı</TableHead><TableHead className="sticky top-0 border-b border-r border-zinc-800 bg-zinc-950">Motor</TableHead><TableHead className="sticky top-0 border-b border-zinc-800 bg-zinc-950">İşlem</TableHead></TableRow></TableHeader>
+                  <TableBody>{pagedTableNames.map(tableName => <TableRow key={tableName} className="cursor-pointer hover:bg-muted/40" onClick={() => handleTableSelect(selectedDatabase, tableName)}><TableCell className="border-r border-zinc-800 py-1.5 font-medium"><span className="flex items-center gap-2"><TableIcon className="h-4 w-4 text-blue-500" />{tableName}</span></TableCell><TableCell className="border-r border-zinc-800 py-1.5">{activeServer?.databaseType === 'mariadb' ? 'MariaDB' : 'MySQL'}</TableCell><TableCell className="py-1.5 text-xs text-emerald-400">Verileri aç</TableCell></TableRow>)}</TableBody>
+                </Table>
+              </ScrollArea>
+              <div className="flex h-9 shrink-0 items-center justify-end gap-2 border-t border-zinc-800 px-2 text-[11px] text-zinc-500">
+                <Button variant="ghost" size="sm" className="h-7" disabled={tableListPage <= 1} onClick={() => setTableListPage(previous => Math.max(1, previous - 1))}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+                <span>{tableListPage} / {tableListTotalPages}</span>
+                <Button variant="ghost" size="sm" className="h-7" disabled={tableListPage >= tableListTotalPages} onClick={() => setTableListPage(previous => Math.min(tableListTotalPages, previous + 1))}><ChevronRight className="h-3.5 w-3.5" /></Button>
+              </div>
+            </>
           )}
         </TabsContent>
 
@@ -307,44 +439,117 @@ export function DatabasePanel({ selectedDatabase, selectedTable, activeTab, setA
                 <TabsTrigger value="foreign-keys" className="h-8 px-3 text-xs" icon={<Link className="h-4 w-4" />}>Foreign key</TabsTrigger>
                 <TabsTrigger value="create-sql" className="h-8 px-3 text-xs" icon={<Code className="h-4 w-4" />}>CREATE SQL</TabsTrigger>
               </TabsList>
-              <TabsContent value="columns" className="m-0 min-h-0 flex-1 overflow-auto p-0">
-                <Table size="sm"><TableHeader><TableRow><TableHead className="border bg-zinc-950">Alan</TableHead><TableHead className="border bg-zinc-950">Tür</TableHead><TableHead className="border bg-zinc-950">NULL</TableHead><TableHead className="border bg-zinc-950">Anahtar</TableHead><TableHead className="border bg-zinc-950">Varsayılan</TableHead><TableHead className="border bg-zinc-950">Ek</TableHead></TableRow></TableHeader><TableBody>{tableInfo.columns.map(column => <TableRow key={column.Field}><TableCell className="border py-1 font-medium">{column.Field}</TableCell><TableCell className="border py-1 text-green-400">{column.Type}</TableCell><TableCell className="border py-1">{column.Null}</TableCell><TableCell className="border py-1">{column.Key}</TableCell><TableCell className="border py-1">{column.Default ?? 'NULL'}</TableCell><TableCell className="border py-1">{column.Extra}</TableCell></TableRow>)}</TableBody></Table>
-              </TabsContent>
-              <TabsContent value="indexes" className="m-0 min-h-0 flex-1 overflow-auto p-0">
-                {tableInfo.indexes.length === 0 ? <EmptyState icon={Key} title="İndeks bulunmuyor" description="Bu tablo için tanımlı indeks yok." /> : <Table size="sm"><TableHeader><TableRow><TableHead className="border bg-zinc-950">İndeks</TableHead><TableHead className="border bg-zinc-950">Kolon</TableHead><TableHead className="border bg-zinc-950">Non-unique</TableHead><TableHead className="border bg-zinc-950">Sıra</TableHead></TableRow></TableHeader><TableBody>{tableInfo.indexes.map(index => <TableRow key={`${index.Key_name}-${index.Column_name}`}><TableCell className="border py-1">{index.Key_name}</TableCell><TableCell className="border py-1">{index.Column_name}</TableCell><TableCell className="border py-1">{index.Non_unique}</TableCell><TableCell className="border py-1">{index.Seq_in_index}</TableCell></TableRow>)}</TableBody></Table>}
-              </TabsContent>
-              <TabsContent value="foreign-keys" className="m-0 min-h-0 flex-1 overflow-auto p-0">
-                {tableInfo.foreignKeys.length === 0 ? <EmptyState icon={Link} title="Foreign key bulunmuyor" description="Bu tablo başka bir tabloya bağlı değil." /> : <Table size="sm"><TableHeader><TableRow><TableHead className="border bg-zinc-950">Kolon</TableHead><TableHead className="border bg-zinc-950">Referans tablo</TableHead><TableHead className="border bg-zinc-950">Referans kolon</TableHead></TableRow></TableHeader><TableBody>{tableInfo.foreignKeys.map(foreignKey => <TableRow key={`${foreignKey.COLUMN_NAME}-${foreignKey.REFERENCED_TABLE_NAME}`}><TableCell className="border py-1">{foreignKey.COLUMN_NAME}</TableCell><TableCell className="border py-1">{foreignKey.REFERENCED_TABLE_NAME}</TableCell><TableCell className="border py-1">{foreignKey.REFERENCED_COLUMN_NAME}</TableCell></TableRow>)}</TableBody></Table>}
-              </TabsContent>
+              <TabsContent value="columns" className="m-0 min-h-0 flex-1 overflow-auto p-0"><Table size="sm"><TableHeader><TableRow><TableHead className="border bg-zinc-950">Alan</TableHead><TableHead className="border bg-zinc-950">Tür</TableHead><TableHead className="border bg-zinc-950">NULL</TableHead><TableHead className="border bg-zinc-950">Anahtar</TableHead><TableHead className="border bg-zinc-950">Varsayılan</TableHead><TableHead className="border bg-zinc-950">Ek</TableHead></TableRow></TableHeader><TableBody>{tableInfo.columns.map(column => <TableRow key={column.Field}><TableCell className="border py-1 font-medium">{column.Field}</TableCell><TableCell className="border py-1 text-green-400">{column.Type}</TableCell><TableCell className="border py-1">{column.Null}</TableCell><TableCell className="border py-1">{column.Key}</TableCell><TableCell className="border py-1">{column.Default ?? 'NULL'}</TableCell><TableCell className="border py-1">{column.Extra}</TableCell></TableRow>)}</TableBody></Table></TabsContent>
+              <TabsContent value="indexes" className="m-0 min-h-0 flex-1 overflow-auto p-0">{tableInfo.indexes.length === 0 ? <EmptyState icon={Key} title="İndeks bulunmuyor" description="Bu tablo için tanımlı indeks yok." /> : <Table size="sm"><TableHeader><TableRow><TableHead className="border bg-zinc-950">İndeks</TableHead><TableHead className="border bg-zinc-950">Kolon</TableHead><TableHead className="border bg-zinc-950">Non-unique</TableHead><TableHead className="border bg-zinc-950">Sıra</TableHead></TableRow></TableHeader><TableBody>{tableInfo.indexes.map(index => <TableRow key={`${index.Key_name}-${index.Column_name}`}><TableCell className="border py-1">{index.Key_name}</TableCell><TableCell className="border py-1">{index.Column_name}</TableCell><TableCell className="border py-1">{index.Non_unique}</TableCell><TableCell className="border py-1">{index.Seq_in_index}</TableCell></TableRow>)}</TableBody></Table>}</TabsContent>
+              <TabsContent value="foreign-keys" className="m-0 min-h-0 flex-1 overflow-auto p-0">{tableInfo.foreignKeys.length === 0 ? <EmptyState icon={Link} title="Foreign key bulunmuyor" description="Bu tablo başka bir tabloya bağlı değil." /> : <Table size="sm"><TableHeader><TableRow><TableHead className="border bg-zinc-950">Kolon</TableHead><TableHead className="border bg-zinc-950">Referans tablo</TableHead><TableHead className="border bg-zinc-950">Referans kolon</TableHead></TableRow></TableHeader><TableBody>{tableInfo.foreignKeys.map(foreignKey => <TableRow key={`${foreignKey.COLUMN_NAME}-${foreignKey.REFERENCED_TABLE_NAME}`}><TableCell className="border py-1">{foreignKey.COLUMN_NAME}</TableCell><TableCell className="border py-1">{foreignKey.REFERENCED_TABLE_NAME}</TableCell><TableCell className="border py-1">{foreignKey.REFERENCED_COLUMN_NAME}</TableCell></TableRow>)}</TableBody></Table>}</TabsContent>
               <TabsContent value="create-sql" className="m-0 min-h-0 flex-1 overflow-auto bg-black/30 p-3"><pre className="whitespace-pre-wrap font-mono text-xs leading-5">{highlightSQL(tableInfo.createSQL)}</pre></TabsContent>
             </Tabs>
           )}
         </TabsContent>
 
-        <TabsContent value="table-data" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
-          <div className="flex h-8 items-center gap-3 border-b border-zinc-800 px-2">
-            <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={retryTableData}><RefreshCw className={`h-3.5 w-3.5 ${isTableDataLoading ? 'animate-spin' : ''}`} /> Yenile</button>
-            <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"><Filter className="h-3.5 w-3.5" /> Filtre</button>
-            <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => tableInfo?.columns[0] && handleSortByColumn(tableInfo.columns[0].Field)}><ArrowUpDown className="h-3.5 w-3.5" /> Sırala</button>
+        <TabsContent value="table-data" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+          <div className="flex min-h-9 shrink-0 flex-wrap items-center gap-2 border-b border-zinc-800 px-2 py-1">
+            <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={refreshTableData}><RefreshCw className={`h-3.5 w-3.5 ${isTableDataLoading ? 'animate-spin' : ''}`} /> Yenile</button>
+            <button type="button" className={`flex items-center gap-1 text-xs hover:text-foreground ${isFilterPanelOpen ? 'text-cyan-400' : 'text-muted-foreground'}`} onClick={() => setIsFilterPanelOpen(previous => !previous)}><Filter className="h-3.5 w-3.5" /> Filtre {effectiveFilters.length > 0 && `(${effectiveFilters.length})`}</button>
+            <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => setSorts([])} disabled={sorts.length === 0}><ArrowUpDown className="h-3.5 w-3.5" /> Sıralamayı temizle</button>
+            <span className="ml-auto text-[10px] text-zinc-600">Başlığa tıkla; çoklu sıralama için Shift + tıkla</span>
           </div>
-          {isTableDataLoading ? (
-            <LoadingState title="Satırlar yükleniyor" description={`${selectedDatabase}.${selectedTable}`} />
-          ) : tableDataError ? (
-            <ErrorState title="Tablo verileri yüklenemedi" description={tableDataError} actionLabel="Tekrar dene" onAction={retryTableData} />
-          ) : !tableInfo ? (
-            <LoadingState title="Kolon bilgileri hazırlanıyor" />
-          ) : tableData.length === 0 ? (
-            <EmptyState icon={TableIcon} title="Tabloda veri yok" description="Sorgu başarılı oldu ancak görüntülenecek satır bulunamadı." />
-          ) : (
-            <ScrollArea className="h-[calc(100%-2rem)] w-full">
-              <div className="min-w-max">
-                <Table size="sm" className="w-full">
-                  <TableHeader><TableRow>{tableInfo.columns.map(column => <TableHead key={column.Field} className="cursor-pointer whitespace-nowrap border bg-zinc-950" onClick={() => handleSortByColumn(column.Field)}><span className="inline-flex items-center gap-1">{column.Field}{sortConfig.column === column.Field ? sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" /> : <ArrowUpDown className="h-3 w-3 opacity-40" />}</span></TableHead>)}</TableRow></TableHeader>
-                  <TableBody>{tableData.map((row, rowIndex) => <TableRow key={rowIndex}>{tableInfo.columns.map(column => { const value = row[column.Field]; const displayValue = value === null ? '(NULL)' : typeof value === 'object' ? JSON.stringify(value) : String(value); const className = value === null ? 'text-zinc-500 italic' : typeof value === 'number' ? 'text-blue-400' : typeof value === 'boolean' ? 'text-purple-400' : typeof value === 'object' ? 'text-amber-400' : 'text-green-400'; return <TableCell key={column.Field} className={`whitespace-nowrap border py-1 font-mono text-xs ${className}`}>{displayValue}</TableCell>; })}</TableRow>)}</TableBody>
-                </Table>
+
+          {isFilterPanelOpen && tableInfo && (
+            <div className="shrink-0 space-y-2 border-b border-zinc-800 bg-zinc-950/80 p-2">
+              {filters.map(filter => {
+                const needsValue = operatorNeedsValue(filter.operator);
+                return (
+                  <div key={filter.id} className="grid gap-2 sm:grid-cols-[minmax(140px,0.7fr)_minmax(120px,0.5fr)_minmax(180px,1fr)_32px]">
+                    <select value={filter.column} onChange={event => updateFilter(filter.id, { column: event.target.value })} className="h-8 rounded-md border border-zinc-800 bg-zinc-950 px-2 text-xs">
+                      {tableInfo.columns.map(column => <option key={column.Field} value={column.Field}>{column.Field}</option>)}
+                    </select>
+                    <select value={filter.operator} onChange={event => updateFilter(filter.id, { operator: event.target.value as TableDataFilterOperator })} className="h-8 rounded-md border border-zinc-800 bg-zinc-950 px-2 text-xs">
+                      {FILTER_OPERATORS.map(operator => <option key={operator.value} value={operator.value}>{operator.label}</option>)}
+                    </select>
+                    <Input value={filter.value || ''} disabled={!needsValue} onChange={event => updateFilter(filter.id, { value: event.target.value })} placeholder={needsValue ? 'Filtre değeri' : 'Değer gerekmiyor'} className="h-8 text-xs" />
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-red-400" onClick={() => removeFilter(filter.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  </div>
+                );
+              })}
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={addFilter}><Plus className="h-3.5 w-3.5" /> Filtre ekle</Button>
+                {filters.length > 0 && <Button type="button" variant="ghost" size="sm" className="h-7 text-[11px] text-zinc-500" onClick={() => setFilters([])}>Tümünü temizle</Button>}
+                <span className="text-[10px] text-zinc-600">Filtreler 350 ms bekleme sonrasında sunucuda uygulanır.</span>
               </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+            </div>
+          )}
+
+          {!tableInfo && isTableInfoLoading ? (
+            <LoadingState title="Kolon bilgileri hazırlanıyor" />
+          ) : tableDataError && tableData.length === 0 ? (
+            <ErrorState title="Tablo verileri yüklenemedi" description={tableDataError} actionLabel="Tekrar dene" onAction={refreshTableData} />
+          ) : isTableDataLoading && tableData.length === 0 ? (
+            <LoadingState title="Satırlar yükleniyor" description={`${selectedDatabase}.${selectedTable}`} />
+          ) : !tableInfo ? (
+            <EmptyState icon={TableIcon} title="Tablo seçilmedi" description="Verilerini görmek için bir tablo seçin." />
+          ) : tableData.length === 0 ? (
+            <EmptyState icon={TableIcon} title={effectiveFilters.length > 0 ? 'Filtre sonucu bulunamadı' : 'Tabloda veri yok'} description={effectiveFilters.length > 0 ? 'Filtre değerlerini değiştirin veya temizleyin.' : 'Sorgu başarılı oldu ancak görüntülenecek satır bulunamadı.'} actionLabel={effectiveFilters.length > 0 ? 'Filtreleri temizle' : undefined} onAction={effectiveFilters.length > 0 ? () => setFilters([]) : undefined} />
+          ) : (
+            <div className="relative min-h-0 flex-1">
+              {isTableDataLoading && <div className="absolute inset-x-0 top-0 z-30 h-0.5 overflow-hidden bg-zinc-800"><div className="h-full w-1/3 animate-pulse bg-cyan-400" /></div>}
+              {tableDataError && <div className="absolute inset-x-2 top-2 z-20 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] text-red-300">{tableDataError}</div>}
+              <ScrollArea className="h-full w-full">
+                <div className="min-w-max">
+                  <Table size="sm" className="w-full">
+                    <TableHeader>
+                      <TableRow>
+                        {tableInfo.columns.map(column => {
+                          const sortIndex = sorts.findIndex(sort => sort.column === column.Field);
+                          const sort = sortIndex >= 0 ? sorts[sortIndex] : null;
+                          return (
+                            <TableHead key={column.Field} className="sticky top-0 z-10 cursor-pointer whitespace-nowrap border bg-zinc-950 select-none" onClick={event => handleSortByColumn(column.Field, event.shiftKey)}>
+                              <span className="inline-flex items-center gap-1">
+                                {column.Field}
+                                {sort ? sort.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-cyan-400" /> : <ArrowDown className="h-3 w-3 text-cyan-400" /> : <ArrowUpDown className="h-3 w-3 opacity-35" />}
+                                {sorts.length > 1 && sort && <span className="rounded bg-cyan-500/15 px-1 text-[9px] text-cyan-300">{sortIndex + 1}</span>}
+                              </span>
+                            </TableHead>
+                          );
+                        })}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tableData.map((row, rowIndex) => (
+                        <TableRow key={(pagination.page - 1) * pagination.pageSize + rowIndex}>
+                          {tableInfo.columns.map(column => {
+                            const value = row[column.Field];
+                            const displayValue = value === null ? '(NULL)' : typeof value === 'object' ? JSON.stringify(value) : String(value);
+                            const className = value === null ? 'text-zinc-500 italic' : typeof value === 'number' ? 'text-blue-400' : typeof value === 'boolean' ? 'text-purple-400' : typeof value === 'object' ? 'text-amber-400' : 'text-green-400';
+                            return <TableCell key={column.Field} className={`max-w-[520px] truncate whitespace-nowrap border py-1 font-mono text-xs ${className}`} title={displayValue}>{displayValue}</TableCell>;
+                          })}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            </div>
+          )}
+
+          {tableInfo && (
+            <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 border-t border-zinc-800 px-2 py-1 text-[11px] text-zinc-500">
+              <span>{pagination.totalRows.toLocaleString('tr-TR')} satır</span>
+              <span>•</span>
+              <span>{pagination.totalPages.toLocaleString('tr-TR')} sayfa</span>
+              <label className="ml-auto flex items-center gap-1.5">
+                Sayfa boyutu
+                <select value={pageSize} onChange={event => setPageSize(Number(event.target.value))} className="h-7 rounded border border-zinc-800 bg-zinc-950 px-2 text-[11px] text-zinc-300">
+                  {[25, 50, 100, 250, 500].map(size => <option key={size} value={size}>{size}</option>)}
+                </select>
+              </label>
+              <Button type="button" variant="ghost" size="sm" className="h-7 px-2" disabled={!pagination.hasPreviousPage || isTableDataLoading} onClick={() => setPage(1)}>İlk</Button>
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={!pagination.hasPreviousPage || isTableDataLoading} onClick={() => setPage(previous => Math.max(1, previous - 1))}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+              <span className="min-w-20 text-center tabular-nums">{pagination.page} / {pagination.totalPages}</span>
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={!pagination.hasNextPage || isTableDataLoading} onClick={() => setPage(previous => Math.min(pagination.totalPages, previous + 1))}><ChevronRight className="h-3.5 w-3.5" /></Button>
+              <Button type="button" variant="ghost" size="sm" className="h-7 px-2" disabled={!pagination.hasNextPage || isTableDataLoading} onClick={() => setPage(pagination.totalPages)}>Son</Button>
+            </div>
           )}
         </TabsContent>
       </Tabs>
