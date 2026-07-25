@@ -49,16 +49,26 @@ function formatDateTime(timestamp: string) {
   }).format(new Date(timestamp));
 }
 
-function statusIcon(level: ActivityEntry['level']) {
-  if (level === 'success') return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />;
-  if (level === 'warning') return <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />;
-  return <XCircle className="h-3.5 w-3.5 text-red-400" />;
+function statusIcon(level: ActivityEntry['level'], className = 'h-3 w-3') {
+  if (level === 'success') return <CheckCircle2 className={`${className} text-emerald-400`} />;
+  if (level === 'warning') return <AlertTriangle className={`${className} text-amber-400`} />;
+  if (level === 'error') return <XCircle className={`${className} text-red-400`} />;
+  return <CheckCircle2 className={`${className} text-cyan-400`} />;
 }
 
 function statusLabel(level: ActivityEntry['level']) {
   if (level === 'success') return 'Başarılı';
   if (level === 'warning') return 'Uyarı';
-  return 'Hata';
+  if (level === 'error') return 'Hata';
+  return 'Çalıştırıldı';
+}
+
+function queryTarget(entry: ActivityEntry) {
+  const databaseTarget = entry.databaseName
+    ? `${entry.databaseName}${entry.tableName ? `.${entry.tableName}` : ''}`
+    : entry.tableName || 'veritabanı yok';
+
+  return `${entry.serverName || 'Coreor'} • ${databaseTarget}`;
 }
 
 function downloadActivityLog() {
@@ -92,7 +102,7 @@ function QueryDetailModal({ entry, onClose }: { entry: ActivityEntry | null; onC
       <div className="relative z-10 flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
         <div className="flex items-start justify-between border-b border-zinc-800 px-5 py-4">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="mt-0.5 rounded-md border border-zinc-800 bg-black/30 p-2">{statusIcon(entry.level)}</div>
+            <div className="mt-0.5 rounded-md border border-zinc-800 bg-black/30 p-2">{statusIcon(entry.level, 'h-4 w-4')}</div>
             <div className="min-w-0">
               <h2 className="truncate text-sm font-semibold text-zinc-100">{entry.title}</h2>
               <p className="mt-1 text-xs text-zinc-500">{formatDateTime(entry.timestamp)}</p>
@@ -107,7 +117,7 @@ function QueryDetailModal({ entry, onClose }: { entry: ActivityEntry | null; onC
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-lg border border-zinc-800 bg-black/20 p-3">
               <div className="text-[10px] uppercase tracking-wider text-zinc-600">Durum</div>
-              <div className={entry.level === 'success' ? 'mt-1 font-medium text-emerald-400' : 'mt-1 font-medium text-red-400'}>{statusLabel(entry.level)}</div>
+              <div className={entry.level === 'error' ? 'mt-1 font-medium text-red-400' : entry.level === 'warning' ? 'mt-1 font-medium text-amber-400' : 'mt-1 font-medium text-emerald-400'}>{statusLabel(entry.level)}</div>
             </div>
             <div className="rounded-lg border border-zinc-800 bg-black/20 p-3">
               <div className="text-[10px] uppercase tracking-wider text-zinc-600">Süre</div>
@@ -131,9 +141,7 @@ function QueryDetailModal({ entry, onClose }: { entry: ActivityEntry | null; onC
             </div>
             <div className="rounded-lg border border-zinc-800 p-3">
               <div className="text-[10px] uppercase tracking-wider text-zinc-600">Hedef</div>
-              <div className="mt-1 font-mono text-zinc-200">
-                {entry.databaseName || '—'}{entry.tableName ? `.${entry.tableName}` : ''}
-              </div>
+              <div className="mt-1 font-mono text-zinc-200">{entry.databaseName || '—'}{entry.tableName ? `.${entry.tableName}` : ''}</div>
               {entry.errorCode && <div className="mt-0.5 text-[11px] text-red-400">{entry.errorCode}</div>}
             </div>
           </div>
@@ -196,7 +204,7 @@ export default function BottomBar({ selectedDatabase, selectedTable }: BottomBar
 
   return (
     <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 text-xs">
-      <div className={`flex flex-col transition-[height] duration-200 ${isConsoleOpen ? 'h-60' : 'h-8'}`}>
+      <div className={`flex flex-col transition-[height] duration-200 ${isConsoleOpen ? 'h-52' : 'h-8'}`}>
         <div className="flex h-8 shrink-0 items-center justify-between border-b border-zinc-800/80 px-2">
           <button type="button" className="flex min-w-0 items-center gap-2 text-zinc-300 hover:text-white" onClick={() => setIsConsoleOpen(previous => !previous)}>
             <Terminal className="h-3.5 w-3.5" />
@@ -234,19 +242,20 @@ export default function BottomBar({ selectedDatabase, selectedTable }: BottomBar
             {filteredEntries.length === 0 ? (
               <div className="flex h-full items-center justify-center text-[11px] text-zinc-600">Henüz çalıştırılmış SQL sorgusu yok.</div>
             ) : (
-              <div className="divide-y divide-zinc-900">
+              <div className="divide-y divide-zinc-900/80">
                 {filteredEntries.map(entry => (
-                  <div key={entry.id} className="grid grid-cols-[28px_86px_minmax(130px,0.45fr)_minmax(280px,1fr)_auto] items-center gap-2 px-2 py-1.5 text-[11px] hover:bg-white/[0.025]">
-                    <button type="button" className="flex h-6 w-6 items-center justify-center rounded hover:bg-zinc-800" onClick={() => setSelectedEntry(entry)} title="İşlem özetini aç">
+                  <div key={entry.id} className="grid h-7 grid-cols-[22px_82px_minmax(180px,0.42fr)_minmax(280px,1fr)_auto] items-center gap-1 px-1 text-[10px] leading-none hover:bg-white/[0.025]">
+                    <button type="button" className="flex h-5 w-5 items-center justify-center rounded hover:bg-zinc-800" onClick={() => setSelectedEntry(entry)} title="İşlem özetini aç">
                       {statusIcon(entry.level)}
                     </button>
                     <span className="tabular-nums text-zinc-600">{formatClock(entry.timestamp)}</span>
-                    <div className="min-w-0">
-                      <div className="truncate text-zinc-300">{entry.serverName || 'Coreor'}</div>
-                      <div className="truncate text-[10px] text-zinc-600">{entry.databaseName || 'veritabanı yok'}{entry.tableName ? `.${entry.tableName}` : ''}</div>
-                    </div>
-                    <code className={`block truncate ${entry.level === 'error' ? 'text-red-300' : 'text-cyan-300'}`}>{entry.sql}</code>
-                    <div className="flex items-center gap-2 whitespace-nowrap text-[10px] text-zinc-600">
+                    <span className="min-w-0 truncate text-zinc-500" title={queryTarget(entry)}>
+                      <span className="text-zinc-200">{entry.serverName || 'Coreor'}</span>
+                      <span className="mx-1 text-zinc-700">•</span>
+                      <span>{entry.databaseName || 'veritabanı yok'}{entry.tableName ? `.${entry.tableName}` : ''}</span>
+                    </span>
+                    <code className={`block min-w-0 truncate ${entry.level === 'error' ? 'text-red-300' : 'text-cyan-300'}`}>{entry.sql}</code>
+                    <div className="flex items-center gap-2 whitespace-nowrap pr-1 text-[10px] text-zinc-600">
                       {typeof entry.rowCount === 'number' && <span>{entry.rowCount.toLocaleString('tr-TR')} satır</span>}
                       {typeof entry.affectedRows === 'number' && <span>{entry.affectedRows.toLocaleString('tr-TR')} etkilendi</span>}
                       {typeof entry.durationMs === 'number' && <span>{entry.durationMs} ms</span>}
