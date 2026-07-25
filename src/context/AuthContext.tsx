@@ -1,146 +1,84 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import type { Session } from 'next-auth';
+import { useSession } from 'next-auth/react';
 
 interface AuthContextType {
-  user: any;
-  login: (email: string, password: string) => Promise<any>;
-  register: (data: {
-    firstname: string;
-    lastname: string;
-    username: string;
-    email: string;
-    password: string;
-  }) => Promise<any>;
-  switchAccount: (token: string) => void;
-  logout: () => void;
+  user: Session['user'] | null;
   activeToken: string | null;
+  isReady: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+async function createAccountVaultId(user: NonNullable<Session['user']>) {
+  const stableIdentity = user.email?.trim().toLowerCase() || user.name?.trim().toLowerCase() || user.image?.trim();
+
+  if (!stableIdentity) {
+    throw new Error('Kullanıcı hesabı için kararlı bir kimlik oluşturulamadı.');
+  }
+
+  const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(`coreor-account:${stableIdentity}`));
+  const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+
+  return `account:${hash}`;
+}
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState(null);
+  const { data: session, status } = useSession();
   const [activeToken, setActiveToken] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        setActiveToken(token);
-        const userDetails = await fetchUserDetails(token);
-        if (userDetails) {
-          setUser(userDetails);
-        } else {
-          localStorage.removeItem('token');
+    let cancelled = false;
+
+    const resolveAccount = async () => {
+      if (status === 'loading') {
+        return;
+      }
+
+      if (!session?.user) {
+        if (!cancelled) {
           setActiveToken(null);
+          setIsReady(true);
+        }
+        return;
+      }
+
+      try {
+        const accountId = await createAccountVaultId(session.user);
+
+        if (!cancelled) {
+          setActiveToken(accountId);
+          setIsReady(true);
+        }
+      } catch (error) {
+        console.error('Hesap kasası kimliği oluşturulamadı:', error);
+
+        if (!cancelled) {
+          setActiveToken(null);
+          setIsReady(true);
         }
       }
     };
-    initializeAuth();
-  }, []);
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      if (activeToken) {
-        try {
-          const res = await fetch('https://api.coreor.net/database/me', {
-            headers: { Authorization: `Bearer ${activeToken}` }
-          });
-          const data = await res.json();
-          setUser(data);
-        } catch {
-          setUser(null);
-        }
-      }
+    resolveAccount();
+
+    return () => {
+      cancelled = true;
     };
-    fetchUser();
-  }, [activeToken]);
+  }, [session?.user, status]);
 
-  const login = async (email: string, password: string) => {
-    const res = await fetch('https://api.coreor.net/database/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      const tokens = JSON.parse(localStorage.getItem('tokens') || '[]');
-      tokens.push(data.token);
-      localStorage.setItem('tokens', JSON.stringify(tokens));
-      localStorage.setItem('token', data.token);
-      setActiveToken(data.token);
-    }
-    return data;
-  };
-
-  const register = async ({
-    firstname,
-    lastname,
-    username,
-    email,
-    password
-  }: {
-    firstname: string;
-    lastname: string;
-    username: string;
-    email: string;
-    password: string;
-  }) => {
-    const res = await fetch('https://api.coreor.net/database/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ firstname, lastname, username, email, password })
-    });
-    const data = await res.json();
-    if (res.ok && data.token) {
-      localStorage.setItem('token', data.token);
-      setActiveToken(data.token);
-      setUser(await fetchUserDetails(data.token));
-    }
-    return data;
-  };
-
-  const fetchUserDetails = async (token: string) => {
-    try {
-      const res = await fetch('https://api.coreor.net/database/me', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        console.log(data);
-        return data;
-      }
-    } catch {
-      return null;
-    }
-  };
-
-  const switchAccount = async (token: string) => {
-    localStorage.setItem('token', token); // Yeni aktif token'i ayarla
-    setActiveToken(token);
-  };
-
-  const logout = async () => {
-    const tokens = JSON.parse(localStorage.getItem('tokens') || '[]').filter((t: string) => t !== activeToken);
-    localStorage.setItem('tokens', JSON.stringify(tokens));
-    localStorage.removeItem('token'); // Aktif token'i kaldır
-    setActiveToken(null);
-    setUser(null);
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, login, register, switchAccount, logout, activeToken }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ user: session?.user ?? null, activeToken, isReady }}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
+
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
+
   return context;
 };
