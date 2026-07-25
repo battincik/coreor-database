@@ -21,15 +21,27 @@ export interface DatabasePanelProps {
     onTableSelect: (tableName: string | null) => void;
 }
 
-export type DatabaseEngine = 'mysql' | 'mariadb' | 'postgresql';
+export type DatabaseEngine = 'mysql' | 'mariadb';
 export type DatabaseSslMode = 'required' | 'preferred' | 'disabled';
+export type DatabaseApiAction = 'test' | 'catalog' | 'table-info' | 'table-data' | 'query';
+
+export interface DatabaseConnectionPayload {
+    engine: DatabaseEngine;
+    host: string;
+    port: number;
+    username: string;
+    password: string;
+    database?: string;
+    sslMode: DatabaseSslMode;
+    connectTimeoutMs?: number;
+}
 
 export interface DatabaseServerConfig {
     id: string;
     name: string;
     /**
-     * Tarayıcının bağlanacağı HTTPS connector adresi. `baseUrl` eski kayıtlarla
-     * geriye uyumluluk için korunuyor; yeni kayıtlarda `connectorUrl` tercih edilir.
+     * Önceki connector mimarisinden kalan kayıtları okuyabilmek için tutulur.
+     * Yeni kayıtlar bu alanları kullanmaz ve bağlantı aynı origin Next.js API üzerinden yapılır.
      */
     connectorUrl?: string;
     baseUrl?: string;
