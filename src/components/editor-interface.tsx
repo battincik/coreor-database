@@ -1,7 +1,7 @@
 'use client';
 
 import { useContext, useEffect, useState } from 'react';
-import { FilePlus2, Plus, RefreshCw, Server } from 'lucide-react';
+import { Code, Plus, RefreshCw, Server } from 'lucide-react';
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Sidebar } from '@/components/sidebar';
 import { DatabasePanel } from '@/components/database-panel';
@@ -45,7 +45,7 @@ function EditorWorkspace() {
           {
             id: 'new-global-query',
             label: 'Yeni sunucu geneli sorgu',
-            icon: FilePlus2,
+            icon: Code,
             disabled: !activeServer,
             onSelect: () => openQueryTab({ serverId: activeServerId, databaseName: null, title: 'Genel sorgu' })
           },
