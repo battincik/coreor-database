@@ -2,11 +2,11 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronRight, Database, LockKeyhole, Network, Server, ShieldCheck, X } from 'lucide-react';
+import { ChevronRight, Database, Globe, Server, Shield, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DatabaseServerConfig, DatabaseSslMode } from 'types';
+import type { DatabaseServerConfig, DatabaseSslMode } from 'types';
 import { DEFAULT_DATABASE_CONNECTOR_URL } from '@/lib/databaseApi';
 
 interface ServerCreateModalValues {
@@ -116,7 +116,7 @@ export function ServerCreateModal({ open, onClose, onSubmit }: ServerCreateModal
         <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
-              <LockKeyhole className="h-3.5 w-3.5" />
+              <Shield className="h-3.5 w-3.5" />
               Şifreli tarayıcı kasası
             </div>
             <h2 className="text-2xl font-semibold text-white">MySQL sunucusu ekle</h2>
@@ -132,7 +132,7 @@ export function ServerCreateModal({ open, onClose, onSubmit }: ServerCreateModal
             <Card className="border-white/10 bg-white/[0.03] shadow-none">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base text-white">
-                  <Network className="h-4 w-4 text-cyan-400" />
+                  <Globe className="h-4 w-4 text-cyan-400" />
                   Tarayıcı connector
                 </CardTitle>
                 <CardDescription>Tarayıcı raw MySQL TCP bağlantısı açamadığı için her sunucuya yakın stateless HTTPS connector gerekir.</CardDescription>
@@ -233,7 +233,7 @@ export function ServerCreateModal({ open, onClose, onSubmit }: ServerCreateModal
             </Card>
 
             <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4 text-sm text-blue-100">
-              <div className="mb-2 flex items-center gap-2 font-medium"><ShieldCheck className="h-4 w-4" />Güvenlik önerisi</div>
+              <div className="mb-2 flex items-center gap-2 font-medium"><Shield className="h-4 w-4" />Güvenlik önerisi</div>
               <p className="text-xs leading-5 text-blue-100/75">Root hesabı kullanma. Yalnızca gereken şema ve işlemler için ayrı MySQL kullanıcısı oluştur; TLS zorunlu tut ve connector erişimini ağ/CORS katmanında sınırla.</p>
             </div>
 
