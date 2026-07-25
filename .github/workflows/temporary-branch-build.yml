@@ -1,6 +1,9 @@
 name: Temporary branch build
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - feature/query-console-and-server-table-grid
