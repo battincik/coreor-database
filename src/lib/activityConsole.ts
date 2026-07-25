@@ -1,11 +1,13 @@
 'use client';
 
-export type ActivityLevel = 'success' | 'warning' | 'error';
+export type ActivityLevel = 'info' | 'success' | 'warning' | 'error' | 'sql';
+export type ActivityCategory = 'system' | 'vault' | 'connection' | 'catalog' | 'schema' | 'data' | 'query' | 'navigation';
 
 export interface ActivityEntry {
   id: string;
   timestamp: string;
   level: ActivityLevel;
+  category?: ActivityCategory;
   title: string;
   message?: string;
   serverId?: string;
@@ -21,9 +23,10 @@ export interface ActivityEntry {
   errorCode?: string;
 }
 
-export type NewActivityEntry = Omit<ActivityEntry, 'id' | 'timestamp'> & {
+export type NewActivityEntry = Omit<ActivityEntry, 'id' | 'timestamp' | 'sql'> & {
   id?: string;
   timestamp?: string;
+  sql?: string;
 };
 
 const STORAGE_KEY = 'coreor:sql-console:v2';
@@ -34,10 +37,7 @@ let entries: ActivityEntry[] = [];
 let hydrated = false;
 
 function createId() {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return `query-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
@@ -60,7 +60,6 @@ function sanitizeParameter(value: unknown): unknown {
 function hydrate() {
   if (hydrated || typeof window === 'undefined') return;
   hydrated = true;
-
   try {
     const stored = window.sessionStorage.getItem(STORAGE_KEY);
     const parsed = stored ? JSON.parse(stored) : [];
