@@ -1,9 +1,9 @@
 name: Context menu and query workspace build
 
 on:
-  push:
+  pull_request:
     branches:
-      - feature/global-context-menus-and-query-workspaces
+      - main
 
 jobs:
   build:
