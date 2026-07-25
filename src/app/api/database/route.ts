@@ -9,6 +9,7 @@ export const maxDuration = 120;
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_REQUESTS = 120;
+const SESSION_COOKIE_PREFIXES = ['next-auth.session-token', '__Secure-next-auth.session-token'];
 const requestBuckets = new Map<string, { count: number; resetAt: number }>();
 
 function noStoreHeaders() {
@@ -35,6 +36,43 @@ function assertSameOrigin(request: NextRequest) {
   } catch {
     throw new DatabaseServiceError('Çapraz origin veritabanı isteği reddedildi.', 403, 'CROSS_ORIGIN_REQUEST_REJECTED');
   }
+}
+
+function getSessionCookieNames(request: NextRequest) {
+  return request.cookies
+    .getAll()
+    .map(cookie => cookie.name)
+    .filter(name => SESSION_COOKIE_PREFIXES.some(prefix => name === prefix || name.startsWith(`${prefix}.`)));
+}
+
+function unauthorizedResponse(request: NextRequest) {
+  const sessionCookieNames = getSessionCookieNames(request);
+  const hasUnreadableSessionCookie = sessionCookieNames.length > 0;
+  const response = NextResponse.json(
+    {
+      error: hasUnreadableSessionCookie ? 'SESSION_INVALID' : 'UNAUTHORIZED',
+      message: hasUnreadableSessionCookie
+        ? 'Oturum çerezi doğrulanamadı ve temizlendi. NEXTAUTH_SECRET ayarını sabit tutup GitHub ile yeniden giriş yapın.'
+        : 'Veritabanı işlemi için GitHub ile giriş yapmalısınız.',
+      reauthenticate: true
+    },
+    { status: 401, headers: noStoreHeaders() }
+  );
+
+  for (const cookieName of sessionCookieNames) {
+    response.cookies.set({
+      name: cookieName,
+      value: '',
+      expires: new Date(0),
+      maxAge: 0,
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: cookieName.startsWith('__Secure-')
+    });
+  }
+
+  return response;
 }
 
 function applyRateLimit(identity: string) {
@@ -94,10 +132,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
-      return NextResponse.json(
-        { error: 'UNAUTHORIZED', message: 'Veritabanı işlemi için giriş yapmalısınız.' },
-        { status: 401, headers: noStoreHeaders() }
-      );
+      return unauthorizedResponse(request);
     }
 
     const user = session.user as typeof session.user & { id?: string };
