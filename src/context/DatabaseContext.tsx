@@ -2,14 +2,14 @@
 'use client';
 
 import React, { createContext, useEffect, useState, ReactNode, useCallback } from 'react';
-import { TableInfo, DatabaseTable, DatabaseServerConfig } from 'types';
+import type { DatabaseCatalogItem, DatabaseServerConfig, DatabaseTable, TableInfo } from 'types';
 import { useAuth } from '@/context/AuthContext';
 import { createDatabaseServer, fetchDatabaseServers, fetchServerTables } from '@/lib/databaseApi';
 import { recordActivity } from '@/lib/activityConsole';
 
 interface DatabaseContextType {
-  databases: { name: string; tables: string[] }[];
-  setDatabases: React.Dispatch<React.SetStateAction<{ name: string; tables: string[] }[]>>;
+  databases: DatabaseCatalogItem[];
+  setDatabases: React.Dispatch<React.SetStateAction<DatabaseCatalogItem[]>>;
   tableInfo: TableInfo | null;
   setTableInfo: React.Dispatch<React.SetStateAction<TableInfo | null>>;
   databaseTables: DatabaseTable[];
@@ -25,15 +25,13 @@ interface DatabaseContextType {
   serversError: string | null;
   loadServers: () => Promise<void>;
   addServer: (server: Omit<DatabaseServerConfig, 'id'>) => Promise<void>;
+  updateServer: (server: DatabaseServerConfig) => Promise<void>;
 }
 
 export const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined);
 
 function createServerId() {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return `server-${Date.now()}`;
 }
 
@@ -43,7 +41,7 @@ function getActiveServerStorageKey(accountId: string) {
 
 export function DatabaseProvider({ children }: { children: ReactNode }) {
   const { activeToken, isReady } = useAuth();
-  const [databases, setDatabases] = useState<{ name: string; tables: string[] }[]>([]);
+  const [databases, setDatabases] = useState<DatabaseCatalogItem[]>([]);
   const [tableInfo, setTableInfo] = useState<TableInfo | null>(null);
   const [databaseTables, setDatabaseTables] = useState<DatabaseTable[]>([]);
   const [tableData, setTableData] = useState<Record<string, any>[]>([]);
@@ -58,7 +56,6 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       setIsServersLoading(true);
       return;
     }
-
     if (!activeToken) {
       setServers([]);
       setActiveServerId(null);
@@ -70,26 +67,16 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
     setIsServersLoading(true);
     setServersError(null);
-
     try {
       const storedServers = await fetchDatabaseServers(activeToken);
       setServers(storedServers);
-
       const storedActiveServerId = localStorage.getItem(getActiveServerStorageKey(activeToken));
-
       setActiveServerId(currentActiveServerId => {
         const preferredServerId = currentActiveServerId || storedActiveServerId;
-
-        if (preferredServerId && storedServers.some(server => server.id === preferredServerId)) {
-          return preferredServerId;
-        }
-
+        if (preferredServerId && storedServers.some(server => server.id === preferredServerId)) return preferredServerId;
         return storedServers[0]?.id || null;
       });
-
-      if (storedServers.length === 0) {
-        setDatabases([]);
-      }
+      if (storedServers.length === 0) setDatabases([]);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Şifreli sunucu kasası yüklenemedi.';
       console.error('Şifreli sunucu kasası yüklenirken bir hata oluştu:', error);
@@ -103,10 +90,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
   }, [activeToken, isReady]);
 
   useEffect(() => {
-    if (!activeToken || !activeServerId) {
-      return;
-    }
-
+    if (!activeToken || !activeServerId) return;
     try {
       localStorage.setItem(getActiveServerStorageKey(activeToken), activeServerId);
     } catch (error) {
@@ -115,15 +99,37 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
   }, [activeServerId, activeToken]);
 
   useEffect(() => {
-    loadServers();
+    void loadServers();
   }, [loadServers]);
 
-  const addServer = async (server: Omit<DatabaseServerConfig, 'id'>) => {
-    if (!activeToken) {
-      throw new Error('Sunucu eklemek için giriş yapmalısınız.');
-    }
-
+  const persistServer = async (server: DatabaseServerConfig, loadInitialCatalog: boolean) => {
+    if (!activeToken) throw new Error('Sunucu kaydetmek için giriş yapmalısınız.');
     setIsAddingServer(true);
+    try {
+      await createDatabaseServer(server, activeToken);
+      setActiveServerId(server.id);
+      if (loadInitialCatalog) {
+        try {
+          await fetchServerTables(server.id, activeToken);
+        } catch (error) {
+          recordActivity({
+            level: 'warning',
+            category: 'connection',
+            title: 'Sunucu kaydedildi, katalog alınamadı',
+            message: error instanceof Error ? error.message : 'İlk bağlantı kurulamadı.',
+            serverId: server.id,
+            serverName: server.name,
+            host: server.host
+          });
+        }
+      }
+      await loadServers();
+    } finally {
+      setIsAddingServer(false);
+    }
+  };
+
+  const addServer = async (server: Omit<DatabaseServerConfig, 'id'>) => {
     const engine = server.databaseType || 'mysql';
     const now = new Date().toISOString();
     const nextServer: DatabaseServerConfig = {
@@ -143,29 +149,24 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       createdAt: now,
       updatedAt: now
     };
+    await persistServer(nextServer, true);
+  };
 
-    try {
-      await createDatabaseServer(nextServer, activeToken);
-      setActiveServerId(nextServer.id);
-
-      try {
-        await fetchServerTables(nextServer.id, activeToken);
-      } catch (error) {
-        recordActivity({
-          level: 'warning',
-          category: 'connection',
-          title: 'Sunucu kaydedildi, katalog alınamadı',
-          message: error instanceof Error ? error.message : 'İlk bağlantı kurulamadı.',
-          serverId: nextServer.id,
-          serverName: nextServer.name,
-          host: nextServer.host
-        });
-      }
-
-      await loadServers();
-    } finally {
-      setIsAddingServer(false);
-    }
+  const updateServer = async (server: DatabaseServerConfig) => {
+    const existing = servers.find(item => item.id === server.id);
+    const nextServer: DatabaseServerConfig = {
+      ...existing,
+      ...server,
+      id: server.id,
+      name: server.name.trim(),
+      host: server.host?.trim(),
+      username: server.username?.trim(),
+      databaseName: server.databaseName?.trim(),
+      databases: existing?.databases ?? server.databases ?? [],
+      createdAt: existing?.createdAt ?? server.createdAt,
+      updatedAt: new Date().toISOString()
+    };
+    await persistServer(nextServer, false);
   };
 
   return (
@@ -187,7 +188,8 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         isAddingServer,
         serversError,
         loadServers,
-        addServer
+        addServer,
+        updateServer
       }}
     >
       {children}
