@@ -8,6 +8,8 @@ import { readEncryptedServerProfiles, writeEncryptedServerProfiles } from '@/lib
 export const DEFAULT_DATABASE_API_BASE = process.env.NEXT_PUBLIC_DATABASE_CONNECTOR_URL ?? '';
 export const DEFAULT_DATABASE_CONNECTOR_URL = DEFAULT_DATABASE_API_BASE;
 
+const profileMutationQueues = new Map<string, Promise<void>>();
+
 export interface DatabaseServerCatalogItem extends DatabaseServerConfig {
   databases: { name: string; tables: string[] }[];
 }
@@ -25,6 +27,11 @@ interface ConnectorConnectionPayload {
 interface ConnectorErrorPayload {
   error?: string;
   message?: string;
+}
+
+interface ProfileMutationResult<T> {
+  servers: DatabaseServerConfig[];
+  result: T;
 }
 
 function createServerId() {
@@ -160,14 +167,43 @@ async function requireServer(accountId: string | null | undefined, serverId: str
     throw new Error('Sunucu profili şifreli kasada bulunamadı.');
   }
 
-  return { server, servers };
+  return server;
+}
+
+async function mutateServerProfiles<T>(accountId: string, mutation: (servers: DatabaseServerConfig[]) => ProfileMutationResult<T>) {
+  const previousMutation = profileMutationQueues.get(accountId) ?? Promise.resolve();
+  let mutationResult!: T;
+
+  const currentMutation = previousMutation
+    .catch(() => undefined)
+    .then(async () => {
+      const currentServers = await readEncryptedServerProfiles(accountId);
+      const nextState = mutation(currentServers);
+      mutationResult = nextState.result;
+      await writeEncryptedServerProfiles(accountId, nextState.servers);
+    });
+
+  profileMutationQueues.set(accountId, currentMutation);
+
+  try {
+    await currentMutation;
+    return mutationResult;
+  } finally {
+    if (profileMutationQueues.get(accountId) === currentMutation) {
+      profileMutationQueues.delete(accountId);
+    }
+  }
 }
 
 async function updateCachedDatabases(accountId: string, serverId: string, databases: { name: string; tables: string[] }[]) {
-  const servers = await readEncryptedServerProfiles(accountId);
-  const updatedAt = new Date().toISOString();
-  const nextServers = servers.map(server => (server.id === serverId ? { ...server, databases, updatedAt } : server));
-  await writeEncryptedServerProfiles(accountId, nextServers);
+  await mutateServerProfiles(accountId, servers => {
+    const updatedAt = new Date().toISOString();
+
+    return {
+      servers: servers.map(server => (server.id === serverId ? { ...server, databases, updatedAt } : server)),
+      result: undefined
+    };
+  });
 }
 
 export async function fetchDatabaseServers(accountId?: string | null) {
@@ -183,7 +219,6 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
     throw new Error('Sunucu kaydetmek için kullanıcı oturumu gerekli.');
   }
 
-  const servers = await readEncryptedServerProfiles(accountId);
   const now = new Date().toISOString();
   const normalizedConnectorUrl = normalizeBaseUrl(server.connectorUrl || server.baseUrl || DEFAULT_DATABASE_CONNECTOR_URL);
   const nextServer: DatabaseServerConfig = {
@@ -203,21 +238,25 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
     updatedAt: now
   };
 
-  const existingIndex = servers.findIndex(item => item.id === nextServer.id);
-  const nextServers = [...servers];
+  return mutateServerProfiles(accountId, servers => {
+    const existingIndex = servers.findIndex(item => item.id === nextServer.id);
+    const nextServers = [...servers];
 
-  if (existingIndex >= 0) {
-    nextServers[existingIndex] = nextServer;
-  } else {
-    nextServers.push(nextServer);
-  }
+    if (existingIndex >= 0) {
+      nextServers[existingIndex] = nextServer;
+    } else {
+      nextServers.push(nextServer);
+    }
 
-  await writeEncryptedServerProfiles(accountId, nextServers);
-  return nextServer;
+    return {
+      servers: nextServers,
+      result: nextServer
+    };
+  });
 }
 
 export async function fetchServerTables(serverId: string, accountId?: string | null) {
-  const { server } = await requireServer(accountId, serverId);
+  const server = await requireServer(accountId, serverId);
   const response = await requestConnector<{ databases?: { name: string; tables: string[] }[] } | { name: string; tables: string[] }[]>(server, '/v1/catalog');
   const databases = Array.isArray(response) ? response : response?.databases;
 
@@ -234,7 +273,7 @@ export async function fetchServerTables(serverId: string, accountId?: string | n
 }
 
 export async function fetchTableInfo(serverId: string, databaseName: string, tableName: string, accountId?: string | null) {
-  const { server } = await requireServer(accountId, serverId);
+  const server = await requireServer(accountId, serverId);
 
   return requestConnector<TableInfo>(server, '/v1/table-info', {
     database: databaseName,
@@ -243,7 +282,7 @@ export async function fetchTableInfo(serverId: string, databaseName: string, tab
 }
 
 export async function fetchTableData(serverId: string, databaseName: string, tableName: string, limit = 512, accountId?: string | null, sort?: string | null) {
-  const { server } = await requireServer(accountId, serverId);
+  const server = await requireServer(accountId, serverId);
 
   return requestConnector<{ data: Record<string, unknown>[]; total?: number }>(server, '/v1/table-data', {
     database: databaseName,
@@ -254,7 +293,7 @@ export async function fetchTableData(serverId: string, databaseName: string, tab
 }
 
 export async function executeDatabaseQuery(serverId: string, sql: string, accountId?: string | null, databaseName?: string | null) {
-  const { server } = await requireServer(accountId, serverId);
+  const server = await requireServer(accountId, serverId);
 
   if (!sql.trim()) {
     throw new Error('Çalıştırılacak SQL sorgusu boş olamaz.');
