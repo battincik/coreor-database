@@ -31,18 +31,25 @@ interface AppContextMenuContextValue {
 
 const AppContextMenuContext = createContext<AppContextMenuContextValue | null>(null);
 
+function visibleItems(items: AppContextMenuItem[]) {
+  // Inline editor empty string ile SQL NULL değerini henüz ayrı state olarak tutmadığı için
+  // yanlış veri yazma riski taşıyan hızlı NULL eylemi menüde gösterilmez.
+  return items.filter(item => item.id !== 'set-null');
+}
+
 function MenuItems({ items, closeMenu }: { items: AppContextMenuItem[]; closeMenu: () => void }) {
   const [openSubmenuId, setOpenSubmenuId] = useState<string | null>(null);
 
   return (
     <div className="min-w-56 py-1">
-      {items.map(item => {
+      {visibleItems(items).map(item => {
         if (item.separator) {
           return <div key={item.id} className="my-1 h-px bg-zinc-800" />;
         }
 
         const Icon = item.icon;
-        const hasChildren = Boolean(item.children?.length);
+        const children = visibleItems(item.children || []);
+        const hasChildren = children.length > 0;
 
         return (
           <div
@@ -77,7 +84,7 @@ function MenuItems({ items, closeMenu }: { items: AppContextMenuItem[]; closeMen
 
             {hasChildren && openSubmenuId === item.id && (
               <div className="absolute left-[calc(100%-4px)] top-0 z-[210] rounded-md border border-zinc-800 bg-zinc-950 shadow-2xl">
-                <MenuItems items={item.children || []} closeMenu={closeMenu} />
+                <MenuItems items={children} closeMenu={closeMenu} />
               </div>
             )}
           </div>
@@ -97,8 +104,9 @@ export function AppContextMenuProvider({ children }: { children: React.ReactNode
     (event: React.MouseEvent | MouseEvent, items: AppContextMenuItem[], title?: string) => {
       event.preventDefault();
       event.stopPropagation();
-      if (!items.length) return;
-      setMenu({ x: event.clientX, y: event.clientY, items, title });
+      const nextItems = visibleItems(items);
+      if (!nextItems.length) return;
+      setMenu({ x: event.clientX, y: event.clientY, items: nextItems, title });
     },
     []
   );
