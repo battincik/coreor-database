@@ -6,6 +6,8 @@ const KEY_STORE = 'account-keys';
 const VAULT_STORE = 'server-vaults';
 const VAULT_VERSION = 1;
 
+const accountKeyPromises = new Map<string, Promise<CryptoKey>>();
+
 interface StoredAccountKey {
   accountId: string;
   key: CryptoKey;
@@ -90,13 +92,14 @@ function additionalAuthenticatedData(accountId: string) {
   return new TextEncoder().encode(`coreor:database-servers:${accountId}:v${VAULT_VERSION}`);
 }
 
-async function getOrCreateAccountKey(accountId: string) {
+async function loadOrCreateAccountKey(accountId: string) {
   const database = await openVaultDatabase();
 
   try {
     const readTransaction = database.transaction(KEY_STORE, 'readonly');
+    const readCompleted = transactionToPromise(readTransaction);
     const storedKey = await requestToPromise<StoredAccountKey | undefined>(readTransaction.objectStore(KEY_STORE).get(accountId));
-    await transactionToPromise(readTransaction);
+    await readCompleted;
 
     if (storedKey?.key) {
       return storedKey.key;
@@ -112,17 +115,34 @@ async function getOrCreateAccountKey(accountId: string) {
     );
 
     const writeTransaction = database.transaction(KEY_STORE, 'readwrite');
+    const writeCompleted = transactionToPromise(writeTransaction);
     writeTransaction.objectStore(KEY_STORE).put({
       accountId,
       key,
       createdAt: new Date().toISOString()
     } satisfies StoredAccountKey);
-    await transactionToPromise(writeTransaction);
+    await writeCompleted;
 
     return key;
   } finally {
     database.close();
   }
+}
+
+function getOrCreateAccountKey(accountId: string) {
+  const existingPromise = accountKeyPromises.get(accountId);
+
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const keyPromise = loadOrCreateAccountKey(accountId).catch(error => {
+    accountKeyPromises.delete(accountId);
+    throw error;
+  });
+
+  accountKeyPromises.set(accountId, keyPromise);
+  return keyPromise;
 }
 
 export async function readEncryptedServerProfiles(accountId: string) {
@@ -134,8 +154,9 @@ export async function readEncryptedServerProfiles(accountId: string) {
 
   try {
     const transaction = database.transaction(VAULT_STORE, 'readonly');
+    const completed = transactionToPromise(transaction);
     const vault = await requestToPromise<StoredServerVault | undefined>(transaction.objectStore(VAULT_STORE).get(accountId));
-    await transactionToPromise(transaction);
+    await completed;
 
     if (!vault) {
       return [];
@@ -196,6 +217,7 @@ export async function writeEncryptedServerProfiles(accountId: string, servers: D
 
   try {
     const transaction = database.transaction(VAULT_STORE, 'readwrite');
+    const completed = transactionToPromise(transaction);
     transaction.objectStore(VAULT_STORE).put({
       accountId,
       version: VAULT_VERSION,
@@ -203,7 +225,7 @@ export async function writeEncryptedServerProfiles(accountId: string, servers: D
       ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
       updatedAt: new Date().toISOString()
     } satisfies StoredServerVault);
-    await transactionToPromise(transaction);
+    await completed;
   } finally {
     database.close();
   }
