@@ -29,6 +29,7 @@ export type NewActivityEntry = Omit<ActivityEntry, 'id' | 'timestamp'> & {
 
 const STORAGE_KEY = 'coreor:database-activity-console:v1';
 const MAX_ENTRIES = 300;
+const EMPTY_ACTIVITIES: ActivityEntry[] = [];
 const listeners = new Set<() => void>();
 let entries: ActivityEntry[] = [];
 let hydrated = false;
@@ -122,7 +123,7 @@ export function getActivitiesSnapshot() {
 }
 
 export function getActivitiesServerSnapshot() {
-  return [] as ActivityEntry[];
+  return EMPTY_ACTIVITIES;
 }
 
 export function exportActivities() {
