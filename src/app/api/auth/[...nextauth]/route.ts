@@ -1,6 +1,9 @@
 import NextAuth from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 declare module 'next-auth' {
   interface Session {
     user: {
