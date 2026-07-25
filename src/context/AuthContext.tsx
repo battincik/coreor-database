@@ -13,7 +13,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 async function createAccountVaultId(user: NonNullable<Session['user']>) {
-  const stableIdentity = user.email?.trim().toLowerCase() || user.name?.trim().toLowerCase() || user.image?.trim();
+  const stableIdentity = user.id?.trim() || user.email?.trim().toLowerCase() || user.name?.trim().toLowerCase() || user.image?.trim();
 
   if (!stableIdentity) {
     throw new Error('Kullanıcı hesabı için kararlı bir kimlik oluşturulamadı.');
