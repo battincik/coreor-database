@@ -78,6 +78,11 @@ interface QueryResultSet {
   durationMs: number;
 }
 
+interface DryRunSql {
+  countSql: string;
+  previewSql: string;
+}
+
 const HISTORY_KEY = 'coreor:query-history:v2';
 const FAVORITES_KEY = 'coreor:query-favorites:v2';
 const MAX_HISTORY = 120;
@@ -111,11 +116,13 @@ function readStored(key: string): StoredQuery[] {
 
 function writeStored(key: string, values: StoredQuery[]) {
   if (typeof window === 'undefined') return;
-  try { window.localStorage.setItem(key, JSON.stringify(values.slice(0, MAX_HISTORY))); } catch { /* optional */ }
+  try { window.localStorage.setItem(key, JSON.stringify(values.slice(0, MAX_HISTORY))); } catch { /* optional local library */ }
 }
 
 function createId(prefix = 'query') {
-  return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function queryTitle(sql: string) {
@@ -161,7 +168,7 @@ function formatSql(source: string) {
   if (!compact) return '';
   const major = ['SELECT','FROM','WHERE','INNER JOIN','LEFT JOIN','RIGHT JOIN','CROSS JOIN','GROUP BY','HAVING','ORDER BY','LIMIT','OFFSET','UNION ALL','UNION','VALUES','SET','RETURNING'];
   let formatted = compact.replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, ' ');
-  for (const keyword of major.sort((a, b) => b.length - a.length)) {
+  for (const keyword of major.sort((left, right) => right.length - left.length)) {
     formatted = formatted.replace(new RegExp(`\\s+${keyword.replace(/ /g, '\\s+')}\\s+`, 'gi'), `\n${keyword}\n  `);
   }
   return formatted.replace(/\b(AND|OR)\b/gi, '\n  $1').replace(/,\s*/g, ',\n  ').replace(/\n{3,}/g, '\n\n').trim();
@@ -231,15 +238,40 @@ function splitSqlStatements(sql: string) {
   return statements;
 }
 
-function dryRunQueries(statement: string, engine: string) {
+function stripTrailingQueryClauses(value: string) {
+  return value.replace(/\s+(ORDER\s+BY|LIMIT|OFFSET|FETCH\s+NEXT|RETURNING)\b[\s\S]*$/i, '').trim();
+}
+
+function splitWhere(value: string) {
+  const match = /\s+WHERE\s+([\s\S]+)$/i.exec(value);
+  return {
+    target: (match ? value.slice(0, match.index) : value).trim(),
+    where: match ? ` WHERE ${stripTrailingQueryClauses(match[1])}` : ''
+  };
+}
+
+function dryRunQueries(statement: string, engine: string): DryRunSql | null {
   const normalized = statement.trim().replace(/;\s*$/, '');
-  const update = /^UPDATE\s+([\s\S]+?)\s+SET\s+[\s\S]+$/i.exec(normalized);
-  const remove = /^DELETE\s+FROM\s+([\s\S]+)$/i.exec(normalized);
-  if (!update && !remove) return null;
-  const body = update ? update[1] : remove![1];
-  const whereMatch = /\s+WHERE\s+([\s\S]+)$/i.exec(body);
-  const target = (whereMatch ? body.slice(0, whereMatch.index) : body).trim();
-  const where = whereMatch ? ` WHERE ${whereMatch[1].replace(/\s+(ORDER\s+BY|LIMIT|RETURNING)\b[\s\S]*$/i, '').trim()}` : '';
+  let target = '';
+  let where = '';
+
+  if (/^UPDATE\b/i.test(normalized)) {
+    const afterUpdate = normalized.replace(/^UPDATE\s+/i, '');
+    const setMatch = /\s+SET\s+/i.exec(afterUpdate);
+    if (!setMatch) return null;
+    target = afterUpdate.slice(0, setMatch.index).trim();
+    const afterSet = afterUpdate.slice(setMatch.index + setMatch[0].length);
+    const whereMatch = /\s+WHERE\s+([\s\S]+)$/i.exec(afterSet);
+    where = whereMatch ? ` WHERE ${stripTrailingQueryClauses(whereMatch[1])}` : '';
+  } else if (/^DELETE\s+FROM\b/i.test(normalized)) {
+    const parsed = splitWhere(normalized.replace(/^DELETE\s+FROM\s+/i, ''));
+    target = parsed.target;
+    where = parsed.where;
+  } else {
+    return null;
+  }
+
+  if (!target) return null;
   const countSql = `SELECT COUNT(*) AS affected_rows FROM ${target}${where};`;
   const previewSql = engine === 'mssql'
     ? `SELECT TOP (100) * FROM ${target}${where};`
@@ -393,7 +425,9 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
         previewSql: previewSql.previewSql,
         count: Number.isFinite(count) ? count : null,
         result: sampleResult,
-        description: statements.length > 1 ? 'İlk UPDATE/DELETE ifadesi ön izlendi. Onaydan sonra bütün statement’lar sırayla çalıştırılacaktır.' : 'Bu ön izleme yalnızca SELECT sorguları çalıştırdı; henüz veri değişmedi.',
+        description: statements.length > 1
+          ? 'İlk UPDATE/DELETE ifadesi ön izlendi. Onaydan sonra bütün statement’lar sırayla çalıştırılacaktır.'
+          : 'Bu ön izleme yalnızca SELECT sorguları çalıştırdı; henüz veri değişmedi.',
         onConfirm: () => executeStatements(statements)
       });
     } catch (failure) {
@@ -410,14 +444,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     const approvalStatements = statements.filter(statement => requiresApproval(statement, selectedServer, preferences.approvalWorkflows));
     if (approvalStatements.length) {
       for (const statement of approvalStatements) {
-        addApproval({
-          serverId: selectedServer.id,
-          serverName: selectedServer.name,
-          database: tab.databaseName,
-          action: approvalAction(statement),
-          sql: statement,
-          requestedBy: accountId
-        });
+        addApproval({ serverId: selectedServer.id, serverName: selectedServer.name, database: tab.databaseName, action: approvalAction(statement), sql: statement, requestedBy: accountId });
       }
       onChange({ error: `${approvalStatements.length} işlem ikinci kullanıcı onay kuyruğuna eklendi.`, result: null });
       openDatabaseSafetyCenter({ tab: 'approvals', serverId: selectedServer.id, database: tab.databaseName });
@@ -442,7 +469,11 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     void executeStatements(statements);
   }, [selectedServer, accountId, tab.sql, tab.databaseName, preferences.approvalWorkflows, preferences.sqlDryRun, preferences.confirmDangerousQueries, onChange, startDryRun, executeStatements]);
 
-  useEffect(() => { if (!tab.runImmediately || autoRunHandled.current) return; autoRunHandled.current = true; runQuery(); }, [tab.runImmediately, runQuery]);
+  useEffect(() => {
+    if (!tab.runImmediately || autoRunHandled.current) return;
+    autoRunHandled.current = true;
+    runQuery();
+  }, [tab.runImmediately, runQuery]);
   useEffect(() => { autoRunHandled.current = false; }, [tab.id]);
 
   const isFavorite = favorites.some(item => item.sql.trim() === tab.sql.trim() && item.databaseName === tab.databaseName);
@@ -523,12 +554,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
         </div>
 
         <div className="flex min-h-0 flex-col bg-black/20">
-          <div className="coreor-hide-scrollbar flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-zinc-800 px-2">
-            <Terminal className="mr-1 h-3.5 w-3.5 text-zinc-500" />
-            {resultSets.length ? resultSets.map(result => <button key={result.id} type="button" onClick={() => setActiveResultId(result.id)} className={`flex h-7 shrink-0 items-center gap-1.5 rounded px-2 text-[9px] ${activeResult?.id === result.id ? 'bg-cyan-500/12 text-cyan-200' : 'text-zinc-500 hover:bg-white/[0.04]'}`}>{result.error ? <XCircle className="h-3 w-3 text-red-400" /> : <ShieldCheck className="h-3 w-3 text-emerald-400" />}{result.title}<span className="text-[8px] text-zinc-700">{result.durationMs} ms</span></button>) : <span className="text-[10px] text-zinc-500">Sonuç</span>}
-            {tab.isRunning && <span className="ml-auto text-[9px] text-cyan-400">Çalıştırılıyor…</span>}
-          </div>
-
+          <div className="coreor-hide-scrollbar flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-zinc-800 px-2"><Terminal className="mr-1 h-3.5 w-3.5 text-zinc-500" />{resultSets.length ? resultSets.map(result => <button key={result.id} type="button" onClick={() => setActiveResultId(result.id)} className={`flex h-7 shrink-0 items-center gap-1.5 rounded px-2 text-[9px] ${activeResult?.id === result.id ? 'bg-cyan-500/12 text-cyan-200' : 'text-zinc-500 hover:bg-white/[0.04]'}`}>{result.error ? <XCircle className="h-3 w-3 text-red-400" /> : <ShieldCheck className="h-3 w-3 text-emerald-400" />}{result.title}<span className="text-[8px] text-zinc-700">{result.durationMs} ms</span></button>) : <span className="text-[10px] text-zinc-500">Sonuç</span>}{tab.isRunning && <span className="ml-auto text-[9px] text-cyan-400">Çalıştırılıyor…</span>}</div>
           {activeResult?.error ? <div className="m-3 rounded border border-red-500/30 bg-red-500/10 p-3 font-mono text-[11px] text-red-300">{activeResult.error}</div> : activeResult?.result?.rows?.length ? <ScrollArea className="min-h-0 flex-1"><div className="min-w-max"><Table size="sm" columnStorageKey={`query-result:${tab.id}:${activeResult.id}:${resultColumns.join('|')}`}><TableHeader><TableRow>{resultColumns.map(column => <TableHead key={column} columnKey={column} className="sticky top-0 z-10 h-8 whitespace-nowrap border bg-zinc-950 px-2 text-[10px]">{column}</TableHead>)}</TableRow></TableHeader><TableBody>{activeResult.result.rows.map((row, rowIndex) => <TableRow key={rowIndex}>{resultColumns.map(column => { const text = valueText(row[column]); return <TableCell key={column} className="truncate whitespace-nowrap border px-2 py-1 font-mono text-[11px] text-zinc-300" title={text}>{text}</TableCell>; })}</TableRow>)}</TableBody></Table></div></ScrollArea> : activeResult?.result ? <div className="flex flex-1 items-center justify-center text-xs text-zinc-500">{typeof activeResult.result.affectedRows === 'number' ? `${activeResult.result.affectedRows.toLocaleString('tr-TR')} satır etkilendi.` : 'Sorgu tamamlandı.'}</div> : tab.error ? <div className="m-3 rounded border border-amber-500/25 bg-amber-500/10 p-3 text-[10px] text-amber-300">{tab.error}</div> : <div className="flex flex-1 items-center justify-center text-xs text-zinc-600">Sonuçlar burada ayrı sekmelerde gösterilir.</div>}
         </div>
       </div>
