@@ -133,6 +133,9 @@ export async function POST(request: NextRequest) {
 
     const engine = (payload as { connection?: { engine?: unknown } }).connection?.engine;
     const isExtendedCoreAction = isExtendedDatabaseEngine(engine) && !isDatabaseWorkbenchAction(payload.action) && !isDatabaseTransactionAction(payload.action) && payload.action !== 'performance-snapshot';
+    const mysqlProtocolPayload = engine === 'tidb'
+      ? { ...payload, connection: { ...(payload as { connection: Record<string, unknown> }).connection, engine: 'mysql' as const } }
+      : payload;
 
     const result = isDatabaseTransactionAction(payload.action)
       ? await executeDatabaseTransactionRequest(payload as unknown as DatabaseTransactionRequest, stableIdentity!)
@@ -142,7 +145,7 @@ export async function POST(request: NextRequest) {
           ? await executeDatabaseWorkbenchRequest(payload as unknown as DatabaseWorkbenchRequest)
           : isExtendedCoreAction
             ? await executeExtendedDatabaseRequest(payload)
-            : await executeDatabaseRequest(payload);
+            : await executeDatabaseRequest(mysqlProtocolPayload);
     return NextResponse.json(result, { status: 200, headers: noStoreHeaders() });
   } catch (error) {
     if (error instanceof SyntaxError) {
