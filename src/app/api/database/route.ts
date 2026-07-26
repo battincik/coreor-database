@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth-options';
 import { DatabaseServiceError, executeDatabaseRequest } from '@/lib/server/database-service';
+import { executeExtendedDatabaseRequest, isExtendedDatabaseEngine } from '@/lib/server/extended-database-service';
 import {
   executeDatabaseWorkbenchRequest,
   isDatabaseWorkbenchAction
@@ -130,13 +131,18 @@ export async function POST(request: NextRequest) {
       throw new DatabaseServiceError('Transaction oturumu için kararlı kullanıcı kimliği bulunamadı. GitHub ile yeniden giriş yapın.', 401, 'TRANSACTION_OWNER_IDENTITY_REQUIRED');
     }
 
+    const engine = (payload as { connection?: { engine?: unknown } }).connection?.engine;
+    const isExtendedCoreAction = isExtendedDatabaseEngine(engine) && !isDatabaseWorkbenchAction(payload.action) && !isDatabaseTransactionAction(payload.action) && payload.action !== 'performance-snapshot';
+
     const result = isDatabaseTransactionAction(payload.action)
       ? await executeDatabaseTransactionRequest(payload as unknown as DatabaseTransactionRequest, stableIdentity!)
       : payload.action === 'performance-snapshot'
         ? await executeDatabasePerformanceRequest(payload as unknown as DatabaseWorkbenchRequest)
         : isDatabaseWorkbenchAction(payload.action)
           ? await executeDatabaseWorkbenchRequest(payload as unknown as DatabaseWorkbenchRequest)
-          : await executeDatabaseRequest(payload);
+          : isExtendedCoreAction
+            ? await executeExtendedDatabaseRequest(payload)
+            : await executeDatabaseRequest(payload);
     return NextResponse.json(result, { status: 200, headers: noStoreHeaders() });
   } catch (error) {
     if (error instanceof SyntaxError) {
