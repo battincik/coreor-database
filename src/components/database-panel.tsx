@@ -6,6 +6,7 @@ import {
   Code,
   Copy,
   Database,
+  Network,
   Plus,
   RefreshCw,
   Search,
@@ -22,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-state';
 import { DatabaseCatalogView } from '@/components/database-catalog-view';
+import { DatabaseSchemaGraph } from '@/components/database-schema-graph';
 import { TableSchemaEditor } from '@/components/table-schema-editor';
 import { TableDataView } from '@/components/table-data-view';
 import { QueryWorkspace } from '@/components/query-workspace';
@@ -35,7 +37,6 @@ import {
 } from '@/lib/queryWorkspaceEvents';
 
 const QUERY_TABS_STORAGE_KEY = 'coreor:query-tabs:v1';
-
 type TableView = 'data' | 'structure';
 
 function createId(prefix: string) {
@@ -60,9 +61,7 @@ function hydrateQueryTabs(): EditorQueryTab[] {
       createdAt: String(item.createdAt || new Date().toISOString()),
       updatedAt: String(item.updatedAt || new Date().toISOString())
     }));
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
 export function DatabasePanel({
@@ -87,7 +86,6 @@ export function DatabasePanel({
   const { activeToken } = useAuth();
   const { openContextMenu } = useAppContextMenu();
   const activeServer = useMemo(() => servers.find(server => server.id === activeServerId) ?? null, [servers, activeServerId]);
-  const selectedDatabaseItem = databases.find(database => database.name === selectedDatabase) ?? null;
 
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -133,7 +131,6 @@ export function DatabasePanel({
     const index = queryTabs.findIndex(tab => tab.id === id);
     const nextTabs = queryTabs.filter(tab => tab.id !== id);
     setQueryTabs(nextTabs);
-
     if (activeTab === `query:${id}`) {
       const fallback = nextTabs[Math.max(0, index - 1)];
       if (fallback) setActiveTab(`query:${fallback.id}`);
@@ -159,9 +156,7 @@ export function DatabasePanel({
         QUERY_TABS_STORAGE_KEY,
         JSON.stringify(queryTabs.map(({ result: _result, error: _error, isRunning: _isRunning, runImmediately: _runImmediately, ...tab }) => tab))
       );
-    } catch {
-      // Sekme kalıcılığı editör akışını durdurmamalıdır.
-    }
+    } catch { /* session persistence must not stop editor */ }
   }, [queryTabs]);
 
   useEffect(() => {
@@ -172,8 +167,7 @@ export function DatabasePanel({
 
   const loadCatalog = useCallback(async () => {
     if (!activeServerId || !activeToken || catalogLoading) return;
-    setCatalogLoading(true);
-    setCatalogError(null);
+    setCatalogLoading(true); setCatalogError(null);
     try {
       const response = await fetchServerTables(activeServerId, activeToken);
       setDatabases(response.databases || []);
@@ -181,9 +175,7 @@ export function DatabasePanel({
     } catch (error) {
       const code = (error as Error & { code?: string }).code;
       if (code !== 'REQUEST_SUPERSEDED') setCatalogError(error instanceof Error ? error.message : 'Veritabanı kataloğu yüklenemedi.');
-    } finally {
-      setCatalogLoading(false);
-    }
+    } finally { setCatalogLoading(false); }
   }, [activeServerId, activeToken, catalogLoading, setDatabases, loadServers]);
 
   useEffect(() => {
@@ -199,22 +191,16 @@ export function DatabasePanel({
       setTableInfo(null);
       return;
     }
-    setTableInfoLoading(true);
-    setTableInfoError(null);
-    try {
-      setTableInfo(await fetchTableInfo(activeServerId, selectedDatabase, selectedTable, activeToken));
-    } catch (error) {
+    setTableInfoLoading(true); setTableInfoError(null);
+    try { setTableInfo(await fetchTableInfo(activeServerId, selectedDatabase, selectedTable, activeToken)); }
+    catch (error) {
       const code = (error as Error & { code?: string }).code;
       if (code !== 'REQUEST_SUPERSEDED') setTableInfoError(error instanceof Error ? error.message : 'Tablo yapısı yüklenemedi.');
-    } finally {
-      setTableInfoLoading(false);
-    }
+    } finally { setTableInfoLoading(false); }
   }, [selectedDatabase, selectedTable, activeServerId, activeToken, setTableInfo]);
 
   useEffect(() => {
-    setTableInfo(null);
-    setTableInfoError(null);
-    void loadSelectedTableInfo();
+    setTableInfo(null); setTableInfoError(null); void loadSelectedTableInfo();
   }, [selectedDatabase, selectedTable, activeServerId, activeToken]);
 
   useEffect(() => {
@@ -243,6 +229,7 @@ export function DatabasePanel({
   const openDatabaseMenu = (event: React.MouseEvent, databaseName: string) => {
     openContextMenu(event, [
       { id: 'open', label: 'Veritabanını aç', icon: Database, onSelect: () => handleDatabaseSelect(databaseName) },
+      { id: 'graph', label: 'Şema grafiğini aç', icon: Network, onSelect: () => { if (selectedDatabase !== databaseName) onDatabaseSelect(databaseName); onTableSelect(null); setActiveTab('schema-graph'); } },
       { id: 'query', label: 'Yeni sorgu sekmesi', icon: Code, onSelect: () => createQueryTab({ databaseName, title: `${databaseName} sorgu` }) },
       { id: 'show-tables', label: 'SHOW FULL TABLES', icon: TableIcon, onSelect: () => createQueryTab({ databaseName, title: `${databaseName} tabloları`, sql: 'SHOW FULL TABLES;', runImmediately: true }) },
       { id: 'size', label: 'Tablo boyutlarını sorgula', icon: Search, onSelect: () => createQueryTab({
@@ -295,96 +282,36 @@ export function DatabasePanel({
         <div className="flex h-8 shrink-0 items-center overflow-x-auto border-b border-zinc-800 bg-zinc-950/70">
           <TabsList className="h-8 shrink-0 justify-start bg-transparent">
             <TabsTrigger value="sql-editor" className="h-8 px-3 text-xs" icon={<Database className="h-3.5 w-3.5" />}>Veritabanları</TabsTrigger>
-            {selectedDatabase && <TabsTrigger value="database" className="h-8 max-w-56 px-3 text-xs" icon={<Database className="h-3.5 w-3.5" />}><span className="truncate">{selectedDatabase}</span></TabsTrigger>}
+            {selectedDatabase && <>
+              <TabsTrigger value="database" className="h-8 max-w-56 px-3 text-xs" icon={<Database className="h-3.5 w-3.5" />}><span className="truncate">{selectedDatabase}</span></TabsTrigger>
+              <TabsTrigger value="schema-graph" className="h-8 max-w-56 px-3 text-xs" icon={<Network className="h-3.5 w-3.5" />}><span className="truncate">Şema: {selectedDatabase}</span></TabsTrigger>
+            </>}
             {selectedDatabase && selectedTable && <>
               <TabsTrigger value="table" className="h-8 max-w-64 px-3 text-xs" icon={<TableIcon className="h-3.5 w-3.5" />}><span className="truncate">Yapı: {selectedTable}</span></TabsTrigger>
               <TabsTrigger value="table-data" className="h-8 max-w-64 px-3 text-xs" icon={<TableIcon className="h-3.5 w-3.5" />}><span className="truncate">Veri: {selectedTable}</span></TabsTrigger>
             </>}
-            {queryTabs.map(tab => (
-              <div key={tab.id} className="flex h-8 items-center border-r border-zinc-800">
-                <TabsTrigger value={`query:${tab.id}`} className="h-8 max-w-52 border-r-0 px-2 text-xs" icon={<Code className="h-3.5 w-3.5" />}><span className="truncate">{tab.title}</span></TabsTrigger>
-                <button type="button" className="mr-1 flex h-5 w-5 items-center justify-center rounded text-zinc-600 hover:bg-zinc-800 hover:text-white" onClick={event => { event.stopPropagation(); closeQueryTab(tab.id); }} title="Sorgu sekmesini kapat"><X className="h-3 w-3" /></button>
-              </div>
-            ))}
+            {queryTabs.map(tab => <div key={tab.id} className="flex h-8 items-center border-r border-zinc-800"><TabsTrigger value={`query:${tab.id}`} className="h-8 max-w-52 border-r-0 px-2 text-xs" icon={<Code className="h-3.5 w-3.5" />}><span className="truncate">{tab.title}</span></TabsTrigger><button type="button" className="mr-1 flex h-5 w-5 items-center justify-center rounded text-zinc-600 hover:bg-zinc-800 hover:text-white" onClick={event => { event.stopPropagation(); closeQueryTab(tab.id); }} title="Sorgu sekmesini kapat"><X className="h-3 w-3" /></button></div>)}
           </TabsList>
           <Button type="button" variant="ghost" size="icon" className="ml-1 h-7 w-7 shrink-0" onClick={() => createQueryTab({ databaseName: selectedDatabase || null })} title="Yeni sorgu sekmesi"><Plus className="h-3.5 w-3.5" /></Button>
         </div>
 
-        <TabsContent value="sql-editor" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
-          <DatabaseCatalogView
-            mode="databases"
-            databases={databases}
-            selectedDatabase={selectedDatabase}
-            selectedTable={selectedTable}
-            activeServerName={activeServer?.name}
-            isLoading={catalogLoading}
-            error={catalogError}
-            onRefresh={loadCatalog}
-            onDatabaseSelect={handleDatabaseSelect}
-            onTableSelect={handleTableSelect}
-            onDatabaseContextMenu={openDatabaseMenu}
-            onTableContextMenu={openTableMenu}
-            onOpenQuery={databaseName => createQueryTab({ databaseName })}
-          />
-        </TabsContent>
+        <TabsContent value="sql-editor" className="m-0 min-h-0 flex-1 overflow-hidden p-0"><DatabaseCatalogView mode="databases" databases={databases} selectedDatabase={selectedDatabase} selectedTable={selectedTable} activeServerName={activeServer?.name} isLoading={catalogLoading} error={catalogError} onRefresh={loadCatalog} onDatabaseSelect={handleDatabaseSelect} onTableSelect={handleTableSelect} onDatabaseContextMenu={openDatabaseMenu} onTableContextMenu={openTableMenu} onOpenQuery={databaseName => createQueryTab({ databaseName })} /></TabsContent>
 
-        <TabsContent value="database" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
-          <DatabaseCatalogView
-            mode="tables"
-            databases={databases}
-            selectedDatabase={selectedDatabase}
-            selectedTable={selectedTable}
-            activeServerName={activeServer?.name}
-            isLoading={catalogLoading}
-            error={catalogError}
-            onRefresh={loadCatalog}
-            onDatabaseSelect={handleDatabaseSelect}
-            onTableSelect={(databaseName, tableName) => handleTableSelect(databaseName, tableName)}
-            onDatabaseContextMenu={openDatabaseMenu}
-            onTableContextMenu={openTableMenu}
-            onOpenQuery={databaseName => createQueryTab({ databaseName })}
-          />
+        <TabsContent value="database" className="m-0 min-h-0 flex-1 overflow-hidden p-0"><DatabaseCatalogView mode="tables" databases={databases} selectedDatabase={selectedDatabase} selectedTable={selectedTable} activeServerName={activeServer?.name} isLoading={catalogLoading} error={catalogError} onRefresh={loadCatalog} onDatabaseSelect={handleDatabaseSelect} onTableSelect={(databaseName, tableName) => handleTableSelect(databaseName, tableName)} onDatabaseContextMenu={openDatabaseMenu} onTableContextMenu={openTableMenu} onOpenQuery={databaseName => createQueryTab({ databaseName })} /></TabsContent>
+
+        <TabsContent value="schema-graph" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
+          {!selectedDatabase || !activeServerId ? <EmptyState icon={Network} title="Veritabanı seçilmedi" description="Şema grafiği için bir veritabanı seçin." /> : <DatabaseSchemaGraph serverId={activeServerId} databaseName={selectedDatabase} accountId={activeToken} catalog={databases} onCatalogRefresh={loadCatalog} onOpenTable={tableName => handleTableSelect(selectedDatabase, tableName, 'structure')} />}
         </TabsContent>
 
         <TabsContent value="table" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
-          {tableInfoLoading ? <LoadingState title="Tablo yapısı okunuyor" description={selectedTable || undefined} /> : tableInfoError ? <ErrorState title="Tablo yapısı yüklenemedi" description={tableInfoError} actionLabel="Tekrar dene" onAction={loadSelectedTableInfo} /> : !tableInfo || !selectedDatabase || !selectedTable || !activeServerId ? <EmptyState icon={TableIcon} title="Tablo seçilmedi" description="Yapısını incelemek için bir tablo seçin." /> : (
-            <TableSchemaEditor
-              serverId={activeServerId}
-              databaseName={selectedDatabase}
-              tableName={selectedTable}
-              accountId={activeToken}
-              info={tableInfo}
-              catalog={databases}
-              onInfoChange={setTableInfo}
-              onTableRenamed={nextTableName => {
-                onTableSelect(nextTableName);
-                setActiveTab('table');
-              }}
-              onCatalogRefresh={loadCatalog}
-            />
-          )}
+          {tableInfoLoading ? <LoadingState title="Tablo yapısı okunuyor" description={selectedTable || undefined} /> : tableInfoError ? <ErrorState title="Tablo yapısı yüklenemedi" description={tableInfoError} actionLabel="Tekrar dene" onAction={loadSelectedTableInfo} /> : !tableInfo || !selectedDatabase || !selectedTable || !activeServerId ? <EmptyState icon={TableIcon} title="Tablo seçilmedi" description="Yapısını incelemek için bir tablo seçin." /> : <TableSchemaEditor serverId={activeServerId} databaseName={selectedDatabase} tableName={selectedTable} accountId={activeToken} info={tableInfo} catalog={databases} onInfoChange={setTableInfo} onTableRenamed={nextTableName => { onTableSelect(nextTableName); setActiveTab('table'); }} onCatalogRefresh={loadCatalog} />}
         </TabsContent>
 
         <TabsContent value="table-data" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
-          {tableInfoLoading ? <LoadingState title="Kolon bilgileri hazırlanıyor" /> : tableInfoError ? <ErrorState title="Tablo yapısı yüklenemedi" description={tableInfoError} actionLabel="Tekrar dene" onAction={loadSelectedTableInfo} /> : !tableInfo || !selectedDatabase || !selectedTable || !activeServerId ? <EmptyState icon={TableIcon} title="Tablo seçilmedi" description="Verilerini görüntülemek için bir tablo seçin." /> : (
-            <TableDataView
-              key={`${activeServerId}:${selectedDatabase}:${selectedTable}`}
-              serverId={activeServerId}
-              databaseName={selectedDatabase}
-              tableName={selectedTable}
-              accountId={activeToken}
-              info={tableInfo}
-              onOpenQuery={(title, sql, runImmediately, databaseName) => createQueryTab({ title, sql, runImmediately, databaseName: databaseName === undefined ? selectedDatabase : databaseName })}
-              onFollowForeignKey={followForeignKey}
-            />
-          )}
+          {tableInfoLoading ? <LoadingState title="Kolon bilgileri hazırlanıyor" /> : tableInfoError ? <ErrorState title="Tablo yapısı yüklenemedi" description={tableInfoError} actionLabel="Tekrar dene" onAction={loadSelectedTableInfo} /> : !tableInfo || !selectedDatabase || !selectedTable || !activeServerId ? <EmptyState icon={TableIcon} title="Tablo seçilmedi" description="Verilerini görüntülemek için bir tablo seçin." /> : <TableDataView key={`${activeServerId}:${selectedDatabase}:${selectedTable}`} serverId={activeServerId} databaseName={selectedDatabase} tableName={selectedTable} accountId={activeToken} info={tableInfo} onOpenQuery={(title, sql, runImmediately, databaseName) => createQueryTab({ title, sql, runImmediately, databaseName: databaseName === undefined ? selectedDatabase : databaseName })} onFollowForeignKey={followForeignKey} />}
         </TabsContent>
 
-        {queryTabs.map(tab => (
-          <TabsContent key={tab.id} value={`query:${tab.id}`} className="m-0 min-h-0 flex-1 overflow-hidden p-0">
-            <QueryWorkspace tab={tab} servers={servers} accountId={activeToken} onChange={patch => updateQueryTab(tab.id, patch)} onDuplicate={() => duplicateQueryTab(tab)} />
-          </TabsContent>
-        ))}
+        {queryTabs.map(tab => <TabsContent key={tab.id} value={`query:${tab.id}`} className="m-0 min-h-0 flex-1 overflow-hidden p-0"><QueryWorkspace tab={tab} servers={servers} accountId={activeToken} onChange={patch => updateQueryTab(tab.id, patch)} onDuplicate={() => duplicateQueryTab(tab)} /></TabsContent>)}
       </Tabs>
     </div>
   );
