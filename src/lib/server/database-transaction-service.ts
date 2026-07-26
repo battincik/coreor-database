@@ -20,6 +20,7 @@ interface TransactionSession {
   startedAt: number;
   lastActivityAt: number;
   expiresAt: number;
+  expiryTimer?: ReturnType<typeof setTimeout>;
   statements: DatabaseTransactionStatement[];
 }
 
@@ -174,12 +175,30 @@ function publicState(session: TransactionSession): DatabaseTransactionState {
 
 async function dispose(session: TransactionSession, mode: 'rollback' | 'commit' = 'rollback') {
   sessions.delete(session.id);
+  if (session.expiryTimer) clearTimeout(session.expiryTimer);
+  session.expiryTimer = undefined;
   try {
     if (mode === 'commit') await session.connection.commit();
     else await session.connection.rollback();
   } finally {
     await session.connection.end().catch(() => undefined);
   }
+}
+
+function scheduleExpiry(session: TransactionSession) {
+  if (session.expiryTimer) clearTimeout(session.expiryTimer);
+  const delay = Math.max(1, session.expiresAt - Date.now());
+  const timer = setTimeout(() => {
+    const current = sessions.get(session.id);
+    if (current !== session) return;
+    if (session.expiresAt > Date.now()) {
+      scheduleExpiry(session);
+      return;
+    }
+    void dispose(session, 'rollback').catch(() => undefined);
+  }, delay);
+  timer.unref?.();
+  session.expiryTimer = timer;
 }
 
 async function cleanupExpired() {
@@ -196,6 +215,7 @@ function requireOwnedSession(transactionId: unknown, ownerId: string) {
   }
   session.lastActivityAt = Date.now();
   session.expiresAt = session.lastActivityAt + TRANSACTION_TTL_MS;
+  scheduleExpiry(session);
   return session;
 }
 
@@ -244,6 +264,7 @@ async function begin(input: DatabaseTransactionRequest, ownerId: string) {
     statements: []
   };
   sessions.set(session.id, session);
+  scheduleExpiry(session);
   return { transaction: publicState(session) };
 }
 
