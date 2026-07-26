@@ -3,7 +3,10 @@
 import React, { useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  Activity,
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   ArrowUpDown,
   Check,
   CheckCircle2,
@@ -14,16 +17,26 @@ import {
   Database,
   Download,
   Filter,
+  Gauge,
+  HardDrive,
+  Loader2,
+  Network,
+  PlugZap,
   Server,
   Table,
   Terminal,
+  Timer,
   Trash2,
+  Wifi,
   X,
   XCircle
 } from 'lucide-react';
 import type { GridRuntimeStatus } from 'types';
+import type { DatabasePerformanceSnapshot } from '@/lib/databaseWorkbenchTypes';
 import { Button } from '@/components/ui/button';
 import { DatabaseContext } from '@/context/DatabaseContext';
+import { useAuth } from '@/context/AuthContext';
+import { fetchDatabasePerformanceSnapshot } from '@/lib/databaseWorkbenchApi';
 import {
   clearActivities,
   exportActivities,
@@ -40,6 +53,11 @@ interface BottomBarProps {
 
 type ConsoleFilter = 'all' | 'success' | 'errors';
 
+interface ActiveConnectionSession {
+  serverId: string;
+  startedAt: number;
+}
+
 const EMPTY_GRID_STATUS: GridRuntimeStatus = {
   page: 1,
   pageSize: 50,
@@ -50,12 +68,44 @@ const EMPTY_GRID_STATUS: GridRuntimeStatus = {
   isLoading: false
 };
 
+const ACTIVE_CONNECTION_STORAGE_KEY = 'coreor:active-connection-session:v1';
+
 function formatClock(timestamp: string) {
-  return new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 }).format(new Date(timestamp));
+  return new Intl.DateTimeFormat('tr-TR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    fractionalSecondDigits: 3
+  }).format(new Date(timestamp));
 }
 
 function formatDateTime(timestamp: string) {
-  return new Intl.DateTimeFormat('tr-TR', { dateStyle: 'long', timeStyle: 'medium' }).format(new Date(timestamp));
+  return new Intl.DateTimeFormat('tr-TR', {
+    dateStyle: 'long',
+    timeStyle: 'medium'
+  }).format(new Date(timestamp));
+}
+
+function formatBytes(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+  const amount = value / 1024 ** index;
+  return `${amount.toLocaleString('tr-TR', { maximumFractionDigits: amount >= 100 ? 0 : amount >= 10 ? 1 : 2 })} ${units[index]}`;
+}
+
+function formatDuration(totalSeconds: number, detailed = false) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor(seconds % 86400 / 3600);
+  const minutes = Math.floor(seconds % 3600 / 60);
+  const remainingSeconds = seconds % 60;
+  const values = detailed
+    ? [[days, 'gün'], [hours, 'saat'], [minutes, 'dk'], [remainingSeconds, 'sn']] as const
+    : [[days, 'g'], [hours, 'sa'], [minutes, 'dk'], [remainingSeconds, 'sn']] as const;
+  const visible = values.filter(([value]) => value > 0).slice(0, detailed ? 4 : 2);
+  if (!visible.length) return '0 sn';
+  return visible.map(([value, unit]) => `${value} ${unit}`).join(' ');
 }
 
 function statusIcon(level: ActivityEntry['level'], className = 'h-3 w-3') {
@@ -73,7 +123,9 @@ function statusLabel(level: ActivityEntry['level']) {
 }
 
 function queryTarget(entry: ActivityEntry) {
-  const target = entry.databaseName ? `${entry.databaseName}${entry.tableName ? `.${entry.tableName}` : ''}` : entry.tableName || 'sunucu geneli';
+  const target = entry.databaseName
+    ? `${entry.databaseName}${entry.tableName ? `.${entry.tableName}` : ''}`
+    : entry.tableName || 'sunucu geneli';
   return `${entry.serverName || 'Coreor'} • ${target}`;
 }
 
@@ -87,10 +139,19 @@ function downloadActivityLog() {
   URL.revokeObjectURL(url);
 }
 
-function StatusTooltip({ children, title, rows, align = 'left' }: {
+function StatusTooltip({
+  children,
+  title,
+  rows,
+  align = 'left'
+}: {
   children: React.ReactNode;
   title: string;
-  rows: Array<{ label: string; value: React.ReactNode; tone?: 'normal' | 'success' | 'warning' | 'danger' }>;
+  rows: Array<{
+    label: string;
+    value: React.ReactNode;
+    tone?: 'normal' | 'success' | 'warning' | 'danger';
+  }>;
   align?: 'left' | 'right';
 }) {
   return (
@@ -160,10 +221,16 @@ function QueryDetailModal({ entry, onClose }: { entry: ActivityEntry | null; onC
 }
 
 export default function BottomBar({ selectedDatabase, selectedTable }: BottomBarProps) {
+  const { activeToken } = useAuth();
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [filter, setFilter] = useState<ConsoleFilter>('all');
   const [selectedEntry, setSelectedEntry] = useState<ActivityEntry | null>(null);
   const [gridStatus, setGridStatus] = useState<GridRuntimeStatus>(EMPTY_GRID_STATUS);
+  const [serverSnapshot, setServerSnapshot] = useState<DatabasePerformanceSnapshot | null>(null);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [connectionStartedAt, setConnectionStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
   const endRef = useRef<HTMLDivElement | null>(null);
   const queryEntries = useSyncExternalStore(subscribeActivities, getActivitiesSnapshot, getActivitiesServerSnapshot);
   const { servers, activeServerId, isServersLoading } = useContext(DatabaseContext)!;
@@ -174,6 +241,68 @@ export default function BottomBar({ selectedDatabase, selectedTable }: BottomBar
     window.addEventListener('coreor:grid-status', handler);
     return () => window.removeEventListener('coreor:grid-status', handler);
   }, []);
+
+  useEffect(() => {
+    if (!activeServerId) {
+      setConnectionStartedAt(null);
+      window.sessionStorage.removeItem(ACTIVE_CONNECTION_STORAGE_KEY);
+      return;
+    }
+    let session: ActiveConnectionSession | null = null;
+    try {
+      session = JSON.parse(window.sessionStorage.getItem(ACTIVE_CONNECTION_STORAGE_KEY) || 'null') as ActiveConnectionSession | null;
+    } catch {
+      session = null;
+    }
+    if (!session || session.serverId !== activeServerId || !Number.isFinite(session.startedAt)) {
+      session = { serverId: activeServerId, startedAt: Date.now() };
+      window.sessionStorage.setItem(ACTIVE_CONNECTION_STORAGE_KEY, JSON.stringify(session));
+    }
+    setConnectionStartedAt(session.startedAt);
+    setNow(Date.now());
+  }, [activeServerId]);
+
+  useEffect(() => {
+    if (!activeServerId) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [activeServerId]);
+
+  useEffect(() => {
+    if (!activeServerId || !activeToken) {
+      setServerSnapshot(null);
+      setSnapshotError(null);
+      setSnapshotLoading(false);
+      return;
+    }
+    let cancelled = false;
+    let inFlight = false;
+
+    const refresh = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      setSnapshotLoading(true);
+      try {
+        const snapshot = await fetchDatabasePerformanceSnapshot(activeServerId, activeToken, selectedDatabase || null);
+        if (!cancelled) {
+          setServerSnapshot(snapshot);
+          setSnapshotError(null);
+        }
+      } catch (error) {
+        if (!cancelled) setSnapshotError(error instanceof Error ? error.message : 'Sunucu durumu alınamadı.');
+      } finally {
+        inFlight = false;
+        if (!cancelled) setSnapshotLoading(false);
+      }
+    };
+
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [activeServerId, activeToken, selectedDatabase]);
 
   const filteredEntries = useMemo(() => {
     if (filter === 'success') return queryEntries.filter(entry => entry.level === 'success');
@@ -186,7 +315,9 @@ export default function BottomBar({ selectedDatabase, selectedTable }: BottomBar
     const failed = queryEntries.filter(entry => entry.level === 'error').length;
     const warnings = queryEntries.filter(entry => entry.level === 'warning').length;
     const durations = queryEntries.map(entry => entry.durationMs).filter((value): value is number => typeof value === 'number');
-    const averageDuration = durations.length ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length) : undefined;
+    const averageDuration = durations.length
+      ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length)
+      : undefined;
     const completed = successful + failed;
     const successRate = completed ? Math.round(successful / completed * 100) : 100;
     return { successful, failed, warnings, averageDuration, successRate, lastEntry: queryEntries.at(-1) };
@@ -198,6 +329,11 @@ export default function BottomBar({ selectedDatabase, selectedTable }: BottomBar
 
   const engineName = activeServer?.databaseType === 'mariadb' ? 'MariaDB' : 'MySQL';
   const targetName = selectedDatabase || activeServer?.databaseName || 'Sunucu geneli';
+  const connectionSeconds = connectionStartedAt ? Math.max(0, Math.floor((now - connectionStartedAt) / 1000)) : 0;
+  const averageQuestionsPerSecond = serverSnapshot?.uptimeSeconds
+    ? serverSnapshot.questions / serverSnapshot.uptimeSeconds
+    : null;
+  const connectionHealthy = Boolean(activeServer && serverSnapshot && !snapshotError);
 
   return (
     <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 text-xs">
@@ -223,18 +359,111 @@ export default function BottomBar({ selectedDatabase, selectedTable }: BottomBar
         </div>}
       </div>
 
-      <div className="flex h-7 items-center justify-between overflow-visible border-t border-zinc-800 px-1 text-[9px] text-zinc-500">
-        <div className="flex h-full min-w-0 items-center divide-x divide-zinc-800">
-          <StatusTooltip title="Bağlantı profili" rows={[{ label: 'Motor', value: activeServer ? engineName : 'Bağlı değil' }, { label: 'Sürüm profili', value: activeServer?.version || '—' }, { label: 'TLS modu', value: activeServer?.sslMode || '—', tone: activeServer?.sslMode === 'required' ? 'success' : activeServer ? 'warning' : 'normal' }, { label: 'Bağlantı timeout', value: activeServer ? `${activeServer.connectionTimeoutMs || 20000} ms` : '—' }]}><span className="flex h-full items-center gap-1 px-2 text-zinc-300"><Server className="h-3 w-3" />{isServersLoading ? 'Kasa okunuyor' : activeServer ? `${engineName} ${activeServer.version || ''}` : 'Sunucu yok'}</span></StatusTooltip>
-          {activeServer && <StatusTooltip title="Ağ ve kullanıcı" rows={[{ label: 'Sunucu adı', value: activeServer.name }, { label: 'Host', value: activeServer.host || '—' }, { label: 'Port', value: activeServer.port || 3306 }, { label: 'Kullanıcı', value: activeServer.username || '—' }]}><span className="flex h-full items-center px-2 font-mono">{activeServer.host}:{activeServer.port || 3306}</span></StatusTooltip>}
-          <StatusTooltip title="Aktif hedef" rows={[{ label: 'Veritabanı', value: targetName }, { label: 'Tablo', value: selectedTable || '—' }, { label: 'Katalog veritabanı', value: activeServer?.databases?.length || 0 }, { label: 'Katalog tablo', value: activeServer?.databases?.reduce((total, database) => total + database.tableCount, 0) || 0 }]}><span className="flex h-full max-w-64 items-center gap-1 truncate px-2"><Database className="h-3 w-3" /><span className="truncate">{targetName}{selectedTable ? ` / ${selectedTable}` : ''}</span></span></StatusTooltip>
-          {selectedTable && <StatusTooltip title="Tablo gridi" rows={[{ label: 'Sayfa', value: `${gridStatus.page.toLocaleString('tr-TR')} / ${gridStatus.totalPages.toLocaleString('tr-TR')}` }, { label: 'Sayfa boyutu', value: gridStatus.pageSize.toLocaleString('tr-TR') }, { label: 'Toplam satır', value: gridStatus.totalRows.toLocaleString('tr-TR') }, { label: 'Aktif filtre', value: gridStatus.filters }, { label: 'Sıralama kolonu', value: gridStatus.sorts }, { label: 'Durum', value: gridStatus.isLoading ? 'Yükleniyor' : 'Hazır', tone: gridStatus.isLoading ? 'warning' : 'success' }]}><span className="flex h-full items-center gap-1 px-2"><Table className="h-3 w-3" />{gridStatus.page}/{gridStatus.totalPages} • {gridStatus.pageSize}</span></StatusTooltip>}
-        </div>
+      <div className="h-7 overflow-x-auto overflow-y-visible border-t border-zinc-800 text-[9px] text-zinc-500">
+        <div className="flex h-full min-w-max items-center divide-x divide-zinc-800 tabular-nums">
+          <StatusTooltip title="Bağlantı durumu" rows={[
+            { label: 'Durum', value: !activeServer ? 'Sunucu seçilmedi' : snapshotLoading && !serverSnapshot ? 'Kontrol ediliyor' : snapshotError ? 'Kontrol başarısız' : 'Bağlantı hazır', tone: !activeServer ? 'normal' : snapshotError ? 'danger' : connectionHealthy ? 'success' : 'warning' },
+            { label: 'Son kontrol', value: serverSnapshot ? formatDateTime(serverSnapshot.sampledAt) : '—' },
+            { label: 'Hata', value: snapshotError || '—', tone: snapshotError ? 'danger' : 'normal' },
+            { label: 'Kontrol aralığı', value: '30 saniye' }
+          ]}><span className={`flex h-full items-center gap-1.5 px-2 font-medium ${!activeServer ? 'text-zinc-500' : snapshotError ? 'text-red-400' : connectionHealthy ? 'text-emerald-400' : 'text-amber-400'}`}>{snapshotLoading && !serverSnapshot ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wifi className="h-3 w-3" />}{!activeServer ? 'Bağlantı yok' : snapshotError ? 'Erişilemiyor' : 'Bağlı'}</span></StatusTooltip>
 
-        <div className="flex h-full shrink-0 items-center divide-x divide-zinc-800 pl-1 tabular-nums">
-          <StatusTooltip title="SQL performansı" align="right" rows={[{ label: 'Toplam sorgu', value: queryEntries.length }, { label: 'Başarılı', value: metrics.successful, tone: 'success' }, { label: 'Hata', value: metrics.failed, tone: metrics.failed ? 'danger' : 'normal' }, { label: 'Uyarı', value: metrics.warnings, tone: metrics.warnings ? 'warning' : 'normal' }, { label: 'Başarı oranı', value: `%${metrics.successRate}`, tone: metrics.successRate >= 95 ? 'success' : metrics.successRate >= 75 ? 'warning' : 'danger' }, { label: 'Ortalama süre', value: metrics.averageDuration === undefined ? '—' : `${metrics.averageDuration} ms` }]}><span className="flex h-full items-center gap-1 px-2"><Terminal className="h-3 w-3" />{queryEntries.length} SQL</span></StatusTooltip>
-          <StatusTooltip title="Aktif grid koşulları" align="right" rows={[{ label: 'Filtre', value: gridStatus.filters }, { label: 'Sıralama', value: gridStatus.sorts }, { label: 'Yükleme', value: gridStatus.isLoading ? 'Devam ediyor' : 'Beklemede', tone: gridStatus.isLoading ? 'warning' : 'normal' }]}><span className="flex h-full items-center gap-2 px-2"><span className={gridStatus.filters ? 'text-cyan-400' : ''}><Filter className="inline h-3 w-3" /> {gridStatus.filters}</span><span className={gridStatus.sorts ? 'text-cyan-400' : ''}><ArrowUpDown className="inline h-3 w-3" /> {gridStatus.sorts}</span></span></StatusTooltip>
-          <StatusTooltip title="Son sorgu" align="right" rows={[{ label: 'Zaman', value: metrics.lastEntry ? formatDateTime(metrics.lastEntry.timestamp) : '—' }, { label: 'Durum', value: metrics.lastEntry ? statusLabel(metrics.lastEntry.level) : '—', tone: metrics.lastEntry?.level === 'error' ? 'danger' : metrics.lastEntry ? 'success' : 'normal' }, { label: 'Süre', value: metrics.lastEntry?.durationMs === undefined ? '—' : `${metrics.lastEntry.durationMs} ms` }, { label: 'Hedef', value: metrics.lastEntry ? queryTarget(metrics.lastEntry) : '—' }]}><span className="flex h-full items-center gap-1 px-2"><Clock className="h-3 w-3" />{metrics.lastEntry?.durationMs === undefined ? '—' : `${metrics.lastEntry.durationMs} ms`}</span></StatusTooltip>
+          <StatusTooltip title="Bağlantı profili" rows={[
+            { label: 'Motor', value: activeServer ? engineName : 'Bağlı değil' },
+            { label: 'Sürüm profili', value: activeServer?.version || '—' },
+            { label: 'TLS modu', value: activeServer?.sslMode || '—', tone: activeServer?.sslMode === 'required' ? 'success' : activeServer ? 'warning' : 'normal' },
+            { label: 'Bağlantı timeout', value: activeServer ? `${activeServer.connectionTimeoutMs || 20000} ms` : '—' }
+          ]}><span className="flex h-full items-center gap-1 px-2 text-zinc-300"><Server className="h-3 w-3" />{isServersLoading ? 'Kasa okunuyor' : activeServer ? `${engineName} ${activeServer.version || ''}` : 'Sunucu yok'}</span></StatusTooltip>
+
+          {activeServer && <StatusTooltip title="Ağ ve kullanıcı" rows={[
+            { label: 'Sunucu adı', value: activeServer.name },
+            { label: 'Host', value: activeServer.host || '—' },
+            { label: 'Port', value: activeServer.port || 3306 },
+            { label: 'Kullanıcı', value: activeServer.username || '—' }
+          ]}><span className="flex h-full items-center px-2 font-mono">{activeServer.host}:{activeServer.port || 3306}</span></StatusTooltip>}
+
+          <StatusTooltip title="Sunucu uptime" rows={[
+            { label: 'Çalışma süresi', value: serverSnapshot ? formatDuration(serverSnapshot.uptimeSeconds, true) : '—', tone: serverSnapshot ? 'success' : 'normal' },
+            { label: 'Toplam soru/sorgu', value: serverSnapshot?.questions.toLocaleString('tr-TR') || '—' },
+            { label: 'Ortalama soru/sn', value: averageQuestionsPerSecond === null ? '—' : averageQuestionsPerSecond.toLocaleString('tr-TR', { maximumFractionDigits: 2 }) },
+            { label: 'Yavaş sorgular', value: serverSnapshot?.slowQueries.toLocaleString('tr-TR') || '—', tone: serverSnapshot?.slowQueries ? 'warning' : 'normal' }
+          ]}><span className="flex h-full items-center gap-1 px-2 text-cyan-300"><Timer className="h-3 w-3" />Uptime {serverSnapshot ? formatDuration(serverSnapshot.uptimeSeconds) : '—'}</span></StatusTooltip>
+
+          <StatusTooltip title="Coreor bağlantı süresi" rows={[
+            { label: 'Aktif profil süresi', value: activeServer ? formatDuration(connectionSeconds, true) : '—', tone: activeServer ? 'success' : 'normal' },
+            { label: 'Başlangıç', value: connectionStartedAt ? formatDateTime(new Date(connectionStartedAt).toISOString()) : '—' },
+            { label: 'Profil', value: activeServer?.name || '—' },
+            { label: 'Açıklama', value: 'Aktif profil seçili kaldığı süre; normal SQL bağlantıları işlem sonunda kapanır.' }
+          ]}><span className="flex h-full items-center gap-1 px-2 text-emerald-300"><PlugZap className="h-3 w-3" />Coreor {activeServer ? formatDuration(connectionSeconds) : '—'}</span></StatusTooltip>
+
+          <StatusTooltip title="Aktif hedef ve katalog" rows={[
+            { label: 'Veritabanı', value: targetName },
+            { label: 'Tablo', value: selectedTable || '—' },
+            { label: 'Katalog veritabanı', value: activeServer?.databases?.length || 0 },
+            { label: 'Katalog tablo', value: activeServer?.databases?.reduce((total, database) => total + database.tableCount, 0) || 0 }
+          ]}><span className="flex h-full max-w-64 items-center gap-1 truncate px-2"><Database className="h-3 w-3" /><span className="truncate">{targetName}{selectedTable ? ` / ${selectedTable}` : ''}</span></span></StatusTooltip>
+
+          {selectedTable && <StatusTooltip title="Tablo gridi" rows={[
+            { label: 'Sayfa', value: `${gridStatus.page.toLocaleString('tr-TR')} / ${gridStatus.totalPages.toLocaleString('tr-TR')}` },
+            { label: 'Sayfa boyutu', value: gridStatus.pageSize.toLocaleString('tr-TR') },
+            { label: 'Toplam satır', value: gridStatus.totalRows.toLocaleString('tr-TR') },
+            { label: 'Aktif filtre', value: gridStatus.filters },
+            { label: 'Sıralama kolonu', value: gridStatus.sorts },
+            { label: 'Durum', value: gridStatus.isLoading ? 'Yükleniyor' : 'Hazır', tone: gridStatus.isLoading ? 'warning' : 'success' }
+          ]}><span className="flex h-full items-center gap-1 px-2"><Table className="h-3 w-3" />{gridStatus.page}/{gridStatus.totalPages} • {gridStatus.pageSize}</span></StatusTooltip>}
+
+          <StatusTooltip title="Bağlantılar ve iş parçacıkları" rows={[
+            { label: 'Bağlı bağlantı', value: serverSnapshot?.threadsConnected.toLocaleString('tr-TR') || '—' },
+            { label: 'Çalışan thread', value: serverSnapshot?.threadsRunning.toLocaleString('tr-TR') || '—' },
+            { label: 'En yüksek kullanım', value: serverSnapshot?.maxUsedConnections.toLocaleString('tr-TR') || '—' },
+            { label: 'Maksimum bağlantı', value: serverSnapshot?.maxConnections?.toLocaleString('tr-TR') || '—' },
+            { label: 'Reddedilen bağlantı', value: serverSnapshot?.abortedConnects.toLocaleString('tr-TR') || '—', tone: serverSnapshot?.abortedConnects ? 'warning' : 'normal' }
+          ]}><span className="flex h-full items-center gap-1 px-2"><Activity className="h-3 w-3 text-purple-400" />{serverSnapshot ? `${serverSnapshot.threadsConnected} bağlı • ${serverSnapshot.threadsRunning} çalışan` : 'Thread —'}</span></StatusTooltip>
+
+          <StatusTooltip title="InnoDB buffer pool" rows={[
+            { label: 'Kullanım', value: serverSnapshot ? `%${serverSnapshot.bufferPool.usagePercent.toLocaleString('tr-TR', { maximumFractionDigits: 1 })}` : '—' },
+            { label: 'Dirty page', value: serverSnapshot ? `%${serverSnapshot.bufferPool.dirtyPercent.toLocaleString('tr-TR', { maximumFractionDigits: 1 })}` : '—', tone: serverSnapshot && serverSnapshot.bufferPool.dirtyPercent > 20 ? 'warning' : 'normal' },
+            { label: 'Hit ratio', value: serverSnapshot?.bufferPool.hitRatio === null || serverSnapshot?.bufferPool.hitRatio === undefined ? '—' : `%${serverSnapshot.bufferPool.hitRatio.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}` },
+            { label: 'Toplam', value: serverSnapshot ? formatBytes(serverSnapshot.bufferPool.totalPages * serverSnapshot.bufferPool.pageSize) : '—' },
+            { label: 'Boş', value: serverSnapshot ? formatBytes(serverSnapshot.bufferPool.freePages * serverSnapshot.bufferPool.pageSize) : '—' }
+          ]}><span className="flex h-full items-center gap-1 px-2"><Gauge className="h-3 w-3 text-amber-400" />Buffer {serverSnapshot ? `%${Math.round(serverSnapshot.bufferPool.usagePercent)}` : '—'}</span></StatusTooltip>
+
+          <StatusTooltip title="Mantıksal depolama" rows={[
+            { label: 'Toplam', value: serverSnapshot ? formatBytes(serverSnapshot.storage.totalBytes) : '—' },
+            { label: 'Veri', value: serverSnapshot ? formatBytes(serverSnapshot.storage.dataBytes) : '—' },
+            { label: 'İndeks', value: serverSnapshot ? formatBytes(serverSnapshot.storage.indexBytes) : '—' },
+            { label: 'Boş alan', value: serverSnapshot ? formatBytes(serverSnapshot.storage.freeBytes) : '—' },
+            { label: 'Seçili veritabanı', value: serverSnapshot?.storage.selectedDatabaseBytes === null || serverSnapshot?.storage.selectedDatabaseBytes === undefined ? '—' : formatBytes(serverSnapshot.storage.selectedDatabaseBytes) }
+          ]}><span className="flex h-full items-center gap-1 px-2"><HardDrive className="h-3 w-3 text-blue-400" />{serverSnapshot ? formatBytes(serverSnapshot.storage.totalBytes) : 'Depolama —'}</span></StatusTooltip>
+
+          <StatusTooltip title="Sunucu ağ trafiği" rows={[
+            { label: 'Alınan', value: serverSnapshot ? formatBytes(serverSnapshot.bytesReceived) : '—' },
+            { label: 'Gönderilen', value: serverSnapshot ? formatBytes(serverSnapshot.bytesSent) : '—' },
+            { label: 'Toplam', value: serverSnapshot ? formatBytes(serverSnapshot.bytesReceived + serverSnapshot.bytesSent) : '—' },
+            { label: 'Sayaç başlangıcı', value: 'Sunucu açılışından beri' }
+          ]}><span className="flex h-full items-center gap-1.5 px-2"><Network className="h-3 w-3 text-cyan-400" /><span><ArrowDown className="inline h-2.5 w-2.5 text-emerald-400" /> {serverSnapshot ? formatBytes(serverSnapshot.bytesReceived) : '—'}</span><span><ArrowUp className="inline h-2.5 w-2.5 text-blue-400" /> {serverSnapshot ? formatBytes(serverSnapshot.bytesSent) : '—'}</span></span></StatusTooltip>
+
+          <StatusTooltip title="SQL performansı" align="right" rows={[
+            { label: 'Toplam sorgu', value: queryEntries.length },
+            { label: 'Başarılı', value: metrics.successful, tone: 'success' },
+            { label: 'Hata', value: metrics.failed, tone: metrics.failed ? 'danger' : 'normal' },
+            { label: 'Uyarı', value: metrics.warnings, tone: metrics.warnings ? 'warning' : 'normal' },
+            { label: 'Başarı oranı', value: `%${metrics.successRate}`, tone: metrics.successRate >= 95 ? 'success' : metrics.successRate >= 75 ? 'warning' : 'danger' },
+            { label: 'Ortalama süre', value: metrics.averageDuration === undefined ? '—' : `${metrics.averageDuration} ms` }
+          ]}><span className="flex h-full items-center gap-1 px-2"><Terminal className="h-3 w-3" />{queryEntries.length} SQL • %{metrics.successRate}</span></StatusTooltip>
+
+          <StatusTooltip title="Aktif grid koşulları" align="right" rows={[
+            { label: 'Filtre', value: gridStatus.filters },
+            { label: 'Sıralama', value: gridStatus.sorts },
+            { label: 'Yükleme', value: gridStatus.isLoading ? 'Devam ediyor' : 'Beklemede', tone: gridStatus.isLoading ? 'warning' : 'normal' }
+          ]}><span className="flex h-full items-center gap-2 px-2"><span className={gridStatus.filters ? 'text-cyan-400' : ''}><Filter className="inline h-3 w-3" /> {gridStatus.filters}</span><span className={gridStatus.sorts ? 'text-cyan-400' : ''}><ArrowUpDown className="inline h-3 w-3" /> {gridStatus.sorts}</span></span></StatusTooltip>
+
+          <StatusTooltip title="Son sorgu" align="right" rows={[
+            { label: 'Zaman', value: metrics.lastEntry ? formatDateTime(metrics.lastEntry.timestamp) : '—' },
+            { label: 'Durum', value: metrics.lastEntry ? statusLabel(metrics.lastEntry.level) : '—', tone: metrics.lastEntry?.level === 'error' ? 'danger' : metrics.lastEntry ? 'success' : 'normal' },
+            { label: 'Süre', value: metrics.lastEntry?.durationMs === undefined ? '—' : `${metrics.lastEntry.durationMs} ms` },
+            { label: 'Hedef', value: metrics.lastEntry ? queryTarget(metrics.lastEntry) : '—' }
+          ]}><span className="flex h-full items-center gap-1 px-2"><Clock className="h-3 w-3" />{metrics.lastEntry?.durationMs === undefined ? 'Son sorgu —' : `${metrics.lastEntry.durationMs} ms`}</span></StatusTooltip>
         </div>
       </div>
 
