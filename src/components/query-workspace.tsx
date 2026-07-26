@@ -18,7 +18,7 @@ import {
   StarOff,
   Terminal,
   Trash2,
-  WandSparkles,
+  Wand2,
   XCircle
 } from 'lucide-react';
 import type { DatabaseServerConfig, EditorQueryTab, TableInfo } from 'types';
@@ -281,7 +281,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   const editorContextMenu = (event: React.MouseEvent) => {
     openContextMenu(event, [
       { id: 'run', label: 'Sorguyu çalıştır', icon: Play, shortcut: 'Ctrl+Enter', disabled: tab.isRunning || !tab.sql.trim(), onSelect: runQuery },
-      { id: 'format', label: 'SQL biçimlendir', icon: WandSparkles, shortcut: 'Shift+Alt+F', disabled: !tab.sql.trim(), onSelect: () => onChange({ sql: formatSql(tab.sql), updatedAt: new Date().toISOString() }) },
+      { id: 'format', label: 'SQL biçimlendir', icon: Wand2, shortcut: 'Shift+Alt+F', disabled: !tab.sql.trim(), onSelect: () => onChange({ sql: formatSql(tab.sql), updatedAt: new Date().toISOString() }) },
       { id: 'favorite', label: isFavorite ? 'Favorilerden kaldır' : 'Favorilere ekle', icon: isFavorite ? StarOff : Star, disabled: !tab.sql.trim(), onSelect: toggleFavorite },
       { id: 'separator-1', separator: true },
       { id: 'copy', label: 'SQL metnini kopyala', icon: Copy, disabled: !tab.sql.trim(), onSelect: () => navigator.clipboard.writeText(tab.sql) },
@@ -301,7 +301,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     <div className="flex h-full min-h-0 flex-col bg-zinc-950/30">
       <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-1.5 border-b border-zinc-800 px-2 py-1">
         <Button type="button" size="sm" className="h-7 gap-1.5 text-[11px]" disabled={!selectedServer || !accountId || tab.isRunning || !tab.sql.trim()} onClick={() => void runQuery()}>{tab.isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}Çalıştır</Button>
-        <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[10px]" disabled={!tab.sql.trim()} onClick={() => onChange({ sql: formatSql(tab.sql), updatedAt: new Date().toISOString() })}><WandSparkles className="mr-1 h-3.5 w-3.5" />Biçimlendir</Button>
+        <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[10px]" disabled={!tab.sql.trim()} onClick={() => onChange({ sql: formatSql(tab.sql), updatedAt: new Date().toISOString() })}><Wand2 className="mr-1 h-3.5 w-3.5" />Biçimlendir</Button>
         <Button type="button" variant="ghost" size="icon" className={`h-7 w-7 ${isFavorite ? 'text-amber-300' : ''}`} disabled={!tab.sql.trim()} onClick={toggleFavorite} title={isFavorite ? 'Favorilerden kaldır' : 'Favorilere ekle'}>{isFavorite ? <Star className="h-3.5 w-3.5 fill-current" /> : <StarOff className="h-3.5 w-3.5" />}</Button>
         <div className="flex items-center gap-0.5 rounded border border-zinc-800 bg-zinc-950 p-0.5"><Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setLibrary(previous => previous === 'snippets' ? null : 'snippets')}><BookOpen className="mr-1 h-3 w-3" />Snippet</Button><Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setLibrary(previous => previous === 'history' ? null : 'history')}><History className="mr-1 h-3 w-3" />Geçmiş</Button><Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setLibrary(previous => previous === 'favorites' ? null : 'favorites')}><Star className="mr-1 h-3 w-3" />Favori</Button></div>
         <label className="ml-1 flex items-center gap-1.5 text-[10px] text-zinc-500"><Server className="h-3.5 w-3.5" /><select value={selectedServer?.id || ''} onChange={event => onChange({ serverId: event.target.value || null, databaseName: null, result: null, error: null })} className="h-7 min-w-36 rounded border border-zinc-800 bg-zinc-950 px-2 text-[10px] text-zinc-300">{servers.map(server => <option key={server.id} value={server.id}>{server.name}</option>)}</select></label>
