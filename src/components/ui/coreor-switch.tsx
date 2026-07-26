@@ -8,6 +8,7 @@ interface CoreorSwitchProps {
   onCheckedChange: (checked: boolean) => void;
   disabled?: boolean;
   label?: string;
+  ariaLabel?: string;
   description?: string;
   compact?: boolean;
 }
@@ -17,6 +18,7 @@ export function CoreorSwitch({
   onCheckedChange,
   disabled = false,
   label,
+  ariaLabel,
   description,
   compact = false
 }: CoreorSwitchProps) {
@@ -25,7 +27,7 @@ export function CoreorSwitch({
       type="button"
       role="switch"
       aria-checked={checked}
-      aria-label={label}
+      aria-label={ariaLabel || label}
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={`group flex items-center gap-3 text-left outline-none disabled:cursor-not-allowed disabled:opacity-45 ${compact ? '' : 'min-w-0'}`}
