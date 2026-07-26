@@ -9,12 +9,14 @@ import {
   Database,
   FileInput,
   Gauge,
+  HardDriveDownload,
   Loader2,
   Network,
   RefreshCw,
   Server,
   Settings2,
   ShieldAlert,
+  ShieldCheck,
   UserCog,
   XCircle
 } from 'lucide-react';
@@ -33,6 +35,11 @@ import {
   dispatchDatabaseTool,
   type OpenSettingsModalDetail
 } from '@/lib/databaseToolEvents';
+import {
+  OPEN_DATABASE_SAFETY_CENTER_EVENT,
+  type DatabaseSafetyCenterTab,
+  type OpenDatabaseSafetyCenterDetail
+} from '@/lib/databaseSafetyEvents';
 import { databaseEngineFamily, databaseEngineLabel } from '@/lib/databaseEngines';
 import { DatabaseUserManagerModal } from '@/components/database-user-manager-modal';
 import { DatabaseProcessCenterModal } from '@/components/database-process-center-modal';
@@ -41,6 +48,7 @@ import { DatabasePerformancePanelModal } from '@/components/database-performance
 import { SqlNotebookModal } from '@/components/sql-notebook-modal';
 import { DatabaseSettingsModal, type DatabaseSettingsTab } from '@/components/database-settings-modal';
 import { DatabaseTransactionWorkspaceModal } from '@/components/database-transaction-workspace-modal';
+import { DatabaseSafetyCenterModal } from '@/components/database-safety-center-modal';
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 
 interface DatabaseMenuBarProps {
@@ -63,6 +71,9 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<DatabaseSettingsTab>('account');
   const [transactionOpen, setTransactionOpen] = useState(false);
+  const [safetyOpen, setSafetyOpen] = useState(false);
+  const [safetyTab, setSafetyTab] = useState<DatabaseSafetyCenterTab>('history');
+  const [safetySql, setSafetySql] = useState('');
 
   const serverOptions = useMemo<SearchSelectOption[]>(() => servers.map(server => ({
     value: server.id,
@@ -81,7 +92,15 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
     const openTransaction = () => setTransactionOpen(true);
     const openSettings = (event: Event) => {
       const detail = (event as CustomEvent<OpenSettingsModalDetail>).detail;
-      setSettingsTab(detail?.tab || 'account'); setSettingsOpen(true);
+      setSettingsTab(detail?.tab || 'account');
+      setSettingsOpen(true);
+    };
+    const openSafety = (event: Event) => {
+      const detail = (event as CustomEvent<OpenDatabaseSafetyCenterDetail>).detail || {};
+      setSafetyTab(detail.tab || 'history');
+      setSafetySql(detail.sql || '');
+      if (detail.serverId) setActiveServerId(detail.serverId);
+      setSafetyOpen(true);
     };
     window.addEventListener(OPEN_USER_MANAGER_EVENT, openUsers);
     window.addEventListener(OPEN_PROCESS_CENTER_EVENT, openProcesses);
@@ -90,6 +109,7 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
     window.addEventListener(OPEN_SQL_NOTEBOOK_EVENT, openNotebook);
     window.addEventListener(OPEN_TRANSACTION_WORKSPACE_EVENT, openTransaction);
     window.addEventListener(OPEN_SETTINGS_MODAL_EVENT, openSettings);
+    window.addEventListener(OPEN_DATABASE_SAFETY_CENTER_EVENT, openSafety);
     return () => {
       window.removeEventListener(OPEN_USER_MANAGER_EVENT, openUsers);
       window.removeEventListener(OPEN_PROCESS_CENTER_EVENT, openProcesses);
@@ -98,29 +118,50 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
       window.removeEventListener(OPEN_SQL_NOTEBOOK_EVENT, openNotebook);
       window.removeEventListener(OPEN_TRANSACTION_WORKSPACE_EVENT, openTransaction);
       window.removeEventListener(OPEN_SETTINGS_MODAL_EVENT, openSettings);
+      window.removeEventListener(OPEN_DATABASE_SAFETY_CENTER_EVENT, openSafety);
     };
-  }, []);
+  }, [setActiveServerId]);
 
   const connect = async () => {
     if (!activeServer || !activeToken || busy) return;
-    setBusy(true); setStatus(null);
+    setBusy(true);
+    setStatus(null);
     try {
       const result = await testStoredDatabaseConnection(activeServer.id, activeToken);
-      await fetchServerTables(activeServer.id, activeToken); await loadServers();
+      await fetchServerTables(activeServer.id, activeToken);
+      await loadServers();
       setStatus({ tone: 'success', text: `${result.connection?.version || databaseEngineLabel(activeServer.databaseType)} bağlantısı hazır` });
-    } catch (error) { setStatus({ tone: 'error', text: error instanceof Error ? error.message : 'Bağlantı kurulamadı.' }); }
-    finally { setBusy(false); }
+    } catch (error) {
+      setStatus({ tone: 'error', text: error instanceof Error ? error.message : 'Bağlantı kurulamadı.' });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const refreshCatalog = async () => {
     if (!activeServer || !activeToken || busy) return;
-    setBusy(true); setStatus(null);
-    try { await fetchServerTables(activeServer.id, activeToken); await loadServers(); setStatus({ tone: 'success', text: 'Katalog yenilendi' }); }
-    catch (error) { setStatus({ tone: 'error', text: error instanceof Error ? error.message : 'Katalog yenilenemedi.' }); }
-    finally { setBusy(false); }
+    setBusy(true);
+    setStatus(null);
+    try {
+      await fetchServerTables(activeServer.id, activeToken);
+      await loadServers();
+      setStatus({ tone: 'success', text: 'Katalog yenilendi' });
+    } catch (error) {
+      setStatus({ tone: 'error', text: error instanceof Error ? error.message : 'Katalog yenilenemedi.' });
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const openSettings = (tab: DatabaseSettingsTab = 'account') => { setSettingsTab(tab); setSettingsOpen(true); };
+  const openSettings = (tab: DatabaseSettingsTab = 'account') => {
+    setSettingsTab(tab);
+    setSettingsOpen(true);
+  };
+  const openSafety = (tab: DatabaseSafetyCenterTab) => {
+    setSafetyTab(tab);
+    setSafetySql('');
+    setSafetyOpen(true);
+  };
   const toolButton = 'flex h-7 shrink-0 items-center gap-1.5 rounded px-2 text-[10px] text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-35';
 
   return <>
@@ -133,6 +174,8 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
       <button type="button" className={toolButton} disabled={!activeServer || busy} onClick={() => void refreshCatalog()} title="Veritabanı kataloğunu yenile"><RefreshCw className="h-3.5 w-3.5" />Yenile</button>
       <span className="mx-1 h-4 w-px shrink-0 bg-zinc-800" />
       <button type="button" className={toolButton} onClick={() => dispatchDatabaseTool(TOGGLE_COMMAND_PALETTE_EVENT)} title="Komut paleti; > ile hızlı SQL"><Command className="h-3.5 w-3.5 text-cyan-400" />Komut<span className="rounded border border-zinc-800 px-1 py-0.5 text-[8px] text-zinc-600">⌘K</span></button>
+      <button type="button" className={toolButton} disabled={!activeServer} onClick={() => openSafety('backups')} title="Yedekleme görevleri ve motor komut planları"><HardDriveDownload className="h-3.5 w-3.5 text-emerald-400" />Yedekleme</button>
+      <button type="button" className={toolButton} disabled={!activeServer} onClick={() => openSafety('history')} title="Şema geçmişi, migration, approval ve veri araçları"><ShieldCheck className="h-3.5 w-3.5 text-cyan-400" />Güvenlik</button>
       <button type="button" className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setTransactionOpen(true)} title={mysqlWorkbench ? 'Autocommit, commit ve rollback' : 'Transaction merkezi bu motor için henüz kullanılamıyor'}><ShieldAlert className="h-3.5 w-3.5 text-amber-400" />Transaction</button>
       <button type="button" className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setUsersOpen(true)} title={mysqlWorkbench ? 'Kullanıcı, rol ve yetki yönetimi' : 'Motor özel kullanıcı yönetimi henüz kullanılamıyor'}><UserCog className="h-3.5 w-3.5 text-purple-400" />Kullanıcılar</button>
       <button type="button" className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setProcessOpen(true)} title="Çalışan sorgular ve kilitler"><Activity className="h-3.5 w-3.5 text-amber-400" />Processler</button>
@@ -153,5 +196,6 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
     <DatabaseImportExportModal open={transferOpen} onClose={() => setTransferOpen(false)} serverId={activeServerId} accountId={activeToken} databases={databases} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
     <DatabaseSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialTab={settingsTab} />
     <DatabaseTransactionWorkspaceModal open={transactionOpen} onClose={() => setTransactionOpen(false)} serverId={activeServerId} accountId={activeToken} databases={databases} selectedDatabase={selectedDatabase} />
+    <DatabaseSafetyCenterModal open={safetyOpen} onClose={() => setSafetyOpen(false)} initialTab={safetyTab} servers={servers} activeServerId={activeServerId} accountId={activeToken} databases={databases} selectedDatabase={selectedDatabase} selectedTable={selectedTable} initialSql={safetySql} />
   </>;
 }
