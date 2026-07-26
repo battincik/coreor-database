@@ -20,7 +20,8 @@ export interface DatabasePanelProps {
   onTableSelect: (tableName: string | null) => void;
 }
 
-export type DatabaseEngine = 'mysql' | 'mariadb';
+export type DatabaseEngine = 'mysql' | 'mariadb' | 'tidb' | 'postgresql' | 'cockroachdb' | 'mssql';
+export type DatabaseEngineFamily = 'mysql' | 'postgresql' | 'mssql';
 export type DatabaseSslMode = 'required' | 'preferred' | 'disabled';
 export type DatabaseApiAction =
   | 'test'
@@ -41,6 +42,35 @@ export interface DatabaseConnectionPayload {
   database?: string | null;
   sslMode: DatabaseSslMode;
   connectTimeoutMs?: number;
+}
+
+export interface OrganizationDatabaseBinding {
+  serverId: string;
+  databaseName: string;
+}
+
+export type OrganizationRole = 'owner' | 'admin' | 'developer' | 'analyst' | 'viewer';
+
+export interface DatabaseOrganizationMember {
+  id: string;
+  name: string;
+  email: string;
+  role: OrganizationRole;
+  status: 'active' | 'invited' | 'suspended';
+  addedAt: string;
+}
+
+export interface DatabaseOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  avatar?: string;
+  ownerEmail: string;
+  members: DatabaseOrganizationMember[];
+  databases: OrganizationDatabaseBinding[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DatabaseTable {
@@ -93,6 +123,7 @@ export interface DatabaseServerConfig {
   sslMode?: DatabaseSslMode;
   connectionTimeoutMs?: number;
   visibleTo?: string[];
+  organizationId?: string | null;
   databases?: DatabaseCatalogItem[];
   createdAt?: string;
   updatedAt?: string;
@@ -341,7 +372,7 @@ export interface QueryExecutionResult {
   affectedRows?: number;
   insertId?: string | number;
   warningStatus?: number;
-  fields?: Array<{ name: string; type: number }>;
+  fields?: Array<{ name: string; type: string | number }>;
   maximumRows?: number;
   _meta?: DatabaseQueryMeta;
 }
