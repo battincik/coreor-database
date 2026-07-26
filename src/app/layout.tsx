@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import './globals.css';
+import './preferences-overrides.css';
 import { Providers } from './providers';
 import { AppPreferenceBridge } from '@/components/app-preference-bridge';
 
