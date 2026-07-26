@@ -27,8 +27,17 @@ interface GitHubPullRequest {
   user: { login: string } | null;
 }
 
+interface ReleaseHistoryMemoryCache {
+  repository: string;
+  fetchedAt: string;
+  pullRequests: ReleasePullRequest[];
+}
+
 const DEFAULT_REPOSITORY = 'battincik/web.database.coreor.net';
 const MAX_PAGES = 10;
+const releaseHistoryGlobal = globalThis as typeof globalThis & {
+  __coreorReleaseHistoryCache?: ReleaseHistoryMemoryCache;
+};
 
 function responseHeaders() {
   return { 'Cache-Control': 'private, no-store, max-age=0' };
@@ -94,6 +103,21 @@ function normalizePullRequest(pullRequest: GitHubPullRequest): ReleasePullReques
   };
 }
 
+function fallbackPullRequests(repository: string) {
+  const memory = releaseHistoryGlobal.__coreorReleaseHistoryCache;
+  if (!memory || memory.repository !== repository || !memory.pullRequests.length) {
+    return { pullRequests: FALLBACK_RELEASE_HISTORY, cachedAt: null };
+  }
+
+  const byNumber = new Map<number, ReleasePullRequest>();
+  for (const item of FALLBACK_RELEASE_HISTORY) byNumber.set(item.number, item);
+  for (const item of memory.pullRequests) byNumber.set(item.number, item);
+  return {
+    pullRequests: [...byNumber.values()].sort((left, right) => right.number - left.number),
+    cachedAt: memory.fetchedAt
+  };
+}
+
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -110,21 +134,27 @@ export async function GET(request: NextRequest) {
     const pullRequests = (await fetchAllPullRequests(repository, fresh))
       .map(normalizePullRequest)
       .sort((left, right) => right.number - left.number);
+    const fetchedAt = new Date().toISOString();
+    releaseHistoryGlobal.__coreorReleaseHistoryCache = { repository, fetchedAt, pullRequests };
 
     const payload: ReleaseHistoryResponse = {
       repository,
-      fetchedAt: new Date().toISOString(),
+      fetchedAt,
       source: 'github',
       pullRequests
     };
     return NextResponse.json(payload, { headers: responseHeaders() });
   } catch (error) {
+    const fallback = fallbackPullRequests(repository);
+    const reason = error instanceof Error ? error.message : 'GitHub sürüm geçmişine ulaşılamadı.';
     const payload: ReleaseHistoryResponse = {
       repository,
-      fetchedAt: new Date().toISOString(),
+      fetchedAt: fallback.cachedAt || new Date().toISOString(),
       source: 'fallback',
-      warning: error instanceof Error ? error.message : 'GitHub sürüm geçmişine ulaşılamadı.',
-      pullRequests: FALLBACK_RELEASE_HISTORY
+      warning: fallback.cachedAt
+        ? `${reason} En son başarılı GitHub okuması korunarak gösteriliyor.`
+        : reason,
+      pullRequests: fallback.pullRequests
     };
     return NextResponse.json(payload, { status: 200, headers: responseHeaders() });
   }
