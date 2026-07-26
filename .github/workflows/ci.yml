@@ -1,0 +1,40 @@
+name: Coreor Database CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: coreor-database-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Typecheck, lint and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.20.0
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate application
+        run: npm run check
+        env:
+          NEXTAUTH_SECRET: ci-only-nextauth-secret-not-used-at-runtime
+          NEXTAUTH_URL: http://localhost:3000
