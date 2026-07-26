@@ -35,7 +35,8 @@ export const RELEASE_VERSION_OVERRIDES: Record<number, string> = {
   9: '1.8.0',
   10: '1.9.0',
   11: '1.9.1',
-  12: '2.0.0'
+  12: '2.0.0',
+  13: '2.0.1'
 };
 
 export const RELEASE_TITLE_OVERRIDES: Record<number, string> = {
@@ -50,7 +51,8 @@ export const RELEASE_TITLE_OVERRIDES: Record<number, string> = {
   9: 'HeidiSQL tarzı şema editörü ve ayrıntılı katalog',
   10: 'Gelişmiş yönetim, yetki, process ve aktarım araçları',
   11: 'Komut paleti, performans paneli ve SQL Notebook',
-  12: 'Next.js 16, modal ayarlar ve transaction çalışma alanı'
+  12: 'Next.js 16, modal ayarlar ve transaction çalışma alanı',
+  13: 'Zengin BottomBar, sade profil alanı ve canlı PR sürüm ağacı'
 };
 
 export const RELEASE_SUMMARY_OVERRIDES: Record<number, string> = {
@@ -65,7 +67,8 @@ export const RELEASE_SUMMARY_OVERRIDES: Record<number, string> = {
   9: 'Veritabanı kataloğu ayrıntılandırıldı, tablo verisi çalışma alanı genişletildi ve arayüzden yönetilebilen kapsamlı şema editörü eklendi.',
   10: 'Kullanıcı ve yetki yönetimi, process merkezi, şema grafiği, içe-dışa aktarma ve kapsamlı uygulama ayarları eklendi.',
   11: 'Global komut paleti, canlı performans görünümü ve SQL ile Markdown hücrelerini birleştiren Notebook çalışma alanı eklendi.',
-  12: 'Uygulama Next.js 16 ve Turbopack’e taşındı; ayarlar modal hâle getirildi ve gerçek commit/rollback destekli transaction alanı eklendi.'
+  12: 'Uygulama Next.js 16 ve Turbopack’e taşındı; ayarlar modal hâle getirildi ve gerçek commit/rollback destekli transaction alanı eklendi.',
+  13: 'BottomBar gerçek sunucu uptime ve performans bilgileriyle zenginleştirildi, sidebar profil alanı sadeleştirildi ve bütün PR’ları otomatik gösteren sürüm ağacı eklendi.'
 };
 
 export function extractReleaseVersion(number: number, title: string, body: string) {
@@ -95,98 +98,228 @@ export function extractReleaseSummary(number: number, body: string, title: strin
 
 const fallbackData: Array<Omit<ReleasePullRequest, 'status' | 'draft' | 'createdAt' | 'updatedAt' | 'mergedAt' | 'author' | 'url'>> = [
   {
+    number: 13,
+    version: '2.0.1',
+    title: RELEASE_TITLE_OVERRIDES[13],
+    summary: RELEASE_SUMMARY_OVERRIDES[13],
+    body: `## Gelenler
+- BottomBar gerçek MySQL veya MariaDB uptime değerini göstermeye başladı.
+- Coreor içinde aktif sunucu profilinin ne kadar süredir seçili olduğu ayrı bir sayaç olarak eklendi.
+- Bağlantı sağlığı, thread sayıları, buffer pool, depolama, trafik, katalog, grid ve SQL başarı metrikleri alt çubuğa eklendi.
+- Bütün açık, birleşmiş ve kapatılmış pull requestleri sürüm sürüm gösteren canlı Yenilikler ağacı eklendi.
+- Sürüm ağacına arama, durum filtresi, GitHub’dan yenileme ve özgün PR bağlantıları eklendi.
+
+## Değişenler
+- Sidebar altındaki küçük profil alanı büyük avatar, kullanıcı adı, e-posta ve oturum durumu gösterecek şekilde yenilendi.
+- Hesap menüsündeki Ayarları aç seçeneği mevcut modal ayarlar merkezini açacak şekilde değiştirildi.
+- Statik yenilik kartları kullanıcı odaklı PR açıklamalarını çözümleyen ağaç görünümüne dönüştürüldü.
+
+## Kaldırılanlar
+- Sidebar’daki ayrı ayarlar ikonu kaldırıldı.
+- Sidebar’daki karanlık ve aydınlık tema ikonu kaldırıldı.
+- Next.js 15 ve React 18 bilgileri taşıyan geçersiz eski package-lock dosyası kaldırıldı.
+
+## Güvenlik ve koruma
+- Sürüm geçmişi API’si yalnızca giriş yapmış kullanıcılara açıldı.
+- Private repository token’ı yalnızca sunucuda kullanılır ve sürüm cevapları ortak proxy cache’ine yazılmaz.
+- Arka plan performans kontrolleri SQL günlüğünü doldurmaz.
+
+## Bilmeniz gerekenler
+- Sunucu uptime gerçek veritabanı sunucusundan gelir.
+- Coreor süresi yalnızca aktif profil seçili kalma süresidir; normal SQL bağlantıları işlem sonunda kapanmaya devam eder.
+- Yeni PR’lar başlık veya açıklamadaki sürüm numarasına göre otomatik yerleştirilir; sürüm numarası yoksa yine Sürümlendirilmemiş dalında görünür.`
+  },
+  {
     number: 12,
     version: '2.0.0',
     title: RELEASE_TITLE_OVERRIDES[12],
     summary: RELEASE_SUMMARY_OVERRIDES[12],
-    body: `## Gelenler\n- Autocommit, açık transaction uyarısı, statement listesi, commit ve rollback içeren transaction çalışma alanı eklendi.\n- Hesap, sunucular, görünüm, erişilebilirlik, sorgu, güvenlik, gelişmiş ve yenilikler sekmelerine sahip modal ayarlar merkezi eklendi.\n- Ayarlardan sunucu ekleme, düzenleme, test etme, katalog yenileme ve silme işlemleri kullanılabilir hâle geldi.\n\n## Değişenler\n- Next.js 16.2.11, React 19.2 ve Turbopack tabanına geçildi.\n- Yükleme ekranları ortalanmış ve tema uyumlu tek tasarımda birleştirildi.\n\n## Düzeltilenler\n- Şema grafiğini açarken oluşan geçersiz React bileşeni hatası giderildi.\n- Aynı adrese çözülen ayar sayfalarının derlemeyi durdurması engellendi.\n\n## Güvenlik\n- Transaction oturumları kullanıcıya bağlandı, süre ve sayı sınırları eklendi.\n- Hareketsiz transaction bağlantıları otomatik rollback ile kapatılır.`,
+    body: `## Gelenler
+- Autocommit, açık transaction uyarısı, statement listesi, commit ve rollback içeren transaction çalışma alanı eklendi.
+- Hesap, sunucular, görünüm, erişilebilirlik, sorgu, güvenlik, gelişmiş ve yenilikler sekmelerine sahip modal ayarlar merkezi eklendi.
+- Ayarlardan sunucu ekleme, düzenleme, test etme, katalog yenileme ve silme işlemleri kullanılabilir hâle geldi.
+
+## Değişenler
+- Next.js 16.2.11, React 19.2 ve Turbopack tabanına geçildi.
+- Yükleme ekranları ortalanmış ve tema uyumlu tek tasarımda birleştirildi.
+
+## Düzeltilenler
+- Şema grafiğini açarken oluşan geçersiz React bileşeni hatası giderildi.
+- Aynı adrese çözülen ayar sayfalarının derlemeyi durdurması engellendi.
+
+## Güvenlik
+- Transaction oturumları kullanıcıya bağlandı, süre ve sayı sınırları eklendi.
+- Hareketsiz transaction bağlantıları otomatik rollback ile kapatılır.`
   },
   {
     number: 11,
     version: '1.9.1',
     title: RELEASE_TITLE_OVERRIDES[11],
     summary: RELEASE_SUMMARY_OVERRIDES[11],
-    body: `## Gelenler\n- Ctrl veya Cmd + K ile açılan global komut paleti eklendi.\n- QPS, bağlantılar, buffer pool, replikasyon ve depolama görünümünü bir araya getiren performans paneli eklendi.\n- SQL, Markdown, sonuç tablosu ve grafik hücrelerini aynı belgede birleştiren SQL Notebook eklendi.\n\n## Düzeltilenler\n- Ayarlar ekranındaki desteklenmeyen ikon nedeniyle oluşan açılış hatası giderildi.\n- Gelecekte eksik ikon olsa bile ayar sayfasının tamamen çökmesini önleyen güvenli ikon yedeği eklendi.`,
+    body: `## Gelenler
+- Ctrl veya Cmd + K ile açılan global komut paleti eklendi.
+- QPS, bağlantılar, buffer pool, replikasyon ve depolama görünümünü bir araya getiren performans paneli eklendi.
+- SQL, Markdown, sonuç tablosu ve grafik hücrelerini aynı belgede birleştiren SQL Notebook eklendi.
+
+## Düzeltilenler
+- Ayarlar ekranındaki desteklenmeyen ikon nedeniyle oluşan açılış hatası giderildi.
+- Gelecekte eksik ikon olsa bile ayar sayfasının tamamen çökmesini önleyen güvenli ikon yedeği eklendi.`
   },
   {
     number: 10,
     version: '1.9.0',
     title: RELEASE_TITLE_OVERRIDES[10],
     summary: RELEASE_SUMMARY_OVERRIDES[10],
-    body: `## Gelenler\n- MySQL ve MariaDB kullanıcıları, roller, yetkiler ve GRANT/REVOKE işlemleri için yönetim ekranı eklendi.\n- Çalışan sorgular, kilitler ve deadlock bilgileri için process merkezi eklendi.\n- Tabloları sürükleyerek düzenleyebilen ve kolonlardan foreign key oluşturabilen şema grafiği eklendi.\n- CSV, JSON ve SQL içe-dışa aktarma araçları eklendi.\n- Tema, yazı, yoğunluk, sorgu davranışı ve erişilebilirlik ayarları eklendi.\n\n## Değişenler\n- Sidebar genişliği sürüklenebilir ve kalıcı hâle getirildi.\n- Boyut değerleri B, KB, MB, GB ve TB arasında otomatik gösterilmeye başladı.`,
+    body: `## Gelenler
+- MySQL ve MariaDB kullanıcıları, roller, yetkiler ve GRANT/REVOKE işlemleri için yönetim ekranı eklendi.
+- Çalışan sorgular, kilitler ve deadlock bilgileri için process merkezi eklendi.
+- Tabloları sürükleyerek düzenleyebilen ve kolonlardan foreign key oluşturabilen şema grafiği eklendi.
+- CSV, JSON ve SQL içe-dışa aktarma araçları eklendi.
+- Tema, yazı, yoğunluk, sorgu davranışı ve erişilebilirlik ayarları eklendi.
+
+## Değişenler
+- Sidebar genişliği sürüklenebilir ve kalıcı hâle getirildi.
+- Boyut değerleri B, KB, MB, GB ve TB arasında otomatik gösterilmeye başladı.`
   },
   {
     number: 9,
     version: '1.8.0',
     title: RELEASE_TITLE_OVERRIDES[9],
     summary: RELEASE_SUMMARY_OVERRIDES[9],
-    body: `## Gelenler\n- Veritabanı ve tablolar için boyut, satır, motor, charset, collation, indeks ve foreign key ayrıntıları eklendi.\n- Hücre düzenleme, satır silme, satır çoğaltma, dosyayı TEXT/BLOB alanına yazma ve dışa aktarma araçları genişletildi.\n- Kolon, indeks, foreign key, motor, row format, yorum ve auto increment yönetebilen şema editörü eklendi.\n- Veri ve yapı görünümü seçimi tablo değiştirildiğinde korunmaya başladı.\n\n## Düzeltilenler\n- Sorgu sekmesi kapatılırken başka bileşenin state değerini render sırasında değiştiren React hatası giderildi.`,
+    body: `## Gelenler
+- Veritabanı ve tablolar için boyut, satır, motor, charset, collation, indeks ve foreign key ayrıntıları eklendi.
+- Hücre düzenleme, satır silme, satır çoğaltma, dosyayı TEXT/BLOB alanına yazma ve dışa aktarma araçları genişletildi.
+- Kolon, indeks, foreign key, motor, row format, yorum ve auto increment yönetebilen şema editörü eklendi.
+- Veri ve yapı görünümü seçimi tablo değiştirildiğinde korunmaya başladı.
+
+## Düzeltilenler
+- Sorgu sekmesi kapatılırken başka bileşenin state değerini render sırasında değiştiren React hatası giderildi.`
   },
   {
     number: 8,
     version: '1.7.0',
     title: RELEASE_TITLE_OVERRIDES[8],
     summary: RELEASE_SUMMARY_OVERRIDES[8],
-    body: `## Gelenler\n- Uygulama geneli, sunucu, veritabanı, tablo, kolon ve hücre için bağlama duyarlı sağ tık menüleri eklendi.\n- Primary key kullanan güvenli inline hücre düzenleme eklendi.\n- Sunucu veya veritabanı kapsamı seçilebilen çoklu SQL sorgu sekmeleri eklendi.\n- Bottom bar bağlantı, katalog, grid ve sorgu metrikleriyle genişletildi.\n\n## Güvenlik\n- Tehlikeli sorgular doğrudan çalıştırılmak yerine kullanıcıya düzenleyebileceği taslak olarak açılır.\n- Hücre güncellemeleri primary key ve tek satır sınırıyla çalışır.`,
+    body: `## Gelenler
+- Uygulama geneli, sunucu, veritabanı, tablo, kolon ve hücre için bağlama duyarlı sağ tık menüleri eklendi.
+- Primary key kullanan güvenli inline hücre düzenleme eklendi.
+- Sunucu veya veritabanı kapsamı seçilebilen çoklu SQL sorgu sekmeleri eklendi.
+- Bottom bar bağlantı, katalog, grid ve sorgu metrikleriyle genişletildi.
+
+## Güvenlik
+- Tehlikeli sorgular doğrudan çalıştırılmak yerine kullanıcıya düzenleyebileceği taslak olarak açılır.
+- Hücre güncellemeleri primary key ve tek satır sınırıyla çalışır.`
   },
   {
     number: 7,
     version: '1.6.0',
     title: RELEASE_TITLE_OVERRIDES[7],
     summary: RELEASE_SUMMARY_OVERRIDES[7],
-    body: `## Düzeltilenler\n- Aktif olmayan sekmelerin tablo veri görünümünün üstünde bıraktığı büyük boşluk kaldırıldı.\n- SQL günlüğündeki satırlar daha kompakt hâle getirildi.\n- Sunucu ve hedef bilgileri tek satırda gösterilmeye başladı.\n- Alt konsolun açık yüksekliği azaltıldı.`,
+    body: `## Düzeltilenler
+- Aktif olmayan sekmelerin tablo veri görünümünün üstünde bıraktığı büyük boşluk kaldırıldı.
+- SQL günlüğündeki satırlar daha kompakt hâle getirildi.
+- Sunucu ve hedef bilgileri tek satırda gösterilmeye başladı.
+- Alt konsolun açık yüksekliği azaltıldı.`
   },
   {
     number: 6,
     version: '1.5.0',
     title: RELEASE_TITLE_OVERRIDES[6],
     summary: RELEASE_SUMMARY_OVERRIDES[6],
-    body: `## Gelenler\n- Tablo satırları sunucudan sayfa sayfa alınmaya başladı.\n- Sunucu tarafı filtreleme, tekli ve çoklu sıralama eklendi.\n- Tablo listesine arama, sıralama ve sayfalama eklendi.\n- SQL günlüğüne başarı, uyarı, hata, süre, satır sayısı ve işlem ayrıntısı eklendi.\n\n## Değişenler\n- Kasa ve navigasyon olayları SQL günlüğünden çıkarıldı; yalnızca gerçekten çalıştırılan sorgular gösterilir.\n\n## Güvenlik\n- Filtre değerleri güvenli parametreler olarak gönderilir ve sorgu sınırları sunucuda uygulanır.`,
+    body: `## Gelenler
+- Tablo satırları sunucudan sayfa sayfa alınmaya başladı.
+- Sunucu tarafı filtreleme, tekli ve çoklu sıralama eklendi.
+- Tablo listesine arama, sıralama ve sayfalama eklendi.
+- SQL günlüğüne başarı, uyarı, hata, süre, satır sayısı ve işlem ayrıntısı eklendi.
+
+## Değişenler
+- Kasa ve navigasyon olayları SQL günlüğünden çıkarıldı; yalnızca gerçekten çalıştırılan sorgular gösterilir.
+
+## Güvenlik
+- Filtre değerleri güvenli parametreler olarak gönderilir ve sorgu sınırları sunucuda uygulanır.`
   },
   {
     number: 5,
     version: '1.4.0',
     title: RELEASE_TITLE_OVERRIDES[5],
     summary: RELEASE_SUMMARY_OVERRIDES[5],
-    body: `## Düzeltilenler\n- Bazı MySQL ve MariaDB sürümlerinde veritabanı ve tablo listesini tamamen boş bırakan katalog sorgusu düzeltildi.\n- Hiç tablosu olmayan veritabanlarının listede kalması sağlandı.\n- Aynı tablonun yanlışlıkla iki kez eklenmesine karşı tekrar kontrolü eklendi.\n\n## Uyumluluk\n- Katalog okuma MySQL 5.7, 8.x, 9.x ve desteklenen MariaDB sürümlerinde ortak alanları kullanır.`,
+    body: `## Düzeltilenler
+- Bazı MySQL ve MariaDB sürümlerinde veritabanı ve tablo listesini tamamen boş bırakan katalog sorgusu düzeltildi.
+- Hiç tablosu olmayan veritabanlarının listede kalması sağlandı.
+- Aynı tablonun yanlışlıkla iki kez eklenmesine karşı tekrar kontrolü eklendi.
+
+## Uyumluluk
+- Katalog okuma MySQL 5.7, 8.x, 9.x ve desteklenen MariaDB sürümlerinde ortak alanları kullanır.`
   },
   {
     number: 4,
     version: '1.3.0',
     title: RELEASE_TITLE_OVERRIDES[4],
     summary: RELEASE_SUMMARY_OVERRIDES[4],
-    body: `## Düzeltilenler\n- Kullanıcı giriş yapmış görünse bile veritabanı API’sinin 401 döndürmesine neden olan oturum çözme problemi giderildi.\n- Okunamayan veya eski oturum çerezleri temizlenerek yeniden giriş açıklaması gösterilmeye başladı.\n- Login ekranına süresi dolmuş veya geçersiz oturum uyarıları eklendi.\n\n## Güvenlik\n- NextAuth oturum anahtarı kararlı hâle getirildi ve üretimde sabit bir gizli anahtar kullanımı belgelendi.`,
+    body: `## Düzeltilenler
+- Kullanıcı giriş yapmış görünse bile veritabanı API’sinin 401 döndürmesine neden olan oturum çözme problemi giderildi.
+- Okunamayan veya eski oturum çerezleri temizlenerek yeniden giriş açıklaması gösterilmeye başladı.
+- Login ekranına süresi dolmuş veya geçersiz oturum uyarıları eklendi.
+
+## Güvenlik
+- NextAuth oturum anahtarı kararlı hâle getirildi ve üretimde sabit bir gizli anahtar kullanımı belgelendi.`
   },
   {
     number: 3,
     version: '1.2.0',
     title: RELEASE_TITLE_OVERRIDES[3],
     summary: RELEASE_SUMMARY_OVERRIDES[3],
-    body: `## Gelenler\n- Kasa, katalog, tablo yapısı ve tablo verisi için ayrı yükleme, boş ve hata ekranları eklendi.\n- SQL, katalog ve veri işlemlerini zaman, süre ve sonuçlarıyla gösteren gerçek işlem konsolu eklendi.\n- GitHub hesap adı, e-posta ve avatar bilgileri hesap ayarlarına bağlandı.\n\n## Kaldırılanlar\n- Sahte uptime, sahte bağlantı sayısı, rastgele sorgu sayacı ve sabit kullanıcı bilgileri kaldırıldı.\n\n## Güvenlik\n- Parola ve kullanıcı adı konsola yazılmaz; dışa aktarımda host bilgisi gizlenir.`,
+    body: `## Gelenler
+- Kasa, katalog, tablo yapısı ve tablo verisi için ayrı yükleme, boş ve hata ekranları eklendi.
+- SQL, katalog ve veri işlemlerini zaman, süre ve sonuçlarıyla gösteren gerçek işlem konsolu eklendi.
+- GitHub hesap adı, e-posta ve avatar bilgileri hesap ayarlarına bağlandı.
+
+## Kaldırılanlar
+- Sahte uptime, sahte bağlantı sayısı, rastgele sorgu sayacı ve sabit kullanıcı bilgileri kaldırıldı.
+
+## Güvenlik
+- Parola ve kullanıcı adı konsola yazılmaz; dışa aktarımda host bilgisi gizlenir.`
   },
   {
     number: 2,
     version: '1.1.0',
     title: RELEASE_TITLE_OVERRIDES[2],
     summary: RELEASE_SUMMARY_OVERRIDES[2],
-    body: `## Değişenler\n- MySQL ve MariaDB bağlantıları aynı origin üzerindeki oturum korumalı Next.js API’sine taşındı.\n- Harici connector URL alanı ve bağlantı çağrıları kaldırıldı.\n- Sunucu bağlantıları işlem anında açılıp işlem tamamlandığında kapatılmaya başladı.\n\n## Güvenlik\n- Oturum, same-origin, istek boyutu, hız sınırı, sorgu zaman aşımı ve host/port izin listesi kontrolleri eklendi.\n- Bağlantı parolaları uygulama sunucusunda kalıcı olarak tutulmaz.`,
+    body: `## Değişenler
+- MySQL ve MariaDB bağlantıları aynı origin üzerindeki oturum korumalı Next.js API’sine taşındı.
+- Harici connector URL alanı ve bağlantı çağrıları kaldırıldı.
+- Sunucu bağlantıları işlem anında açılıp işlem tamamlandığında kapatılmaya başladı.
+
+## Güvenlik
+- Oturum, same-origin, istek boyutu, hız sınırı, sorgu zaman aşımı ve host/port izin listesi kontrolleri eklendi.
+- Bağlantı parolaları uygulama sunucusunda kalıcı olarak tutulmaz.`
   },
   {
     number: 1,
     version: '1.0.0',
     title: RELEASE_TITLE_OVERRIDES[1],
     summary: RELEASE_SUMMARY_OVERRIDES[1],
-    body: `## Gelenler\n- MySQL sunucu profilleri kullanıcı hesabına bağlı şifreli tarayıcı kasasına taşındı.\n- Çoklu sunucu profili, TLS modu ve hesap bazlı aktif sunucu seçimi eklendi.\n- Veritabanı ve tablo kataloğunun şifreli kasada önbelleğe alınması eklendi.\n\n## Kaldırılanlar\n- Merkezi sunucu kayıt ve okuma bağımlılığı kaldırıldı.\n- Host, kullanıcı adı ve parolanın localStorage içinde tutulması sona erdi.\n\n## Bilmeniz gerekenler\n- Şifreli kasa aynı cihaz ve tarayıcı profiline özeldir; profiller başka cihaza otomatik taşınmaz.`,
+    body: `## Gelenler
+- MySQL sunucu profilleri kullanıcı hesabına bağlı şifreli tarayıcı kasasına taşındı.
+- Çoklu sunucu profili, TLS modu ve hesap bazlı aktif sunucu seçimi eklendi.
+- Veritabanı ve tablo kataloğunun şifreli kasada önbelleğe alınması eklendi.
+
+## Kaldırılanlar
+- Merkezi sunucu kayıt ve okuma bağımlılığı kaldırıldı.
+- Host, kullanıcı adı ve parolanın localStorage içinde tutulması sona erdi.
+
+## Bilmeniz gerekenler
+- Şifreli kasa aynı cihaz ve tarayıcı profiline özeldir; profiller başka cihaza otomatik taşınmaz.`
   }
 ];
 
 export const FALLBACK_RELEASE_HISTORY: ReleasePullRequest[] = fallbackData.map(item => ({
   ...item,
-  status: 'released',
-  draft: false,
+  status: item.number === 13 ? 'in-progress' : 'released',
+  draft: item.number === 13,
   author: 'battincik',
   url: `https://github.com/battincik/web.database.coreor.net/pull/${item.number}`,
-  createdAt: '2026-07-25T00:00:00.000Z',
-  updatedAt: '2026-07-26T00:00:00.000Z',
-  mergedAt: '2026-07-26T00:00:00.000Z'
+  createdAt: item.number === 13 ? '2026-07-26T11:45:04.000Z' : '2026-07-25T00:00:00.000Z',
+  updatedAt: item.number === 13 ? '2026-07-26T11:45:04.000Z' : '2026-07-26T00:00:00.000Z',
+  mergedAt: item.number === 13 ? null : '2026-07-26T00:00:00.000Z'
 }));
