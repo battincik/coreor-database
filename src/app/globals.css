@@ -139,7 +139,26 @@
 @layer base {
   * { @apply border-border; }
   html { font-size: var(--coreor-ui-font-size); }
-  body { @apply bg-background text-foreground; font-family: var(--coreor-font-family); line-height: var(--coreor-line-height); }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--coreor-font-family);
+    line-height: var(--coreor-line-height);
+    font-synthesis: none;
+    text-shadow: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  button, input, textarea, select, table, th, td, code, pre {
+    font-family: inherit;
+    font-synthesis: none;
+    text-shadow: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  table, th, td, code, pre, .font-mono {
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "calt" 0;
+  }
   :root[data-reduced-motion='true'] *, :root[data-reduced-motion='true'] *::before, :root[data-reduced-motion='true'] *::after {
     animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.001ms !important;
   }
@@ -152,8 +171,21 @@
 }
 
 @layer components {
-  .coreor-sql-editor { background: var(--coreor-editor-bg) !important; color: var(--coreor-editor-fg) !important; font-size: var(--coreor-editor-font-size) !important; line-height: var(--coreor-line-height); }
+  .coreor-sql-editor {
+    background: var(--coreor-editor-bg) !important;
+    color: var(--coreor-editor-fg) !important;
+    font-size: var(--coreor-editor-font-size) !important;
+    line-height: var(--coreor-line-height);
+    font-synthesis: none;
+    text-shadow: none;
+  }
   .coreor-sql-editor::selection { background: var(--coreor-editor-selection); }
-  .coreor-console-text { font-size: var(--coreor-console-font-size) !important; }
+  .coreor-console-text { font-size: var(--coreor-console-font-size) !important; font-synthesis: none; text-shadow: none; }
+  .coreor-data-grid, .coreor-data-grid table, .coreor-data-grid th, .coreor-data-grid td {
+    font-synthesis: none;
+    text-shadow: none;
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "calt" 0;
+  }
   :root[data-compact='false'] .coreor-compact-row { min-height: 2.25rem; padding-top: .375rem; padding-bottom: .375rem; }
 }
