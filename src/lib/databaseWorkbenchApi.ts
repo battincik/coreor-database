@@ -6,6 +6,7 @@ import type {
   DatabaseExportDataResponse,
   DatabaseImportDataInput,
   DatabaseImportDataResponse,
+  DatabasePerformanceSnapshot,
   DatabasePrivilegeChangeInput,
   DatabaseProcessCenterResponse,
   DatabaseUserSaveInput,
@@ -137,6 +138,10 @@ export function fetchDatabaseProcessCenter(serverId: string, accountId?: string 
 
 export function killDatabaseProcess(serverId: string, processId: number, killType: 'query' | 'connection', accountId?: string | null) {
   return workbenchRequest<{ killed: boolean; processId: number }>(serverId, accountId, 'process-kill', { processId, killType });
+}
+
+export function fetchDatabasePerformanceSnapshot(serverId: string, accountId?: string | null, database?: string | null) {
+  return workbenchRequest<DatabasePerformanceSnapshot>(serverId, accountId, 'performance-snapshot', {}, database);
 }
 
 export function importDatabaseRows(serverId: string, importInput: DatabaseImportDataInput, accountId?: string | null) {
