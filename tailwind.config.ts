@@ -10,6 +10,9 @@ const config = {
     "./src/**/*.{ts,tsx}",
     "*.{js,ts,jsx,tsx,mdx}",
   ],
+  // A date-normalizing regex contains the literal token `[-:T]`.
+  // Tailwind can mistake it for an arbitrary CSS property and emit invalid `-: T;`.
+  blocklist: ["[-:T]"],
   prefix: "",
   theme: {
     container: {
