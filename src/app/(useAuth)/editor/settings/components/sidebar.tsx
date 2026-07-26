@@ -10,6 +10,12 @@ import { signOut } from 'next-auth/react';
 import { useLanguage } from '@/context/LanguageContext';
 import { settingsItems, iconMap, routeMap } from '@/lib/settingsConfig';
 
+function safeIcon(item: string) {
+  const icon = iconMap[item];
+  if (React.isValidElement(icon) && icon.type) return icon;
+  return <Settings className="h-4 w-4" />;
+}
+
 export function SettingsSidebar({ activeTab }: { activeTab?: string }) {
   const router = useRouter();
   const { t } = useLanguage();
@@ -63,7 +69,7 @@ export function SettingsSidebar({ activeTab }: { activeTab?: string }) {
                     className={`h-8 w-full justify-start gap-2 px-2 text-xs ${activeTab === item ? 'bg-muted/50 text-primary' : 'text-zinc-400 hover:text-zinc-100'}`}
                     onClick={() => router.push(routeMap[item] || '/editor/settings')}
                   >
-                    {iconMap[item]}
+                    {safeIcon(item)}
                     <span className="truncate">{t(item, item)}</span>
                   </Button>
                 ))}
