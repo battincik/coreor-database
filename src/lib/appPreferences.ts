@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react';
 
 export type AppThemeName = 'amoled' | 'graphite' | 'midnight' | 'nord' | 'solarized' | 'light' | 'high-contrast';
-export type AppFontFamily = 'system' | 'mono' | 'humanist' | 'serif';
+export type AppFontFamily = 'system' | 'inter' | 'ibm-plex' | 'atkinson' | 'jetbrains' | 'cascadia' | 'fira-code' | 'mono' | 'serif';
 export type SyntaxThemeName = 'coreor' | 'dracula' | 'nord' | 'monokai' | 'github-dark' | 'github-light';
 
 export interface AppPreferences {
@@ -24,20 +24,40 @@ export interface AppPreferences {
   autocomplete: boolean;
   autoRefreshProcesses: boolean;
   confirmDangerousQueries: boolean;
+  sqlDryRun: boolean;
+  schemaSnapshots: boolean;
+  approvalWorkflows: boolean;
   queryResultLimit: number;
   importBatchSize: number;
   rememberPanelSizes: boolean;
 }
 
-const STORAGE_KEY = 'coreor:app-preferences:v3';
+const STORAGE_KEY = 'coreor:app-preferences:v4';
 const listeners = new Set<() => void>();
 const DEFAULTS: AppPreferences = {
-  theme: 'amoled', syntaxTheme: 'coreor', fontFamily: 'system', uiFontSize: 12,
-  editorFontSize: 13, consoleFontSize: 9, lineHeight: 1.55, compactMode: true,
-  sidebarSize: 20, reducedMotion: false, strongFocusRing: true, highContrastBorders: false,
-  dyslexiaSpacing: false, colorBlindMode: 'none', autocomplete: true,
-  autoRefreshProcesses: false, confirmDangerousQueries: true, queryResultLimit: 5000,
-  importBatchSize: 250, rememberPanelSizes: true
+  theme: 'amoled',
+  syntaxTheme: 'coreor',
+  fontFamily: 'system',
+  uiFontSize: 12,
+  editorFontSize: 13,
+  consoleFontSize: 9,
+  lineHeight: 1.55,
+  compactMode: true,
+  sidebarSize: 20,
+  reducedMotion: false,
+  strongFocusRing: true,
+  highContrastBorders: false,
+  dyslexiaSpacing: false,
+  colorBlindMode: 'none',
+  autocomplete: true,
+  autoRefreshProcesses: false,
+  confirmDangerousQueries: true,
+  sqlDryRun: true,
+  schemaSnapshots: true,
+  approvalWorkflows: true,
+  queryResultLimit: 5000,
+  importBatchSize: 250,
+  rememberPanelSizes: true
 };
 let snapshot: AppPreferences = DEFAULTS;
 let hydrated = false;
@@ -78,9 +98,14 @@ function applyToDocument(preferences: AppPreferences) {
   root.style.setProperty('--coreor-console-font-size', `${preferences.consoleFontSize}px`);
   root.style.setProperty('--coreor-line-height', String(preferences.lineHeight));
   const fonts: Record<AppFontFamily, string> = {
-    system: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    mono: '"JetBrains Mono", "Cascadia Code", ui-monospace, SFMono-Regular, Menlo, monospace',
-    humanist: 'Atkinson Hyperlegible, Verdana, ui-sans-serif, sans-serif',
+    system: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    inter: 'Inter, ui-sans-serif, system-ui, sans-serif',
+    'ibm-plex': '"IBM Plex Sans", "Segoe UI", ui-sans-serif, sans-serif',
+    atkinson: '"Atkinson Hyperlegible", Verdana, ui-sans-serif, sans-serif',
+    jetbrains: '"JetBrains Mono", "Cascadia Code", ui-monospace, monospace',
+    cascadia: '"Cascadia Code", "Cascadia Mono", ui-monospace, monospace',
+    'fira-code': '"Fira Code", "JetBrains Mono", ui-monospace, monospace',
+    mono: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
     serif: 'Georgia, Cambria, "Times New Roman", serif'
   };
   root.style.setProperty('--coreor-font-family', fonts[preferences.fontFamily]);
@@ -90,30 +115,20 @@ function hydrate() {
   if (hydrated || typeof window === 'undefined') return;
   hydrated = true;
   try {
-    snapshot = normalize(JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '{}'));
+    const current = window.localStorage.getItem(STORAGE_KEY);
+    const previous = window.localStorage.getItem('coreor:app-preferences:v3');
+    snapshot = normalize(JSON.parse(current || previous || '{}'));
   } catch {
     snapshot = DEFAULTS;
   }
   applyToDocument(snapshot);
 }
 
-function emit() {
-  listeners.forEach(listener => listener());
-}
+function emit() { listeners.forEach(listener => listener()); }
 
-export function getAppPreferences() {
-  hydrate();
-  return snapshot;
-}
-
-export function getServerAppPreferences() {
-  return DEFAULTS;
-}
-
-export function subscribeAppPreferences(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
+export function getAppPreferences() { hydrate(); return snapshot; }
+export function getServerAppPreferences() { return DEFAULTS; }
+export function subscribeAppPreferences(listener: () => void) { listeners.add(listener); return () => listeners.delete(listener); }
 
 export function setAppPreferences(patch: Partial<AppPreferences>) {
   hydrate();
@@ -127,7 +142,10 @@ export function setAppPreferences(patch: Partial<AppPreferences>) {
 export function resetAppPreferences() {
   snapshot = DEFAULTS;
   hydrated = true;
-  if (typeof window !== 'undefined') window.localStorage.removeItem(STORAGE_KEY);
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem('coreor:app-preferences:v3');
+  }
   applyToDocument(snapshot);
   emit();
 }
