@@ -1,14 +1,5 @@
-'use client';
+import { CoreorLoadingScreen } from '@/components/coreor-loading-screen';
 
-import React from 'react';
-import { SettingsSidebar } from './components/sidebar';
-import { SettingsPageSkeleton } from '@/components/app-state';
-
-export default function Loading() {
-  return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <SettingsSidebar activeTab="account" />
-      <SettingsPageSkeleton />
-    </div>
-  );
+export default function SettingsLoading() {
+  return <CoreorLoadingScreen title="Ayarlar hazırlanıyor" description="Editör çalışma alanı ve modal ayar tercihleri yükleniyor." />;
 }
