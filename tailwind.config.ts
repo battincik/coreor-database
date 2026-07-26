@@ -10,6 +10,9 @@ const config = {
     "./src/**/*.{ts,tsx}",
     "*.{js,ts,jsx,tsx,mdx}",
   ],
+  // Tailwind's scanner can mistake the date-normalizing regex character class
+  // `[-:T]` for an arbitrary CSS property and emit invalid `-: T;` output.
+  blocklist: ["[-:T]"],
   prefix: "",
   theme: {
     container: {
