@@ -2,14 +2,15 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
-import { Activity, BookOpen, Code, Command, Database, Gauge, Network, Play, Search, Settings, Table2, Users } from 'lucide-react';
+import { Activity, BookOpen, Code, Command, Database, Gauge, Network, Play, Search, Settings, ShieldAlert, Table2, Users } from 'lucide-react';
 import type { DatabaseServerConfig } from 'types';
 import { openQueryTab } from '@/lib/queryWorkspaceEvents';
 import {
   OPEN_PERFORMANCE_PANEL_EVENT,
   OPEN_PROCESS_CENTER_EVENT,
+  OPEN_SETTINGS_MODAL_EVENT,
   OPEN_SQL_NOTEBOOK_EVENT,
+  OPEN_TRANSACTION_WORKSPACE_EVENT,
   OPEN_USER_MANAGER_EVENT,
   TOGGLE_COMMAND_PALETTE_EVENT,
   dispatchDatabaseTool
@@ -45,7 +46,6 @@ function looksLikeSql(value: string) {
 }
 
 export function DatabaseCommandPalette({ servers, activeServerId, selectedDatabase, selectedTable, onDatabaseSelect, onTableSelect }: DatabaseCommandPaletteProps) {
-  const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -83,6 +83,10 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
         run: () => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase ? `${selectedDatabase} sorgu` : 'Genel sorgu' })
       },
       {
+        id: 'transaction', category: 'Komutlar', label: 'Transaction çalışma alanı', description: 'Autocommit, pending statement, commit ve rollback', keywords: 'transaction autocommit commit rollback pending işlem', icon: <ShieldAlert className="h-4 w-4" />, disabled: !activeServer,
+        run: () => dispatchDatabaseTool(OPEN_TRANSACTION_WORKSPACE_EVENT)
+      },
+      {
         id: 'users', category: 'Komutlar', label: 'Kullanıcı ve yetki yönetimi', description: 'Kullanıcılar, roller, GRANT ve REVOKE', keywords: 'mysql user users kullanıcı rol yetki grant revoke', icon: <Users className="h-4 w-4" />, disabled: !activeServer,
         run: () => dispatchDatabaseTool(OPEN_USER_MANAGER_EVENT)
       },
@@ -103,8 +107,8 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
         run: () => window.dispatchEvent(new Event('coreor:open-schema-graph'))
       },
       {
-        id: 'settings', category: 'Komutlar', label: 'Ayarları aç', description: 'Görünüm, erişilebilirlik ve gelişmiş tercihler', keywords: 'settings ayarlar appearance theme tema font accessibility', icon: <Settings className="h-4 w-4" />,
-        run: () => router.push('/editor/settings')
+        id: 'settings', category: 'Komutlar', label: 'Ayarları aç', description: 'Hesap, sunucular, görünüm, güvenlik ve gelişmiş tercihler', keywords: 'settings ayarlar sunucu server appearance theme tema font accessibility', icon: <Settings className="h-4 w-4" />,
+        run: () => dispatchDatabaseTool(OPEN_SETTINGS_MODAL_EVENT, { tab: 'account' })
       }
     ];
 
@@ -125,7 +129,7 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
       }
     }
     return items;
-  }, [activeServer, activeServerId, selectedDatabase, selectedTable, onDatabaseSelect, onTableSelect, router]);
+  }, [activeServer, activeServerId, selectedDatabase, selectedTable, onDatabaseSelect, onTableSelect]);
 
   const visibleItems = useMemo(() => {
     const search = normalized(query);

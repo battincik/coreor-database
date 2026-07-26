@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/sidebar';
 import { DatabasePanel } from '@/components/database-panel';
 import { DatabaseMenuBar } from '@/components/database-menu-bar';
 import { DatabaseCommandPalette } from '@/components/database-command-palette';
+import { EditorPanelErrorBoundary } from '@/components/editor-panel-error-boundary';
 import Topbar from './Topbar';
 import BottomBar from './BottomBar';
 import { AppContextMenuProvider, useAppContextMenu } from '@/components/app-context-menu';
@@ -77,6 +78,8 @@ function EditorWorkspace() {
     panelSaveTimer.current = window.setTimeout(() => setAppPreferences({ sidebarSize: sizes[0] }), 180);
   };
 
+  const panelResetKey = `${activeServerId || 'none'}:${activeTab}:${selectedDatabase || ''}:${selectedTable || ''}`;
+
   return (
     <div
       className="flex h-screen flex-col"
@@ -132,7 +135,9 @@ function EditorWorkspace() {
           </ResizablePanel>
           <ResizableHandle withHandle className="z-30 w-1 bg-zinc-900 hover:bg-cyan-500/40 data-[resize-handle-active]:bg-cyan-500/60" />
           <ResizablePanel defaultSize={100 - preferences.sidebarSize} minSize={45} className="overflow-hidden">
-            <DatabasePanel selectedDatabase={selectedDatabase} selectedTable={selectedTable} activeTab={activeTab} setActiveTab={setActiveTab} query={query} setQuery={setQuery} onDatabaseSelect={handleDatabaseSelect} onTableSelect={handleTableSelect} />
+            <EditorPanelErrorBoundary resetKey={panelResetKey}>
+              <DatabasePanel selectedDatabase={selectedDatabase} selectedTable={selectedTable} activeTab={activeTab} setActiveTab={setActiveTab} query={query} setQuery={setQuery} onDatabaseSelect={handleDatabaseSelect} onTableSelect={handleTableSelect} />
+            </EditorPanelErrorBoundary>
           </ResizablePanel>
         </ResizablePanelGroup>
         <BottomBar selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
