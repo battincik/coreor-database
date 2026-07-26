@@ -24,6 +24,7 @@ import { recordActivity } from '@/lib/activityConsole';
 import { databaseEngineDefinition, databaseEngineLabel } from '@/lib/databaseEngines';
 import { getAppPreferences } from '@/lib/appPreferences';
 import { addApproval, addMigration, addSchemaSnapshot } from '@/lib/databaseSafetyWorkspace';
+import { openDatabaseSafetyCenter } from '@/lib/databaseSafetyEvents';
 import { looksLikeProductionServer, migrationDownSql, migrationFileName, migrationSqlForMutation } from '@/lib/schemaMigration';
 
 const DATABASE_API_PATH = '/api/database';
@@ -39,22 +40,10 @@ interface DatabaseErrorPayload {
   message?: string;
   _meta?: DatabaseQueryMeta;
 }
-
-interface ProfileMutationResult<T> {
-  servers: DatabaseServerConfig[];
-  result: T;
-}
-
-interface DatabaseRequestError extends Error {
-  code?: string;
-  queryMeta?: DatabaseQueryMeta;
-}
-
-interface RequestOptions {
-  requestKey?: string;
-  connectionDatabase?: string | null;
-  recordActivity?: boolean;
-}
+interface ProfileMutationResult<T> { servers: DatabaseServerConfig[]; result: T }
+interface DatabaseRequestError extends Error { code?: string; queryMeta?: DatabaseQueryMeta }
+interface RequestOptions { requestKey?: string; connectionDatabase?: string | null; recordActivity?: boolean }
+interface QueryOptions { bypassApproval?: boolean }
 
 export interface FetchTableDataOptions {
   page?: number;
@@ -84,9 +73,7 @@ function createServerId() {
 function createConnectionPayload(server: DatabaseServerConfig, databaseOverride?: string | null): DatabaseConnectionPayload {
   const engine = server.databaseType ?? 'mysql';
   const definition = databaseEngineDefinition(engine);
-  if (!server.host?.trim() || !server.username?.trim() || !server.password) {
-    throw new Error('Host, kullanıcı adı ve parola eksik.');
-  }
+  if (!server.host?.trim() || !server.username?.trim() || !server.password) throw new Error('Host, kullanıcı adı ve parola eksik.');
   return {
     engine,
     host: server.host.trim(),
@@ -103,11 +90,8 @@ async function readApiResponse<T>(response: Response) {
   const rawBody = await response.text();
   let body: T | DatabaseErrorPayload | null = null;
   if (rawBody) {
-    try {
-      body = JSON.parse(rawBody) as T | DatabaseErrorPayload;
-    } catch {
-      throw new Error(response.ok ? 'Next.js veritabanı API geçerli JSON döndürmedi.' : `Veritabanı isteği başarısız oldu (${response.status}).`);
-    }
+    try { body = JSON.parse(rawBody) as T | DatabaseErrorPayload; }
+    catch { throw new Error(response.ok ? 'Next.js veritabanı API geçerli JSON döndürmedi.' : `Veritabanı isteği başarısız oldu (${response.status}).`); }
   }
   if (!response.ok) {
     const errorBody = body as DatabaseErrorPayload | null;
@@ -134,14 +118,7 @@ function fallbackStatements(action: DatabaseApiAction, payload: Record<string, u
 }
 
 function resultMetrics(action: DatabaseApiAction, result: unknown) {
-  const payload = result as {
-    databases?: unknown[];
-    columns?: unknown[];
-    data?: unknown[];
-    rows?: unknown[];
-    affectedRows?: number;
-    tableInfo?: { columns?: unknown[] };
-  } | null;
+  const payload = result as { databases?: unknown[]; columns?: unknown[]; data?: unknown[]; rows?: unknown[]; affectedRows?: number; tableInfo?: { columns?: unknown[] } } | null;
   if (!payload) return {};
   if (action === 'catalog') return { rowCount: payload.databases?.length };
   if (action === 'table-info') return { rowCount: payload.columns?.length };
@@ -185,12 +162,7 @@ function recordStatements(options: {
   });
 }
 
-async function requestDatabaseApi<T>(
-  server: DatabaseServerConfig,
-  action: DatabaseApiAction,
-  payload: Record<string, unknown> = {},
-  options: RequestOptions = {}
-) {
+async function requestDatabaseApi<T>(server: DatabaseServerConfig, action: DatabaseApiAction, payload: Record<string, unknown> = {}, options: RequestOptions = {}) {
   if (options.requestKey) inFlightControllers.get(options.requestKey)?.abort();
   const controller = new AbortController();
   if (options.requestKey) inFlightControllers.set(options.requestKey, controller);
@@ -213,16 +185,7 @@ async function requestDatabaseApi<T>(
     const result = await readApiResponse<T>(response);
     if (options.recordActivity !== false) {
       const queryMeta = (result as { _meta?: DatabaseQueryMeta } | null)?._meta;
-      recordStatements({
-        statements: queryMeta?.statements?.length ? queryMeta.statements : fallbackStatements(action, payload, server),
-        action,
-        level: 'success',
-        server,
-        databaseName,
-        tableName,
-        durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
-        result
-      });
+      recordStatements({ statements: queryMeta?.statements?.length ? queryMeta.statements : fallbackStatements(action, payload, server), action, level: 'success', server, databaseName, tableName, durationMs: Math.max(0, Math.round(performance.now() - startedAt)), result });
     }
     return result;
   } catch (error) {
@@ -235,16 +198,7 @@ async function requestDatabaseApi<T>(
       ? Object.assign(new Error('Next.js veritabanı API erişilemedi. Uygulama sunucusunu ve ağ erişimini kontrol edin.'), { code: 'DATABASE_API_UNREACHABLE' }) as DatabaseRequestError
       : error instanceof Error ? error as DatabaseRequestError : new Error('Bilinmeyen veritabanı hatası.') as DatabaseRequestError;
     if (options.recordActivity !== false) {
-      recordStatements({
-        statements: normalizedError.queryMeta?.statements?.length ? normalizedError.queryMeta.statements : fallbackStatements(action, payload, server),
-        action,
-        level: 'error',
-        server,
-        databaseName,
-        tableName,
-        durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
-        error: normalizedError
-      });
+      recordStatements({ statements: normalizedError.queryMeta?.statements?.length ? normalizedError.queryMeta.statements : fallbackStatements(action, payload, server), action, level: 'error', server, databaseName, tableName, durationMs: Math.max(0, Math.round(performance.now() - startedAt)), error: normalizedError });
     }
     throw normalizedError;
   } finally {
@@ -271,19 +225,21 @@ async function mutateServerProfiles<T>(accountId: string, mutation: (servers: Da
     await writeEncryptedServerProfiles(accountId, nextState.servers);
   });
   profileMutationQueues.set(accountId, currentMutation);
-  try {
-    await currentMutation;
-    return mutationResult;
-  } finally {
-    if (profileMutationQueues.get(accountId) === currentMutation) profileMutationQueues.delete(accountId);
-  }
+  try { await currentMutation; return mutationResult; }
+  finally { if (profileMutationQueues.get(accountId) === currentMutation) profileMutationQueues.delete(accountId); }
 }
 
 async function updateCachedDatabases(accountId: string, serverId: string, databases: DatabaseCatalogItem[]) {
-  await mutateServerProfiles(accountId, servers => ({
-    servers: servers.map(server => server.id === serverId ? { ...server, databases, updatedAt: new Date().toISOString() } : server),
-    result: undefined
-  }));
+  await mutateServerProfiles(accountId, servers => ({ servers: servers.map(server => server.id === serverId ? { ...server, databases, updatedAt: new Date().toISOString() } : server), result: undefined }));
+}
+
+function queryApproval(sql: string, server: DatabaseServerConfig, enabled: boolean) {
+  if (!enabled) return null;
+  const normalized = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, ' ').trim();
+  if (/^\s*TRUNCATE\b/i.test(normalized)) return 'truncate' as const;
+  if (/^\s*DROP\s+(TABLE|DATABASE)\b/i.test(normalized)) return 'drop' as const;
+  if (/^\s*ALTER\b/i.test(normalized) && looksLikeProductionServer(server.name, server.host)) return 'production-alter' as const;
+  return null;
 }
 
 export async function fetchDatabaseServers(accountId?: string | null) {
@@ -327,11 +283,9 @@ export async function testDatabaseConnection(server: DatabaseServerConfig) {
   const port = server.port ?? databaseEngineDefinition(server.databaseType).defaultPort;
   return requestDatabaseApi<{ connection: { version?: string; databaseName?: string | null; currentUser?: string }; _meta?: DatabaseQueryMeta }>(server, 'test', {}, { requestKey: `connection-test:${server.host}:${port}` });
 }
-
 export async function testStoredDatabaseConnection(serverId: string, accountId?: string | null) {
   return testDatabaseConnection(await requireServer(accountId, serverId));
 }
-
 export async function fetchServerTables(serverId: string, accountId?: string | null) {
   const server = await requireServer(accountId, serverId);
   const response = await requestDatabaseApi<{ databases: DatabaseCatalogItem[]; _meta?: DatabaseQueryMeta }>(server, 'catalog', {}, { requestKey: `catalog:${serverId}` });
@@ -339,30 +293,16 @@ export async function fetchServerTables(serverId: string, accountId?: string | n
   await updateCachedDatabases(accountId!, serverId, response.databases);
   return { serverId, databases: response.databases };
 }
-
 export async function fetchTableInfo(serverId: string, databaseName: string, tableName: string, accountId?: string | null) {
-  const server = await requireServer(accountId, serverId);
-  return requestDatabaseApi<TableInfo>(server, 'table-info', { database: databaseName, table: tableName }, { requestKey: `table-info:${serverId}:${databaseName}:${tableName}`, connectionDatabase: databaseName });
+  return requestDatabaseApi<TableInfo>(await requireServer(accountId, serverId), 'table-info', { database: databaseName, table: tableName }, { requestKey: `table-info:${serverId}:${databaseName}:${tableName}`, connectionDatabase: databaseName });
 }
-
 export async function fetchTableData(serverId: string, databaseName: string, tableName: string, accountId?: string | null, options: FetchTableDataOptions = {}) {
   const server = await requireServer(accountId, serverId);
-  return requestDatabaseApi<TableDataResponse>(server, 'table-data', {
-    database: databaseName,
-    table: tableName,
-    page: options.page ?? 1,
-    pageSize: options.pageSize ?? 50,
-    sorts: options.sorts ?? [],
-    filters: options.filters ?? [],
-    includeTotal: options.includeTotal ?? true,
-    knownTotalRows: options.knownTotalRows
-  }, { requestKey: `table-data:${serverId}:${databaseName}:${tableName}`, connectionDatabase: databaseName });
+  return requestDatabaseApi<TableDataResponse>(server, 'table-data', { database: databaseName, table: tableName, page: options.page ?? 1, pageSize: options.pageSize ?? 50, sorts: options.sorts ?? [], filters: options.filters ?? [], includeTotal: options.includeTotal ?? true, knownTotalRows: options.knownTotalRows }, { requestKey: `table-data:${serverId}:${databaseName}:${tableName}`, connectionDatabase: databaseName });
 }
-
 export async function updateTableCell(serverId: string, input: TableCellUpdateInput, accountId?: string | null) {
   return requestDatabaseApi<TableCellUpdateResponse>(await requireServer(accountId, serverId), 'update-cell', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
 }
-
 export async function deleteTableRows(serverId: string, input: TableRowsDeleteInput, accountId?: string | null) {
   return requestDatabaseApi<TableRowsDeleteResponse>(await requireServer(accountId, serverId), 'delete-rows', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
 }
@@ -374,34 +314,15 @@ export async function mutateTableSchema(serverId: string, input: TableSchemaMuta
   let snapshot: ReturnType<typeof addSchemaSnapshot> | null = null;
 
   if (preferences.schemaSnapshots) {
-    const before = await requestDatabaseApi<TableInfo>(server, 'table-info', { database: input.database, table: input.table }, {
-      requestKey: `schema-snapshot:${serverId}:${input.database}:${input.table}`,
-      connectionDatabase: input.database,
-      recordActivity: false
-    });
-    snapshot = addSchemaSnapshot({
-      serverId: server.id,
-      serverName: server.name,
-      engine,
-      database: input.database,
-      table: input.table,
-      reason: `ALTER öncesi: ${input.mutation.kind}`,
-      tableInfo: before
-    });
+    const before = await requestDatabaseApi<TableInfo>(server, 'table-info', { database: input.database, table: input.table }, { requestKey: `schema-snapshot:${serverId}:${input.database}:${input.table}`, connectionDatabase: input.database, recordActivity: false });
+    snapshot = addSchemaSnapshot({ serverId: server.id, serverName: server.name, engine, database: input.database, table: input.table, reason: `ALTER öncesi: ${input.mutation.kind}`, tableInfo: before });
   }
 
   const generatedUpSql = migrationSqlForMutation(input.database, input.table, input.mutation, engine);
   if (preferences.approvalWorkflows && looksLikeProductionServer(server.name, server.host)) {
-    const approval = addApproval({
-      serverId: server.id,
-      serverName: server.name,
-      database: input.database,
-      table: input.table,
-      action: 'production-alter',
-      sql: generatedUpSql,
-      requestedBy: accountId || 'current-user'
-    });
-    const error = new Error(`Production ALTER onay kuyruğuna eklendi (${approval.id}). Güvenlik merkezinden ikinci kullanıcı onayı gerekir.`) as DatabaseRequestError;
+    const approval = addApproval({ serverId: server.id, serverName: server.name, database: input.database, table: input.table, action: 'production-alter', sql: generatedUpSql, requestedBy: accountId || 'current-user' });
+    openDatabaseSafetyCenter({ tab: 'approvals', serverId: server.id, database: input.database, table: input.table });
+    const error = new Error(`Production ALTER onay kuyruğuna eklendi (${approval.id}). İkinci kullanıcı onayı gerekir.`) as DatabaseRequestError;
     error.code = 'APPROVAL_REQUIRED';
     throw error;
   }
@@ -409,44 +330,34 @@ export async function mutateTableSchema(serverId: string, input: TableSchemaMuta
   try {
     const result = await requestDatabaseApi<TableSchemaMutationResponse>(server, 'alter-table', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
     const upSql = result._meta?.statements?.map(statement => statement.sql).filter(Boolean).join('\n') || generatedUpSql;
-    addMigration({
-      serverId: server.id,
-      serverName: server.name,
-      engine,
-      database: input.database,
-      table: result.tableName || input.table,
-      name: migrationFileName(input.database, input.table).replace(/\.sql$/, ''),
-      description: `Görsel şema değişikliği: ${input.mutation.kind}`,
-      upSql,
-      downSql: snapshot ? migrationDownSql(snapshot.tableInfo.createSQL, input.database, input.table, engine) : '-- Snapshot kapalı olduğu için otomatik DOWN migration üretilemedi.',
-      mutation: input.mutation,
-      snapshotId: snapshot?.id,
-      appliedAt: new Date().toISOString(),
-      status: 'applied'
-    });
+    addMigration({ serverId: server.id, serverName: server.name, engine, database: input.database, table: result.tableName || input.table, name: migrationFileName(input.database, input.table).replace(/\.sql$/, ''), description: `Görsel şema değişikliği: ${input.mutation.kind}`, upSql, downSql: snapshot ? migrationDownSql(snapshot.tableInfo.createSQL, input.database, input.table, engine) : '-- Snapshot kapalı olduğu için otomatik DOWN migration üretilemedi.', mutation: input.mutation, snapshotId: snapshot?.id, appliedAt: new Date().toISOString(), status: 'applied' });
     return result;
   } catch (error) {
-    addMigration({
-      serverId: server.id,
-      serverName: server.name,
-      engine,
-      database: input.database,
-      table: input.table,
-      name: migrationFileName(input.database, input.table).replace(/\.sql$/, ''),
-      description: `Başarısız görsel şema değişikliği: ${input.mutation.kind}`,
-      upSql: generatedUpSql,
-      downSql: snapshot ? migrationDownSql(snapshot.tableInfo.createSQL, input.database, input.table, engine) : '-- Snapshot yok.',
-      mutation: input.mutation,
-      snapshotId: snapshot?.id,
-      status: 'failed'
-    });
+    addMigration({ serverId: server.id, serverName: server.name, engine, database: input.database, table: input.table, name: migrationFileName(input.database, input.table).replace(/\.sql$/, ''), description: `Başarısız görsel şema değişikliği: ${input.mutation.kind}`, upSql: generatedUpSql, downSql: snapshot ? migrationDownSql(snapshot.tableInfo.createSQL, input.database, input.table, engine) : '-- Snapshot yok.', mutation: input.mutation, snapshotId: snapshot?.id, status: 'failed' });
     throw error;
   }
 }
 
-export async function executeDatabaseQuery(serverId: string, sql: string, accountId?: string | null, databaseName?: string | null) {
+async function executeDatabaseQueryInternal(serverId: string, sql: string, accountId?: string | null, databaseName?: string | null, options: QueryOptions = {}) {
   const server = await requireServer(accountId, serverId);
   if (!sql.trim()) throw new Error('Çalıştırılacak SQL sorgusu boş olamaz.');
   const selectedDatabase = databaseName === undefined ? server.databaseName || undefined : databaseName;
+  const preferences = getAppPreferences();
+  const action = !options.bypassApproval ? queryApproval(sql, server, preferences.approvalWorkflows) : null;
+  if (action) {
+    const approval = addApproval({ serverId: server.id, serverName: server.name, database: selectedDatabase || null, action, sql, requestedBy: accountId || 'current-user' });
+    openDatabaseSafetyCenter({ tab: 'approvals', serverId: server.id, database: selectedDatabase || null });
+    const error = new Error(`İşlem ikinci kullanıcı onay kuyruğuna eklendi (${approval.id}).`) as DatabaseRequestError;
+    error.code = 'APPROVAL_REQUIRED';
+    throw error;
+  }
   return requestDatabaseApi<QueryExecutionResult>(server, 'query', { database: selectedDatabase, sql }, { connectionDatabase: selectedDatabase });
+}
+
+export function executeDatabaseQuery(serverId: string, sql: string, accountId?: string | null, databaseName?: string | null) {
+  return executeDatabaseQueryInternal(serverId, sql, accountId, databaseName);
+}
+
+export function executeApprovedDatabaseQuery(serverId: string, sql: string, accountId?: string | null, databaseName?: string | null) {
+  return executeDatabaseQueryInternal(serverId, sql, accountId, databaseName, { bypassApproval: true });
 }
