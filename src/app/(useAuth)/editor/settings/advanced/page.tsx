@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { DatabaseZap, Gauge, RotateCcw, Settings2, ShieldAlert } from 'lucide-react';
+import { Database, Gauge, RotateCcw, Settings2, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAppPreferences } from '@/lib/appPreferences';
 import { SettingRow, SettingsPageShell, SettingsSection, settingControlClass } from '../components/settings-page-shell';
@@ -24,7 +24,7 @@ export default function AdvancedSettingsPage() {
 
         <SettingsSection title="İçe aktarma">
           <SettingRow title="Batch satır sayısı" description="CSV/JSON import sırasında her API isteğine gönderilen satır miktarı." control={<select className={`${settingControlClass} w-40`} value={preferences.importBatchSize} onChange={event => setPreferences({ importBatchSize: Number(event.target.value) })}><option value="25">25</option><option value="100">100</option><option value="250">250</option><option value="500">500</option><option value="1000">1.000</option></select>} />
-          <div className="rounded-lg border p-3 text-[11px] text-muted-foreground"><DatabaseZap className="mb-2 h-4 w-4 text-cyan-400" />Küçük batch daha az bellek kullanır; büyük batch daha hızlıdır ancak proxy ve API gövde sınırına daha çabuk ulaşır.</div>
+          <div className="rounded-lg border p-3 text-[11px] text-muted-foreground"><Database className="mb-2 h-4 w-4 text-cyan-400" />Küçük batch daha az bellek kullanır; büyük batch daha hızlıdır ancak proxy ve API gövde sınırına daha çabuk ulaşır.</div>
         </SettingsSection>
 
         <SettingsSection title="Çalışma alanı">
