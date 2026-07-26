@@ -64,13 +64,31 @@ html[data-syntax-theme='github-light'] {
 
 .coreor-hide-scrollbar,
 .coreor-schema-canvas,
-.coreor-tab-strip {
+.coreor-tab-strip,
+div.h-8.overflow-x-auto.border-b:has([role='tab']) {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
 }
 .coreor-hide-scrollbar::-webkit-scrollbar,
 .coreor-schema-canvas::-webkit-scrollbar,
-.coreor-tab-strip::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
+.coreor-tab-strip::-webkit-scrollbar,
+div.h-8.overflow-x-auto.border-b:has([role='tab'])::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+/* Older utility screens still using native select receive the same transparent visual language. */
+select:not([multiple]) {
+  color-scheme: dark;
+  border-radius: .65rem;
+  border-color: rgba(63,63,70,.82);
+  background-color: rgba(9,9,11,.72);
+  color: rgb(212,212,216);
+  outline: none;
+}
+select:not([multiple]):focus { border-color: rgba(34,211,238,.55); box-shadow: 0 0 0 3px rgba(34,211,238,.08); }
+select:not([multiple]) option { background: rgb(9,9,11); color: rgb(228,228,231); }
 
 .coreor-range { appearance: none; height: 4px; border-radius: 999px; background: rgba(63,63,70,.85); outline: none; }
 .coreor-range::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; border-radius: 999px; background: #22d3ee; border: 3px solid #09090b; box-shadow: 0 0 0 1px rgba(34,211,238,.4); cursor: pointer; }
