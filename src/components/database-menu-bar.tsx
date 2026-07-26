@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useContext, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Activity,
   BookOpen,
@@ -20,6 +19,7 @@ import {
   RefreshCw,
   Server,
   Settings2,
+  ShieldAlert,
   Unplug,
   UserCog,
   Users,
@@ -33,16 +33,21 @@ import {
   OPEN_IMPORT_EXPORT_EVENT,
   OPEN_PERFORMANCE_PANEL_EVENT,
   OPEN_PROCESS_CENTER_EVENT,
+  OPEN_SETTINGS_MODAL_EVENT,
   OPEN_SQL_NOTEBOOK_EVENT,
+  OPEN_TRANSACTION_WORKSPACE_EVENT,
   OPEN_USER_MANAGER_EVENT,
   TOGGLE_COMMAND_PALETTE_EVENT,
-  dispatchDatabaseTool
+  dispatchDatabaseTool,
+  type OpenSettingsModalDetail
 } from '@/lib/databaseToolEvents';
 import { DatabaseUserManagerModal } from '@/components/database-user-manager-modal';
 import { DatabaseProcessCenterModal } from '@/components/database-process-center-modal';
 import { DatabaseImportExportModal } from '@/components/database-import-export-modal';
 import { DatabasePerformancePanelModal } from '@/components/database-performance-panel-modal';
 import { SqlNotebookModal } from '@/components/sql-notebook-modal';
+import { DatabaseSettingsModal, type DatabaseSettingsTab } from '@/components/database-settings-modal';
+import { DatabaseTransactionWorkspaceModal } from '@/components/database-transaction-workspace-modal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,7 +63,6 @@ interface DatabaseMenuBarProps {
 }
 
 export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMenuBarProps) {
-  const router = useRouter();
   const { activeToken } = useAuth();
   const { servers, databases, activeServerId, setActiveServerId, loadServers } = useContext(DatabaseContext)!;
   const activeServer = servers.find(server => server.id === activeServerId) ?? null;
@@ -69,6 +73,9 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
   const [transferOpen, setTransferOpen] = useState(false);
   const [performanceOpen, setPerformanceOpen] = useState(false);
   const [notebookOpen, setNotebookOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<DatabaseSettingsTab>('account');
+  const [transactionOpen, setTransactionOpen] = useState(false);
 
   useEffect(() => {
     const openUsers = () => setUsersOpen(true);
@@ -76,17 +83,27 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
     const openTransfer = () => setTransferOpen(true);
     const openPerformance = () => setPerformanceOpen(true);
     const openNotebook = () => setNotebookOpen(true);
+    const openTransaction = () => setTransactionOpen(true);
+    const openSettings = (event: Event) => {
+      const detail = (event as CustomEvent<OpenSettingsModalDetail>).detail;
+      setSettingsTab(detail?.tab || 'account');
+      setSettingsOpen(true);
+    };
     window.addEventListener(OPEN_USER_MANAGER_EVENT, openUsers);
     window.addEventListener(OPEN_PROCESS_CENTER_EVENT, openProcesses);
     window.addEventListener(OPEN_IMPORT_EXPORT_EVENT, openTransfer);
     window.addEventListener(OPEN_PERFORMANCE_PANEL_EVENT, openPerformance);
     window.addEventListener(OPEN_SQL_NOTEBOOK_EVENT, openNotebook);
+    window.addEventListener(OPEN_TRANSACTION_WORKSPACE_EVENT, openTransaction);
+    window.addEventListener(OPEN_SETTINGS_MODAL_EVENT, openSettings);
     return () => {
       window.removeEventListener(OPEN_USER_MANAGER_EVENT, openUsers);
       window.removeEventListener(OPEN_PROCESS_CENTER_EVENT, openProcesses);
       window.removeEventListener(OPEN_IMPORT_EXPORT_EVENT, openTransfer);
       window.removeEventListener(OPEN_PERFORMANCE_PANEL_EVENT, openPerformance);
       window.removeEventListener(OPEN_SQL_NOTEBOOK_EVENT, openNotebook);
+      window.removeEventListener(OPEN_TRANSACTION_WORKSPACE_EVENT, openTransaction);
+      window.removeEventListener(OPEN_SETTINGS_MODAL_EVENT, openSettings);
     };
   }, []);
 
@@ -115,12 +132,17 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
     } finally { setBusy(false); }
   };
 
+  const openSettings = (tab: DatabaseSettingsTab = 'account') => {
+    setSettingsTab(tab);
+    setSettingsOpen(true);
+  };
+
   const toolButton = 'flex h-7 items-center gap-1.5 rounded px-2 text-[10px] text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40';
 
   return (
     <>
       <div className="flex h-8 shrink-0 items-center border-b border-zinc-800 bg-zinc-950/95 px-2 text-[11px] text-zinc-400 shadow-sm backdrop-blur">
-        <div className="mr-3 flex items-center gap-1.5 font-semibold text-zinc-200"><Database className="h-3.5 w-3.5 text-emerald-400" />Coreor Database</div>
+        <div className="mr-3 flex items-center gap-1.5 font-semibold text-zinc-200"><Database className="h-3.5 w-3.5 text-emerald-400" />Coreor Database <span className="rounded bg-cyan-500/10 px-1.5 py-0.5 text-[8px] text-cyan-300">2.0</span></div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild><button type="button" className="flex h-7 items-center gap-1 rounded px-2 text-zinc-300 hover:bg-white/[0.06] data-[state=open]:bg-white/[0.08]">Veritabanı <ChevronDown className="h-3 w-3 text-zinc-600" /></button></DropdownMenuTrigger>
@@ -128,12 +150,14 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
             <DropdownMenuLabel className="text-[10px] font-normal text-zinc-500">Bağlantılar</DropdownMenuLabel>
             <DropdownMenuItem onClick={() => window.dispatchEvent(new Event('coreor:open-server-modal'))}><Plus className="mr-2 h-4 w-4" /> Yeni bağlantı ekle<span className="ml-auto text-[10px] text-zinc-600">⌘N</span></DropdownMenuItem>
             <DropdownMenuItem disabled={!activeServer} onClick={() => activeServer && window.dispatchEvent(new CustomEvent('coreor:edit-server-modal', { detail: { serverId: activeServer.id } }))}><Pencil className="mr-2 h-4 w-4" /> Aktif bağlantıyı düzenle</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openSettings('servers')}><Settings2 className="mr-2 h-4 w-4" /> Sunucu profillerini yönet</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem disabled={!activeServer || busy} onClick={() => void connect()}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Server className="mr-2 h-4 w-4" />} Bağlantıyı test et ve bağlan</DropdownMenuItem>
             <DropdownMenuItem disabled={!activeServer || busy} onClick={() => void refreshCatalog()}><RefreshCw className="mr-2 h-4 w-4" /> Kataloğu yenile</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem disabled={!activeServer} onClick={() => openQueryTab({ serverId: activeServerId, databaseName: null, title: 'Genel sorgu' })}><Code className="mr-2 h-4 w-4" /> Yeni sunucu geneli sorgu</DropdownMenuItem>
             <DropdownMenuItem disabled={!activeServer || !selectedDatabase} onClick={() => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: `${selectedDatabase} sorgu` })}><Database className="mr-2 h-4 w-4" /> Seçili veritabanında sorgu</DropdownMenuItem>
+            <DropdownMenuItem disabled={!activeServer} onClick={() => setTransactionOpen(true)}><ShieldAlert className="mr-2 h-4 w-4" /> Transaction çalışma alanı</DropdownMenuItem>
             <DropdownMenuItem disabled={!activeServer || !selectedDatabase} onClick={() => window.dispatchEvent(new Event('coreor:open-schema-graph'))}><Network className="mr-2 h-4 w-4" /> Şema grafiğini aç</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="font-normal"><div className="flex items-center gap-2 text-[10px] text-zinc-500"><Unplug className="h-3.5 w-3.5" /><select value={activeServerId || ''} onChange={event => setActiveServerId(event.target.value || null)} className="h-7 min-w-0 flex-1 rounded border border-zinc-800 bg-zinc-950 px-2 text-[10px] text-zinc-300"><option value="">Bağlantı seç</option>{servers.map(server => <option key={server.id} value={server.id}>{server.name} — {server.host}:{server.port || 3306}</option>)}</select></div></DropdownMenuLabel>
@@ -154,13 +178,14 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
         </DropdownMenu>
 
         <button type="button" className={toolButton} onClick={() => dispatchDatabaseTool(TOGGLE_COMMAND_PALETTE_EVENT)} title="Komut paleti (Ctrl/Cmd + K)"><Command className="h-3.5 w-3.5 text-cyan-400" />Komut<span className="rounded border border-zinc-800 px-1 py-0.5 text-[8px] text-zinc-600">⌘K</span></button>
+        <button type="button" className={toolButton} disabled={!activeServer} onClick={() => setTransactionOpen(true)} title="Autocommit, commit ve rollback"><ShieldAlert className="h-3.5 w-3.5 text-amber-400" />Transaction</button>
         <button type="button" className={toolButton} disabled={!activeServer} onClick={() => setUsersOpen(true)} title="MySQL kullanıcı ve yetki yönetimi"><UserCog className="h-3.5 w-3.5 text-purple-400" />Kullanıcılar</button>
         <button type="button" className={toolButton} disabled={!activeServer} onClick={() => setProcessOpen(true)} title="Çalışan sorgular ve kilitler"><Activity className="h-3.5 w-3.5 text-amber-400" />Processler</button>
         <button type="button" className={toolButton} disabled={!activeServer} onClick={() => setPerformanceOpen(true)} title="QPS, buffer pool, replication ve depolama"><Gauge className="h-3.5 w-3.5 text-emerald-400" />Performans</button>
         <button type="button" className={toolButton} disabled={!activeServer} onClick={() => setNotebookOpen(true)} title="SQL, Markdown, sonuç ve grafik notebook'u"><BookOpen className="h-3.5 w-3.5 text-purple-400" />Notebook</button>
         <button type="button" className={toolButton} disabled={!activeServer} onClick={() => setTransferOpen(true)} title="CSV, JSON ve SQL aktarımı"><FileInput className="h-3.5 w-3.5 text-emerald-400" />Aktarım</button>
         <button type="button" className={toolButton} disabled={!activeServer || !selectedDatabase} onClick={() => window.dispatchEvent(new Event('coreor:open-schema-graph'))} title="ER / flow şeması"><Network className="h-3.5 w-3.5 text-cyan-400" />Şema</button>
-        <button type="button" className={toolButton} onClick={() => router.push('/editor/settings/appearance')} title="Görünüm ve uygulama ayarları"><Settings2 className="h-3.5 w-3.5" />Ayarlar</button>
+        <button type="button" className={toolButton} onClick={() => openSettings('account')} title="Uygulama ve sunucu ayarları"><Settings2 className="h-3.5 w-3.5" />Ayarlar</button>
 
         {status && <button type="button" className={`ml-3 inline-flex min-w-0 items-center gap-1.5 truncate text-[10px] ${status.tone === 'success' ? 'text-emerald-400' : 'text-red-400'}`} onClick={() => setStatus(null)} title={status.text}>{status.tone === 'success' ? <CheckCircle2 className="h-3 w-3 shrink-0" /> : <XCircle className="h-3 w-3 shrink-0" />}<span className="max-w-80 truncate">{status.text}</span></button>}
 
@@ -172,6 +197,8 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
       <DatabasePerformancePanelModal open={performanceOpen} onClose={() => setPerformanceOpen(false)} serverId={activeServerId} accountId={activeToken} selectedDatabase={selectedDatabase} />
       <SqlNotebookModal open={notebookOpen} onClose={() => setNotebookOpen(false)} serverId={activeServerId} accountId={activeToken} databases={databases} selectedDatabase={selectedDatabase} />
       <DatabaseImportExportModal open={transferOpen} onClose={() => setTransferOpen(false)} serverId={activeServerId} accountId={activeToken} databases={databases} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
+      <DatabaseSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialTab={settingsTab} />
+      <DatabaseTransactionWorkspaceModal open={transactionOpen} onClose={() => setTransactionOpen(false)} serverId={activeServerId} accountId={activeToken} databases={databases} selectedDatabase={selectedDatabase} />
     </>
   );
 }
