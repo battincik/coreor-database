@@ -6,6 +6,7 @@ import {
   executeDatabaseWorkbenchRequest,
   isDatabaseWorkbenchAction
 } from '@/lib/server/database-workbench-service';
+import { executeDatabasePerformanceRequest } from '@/lib/server/database-performance-service';
 import type { DatabaseWorkbenchRequest } from '@/lib/databaseWorkbenchTypes';
 
 export const runtime = 'nodejs';
@@ -119,9 +120,11 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = JSON.parse(rawBody) as Parameters<typeof executeDatabaseRequest>[0] & { action?: unknown };
-    const result = isDatabaseWorkbenchAction(payload.action)
-      ? await executeDatabaseWorkbenchRequest(payload as unknown as DatabaseWorkbenchRequest)
-      : await executeDatabaseRequest(payload);
+    const result = payload.action === 'performance-snapshot'
+      ? await executeDatabasePerformanceRequest(payload as unknown as DatabaseWorkbenchRequest)
+      : isDatabaseWorkbenchAction(payload.action)
+        ? await executeDatabaseWorkbenchRequest(payload as unknown as DatabaseWorkbenchRequest)
+        : await executeDatabaseRequest(payload);
     return NextResponse.json(result, { status: 200, headers: noStoreHeaders() });
   } catch (error) {
     if (error instanceof SyntaxError) {

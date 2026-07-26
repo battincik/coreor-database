@@ -10,6 +10,7 @@ export type DatabaseWorkbenchAction =
   | 'role-assign'
   | 'process-list'
   | 'process-kill'
+  | 'performance-snapshot'
   | 'import-data'
   | 'export-data';
 
@@ -96,6 +97,62 @@ export interface DatabaseProcessCenterResponse {
   locks: DatabaseMetadataLockInfo[];
   deadlockText: string | null;
   currentConnectionId: number | null;
+}
+
+export interface DatabasePerformanceSchemaSize {
+  schema: string;
+  dataBytes: number;
+  indexBytes: number;
+  freeBytes: number;
+  totalBytes: number;
+}
+
+export interface DatabaseReplicationStatus {
+  available: boolean;
+  running: boolean | null;
+  secondsBehind: number | null;
+  ioRunning: string | null;
+  sqlRunning: string | null;
+  sourceHost: string | null;
+  channelName: string | null;
+  lastError: string | null;
+}
+
+export interface DatabaseBufferPoolStatus {
+  totalPages: number;
+  freePages: number;
+  dataPages: number;
+  dirtyPages: number;
+  pageSize: number;
+  usagePercent: number;
+  dirtyPercent: number;
+  hitRatio: number | null;
+  reads: number;
+  readRequests: number;
+}
+
+export interface DatabasePerformanceSnapshot {
+  sampledAt: string;
+  uptimeSeconds: number;
+  questions: number;
+  threadsConnected: number;
+  threadsRunning: number;
+  maxUsedConnections: number;
+  maxConnections: number | null;
+  slowQueries: number;
+  abortedConnects: number;
+  bytesReceived: number;
+  bytesSent: number;
+  bufferPool: DatabaseBufferPoolStatus;
+  replication: DatabaseReplicationStatus;
+  storage: {
+    dataBytes: number;
+    indexBytes: number;
+    freeBytes: number;
+    totalBytes: number;
+    selectedDatabaseBytes: number | null;
+    topSchemas: DatabasePerformanceSchemaSize[];
+  };
 }
 
 export interface DatabaseImportDataInput {
