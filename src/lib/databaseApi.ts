@@ -23,7 +23,13 @@ import { readEncryptedServerProfiles, writeEncryptedServerProfiles } from '@/lib
 import { recordActivity } from '@/lib/activityConsole';
 import { databaseEngineDefinition, databaseEngineLabel } from '@/lib/databaseEngines';
 import { getAppPreferences } from '@/lib/appPreferences';
-import { addApproval, addMigration, addSchemaSnapshot } from '@/lib/databaseSafetyWorkspace';
+import {
+  addApproval,
+  addMigration,
+  addSchemaSnapshot,
+  getDatabaseSafetyWorkspace,
+  markApprovalExecuted
+} from '@/lib/databaseSafetyWorkspace';
 import { openDatabaseSafetyCenter } from '@/lib/databaseSafetyEvents';
 import { looksLikeProductionServer, migrationDownSql, migrationFileName, migrationSqlForMutation } from '@/lib/schemaMigration';
 
@@ -35,11 +41,7 @@ export interface DatabaseServerCatalogItem extends DatabaseServerConfig {
   databases: DatabaseCatalogItem[];
 }
 
-interface DatabaseErrorPayload {
-  error?: string;
-  message?: string;
-  _meta?: DatabaseQueryMeta;
-}
+interface DatabaseErrorPayload { error?: string; message?: string; _meta?: DatabaseQueryMeta }
 interface ProfileMutationResult<T> { servers: DatabaseServerConfig[]; result: T }
 interface DatabaseRequestError extends Error { code?: string; queryMeta?: DatabaseQueryMeta }
 interface RequestOptions { requestKey?: string; connectionDatabase?: string | null; recordActivity?: boolean }
@@ -343,7 +345,11 @@ async function executeDatabaseQueryInternal(serverId: string, sql: string, accou
   if (!sql.trim()) throw new Error('Çalıştırılacak SQL sorgusu boş olamaz.');
   const selectedDatabase = databaseName === undefined ? server.databaseName || undefined : databaseName;
   const preferences = getAppPreferences();
-  const action = !options.bypassApproval ? queryApproval(sql, server, preferences.approvalWorkflows) : null;
+  const approvedRecord = !options.bypassApproval
+    ? getDatabaseSafetyWorkspace().approvals.find(item => item.status === 'approved' && item.serverId === server.id && (item.database || null) === (selectedDatabase || null) && item.sql.trim() === sql.trim())
+    : undefined;
+  const action = !options.bypassApproval && !approvedRecord ? queryApproval(sql, server, preferences.approvalWorkflows) : null;
+
   if (action) {
     const approval = addApproval({ serverId: server.id, serverName: server.name, database: selectedDatabase || null, action, sql, requestedBy: accountId || 'current-user' });
     openDatabaseSafetyCenter({ tab: 'approvals', serverId: server.id, database: selectedDatabase || null });
@@ -351,7 +357,15 @@ async function executeDatabaseQueryInternal(serverId: string, sql: string, accou
     error.code = 'APPROVAL_REQUIRED';
     throw error;
   }
-  return requestDatabaseApi<QueryExecutionResult>(server, 'query', { database: selectedDatabase, sql }, { connectionDatabase: selectedDatabase });
+
+  try {
+    const result = await requestDatabaseApi<QueryExecutionResult>(server, 'query', { database: selectedDatabase, sql }, { connectionDatabase: selectedDatabase });
+    if (approvedRecord) markApprovalExecuted(approvedRecord.id, 'executed');
+    return result;
+  } catch (error) {
+    if (approvedRecord) markApprovalExecuted(approvedRecord.id, 'failed');
+    throw error;
+  }
 }
 
 export function executeDatabaseQuery(serverId: string, sql: string, accountId?: string | null, databaseName?: string | null) {
