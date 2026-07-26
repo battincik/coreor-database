@@ -6,6 +6,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { Sidebar } from '@/components/sidebar';
 import { DatabasePanel } from '@/components/database-panel';
 import { DatabaseMenuBar } from '@/components/database-menu-bar';
+import { DatabaseCommandPalette } from '@/components/database-command-palette';
 import Topbar from './Topbar';
 import BottomBar from './BottomBar';
 import { AppContextMenuProvider, useAppContextMenu } from '@/components/app-context-menu';
@@ -116,6 +117,14 @@ function EditorWorkspace() {
     >
       {showTopbar && <Topbar />}
       <DatabaseMenuBar selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
+      <DatabaseCommandPalette
+        servers={servers}
+        activeServerId={activeServerId}
+        selectedDatabase={selectedDatabase}
+        selectedTable={selectedTable}
+        onDatabaseSelect={handleDatabaseSelect}
+        onTableSelect={handleTableSelect}
+      />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1 overflow-hidden" onLayout={rememberLayout}>
           <ResizablePanel defaultSize={preferences.sidebarSize} minSize={12} maxSize={45}>
