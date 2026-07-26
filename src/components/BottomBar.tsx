@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
@@ -51,19 +51,11 @@ const EMPTY_GRID_STATUS: GridRuntimeStatus = {
 };
 
 function formatClock(timestamp: string) {
-  return new Intl.DateTimeFormat('tr-TR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    fractionalSecondDigits: 3
-  }).format(new Date(timestamp));
+  return new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 }).format(new Date(timestamp));
 }
 
 function formatDateTime(timestamp: string) {
-  return new Intl.DateTimeFormat('tr-TR', {
-    dateStyle: 'long',
-    timeStyle: 'medium'
-  }).format(new Date(timestamp));
+  return new Intl.DateTimeFormat('tr-TR', { dateStyle: 'long', timeStyle: 'medium' }).format(new Date(timestamp));
 }
 
 function statusIcon(level: ActivityEntry['level'], className = 'h-3 w-3') {
@@ -81,11 +73,8 @@ function statusLabel(level: ActivityEntry['level']) {
 }
 
 function queryTarget(entry: ActivityEntry) {
-  const databaseTarget = entry.databaseName
-    ? `${entry.databaseName}${entry.tableName ? `.${entry.tableName}` : ''}`
-    : entry.tableName || 'sunucu geneli';
-
-  return `${entry.serverName || 'Coreor'} • ${databaseTarget}`;
+  const target = entry.databaseName ? `${entry.databaseName}${entry.tableName ? `.${entry.tableName}` : ''}` : entry.tableName || 'sunucu geneli';
+  return `${entry.serverName || 'Coreor'} • ${target}`;
 }
 
 function downloadActivityLog() {
@@ -98,12 +87,7 @@ function downloadActivityLog() {
   URL.revokeObjectURL(url);
 }
 
-function StatusTooltip({
-  children,
-  title,
-  rows,
-  align = 'left'
-}: {
+function StatusTooltip({ children, title, rows, align = 'left' }: {
   children: React.ReactNode;
   title: string;
   rows: Array<{ label: string; value: React.ReactNode; tone?: 'normal' | 'success' | 'warning' | 'danger' }>;
@@ -122,7 +106,6 @@ function StatusTooltip({
             </div>
           ))}
         </div>
-        <div className={`absolute -bottom-1 h-2 w-2 rotate-45 border-b border-r border-zinc-800 bg-zinc-950 ${align === 'right' ? 'right-5' : 'left-5'}`} />
       </div>
     </div>
   );
@@ -130,92 +113,45 @@ function StatusTooltip({
 
 function QueryDetailModal({ entry, onClose }: { entry: ActivityEntry | null; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    setCopied(false);
-  }, [entry?.id]);
-
+  useEffect(() => setCopied(false), [entry?.id]);
   if (!entry || typeof document === 'undefined') return null;
 
   const copySql = async () => {
     await navigator.clipboard.writeText(entry.sql);
     setCopied(true);
-    window.setTimeout(() => setCopied(false), 1_500);
+    window.setTimeout(() => setCopied(false), 1500);
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[190] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[240] flex items-center justify-center p-4">
       <button type="button" aria-label="Kapat" className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
         <div className="flex items-start justify-between border-b border-zinc-800 px-5 py-4">
           <div className="flex min-w-0 items-start gap-3">
             <div className="mt-0.5 rounded-md border border-zinc-800 bg-black/30 p-2">{statusIcon(entry.level, 'h-4 w-4')}</div>
-            <div className="min-w-0">
-              <h2 className="truncate text-sm font-semibold text-zinc-100">{entry.title}</h2>
-              <p className="mt-1 text-xs text-zinc-500">{formatDateTime(entry.timestamp)}</p>
-            </div>
+            <div className="min-w-0"><h2 className="truncate text-sm font-semibold text-zinc-100">{entry.title}</h2><p className="mt-1 text-xs text-zinc-500">{formatDateTime(entry.timestamp)}</p></div>
           </div>
-          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
+          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
-
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5 text-xs">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-lg border border-zinc-800 bg-black/20 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-zinc-600">Durum</div>
-              <div className={entry.level === 'error' ? 'mt-1 font-medium text-red-400' : entry.level === 'warning' ? 'mt-1 font-medium text-amber-400' : 'mt-1 font-medium text-emerald-400'}>{statusLabel(entry.level)}</div>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-black/20 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-zinc-600">Süre</div>
-              <div className="mt-1 font-medium text-zinc-200">{typeof entry.durationMs === 'number' ? `${entry.durationMs} ms` : '—'}</div>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-black/20 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-zinc-600">Dönen satır</div>
-              <div className="mt-1 font-medium text-zinc-200">{typeof entry.rowCount === 'number' ? entry.rowCount.toLocaleString('tr-TR') : '—'}</div>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-black/20 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-zinc-600">Etkilenen satır</div>
-              <div className="mt-1 font-medium text-zinc-200">{typeof entry.affectedRows === 'number' ? entry.affectedRows.toLocaleString('tr-TR') : '—'}</div>
-            </div>
+            {[
+              ['Durum', statusLabel(entry.level)],
+              ['Süre', typeof entry.durationMs === 'number' ? `${entry.durationMs} ms` : '—'],
+              ['Dönen satır', typeof entry.rowCount === 'number' ? entry.rowCount.toLocaleString('tr-TR') : '—'],
+              ['Etkilenen satır', typeof entry.affectedRows === 'number' ? entry.affectedRows.toLocaleString('tr-TR') : '—']
+            ].map(([label, value]) => <div key={label} className="rounded-lg border border-zinc-800 bg-black/20 p-3"><div className="text-[10px] uppercase tracking-wider text-zinc-600">{label}</div><div className="mt-1 font-medium text-zinc-200">{value}</div></div>)}
           </div>
-
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-lg border border-zinc-800 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-zinc-600">Sunucu</div>
-              <div className="mt-1 text-zinc-200">{entry.serverName || '—'}</div>
-              {entry.host && <div className="mt-0.5 font-mono text-[11px] text-zinc-500">{entry.host}</div>}
-            </div>
-            <div className="rounded-lg border border-zinc-800 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-zinc-600">Hedef</div>
-              <div className="mt-1 font-mono text-zinc-200">{entry.databaseName || 'Sunucu geneli'}{entry.tableName ? `.${entry.tableName}` : ''}</div>
-              {entry.errorCode && <div className="mt-0.5 text-[11px] text-red-400">{entry.errorCode}</div>}
-            </div>
+            <div className="rounded-lg border border-zinc-800 p-3"><div className="text-[10px] uppercase tracking-wider text-zinc-600">Sunucu</div><div className="mt-1 text-zinc-200">{entry.serverName || '—'}</div>{entry.host && <div className="mt-0.5 font-mono text-[11px] text-zinc-500">{entry.host}</div>}</div>
+            <div className="rounded-lg border border-zinc-800 p-3"><div className="text-[10px] uppercase tracking-wider text-zinc-600">Hedef</div><div className="mt-1 font-mono text-zinc-200">{entry.databaseName || 'sunucu geneli'}{entry.tableName ? `.${entry.tableName}` : ''}</div>{entry.errorCode && <div className="mt-0.5 text-[11px] text-red-400">{entry.errorCode}</div>}</div>
           </div>
-
-          {entry.message && (
-            <div className={`rounded-lg border px-3 py-2.5 ${entry.level === 'error' ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-zinc-800 bg-black/20 text-zinc-400'}`}>
-              {entry.message}
-            </div>
-          )}
-
+          {entry.message && <div className={`rounded-lg border px-3 py-2.5 ${entry.level === 'error' ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-zinc-800 bg-black/20 text-zinc-400'}`}>{entry.message}</div>}
           <div className="overflow-hidden rounded-lg border border-zinc-800">
-            <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/60 px-3 py-2">
-              <span className="font-medium text-zinc-300">SQL</span>
-              <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 text-[11px]" onClick={copySql}>
-                {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                {copied ? 'Kopyalandı' : 'Kopyala'}
-              </Button>
-            </div>
-            <pre className="max-h-72 overflow-auto whitespace-pre-wrap bg-black/40 p-4 font-mono text-[11px] leading-5 text-cyan-200">{entry.sql}</pre>
+            <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/60 px-3 py-2"><span className="font-medium text-zinc-300">SQL</span><Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 text-[11px]" onClick={copySql}>{copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}{copied ? 'Kopyalandı' : 'Kopyala'}</Button></div>
+            <pre className="max-h-72 overflow-auto whitespace-pre-wrap bg-black/40 p-4 text-left font-mono text-[11px] leading-5 text-cyan-200">{entry.sql}</pre>
           </div>
-
-          {entry.parameters && entry.parameters.length > 0 && (
-            <div className="overflow-hidden rounded-lg border border-zinc-800">
-              <div className="border-b border-zinc-800 bg-zinc-900/60 px-3 py-2 font-medium text-zinc-300">Parametreler</div>
-              <pre className="max-h-48 overflow-auto bg-black/40 p-4 font-mono text-[11px] leading-5 text-amber-200">{JSON.stringify(entry.parameters, null, 2)}</pre>
-            </div>
-          )}
+          {entry.parameters && entry.parameters.length > 0 && <div className="overflow-hidden rounded-lg border border-zinc-800"><div className="border-b border-zinc-800 bg-zinc-900/60 px-3 py-2 font-medium text-zinc-300">Parametreler</div><pre className="max-h-48 overflow-auto bg-black/40 p-4 text-left font-mono text-[11px] leading-5 text-amber-200">{JSON.stringify(entry.parameters, null, 2)}</pre></div>}
         </div>
       </div>
     </div>,
@@ -233,6 +169,12 @@ export default function BottomBar({ selectedDatabase, selectedTable }: BottomBar
   const { servers, activeServerId, isServersLoading } = useContext(DatabaseContext)!;
   const activeServer = servers.find(server => server.id === activeServerId) ?? null;
 
+  useEffect(() => {
+    const handler = (event: Event) => setGridStatus((event as CustomEvent<GridRuntimeStatus>).detail || EMPTY_GRID_STATUS);
+    window.addEventListener('coreor:grid-status', handler);
+    return () => window.removeEventListener('coreor:grid-status', handler);
+  }, []);
+
   const filteredEntries = useMemo(() => {
     if (filter === 'success') return queryEntries.filter(entry => entry.level === 'success');
     if (filter === 'errors') return queryEntries.filter(entry => entry.level === 'error' || entry.level === 'warning');
@@ -243,196 +185,56 @@ export default function BottomBar({ selectedDatabase, selectedTable }: BottomBar
     const successful = queryEntries.filter(entry => entry.level === 'success').length;
     const failed = queryEntries.filter(entry => entry.level === 'error').length;
     const warnings = queryEntries.filter(entry => entry.level === 'warning').length;
-    const durations = queryEntries.map(entry => entry.durationMs).filter((duration): duration is number => typeof duration === 'number');
-    const averageDuration = durations.length ? Math.round(durations.reduce((total, duration) => total + duration, 0) / durations.length) : undefined;
-    const lastEntry = queryEntries.at(-1);
-    const successRate = queryEntries.length ? Math.round((successful / queryEntries.length) * 100) : 0;
-    return { successful, failed, warnings, averageDuration, lastEntry, successRate };
+    const durations = queryEntries.map(entry => entry.durationMs).filter((value): value is number => typeof value === 'number');
+    const averageDuration = durations.length ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length) : undefined;
+    const completed = successful + failed;
+    const successRate = completed ? Math.round(successful / completed * 100) : 100;
+    return { successful, failed, warnings, averageDuration, successRate, lastEntry: queryEntries.at(-1) };
   }, [queryEntries]);
-
-  useEffect(() => {
-    const handler = (event: Event) => setGridStatus((event as CustomEvent<GridRuntimeStatus>).detail || EMPTY_GRID_STATUS);
-    window.addEventListener('coreor:grid-status', handler);
-    return () => window.removeEventListener('coreor:grid-status', handler);
-  }, []);
 
   useEffect(() => {
     if (isConsoleOpen) endRef.current?.scrollIntoView({ block: 'end' });
   }, [filteredEntries.length, isConsoleOpen]);
 
   const engineName = activeServer?.databaseType === 'mariadb' ? 'MariaDB' : 'MySQL';
-  const targetName = selectedDatabase
-    ? `${selectedDatabase}${selectedTable ? `.${selectedTable}` : ''}`
-    : activeServer?.databaseName || 'Sunucu geneli';
+  const targetName = selectedDatabase || activeServer?.databaseName || 'Sunucu geneli';
 
   return (
     <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 text-xs">
-      <div className={`flex flex-col transition-[height] duration-200 ${isConsoleOpen ? 'h-52' : 'h-8'}`}>
+      <div className={`flex flex-col transition-[height] duration-200 ${isConsoleOpen ? 'h-[212px]' : 'h-8'}`}>
         <div className="flex h-8 shrink-0 items-center justify-between border-b border-zinc-800/80 px-2">
           <button type="button" className="flex min-w-0 items-center gap-2 text-zinc-300 hover:text-white" onClick={() => setIsConsoleOpen(previous => !previous)}>
-            <Terminal className="h-3.5 w-3.5" />
-            <span className="font-medium">SQL günlüğü</span>
-            <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400">{queryEntries.length}</span>
-            {isConsoleOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+            <Terminal className="h-3.5 w-3.5" /><span className="font-medium">SQL günlüğü</span><span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-400">{queryEntries.length}</span>{isConsoleOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
           </button>
-
-          {isConsoleOpen && (
-            <div className="flex items-center gap-1">
-              <div className="mr-1 flex items-center rounded-md border border-zinc-800 bg-black/20 p-0.5">
-                {(['all', 'success', 'errors'] as ConsoleFilter[]).map(item => (
-                  <button
-                    key={item}
-                    type="button"
-                    className={`rounded px-2 py-1 text-[10px] ${filter === item ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-200'}`}
-                    onClick={() => setFilter(item)}
-                  >
-                    {item === 'all' ? 'Tümü' : item === 'success' ? 'Başarılı' : 'Hatalar'}
-                  </button>
-                ))}
-              </div>
-              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-white" onClick={downloadActivityLog} title="SQL günlüğünü dışa aktar">
-                <Download className="h-3.5 w-3.5" />
-              </Button>
-              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-red-400" onClick={clearActivities} title="SQL günlüğünü temizle">
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
+          {isConsoleOpen && <div className="flex items-center gap-1"><div className="mr-1 flex items-center rounded-md border border-zinc-800 bg-black/20 p-0.5">{(['all', 'success', 'errors'] as ConsoleFilter[]).map(item => <button key={item} type="button" className={`rounded px-2 py-1 text-[9px] ${filter === item ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-200'}`} onClick={() => setFilter(item)}>{item === 'all' ? 'Tümü' : item === 'success' ? 'Başarılı' : 'Hatalar'}</button>)}</div><Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-zinc-500" onClick={downloadActivityLog} title="SQL günlüğünü dışa aktar"><Download className="h-3.5 w-3.5" /></Button><Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-red-400" onClick={clearActivities} title="SQL günlüğünü temizle"><Trash2 className="h-3.5 w-3.5" /></Button></div>}
         </div>
 
-        {isConsoleOpen && (
-          <div className="min-h-0 flex-1 overflow-auto font-mono">
-            {filteredEntries.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-[11px] text-zinc-600">Henüz çalıştırılmış SQL sorgusu yok.</div>
-            ) : (
-              <div className="divide-y divide-zinc-900/80">
-                {filteredEntries.map(entry => (
-                  <div key={entry.id} className="grid h-7 grid-cols-[22px_82px_minmax(180px,0.42fr)_minmax(280px,1fr)_auto] items-center gap-1 px-1 text-[10px] leading-none hover:bg-white/[0.025]">
-                    <button type="button" className="flex h-5 w-5 items-center justify-center rounded hover:bg-zinc-800" onClick={() => setSelectedEntry(entry)} title="İşlem özetini aç">
-                      {statusIcon(entry.level)}
-                    </button>
-                    <span className="tabular-nums text-zinc-600">{formatClock(entry.timestamp)}</span>
-                    <span className="min-w-0 truncate text-zinc-500" title={queryTarget(entry)}>
-                      <span className="text-zinc-200">{entry.serverName || 'Coreor'}</span>
-                      <span className="mx-1 text-zinc-700">•</span>
-                      <span>{entry.databaseName || 'sunucu geneli'}{entry.tableName ? `.${entry.tableName}` : ''}</span>
-                    </span>
-                    <code className={`block min-w-0 truncate ${entry.level === 'error' ? 'text-red-300' : 'text-cyan-300'}`}>{entry.sql}</code>
-                    <div className="flex items-center gap-2 whitespace-nowrap pr-1 text-[10px] text-zinc-600">
-                      {typeof entry.rowCount === 'number' && <span>{entry.rowCount.toLocaleString('tr-TR')} satır</span>}
-                      {typeof entry.affectedRows === 'number' && <span>{entry.affectedRows.toLocaleString('tr-TR')} etkilendi</span>}
-                      {typeof entry.durationMs === 'number' && <span>{entry.durationMs} ms</span>}
-                    </div>
-                  </div>
-                ))}
-                <div ref={endRef} />
-              </div>
-            )}
-          </div>
-        )}
+        {isConsoleOpen && <div className="min-h-0 flex-1 overflow-auto font-mono">
+          {filteredEntries.length === 0 ? <div className="flex h-full items-center justify-center text-[9px] text-zinc-600">Henüz çalıştırılmış SQL sorgusu yok.</div> : <div className="divide-y divide-zinc-900/80">
+            {filteredEntries.map(entry => <div key={entry.id} className="grid h-[18px] grid-cols-[18px_70px_minmax(150px,0.34fr)_minmax(300px,1fr)_auto] items-center gap-1 px-1 text-left text-[9px] leading-none hover:bg-white/[0.025]">
+              <button type="button" className="flex h-4 w-4 items-center justify-center rounded hover:bg-zinc-800" onClick={() => setSelectedEntry(entry)} title="İşlem özetini aç">{statusIcon(entry.level, 'h-2.5 w-2.5')}</button>
+              <span className="tabular-nums text-left text-zinc-600">{formatClock(entry.timestamp)}</span>
+              <span className="min-w-0 truncate text-left text-zinc-500" title={queryTarget(entry)}><span className="text-zinc-200">{entry.serverName || 'Coreor'}</span><span className="mx-1 text-zinc-700">•</span><span>{entry.databaseName || 'sunucu geneli'}{entry.tableName ? `.${entry.tableName}` : ''}</span></span>
+              <code className={`block min-w-0 truncate text-left ${entry.level === 'error' ? 'text-red-300' : 'text-cyan-300'}`}>{entry.sql.replace(/\s+/g, ' ')}</code>
+              <div className="flex items-center justify-end gap-2 whitespace-nowrap pr-1 text-[9px] text-zinc-600">{typeof entry.rowCount === 'number' && <span>{entry.rowCount.toLocaleString('tr-TR')} satır</span>}{typeof entry.affectedRows === 'number' && <span>{entry.affectedRows.toLocaleString('tr-TR')} etkilendi</span>}{typeof entry.durationMs === 'number' && <span>{entry.durationMs} ms</span>}</div>
+            </div>)}
+            <div ref={endRef} />
+          </div>}
+        </div>}
       </div>
 
-      <div className="flex h-7 items-center justify-between overflow-visible border-t border-zinc-800 px-1 text-[10px] text-zinc-500">
+      <div className="flex h-7 items-center justify-between overflow-visible border-t border-zinc-800 px-1 text-[9px] text-zinc-500">
         <div className="flex h-full min-w-0 items-center divide-x divide-zinc-800">
-          <StatusTooltip
-            title="Bağlantı profili"
-            rows={[
-              { label: 'Motor', value: activeServer ? engineName : 'Bağlı değil' },
-              { label: 'Sürüm profili', value: activeServer?.version || '—' },
-              { label: 'TLS modu', value: activeServer?.sslMode || '—', tone: activeServer?.sslMode === 'required' ? 'success' : activeServer ? 'warning' : 'normal' },
-              { label: 'Bağlantı timeout', value: activeServer ? `${activeServer.connectionTimeoutMs || 20_000} ms` : '—' }
-            ]}
-          >
-            <span className="flex h-full items-center gap-1 px-2 text-zinc-300"><Server className="h-3 w-3" />{isServersLoading ? 'Kasa okunuyor' : activeServer ? `${engineName} ${activeServer.version || ''}` : 'Sunucu yok'}</span>
-          </StatusTooltip>
-
-          {activeServer && (
-            <StatusTooltip
-              title="Ağ ve kullanıcı"
-              rows={[
-                { label: 'Sunucu adı', value: activeServer.name },
-                { label: 'Host', value: activeServer.host || '—' },
-                { label: 'Port', value: activeServer.port || 3306 },
-                { label: 'Kullanıcı', value: activeServer.username || '—' }
-              ]}
-            >
-              <span className="flex h-full items-center px-2 font-mono">{activeServer.host}:{activeServer.port || 3306}</span>
-            </StatusTooltip>
-          )}
-
-          <StatusTooltip
-            title="Aktif hedef"
-            rows={[
-              { label: 'Veritabanı', value: selectedDatabase || activeServer?.databaseName || 'Sunucu geneli' },
-              { label: 'Tablo', value: selectedTable || '—' },
-              { label: 'Katalog veritabanı', value: activeServer?.databases?.length || 0 },
-              { label: 'Katalog tablo', value: activeServer?.databases?.reduce((total, database) => total + database.tables.length, 0) || 0 }
-            ]}
-          >
-            <span className="flex h-full max-w-64 items-center gap-1 truncate px-2"><Database className="h-3 w-3" /><span className="truncate">{targetName}</span></span>
-          </StatusTooltip>
-
-          {selectedTable && (
-            <StatusTooltip
-              title="Tablo gridi"
-              rows={[
-                { label: 'Sayfa', value: `${gridStatus.page.toLocaleString('tr-TR')} / ${gridStatus.totalPages.toLocaleString('tr-TR')}` },
-                { label: 'Sayfa boyutu', value: gridStatus.pageSize.toLocaleString('tr-TR') },
-                { label: 'Toplam satır', value: gridStatus.totalRows.toLocaleString('tr-TR') },
-                { label: 'Aktif filtre', value: gridStatus.filters },
-                { label: 'Sıralama kolonu', value: gridStatus.sorts },
-                { label: 'Durum', value: gridStatus.isLoading ? 'Yükleniyor' : 'Hazır', tone: gridStatus.isLoading ? 'warning' : 'success' }
-              ]}
-            >
-              <span className="flex h-full items-center gap-1 px-2"><Table className="h-3 w-3" />{gridStatus.page}/{gridStatus.totalPages} • {gridStatus.pageSize}</span>
-            </StatusTooltip>
-          )}
+          <StatusTooltip title="Bağlantı profili" rows={[{ label: 'Motor', value: activeServer ? engineName : 'Bağlı değil' }, { label: 'Sürüm profili', value: activeServer?.version || '—' }, { label: 'TLS modu', value: activeServer?.sslMode || '—', tone: activeServer?.sslMode === 'required' ? 'success' : activeServer ? 'warning' : 'normal' }, { label: 'Bağlantı timeout', value: activeServer ? `${activeServer.connectionTimeoutMs || 20000} ms` : '—' }]}><span className="flex h-full items-center gap-1 px-2 text-zinc-300"><Server className="h-3 w-3" />{isServersLoading ? 'Kasa okunuyor' : activeServer ? `${engineName} ${activeServer.version || ''}` : 'Sunucu yok'}</span></StatusTooltip>
+          {activeServer && <StatusTooltip title="Ağ ve kullanıcı" rows={[{ label: 'Sunucu adı', value: activeServer.name }, { label: 'Host', value: activeServer.host || '—' }, { label: 'Port', value: activeServer.port || 3306 }, { label: 'Kullanıcı', value: activeServer.username || '—' }]}><span className="flex h-full items-center px-2 font-mono">{activeServer.host}:{activeServer.port || 3306}</span></StatusTooltip>}
+          <StatusTooltip title="Aktif hedef" rows={[{ label: 'Veritabanı', value: targetName }, { label: 'Tablo', value: selectedTable || '—' }, { label: 'Katalog veritabanı', value: activeServer?.databases?.length || 0 }, { label: 'Katalog tablo', value: activeServer?.databases?.reduce((total, database) => total + database.tableCount, 0) || 0 }]}><span className="flex h-full max-w-64 items-center gap-1 truncate px-2"><Database className="h-3 w-3" /><span className="truncate">{targetName}{selectedTable ? ` / ${selectedTable}` : ''}</span></span></StatusTooltip>
+          {selectedTable && <StatusTooltip title="Tablo gridi" rows={[{ label: 'Sayfa', value: `${gridStatus.page.toLocaleString('tr-TR')} / ${gridStatus.totalPages.toLocaleString('tr-TR')}` }, { label: 'Sayfa boyutu', value: gridStatus.pageSize.toLocaleString('tr-TR') }, { label: 'Toplam satır', value: gridStatus.totalRows.toLocaleString('tr-TR') }, { label: 'Aktif filtre', value: gridStatus.filters }, { label: 'Sıralama kolonu', value: gridStatus.sorts }, { label: 'Durum', value: gridStatus.isLoading ? 'Yükleniyor' : 'Hazır', tone: gridStatus.isLoading ? 'warning' : 'success' }]}><span className="flex h-full items-center gap-1 px-2"><Table className="h-3 w-3" />{gridStatus.page}/{gridStatus.totalPages} • {gridStatus.pageSize}</span></StatusTooltip>}
         </div>
 
         <div className="flex h-full shrink-0 items-center divide-x divide-zinc-800 pl-1 tabular-nums">
-          <StatusTooltip
-            title="SQL performansı"
-            align="right"
-            rows={[
-              { label: 'Toplam sorgu', value: queryEntries.length },
-              { label: 'Başarılı', value: metrics.successful, tone: 'success' },
-              { label: 'Hata', value: metrics.failed, tone: metrics.failed ? 'danger' : 'normal' },
-              { label: 'Uyarı', value: metrics.warnings, tone: metrics.warnings ? 'warning' : 'normal' },
-              { label: 'Başarı oranı', value: `%${metrics.successRate}`, tone: metrics.successRate >= 95 ? 'success' : metrics.successRate >= 75 ? 'warning' : 'danger' },
-              { label: 'Ortalama süre', value: metrics.averageDuration === undefined ? '—' : `${metrics.averageDuration} ms` },
-              { label: 'Son sorgu', value: metrics.lastEntry ? formatClock(metrics.lastEntry.timestamp) : '—' }
-            ]}
-          >
-            <span className="flex h-full items-center gap-1 px-2"><Terminal className="h-3 w-3" />{queryEntries.length} SQL</span>
-          </StatusTooltip>
-
-          <StatusTooltip
-            title="Aktif grid koşulları"
-            align="right"
-            rows={[
-              { label: 'Filtre', value: gridStatus.filters },
-              { label: 'Sıralama', value: gridStatus.sorts },
-              { label: 'Yükleme', value: gridStatus.isLoading ? 'Devam ediyor' : 'Beklemede', tone: gridStatus.isLoading ? 'warning' : 'normal' }
-            ]}
-          >
-            <span className="flex h-full items-center gap-2 px-2">
-              <span className={gridStatus.filters ? 'text-cyan-400' : ''}><Filter className="inline h-3 w-3" /> {gridStatus.filters}</span>
-              <span className={gridStatus.sorts ? 'text-cyan-400' : ''}><ArrowUpDown className="inline h-3 w-3" /> {gridStatus.sorts}</span>
-            </span>
-          </StatusTooltip>
-
-          <StatusTooltip
-            title="Son sorgu"
-            align="right"
-            rows={[
-              { label: 'Zaman', value: metrics.lastEntry ? formatDateTime(metrics.lastEntry.timestamp) : '—' },
-              { label: 'Durum', value: metrics.lastEntry ? statusLabel(metrics.lastEntry.level) : '—', tone: metrics.lastEntry?.level === 'error' ? 'danger' : metrics.lastEntry ? 'success' : 'normal' },
-              { label: 'Süre', value: metrics.lastEntry?.durationMs === undefined ? '—' : `${metrics.lastEntry.durationMs} ms` },
-              { label: 'Hedef', value: metrics.lastEntry ? queryTarget(metrics.lastEntry) : '—' }
-            ]}
-          >
-            <span className="flex h-full items-center gap-1 px-2"><Clock className="h-3 w-3" />{metrics.lastEntry?.durationMs === undefined ? '—' : `${metrics.lastEntry.durationMs} ms`}</span>
-          </StatusTooltip>
+          <StatusTooltip title="SQL performansı" align="right" rows={[{ label: 'Toplam sorgu', value: queryEntries.length }, { label: 'Başarılı', value: metrics.successful, tone: 'success' }, { label: 'Hata', value: metrics.failed, tone: metrics.failed ? 'danger' : 'normal' }, { label: 'Uyarı', value: metrics.warnings, tone: metrics.warnings ? 'warning' : 'normal' }, { label: 'Başarı oranı', value: `%${metrics.successRate}`, tone: metrics.successRate >= 95 ? 'success' : metrics.successRate >= 75 ? 'warning' : 'danger' }, { label: 'Ortalama süre', value: metrics.averageDuration === undefined ? '—' : `${metrics.averageDuration} ms` }]}><span className="flex h-full items-center gap-1 px-2"><Terminal className="h-3 w-3" />{queryEntries.length} SQL</span></StatusTooltip>
+          <StatusTooltip title="Aktif grid koşulları" align="right" rows={[{ label: 'Filtre', value: gridStatus.filters }, { label: 'Sıralama', value: gridStatus.sorts }, { label: 'Yükleme', value: gridStatus.isLoading ? 'Devam ediyor' : 'Beklemede', tone: gridStatus.isLoading ? 'warning' : 'normal' }]}><span className="flex h-full items-center gap-2 px-2"><span className={gridStatus.filters ? 'text-cyan-400' : ''}><Filter className="inline h-3 w-3" /> {gridStatus.filters}</span><span className={gridStatus.sorts ? 'text-cyan-400' : ''}><ArrowUpDown className="inline h-3 w-3" /> {gridStatus.sorts}</span></span></StatusTooltip>
+          <StatusTooltip title="Son sorgu" align="right" rows={[{ label: 'Zaman', value: metrics.lastEntry ? formatDateTime(metrics.lastEntry.timestamp) : '—' }, { label: 'Durum', value: metrics.lastEntry ? statusLabel(metrics.lastEntry.level) : '—', tone: metrics.lastEntry?.level === 'error' ? 'danger' : metrics.lastEntry ? 'success' : 'normal' }, { label: 'Süre', value: metrics.lastEntry?.durationMs === undefined ? '—' : `${metrics.lastEntry.durationMs} ms` }, { label: 'Hedef', value: metrics.lastEntry ? queryTarget(metrics.lastEntry) : '—' }]}><span className="flex h-full items-center gap-1 px-2"><Clock className="h-3 w-3" />{metrics.lastEntry?.durationMs === undefined ? '—' : `${metrics.lastEntry.durationMs} ms`}</span></StatusTooltip>
         </div>
       </div>
 

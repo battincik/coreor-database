@@ -2,14 +2,14 @@
 'use client';
 
 import React, { createContext, useEffect, useState, ReactNode, useCallback } from 'react';
-import { TableInfo, DatabaseTable, DatabaseServerConfig } from 'types';
+import type { DatabaseCatalogItem, DatabaseServerConfig, DatabaseTable, TableInfo } from 'types';
 import { useAuth } from '@/context/AuthContext';
 import { createDatabaseServer, fetchDatabaseServers, fetchServerTables } from '@/lib/databaseApi';
 import { recordActivity } from '@/lib/activityConsole';
 
 interface DatabaseContextType {
-  databases: { name: string; tables: string[] }[];
-  setDatabases: React.Dispatch<React.SetStateAction<{ name: string; tables: string[] }[]>>;
+  databases: DatabaseCatalogItem[];
+  setDatabases: React.Dispatch<React.SetStateAction<DatabaseCatalogItem[]>>;
   tableInfo: TableInfo | null;
   setTableInfo: React.Dispatch<React.SetStateAction<TableInfo | null>>;
   databaseTables: DatabaseTable[];
@@ -25,15 +25,13 @@ interface DatabaseContextType {
   serversError: string | null;
   loadServers: () => Promise<void>;
   addServer: (server: Omit<DatabaseServerConfig, 'id'>) => Promise<void>;
+  updateServer: (server: DatabaseServerConfig) => Promise<void>;
 }
 
 export const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined);
 
 function createServerId() {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return `server-${Date.now()}`;
 }
 
@@ -41,9 +39,75 @@ function getActiveServerStorageKey(accountId: string) {
   return `active-database-server:${accountId}`;
 }
 
+function emptyTableDetail(tableName: string): DatabaseTable {
+  return {
+    tableName,
+    tableType: 'BASE TABLE',
+    comment: '',
+    rows: 0,
+    columns: 0,
+    sizeMB: '0.00',
+    dataSizeMB: '0.00',
+    indexSizeMB: '0.00',
+    freeSizeMB: '0.00',
+    avgRowLength: 0,
+    createdAt: null,
+    updatedAt: null,
+    engine: '—',
+    rowFormat: null,
+    collation: null,
+    autoIncrement: null,
+    indexCount: 0,
+    foreignKeyCount: 0
+  };
+}
+
+function normalizeCatalog(value: unknown): DatabaseCatalogItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(item => item && typeof item === 'object' && typeof (item as { name?: unknown }).name === 'string')
+    .map(item => {
+      const source = item as Partial<DatabaseCatalogItem> & { tables?: unknown; tableDetails?: unknown };
+      const tables = Array.isArray(source.tables) ? source.tables.filter((table): table is string => typeof table === 'string') : [];
+      const detailMap = new Map<string, DatabaseTable>();
+      if (Array.isArray(source.tableDetails)) {
+        for (const rawDetail of source.tableDetails) {
+          if (!rawDetail || typeof rawDetail !== 'object' || typeof (rawDetail as { tableName?: unknown }).tableName !== 'string') continue;
+          const detail = rawDetail as Partial<DatabaseTable> & { tableName: string };
+          detailMap.set(detail.tableName, {
+            ...emptyTableDetail(detail.tableName),
+            ...detail,
+            rows: Number(detail.rows || 0),
+            columns: Number(detail.columns || 0),
+            indexCount: Number(detail.indexCount || 0),
+            foreignKeyCount: Number(detail.foreignKeyCount || 0)
+          });
+        }
+      }
+      const normalizedTables = Array.from(new Set([...tables, ...detailMap.keys()]));
+      const tableDetails = normalizedTables.map(tableName => detailMap.get(tableName) || emptyTableDetail(tableName));
+      return {
+        name: String(source.name),
+        defaultCharset: source.defaultCharset || null,
+        defaultCollation: source.defaultCollation || null,
+        tableCount: Number(source.tableCount ?? normalizedTables.length),
+        totalRows: Number(source.totalRows ?? tableDetails.reduce((total, table) => total + table.rows, 0)),
+        dataSizeMB: String(source.dataSizeMB ?? tableDetails.reduce((total, table) => total + Number(table.dataSizeMB || 0), 0).toFixed(2)),
+        indexSizeMB: String(source.indexSizeMB ?? tableDetails.reduce((total, table) => total + Number(table.indexSizeMB || 0), 0).toFixed(2)),
+        totalSizeMB: String(source.totalSizeMB ?? tableDetails.reduce((total, table) => total + Number(table.sizeMB || 0), 0).toFixed(2)),
+        tables: normalizedTables,
+        tableDetails
+      };
+    });
+}
+
+function normalizeServer(server: DatabaseServerConfig): DatabaseServerConfig {
+  return { ...server, databases: normalizeCatalog(server.databases) };
+}
+
 export function DatabaseProvider({ children }: { children: ReactNode }) {
   const { activeToken, isReady } = useAuth();
-  const [databases, setDatabases] = useState<{ name: string; tables: string[] }[]>([]);
+  const [databases, setDatabases] = useState<DatabaseCatalogItem[]>([]);
   const [tableInfo, setTableInfo] = useState<TableInfo | null>(null);
   const [databaseTables, setDatabaseTables] = useState<DatabaseTable[]>([]);
   const [tableData, setTableData] = useState<Record<string, any>[]>([]);
@@ -58,7 +122,6 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       setIsServersLoading(true);
       return;
     }
-
     if (!activeToken) {
       setServers([]);
       setActiveServerId(null);
@@ -70,26 +133,16 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
     setIsServersLoading(true);
     setServersError(null);
-
     try {
-      const storedServers = await fetchDatabaseServers(activeToken);
+      const storedServers = (await fetchDatabaseServers(activeToken)).map(normalizeServer);
       setServers(storedServers);
-
       const storedActiveServerId = localStorage.getItem(getActiveServerStorageKey(activeToken));
-
       setActiveServerId(currentActiveServerId => {
         const preferredServerId = currentActiveServerId || storedActiveServerId;
-
-        if (preferredServerId && storedServers.some(server => server.id === preferredServerId)) {
-          return preferredServerId;
-        }
-
+        if (preferredServerId && storedServers.some(server => server.id === preferredServerId)) return preferredServerId;
         return storedServers[0]?.id || null;
       });
-
-      if (storedServers.length === 0) {
-        setDatabases([]);
-      }
+      if (storedServers.length === 0) setDatabases([]);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Şifreli sunucu kasası yüklenemedi.';
       console.error('Şifreli sunucu kasası yüklenirken bir hata oluştu:', error);
@@ -103,10 +156,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
   }, [activeToken, isReady]);
 
   useEffect(() => {
-    if (!activeToken || !activeServerId) {
-      return;
-    }
-
+    if (!activeToken || !activeServerId) return;
     try {
       localStorage.setItem(getActiveServerStorageKey(activeToken), activeServerId);
     } catch (error) {
@@ -115,15 +165,37 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
   }, [activeServerId, activeToken]);
 
   useEffect(() => {
-    loadServers();
+    void loadServers();
   }, [loadServers]);
 
-  const addServer = async (server: Omit<DatabaseServerConfig, 'id'>) => {
-    if (!activeToken) {
-      throw new Error('Sunucu eklemek için giriş yapmalısınız.');
-    }
-
+  const persistServer = async (server: DatabaseServerConfig, loadInitialCatalog: boolean) => {
+    if (!activeToken) throw new Error('Sunucu kaydetmek için giriş yapmalısınız.');
     setIsAddingServer(true);
+    try {
+      await createDatabaseServer(server, activeToken);
+      setActiveServerId(server.id);
+      if (loadInitialCatalog) {
+        try {
+          await fetchServerTables(server.id, activeToken);
+        } catch (error) {
+          recordActivity({
+            level: 'warning',
+            category: 'connection',
+            title: 'Sunucu kaydedildi, katalog alınamadı',
+            message: error instanceof Error ? error.message : 'İlk bağlantı kurulamadı.',
+            serverId: server.id,
+            serverName: server.name,
+            host: server.host
+          });
+        }
+      }
+      await loadServers();
+    } finally {
+      setIsAddingServer(false);
+    }
+  };
+
+  const addServer = async (server: Omit<DatabaseServerConfig, 'id'>) => {
     const engine = server.databaseType || 'mysql';
     const now = new Date().toISOString();
     const nextServer: DatabaseServerConfig = {
@@ -143,53 +215,28 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       createdAt: now,
       updatedAt: now
     };
+    await persistServer(nextServer, true);
+  };
 
-    try {
-      await createDatabaseServer(nextServer, activeToken);
-      setActiveServerId(nextServer.id);
-
-      try {
-        await fetchServerTables(nextServer.id, activeToken);
-      } catch (error) {
-        recordActivity({
-          level: 'warning',
-          category: 'connection',
-          title: 'Sunucu kaydedildi, katalog alınamadı',
-          message: error instanceof Error ? error.message : 'İlk bağlantı kurulamadı.',
-          serverId: nextServer.id,
-          serverName: nextServer.name,
-          host: nextServer.host
-        });
-      }
-
-      await loadServers();
-    } finally {
-      setIsAddingServer(false);
-    }
+  const updateServer = async (server: DatabaseServerConfig) => {
+    const existing = servers.find(item => item.id === server.id);
+    const nextServer: DatabaseServerConfig = {
+      ...existing,
+      ...server,
+      id: server.id,
+      name: server.name.trim(),
+      host: server.host?.trim(),
+      username: server.username?.trim(),
+      databaseName: server.databaseName?.trim(),
+      databases: normalizeCatalog(existing?.databases ?? server.databases),
+      createdAt: existing?.createdAt ?? server.createdAt,
+      updatedAt: new Date().toISOString()
+    };
+    await persistServer(nextServer, false);
   };
 
   return (
-    <DatabaseContext.Provider
-      value={{
-        databases,
-        setDatabases,
-        tableInfo,
-        setTableInfo,
-        databaseTables,
-        setDatabaseTables,
-        tableData,
-        setTableData,
-        servers,
-        setServers,
-        activeServerId,
-        setActiveServerId,
-        isServersLoading,
-        isAddingServer,
-        serversError,
-        loadServers,
-        addServer
-      }}
-    >
+    <DatabaseContext.Provider value={{ databases, setDatabases, tableInfo, setTableInfo, databaseTables, setDatabaseTables, tableData, setTableData, servers, setServers, activeServerId, setActiveServerId, isServersLoading, isAddingServer, serversError, loadServers, addServer, updateServer }}>
       {children}
     </DatabaseContext.Provider>
   );

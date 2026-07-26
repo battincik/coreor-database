@@ -1,0 +1,147 @@
+'use client';
+
+import React, { useContext, useState } from 'react';
+import {
+  CheckCircle2,
+  ChevronDown,
+  Code,
+  Database,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Server,
+  Unplug,
+  XCircle
+} from 'lucide-react';
+import { DatabaseContext } from '@/context/DatabaseContext';
+import { useAuth } from '@/context/AuthContext';
+import { fetchServerTables, testStoredDatabaseConnection } from '@/lib/databaseApi';
+import { openQueryTab } from '@/lib/queryWorkspaceEvents';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+
+interface DatabaseMenuBarProps {
+  selectedDatabase: string | null;
+  selectedTable: string | null;
+}
+
+export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMenuBarProps) {
+  const { activeToken } = useAuth();
+  const { servers, activeServerId, setActiveServerId, loadServers } = useContext(DatabaseContext)!;
+  const activeServer = servers.find(server => server.id === activeServerId) ?? null;
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+
+  const connect = async () => {
+    if (!activeServer || !activeToken || busy) return;
+    setBusy(true);
+    setStatus(null);
+    try {
+      const result = await testStoredDatabaseConnection(activeServer.id, activeToken);
+      await fetchServerTables(activeServer.id, activeToken);
+      await loadServers();
+      setStatus({ tone: 'success', text: `${result.connection?.version || 'Sunucu'} bağlantısı hazır` });
+    } catch (error) {
+      setStatus({ tone: 'error', text: error instanceof Error ? error.message : 'Bağlantı kurulamadı.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const refreshCatalog = async () => {
+    if (!activeServer || !activeToken || busy) return;
+    setBusy(true);
+    setStatus(null);
+    try {
+      await fetchServerTables(activeServer.id, activeToken);
+      await loadServers();
+      setStatus({ tone: 'success', text: 'Katalog yenilendi' });
+    } catch (error) {
+      setStatus({ tone: 'error', text: error instanceof Error ? error.message : 'Katalog yenilenemedi.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex h-8 shrink-0 items-center border-b border-zinc-800 bg-zinc-950/95 px-2 text-[11px] text-zinc-400 shadow-sm backdrop-blur">
+      <div className="mr-3 flex items-center gap-1.5" aria-hidden="true">
+        <span className="h-2.5 w-2.5 rounded-full bg-red-500/90" />
+        <span className="h-2.5 w-2.5 rounded-full bg-amber-400/90" />
+        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/90" />
+      </div>
+
+      <div className="mr-3 flex items-center gap-1.5 font-semibold text-zinc-200">
+        <Database className="h-3.5 w-3.5 text-emerald-400" />
+        Coreor Database
+      </div>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button type="button" className="flex h-7 items-center gap-1 rounded px-2 text-zinc-300 hover:bg-white/[0.06] data-[state=open]:bg-white/[0.08]">
+            Veritabanı <ChevronDown className="h-3 w-3 text-zinc-600" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-72 text-xs">
+          <DropdownMenuLabel className="text-[10px] font-normal text-zinc-500">Bağlantılar</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => window.dispatchEvent(new Event('coreor:open-server-modal'))}>
+            <Plus className="mr-2 h-4 w-4" /> Yeni bağlantı ekle
+            <span className="ml-auto text-[10px] text-zinc-600">⌘N</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={!activeServer} onClick={() => activeServer && window.dispatchEvent(new CustomEvent('coreor:edit-server-modal', { detail: { serverId: activeServer.id } }))}>
+            <Pencil className="mr-2 h-4 w-4" /> Aktif bağlantıyı düzenle
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem disabled={!activeServer || busy} onClick={() => void connect()}>
+            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Server className="mr-2 h-4 w-4" />} Bağlantıyı test et ve bağlan
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={!activeServer || busy} onClick={() => void refreshCatalog()}>
+            <RefreshCw className="mr-2 h-4 w-4" /> Kataloğu yenile
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem disabled={!activeServer} onClick={() => openQueryTab({ serverId: activeServerId, databaseName: null, title: 'Genel sorgu' })}>
+            <Code className="mr-2 h-4 w-4" /> Yeni sunucu geneli sorgu
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={!activeServer || !selectedDatabase} onClick={() => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: `${selectedDatabase} sorgu` })}>
+            <Database className="mr-2 h-4 w-4" /> Seçili veritabanında sorgu
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex items-center gap-2 text-[10px] text-zinc-500">
+              <Unplug className="h-3.5 w-3.5" />
+              <select
+                value={activeServerId || ''}
+                onChange={event => setActiveServerId(event.target.value || null)}
+                className="h-7 min-w-0 flex-1 rounded border border-zinc-800 bg-zinc-950 px-2 text-[10px] text-zinc-300"
+              >
+                <option value="">Bağlantı seç</option>
+                {servers.map(server => <option key={server.id} value={server.id}>{server.name} — {server.host}:{server.port || 3306}</option>)}
+              </select>
+            </div>
+          </DropdownMenuLabel>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {status && (
+        <button type="button" className={`ml-3 inline-flex min-w-0 items-center gap-1.5 truncate text-[10px] ${status.tone === 'success' ? 'text-emerald-400' : 'text-red-400'}`} onClick={() => setStatus(null)} title={status.text}>
+          {status.tone === 'success' ? <CheckCircle2 className="h-3 w-3 shrink-0" /> : <XCircle className="h-3 w-3 shrink-0" />}
+          <span className="max-w-80 truncate">{status.text}</span>
+        </button>
+      )}
+
+      <div className="ml-auto flex min-w-0 items-center gap-1 text-[10px] text-zinc-600">
+        {busy && <Loader2 className="h-3 w-3 animate-spin text-cyan-400" />}
+        <span className="max-w-48 truncate text-zinc-400">{activeServer?.name || 'Bağlantı yok'}</span>
+        {selectedDatabase && <><span>›</span><span className="max-w-40 truncate">{selectedDatabase}</span></>}
+        {selectedTable && <><span>›</span><span className="max-w-40 truncate text-cyan-400">{selectedTable}</span></>}
+      </div>
+    </div>
+  );
+}

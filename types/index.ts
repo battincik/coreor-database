@@ -22,7 +22,15 @@ export interface DatabasePanelProps {
 
 export type DatabaseEngine = 'mysql' | 'mariadb';
 export type DatabaseSslMode = 'required' | 'preferred' | 'disabled';
-export type DatabaseApiAction = 'test' | 'catalog' | 'table-info' | 'table-data' | 'update-cell' | 'query';
+export type DatabaseApiAction =
+  | 'test'
+  | 'catalog'
+  | 'table-info'
+  | 'table-data'
+  | 'update-cell'
+  | 'delete-rows'
+  | 'alter-table'
+  | 'query';
 
 export interface DatabaseConnectionPayload {
   engine: DatabaseEngine;
@@ -33,6 +41,40 @@ export interface DatabaseConnectionPayload {
   database?: string | null;
   sslMode: DatabaseSslMode;
   connectTimeoutMs?: number;
+}
+
+export interface DatabaseTable {
+  tableName: string;
+  tableType: string;
+  comment: string;
+  rows: number;
+  columns: number;
+  sizeMB: string;
+  dataSizeMB: string;
+  indexSizeMB: string;
+  freeSizeMB: string;
+  avgRowLength: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+  engine: string;
+  rowFormat: string | null;
+  collation: string | null;
+  autoIncrement: string | number | null;
+  indexCount: number;
+  foreignKeyCount: number;
+}
+
+export interface DatabaseCatalogItem {
+  name: string;
+  defaultCharset: string | null;
+  defaultCollation: string | null;
+  tableCount: number;
+  totalRows: number;
+  dataSizeMB: string;
+  indexSizeMB: string;
+  totalSizeMB: string;
+  tables: string[];
+  tableDetails: DatabaseTable[];
 }
 
 export interface DatabaseServerConfig {
@@ -51,7 +93,7 @@ export interface DatabaseServerConfig {
   sslMode?: DatabaseSslMode;
   connectionTimeoutMs?: number;
   visibleTo?: string[];
-  databases?: { name: string; tables: string[] }[];
+  databases?: DatabaseCatalogItem[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -124,27 +166,173 @@ export interface TableCellUpdateResponse {
   _meta?: DatabaseQueryMeta;
 }
 
+export interface TableRowsDeleteInput {
+  database: string;
+  table: string;
+  primaryKeys: Record<string, unknown>[];
+}
+
+export interface TableRowsDeleteResponse {
+  affectedRows: number;
+  _meta?: DatabaseQueryMeta;
+}
+
+export interface TableColumnInfo {
+  Field: string;
+  Type: string;
+  Null: string;
+  Key: string;
+  Default: string | null;
+  Extra: string;
+  Comment: string;
+  Collation: string | null;
+  Ordinal_position: number;
+  Data_type: string;
+  Character_maximum_length: number | null;
+  Numeric_precision: number | null;
+  Numeric_scale: number | null;
+  Datetime_precision: number | null;
+  Character_set_name: string | null;
+  Generation_expression: string;
+}
+
+export interface TableIndexInfo {
+  Key_name: string;
+  Column_name: string;
+  Non_unique: string;
+  Seq_in_index: string;
+  Index_type: string;
+  Collation: string | null;
+  Cardinality: number | null;
+  Sub_part: number | null;
+  Nullable: string;
+  Index_comment: string;
+  Is_visible: string;
+  Expression: string | null;
+}
+
+export interface TableForeignKeyInfo {
+  CONSTRAINT_NAME: string;
+  COLUMN_NAME: string;
+  ORDINAL_POSITION: number;
+  REFERENCED_TABLE_SCHEMA: string;
+  REFERENCED_TABLE_NAME: string;
+  REFERENCED_COLUMN_NAME: string;
+  UPDATE_RULE: string;
+  DELETE_RULE: string;
+}
+
+export interface TableCheckConstraintInfo {
+  CONSTRAINT_NAME: string;
+  CHECK_CLAUSE: string;
+  ENFORCED: string;
+}
+
+export interface TablePartitionInfo {
+  PARTITION_NAME: string | null;
+  PARTITION_METHOD: string | null;
+  PARTITION_EXPRESSION: string | null;
+  PARTITION_DESCRIPTION: string | null;
+  TABLE_ROWS: number;
+  DATA_LENGTH: number;
+  INDEX_LENGTH: number;
+}
+
+export interface TableOptionsInfo {
+  name: string;
+  comment: string;
+  engine: string;
+  collation: string | null;
+  charset: string | null;
+  autoIncrement: string | number | null;
+  rowFormat: string | null;
+  tableType: string;
+  createTime: string | null;
+  updateTime: string | null;
+}
+
 export interface TableInfo {
-  columns: {
-    Field: string;
-    Type: string;
-    Null: string;
-    Key: string;
-    Default: string | null;
-    Extra: string;
-  }[];
-  indexes: {
-    Key_name: string;
-    Column_name: string;
-    Non_unique: string;
-    Seq_in_index: string;
-  }[];
-  foreignKeys: {
-    COLUMN_NAME: string;
-    REFERENCED_TABLE_NAME: string;
-    REFERENCED_COLUMN_NAME: string;
-  }[];
+  table: TableOptionsInfo;
+  columns: TableColumnInfo[];
+  indexes: TableIndexInfo[];
+  foreignKeys: TableForeignKeyInfo[];
+  checkConstraints: TableCheckConstraintInfo[];
+  partitions: TablePartitionInfo[];
   createSQL: string;
+  _meta?: DatabaseQueryMeta;
+}
+
+export type ColumnDefaultKind = 'none' | 'null' | 'literal' | 'expression';
+
+export interface TableColumnDefinition {
+  name: string;
+  dataType: string;
+  length?: string;
+  unsigned?: boolean;
+  zerofill?: boolean;
+  nullable?: boolean;
+  autoIncrement?: boolean;
+  defaultKind?: ColumnDefaultKind;
+  defaultValue?: string;
+  comment?: string;
+  charset?: string;
+  collation?: string;
+  generatedExpression?: string;
+  generatedStorage?: 'VIRTUAL' | 'STORED';
+}
+
+export interface TableIndexColumnDefinition {
+  name: string;
+  length?: number | null;
+  order?: 'ASC' | 'DESC';
+}
+
+export type TableIndexKind = 'PRIMARY' | 'INDEX' | 'UNIQUE' | 'FULLTEXT' | 'SPATIAL';
+
+export interface TableIndexDefinition {
+  kind: TableIndexKind;
+  name?: string;
+  columns: TableIndexColumnDefinition[];
+  comment?: string;
+}
+
+export interface TableForeignKeyDefinition {
+  name: string;
+  columns: string[];
+  referencedDatabase?: string;
+  referencedTable: string;
+  referencedColumns: string[];
+  onDelete?: 'RESTRICT' | 'CASCADE' | 'SET NULL' | 'NO ACTION';
+  onUpdate?: 'RESTRICT' | 'CASCADE' | 'SET NULL' | 'NO ACTION';
+}
+
+export type TableSchemaMutation =
+  | {
+      kind: 'table-options';
+      name?: string;
+      comment?: string;
+      engine?: string;
+      collation?: string;
+      autoIncrement?: number | null;
+      rowFormat?: string | null;
+    }
+  | { kind: 'add-column'; column: TableColumnDefinition; first?: boolean; after?: string | null }
+  | { kind: 'modify-column'; originalName: string; column: TableColumnDefinition; first?: boolean; after?: string | null }
+  | { kind: 'drop-column'; columnName: string }
+  | { kind: 'add-index'; index: TableIndexDefinition }
+  | { kind: 'drop-index'; indexName: string }
+  | { kind: 'add-foreign-key'; foreignKey: TableForeignKeyDefinition }
+  | { kind: 'drop-foreign-key'; constraintName: string };
+
+export interface TableSchemaMutationInput {
+  database: string;
+  table: string;
+  mutation: TableSchemaMutation;
+}
+
+export interface TableSchemaMutationResponse {
+  tableName: string;
+  tableInfo: TableInfo;
   _meta?: DatabaseQueryMeta;
 }
 
@@ -180,19 +368,6 @@ export interface GridRuntimeStatus {
   filters: number;
   sorts: number;
   isLoading: boolean;
-}
-
-export interface DatabaseTable {
-  tableName: string;
-  comment: string;
-  rows: number;
-  columns: number;
-  sizeMB: string;
-  createdAt: string;
-  updatedAt: string | null;
-  engine: string;
-  indexCount: number;
-  foreignKeyCount: number;
 }
 
 export interface EditorPanelProps {

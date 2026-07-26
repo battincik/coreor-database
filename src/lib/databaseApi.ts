@@ -2,6 +2,7 @@
 
 import type {
   DatabaseApiAction,
+  DatabaseCatalogItem,
   DatabaseConnectionPayload,
   DatabaseQueryMeta,
   DatabaseQueryStatement,
@@ -12,7 +13,11 @@ import type {
   TableDataFilter,
   TableDataResponse,
   TableDataSort,
-  TableInfo
+  TableInfo,
+  TableRowsDeleteInput,
+  TableRowsDeleteResponse,
+  TableSchemaMutationInput,
+  TableSchemaMutationResponse
 } from 'types';
 import { readEncryptedServerProfiles, writeEncryptedServerProfiles } from '@/lib/secureVault';
 import { recordActivity } from '@/lib/activityConsole';
@@ -22,7 +27,7 @@ const profileMutationQueues = new Map<string, Promise<void>>();
 const inFlightControllers = new Map<string, AbortController>();
 
 export interface DatabaseServerCatalogItem extends DatabaseServerConfig {
-  databases: { name: string; tables: string[] }[];
+  databases: DatabaseCatalogItem[];
 }
 
 interface DatabaseErrorPayload {
@@ -61,6 +66,8 @@ const ACTION_TITLES: Record<DatabaseApiAction, string> = {
   'table-info': 'Tablo yapısı',
   'table-data': 'Tablo verileri',
   'update-cell': 'Hücre güncelleme',
+  'delete-rows': 'Satır silme',
+  'alter-table': 'Tablo yapısını değiştirme',
   query: 'SQL sorgusu'
 };
 
@@ -107,9 +114,7 @@ async function readApiResponse<T>(response: Response) {
 
   if (!response.ok) {
     const errorBody = body as DatabaseErrorPayload | null;
-    const error = new Error(
-      errorBody?.message || errorBody?.error || `Veritabanı isteği başarısız oldu (${response.status}).`
-    ) as DatabaseRequestError;
+    const error = new Error(errorBody?.message || errorBody?.error || `Veritabanı isteği başarısız oldu (${response.status}).`) as DatabaseRequestError;
     error.code = errorBody?.error;
     error.queryMeta = errorBody?._meta;
     throw error;
@@ -130,66 +135,27 @@ function fallbackStatements(action: DatabaseApiAction, payload: Record<string, u
   if (action === 'test') {
     return [{ label: 'Bağlantı testi', sql: 'SELECT VERSION() AS version, DATABASE() AS databaseName, CURRENT_USER() AS currentUser' }];
   }
-
-  if (action === 'catalog') {
-    return [
-      {
-        label: 'Veritabanı ve tablo kataloğu',
-        sql: `SELECT schema_source.SCHEMA_NAME AS databaseName, NULL AS tableName\nFROM information_schema.SCHEMATA AS schema_source\nUNION ALL\nSELECT table_source.TABLE_SCHEMA AS databaseName, table_source.TABLE_NAME AS tableName\nFROM information_schema.TABLES AS table_source\nWHERE table_source.TABLE_TYPE = 'BASE TABLE'\nORDER BY databaseName, tableName`
-      }
-    ];
-  }
-
-  if (action === 'table-info') {
-    const parameters = [payload.database, payload.table];
-    return [
-      {
-        label: 'Kolon bilgileri',
-        sql: 'SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT, EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION',
-        parameters
-      },
-      {
-        label: 'İndeks bilgileri',
-        sql: 'SELECT INDEX_NAME, COLUMN_NAME, NON_UNIQUE, SEQ_IN_INDEX FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY INDEX_NAME, SEQ_IN_INDEX',
-        parameters
-      },
-      { label: 'CREATE TABLE tanımı', sql: `SHOW CREATE TABLE ${database}.${table}` }
-    ];
-  }
-
-  if (action === 'table-data') {
-    return [{ label: 'Tablo satırları', sql: `SELECT * FROM ${database}.${table}` }];
-  }
-
+  if (action === 'catalog') return [{ label: 'Ayrıntılı katalog', sql: 'SELECT ... FROM information_schema.SCHEMATA LEFT JOIN information_schema.TABLES ...' }];
+  if (action === 'table-info') return [{ label: 'Tablo yapısı', sql: `SHOW CREATE TABLE ${database}.${table}` }];
+  if (action === 'table-data') return [{ label: 'Tablo satırları', sql: `SELECT * FROM ${database}.${table}` }];
   if (action === 'update-cell') {
     const primaryKey = Object.entries((payload.primaryKey as Record<string, unknown>) || {});
     const whereSql = primaryKey.map(([key]) => `${quoteLogIdentifier(key)} <=> ?`).join(' AND ');
-    return [
-      {
-        label: 'Hücre güncelleme',
-        sql: `UPDATE ${database}.${table} SET ${quoteLogIdentifier(payload.column)} = ? WHERE ${whereSql} LIMIT 1`,
-        parameters: [payload.value, ...primaryKey.map(([, value]) => value)]
-      }
-    ];
+    return [{ label: 'Hücre güncelleme', sql: `UPDATE ${database}.${table} SET ${quoteLogIdentifier(payload.column)} = ? WHERE ${whereSql} LIMIT 1`, parameters: [payload.value, ...primaryKey.map(([, value]) => value)] }];
   }
-
+  if (action === 'delete-rows') return [{ label: 'Seçili satırları sil', sql: `DELETE FROM ${database}.${table} WHERE <primary-key> LIMIT 1` }];
+  if (action === 'alter-table') return [{ label: 'Tablo yapısını değiştir', sql: `ALTER TABLE ${database}.${table} <validated-operation>` }];
   return [{ label: 'SQL editörü sorgusu', sql: String(payload.sql || '') }];
 }
 
 function resultMetrics(action: DatabaseApiAction, result: unknown) {
-  const payload = result as {
-    databases?: unknown[];
-    columns?: unknown[];
-    data?: unknown[];
-    rows?: unknown[];
-    affectedRows?: number;
-  } | null;
-
+  const payload = result as { databases?: unknown[]; columns?: unknown[]; data?: unknown[]; rows?: unknown[]; affectedRows?: number; tableInfo?: { columns?: unknown[] } } | null;
   if (!payload) return {};
   if (action === 'catalog') return { rowCount: payload.databases?.length };
   if (action === 'table-info') return { rowCount: payload.columns?.length };
   if (action === 'table-data') return { rowCount: payload.data?.length };
-  if (action === 'update-cell') return { affectedRows: payload.affectedRows };
+  if (action === 'alter-table') return { rowCount: payload.tableInfo?.columns?.length };
+  if (action === 'update-cell' || action === 'delete-rows') return { affectedRows: payload.affectedRows };
   if (action === 'query') return { rowCount: payload.rows?.length, affectedRows: payload.affectedRows };
   return {};
 }
@@ -206,16 +172,12 @@ function recordStatements(options: {
   error?: DatabaseRequestError;
 }) {
   const metrics = options.result ? resultMetrics(options.action, options.result) : {};
-
   options.statements.forEach((statement, index) => {
     const isLast = index === options.statements.length - 1;
     recordActivity({
       level: options.level,
       title: statement.label || ACTION_TITLES[options.action],
-      message:
-        options.level === 'error'
-          ? options.error?.message || 'Sorgu başarısız oldu.'
-          : `${options.server.name} üzerinde başarıyla çalıştırıldı.`,
+      message: options.level === 'error' ? options.error?.message || 'Sorgu başarısız oldu.' : `${options.server.name} üzerinde başarıyla çalıştırıldı.`,
       serverId: options.server.id,
       serverName: options.server.name,
       host: options.server.host,
@@ -238,7 +200,6 @@ async function requestDatabaseApi<T>(
   options: RequestOptions = {}
 ) {
   if (options.requestKey) inFlightControllers.get(options.requestKey)?.abort();
-
   const controller = new AbortController();
   if (options.requestKey) inFlightControllers.set(options.requestKey, controller);
 
@@ -256,13 +217,8 @@ async function requestDatabaseApi<T>(
       cache: 'no-store',
       referrerPolicy: 'same-origin',
       signal: controller.signal,
-      body: JSON.stringify({
-        action,
-        connection: createConnectionPayload(server, options.connectionDatabase),
-        ...payload
-      })
+      body: JSON.stringify({ action, connection: createConnectionPayload(server, options.connectionDatabase), ...payload })
     });
-
     const result = await readApiResponse<T>(response);
     const queryMeta = (result as { _meta?: DatabaseQueryMeta } | null)?._meta;
     recordStatements({
@@ -282,20 +238,14 @@ async function requestDatabaseApi<T>(
       aborted.code = 'REQUEST_SUPERSEDED';
       throw aborted;
     }
-
     const normalizedError =
       error instanceof TypeError
-        ? (Object.assign(new Error('Next.js veritabanı API erişilemedi. Uygulama sunucusunu ve ağ erişimini kontrol edin.'), {
-            code: 'DATABASE_API_UNREACHABLE'
-          }) as DatabaseRequestError)
+        ? (Object.assign(new Error('Next.js veritabanı API erişilemedi. Uygulama sunucusunu ve ağ erişimini kontrol edin.'), { code: 'DATABASE_API_UNREACHABLE' }) as DatabaseRequestError)
         : error instanceof Error
           ? (error as DatabaseRequestError)
           : (new Error('Bilinmeyen veritabanı hatası.') as DatabaseRequestError);
-
     recordStatements({
-      statements: normalizedError.queryMeta?.statements?.length
-        ? normalizedError.queryMeta.statements
-        : fallbackStatements(action, payload),
+      statements: normalizedError.queryMeta?.statements?.length ? normalizedError.queryMeta.statements : fallbackStatements(action, payload),
       action,
       level: 'error',
       server,
@@ -307,9 +257,7 @@ async function requestDatabaseApi<T>(
     throw normalizedError;
   } finally {
     window.clearTimeout(timeout);
-    if (options.requestKey && inFlightControllers.get(options.requestKey) === controller) {
-      inFlightControllers.delete(options.requestKey);
-    }
+    if (options.requestKey && inFlightControllers.get(options.requestKey) === controller) inFlightControllers.delete(options.requestKey);
   }
 }
 
@@ -321,10 +269,7 @@ async function requireServer(accountId: string | null | undefined, serverId: str
   return server;
 }
 
-async function mutateServerProfiles<T>(
-  accountId: string,
-  mutation: (servers: DatabaseServerConfig[]) => ProfileMutationResult<T>
-) {
+async function mutateServerProfiles<T>(accountId: string, mutation: (servers: DatabaseServerConfig[]) => ProfileMutationResult<T>) {
   const previousMutation = profileMutationQueues.get(accountId) ?? Promise.resolve();
   let mutationResult!: T;
   const currentMutation = previousMutation
@@ -335,7 +280,6 @@ async function mutateServerProfiles<T>(
       mutationResult = nextState.result;
       await writeEncryptedServerProfiles(accountId, nextState.servers);
     });
-
   profileMutationQueues.set(accountId, currentMutation);
   try {
     await currentMutation;
@@ -345,15 +289,9 @@ async function mutateServerProfiles<T>(
   }
 }
 
-async function updateCachedDatabases(
-  accountId: string,
-  serverId: string,
-  databases: { name: string; tables: string[] }[]
-) {
+async function updateCachedDatabases(accountId: string, serverId: string, databases: DatabaseCatalogItem[]) {
   await mutateServerProfiles(accountId, servers => ({
-    servers: servers.map(server =>
-      server.id === serverId ? { ...server, databases, updatedAt: new Date().toISOString() } : server
-    ),
+    servers: servers.map(server => server.id === serverId ? { ...server, databases, updatedAt: new Date().toISOString() } : server),
     result: undefined
   }));
 }
@@ -378,12 +316,11 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
     databaseName: server.databaseName?.trim(),
     sslMode: server.sslMode ?? 'required',
     connectionTimeoutMs: server.connectionTimeoutMs ?? 20_000,
-    visibleTo: [],
+    visibleTo: server.visibleTo ?? [],
     databases: server.databases ?? [],
     createdAt: server.createdAt ?? now,
     updatedAt: now
   };
-
   return mutateServerProfiles(accountId, servers => {
     const existingIndex = servers.findIndex(item => item.id === nextServer.id);
     const nextServers = [...servers];
@@ -394,30 +331,28 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
 }
 
 export async function testDatabaseConnection(server: DatabaseServerConfig) {
-  return requestDatabaseApi<{
-    connection: { version?: string; databaseName?: string | null; currentUser?: string };
-    _meta?: DatabaseQueryMeta;
-  }>(server, 'test', {}, { requestKey: `connection-test:${server.host}:${server.port || 3306}` });
+  return requestDatabaseApi<{ connection: { version?: string; databaseName?: string | null; currentUser?: string }; _meta?: DatabaseQueryMeta }>(
+    server,
+    'test',
+    {},
+    { requestKey: `connection-test:${server.host}:${server.port || 3306}` }
+  );
+}
+
+export async function testStoredDatabaseConnection(serverId: string, accountId?: string | null) {
+  const server = await requireServer(accountId, serverId);
+  return testDatabaseConnection(server);
 }
 
 export async function fetchServerTables(serverId: string, accountId?: string | null) {
   const server = await requireServer(accountId, serverId);
-  const response = await requestDatabaseApi<{
-    databases: { name: string; tables: string[] }[];
-    _meta?: DatabaseQueryMeta;
-  }>(server, 'catalog', {}, { requestKey: `catalog:${serverId}` });
-
+  const response = await requestDatabaseApi<{ databases: DatabaseCatalogItem[]; _meta?: DatabaseQueryMeta }>(server, 'catalog', {}, { requestKey: `catalog:${serverId}` });
   if (!Array.isArray(response?.databases)) throw new Error('Next.js veritabanı API katalog yanıtı geçersiz.');
   await updateCachedDatabases(accountId!, serverId, response.databases);
   return { serverId, databases: response.databases };
 }
 
-export async function fetchTableInfo(
-  serverId: string,
-  databaseName: string,
-  tableName: string,
-  accountId?: string | null
-) {
+export async function fetchTableInfo(serverId: string, databaseName: string, tableName: string, accountId?: string | null) {
   const server = await requireServer(accountId, serverId);
   return requestDatabaseApi<TableInfo>(
     server,
@@ -452,34 +387,24 @@ export async function fetchTableData(
   );
 }
 
-export async function updateTableCell(
-  serverId: string,
-  input: TableCellUpdateInput,
-  accountId?: string | null
-) {
+export async function updateTableCell(serverId: string, input: TableCellUpdateInput, accountId?: string | null) {
   const server = await requireServer(accountId, serverId);
-  return requestDatabaseApi<TableCellUpdateResponse>(
-    server,
-    'update-cell',
-    input as unknown as Record<string, unknown>,
-    { connectionDatabase: input.database }
-  );
+  return requestDatabaseApi<TableCellUpdateResponse>(server, 'update-cell', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
 }
 
-export async function executeDatabaseQuery(
-  serverId: string,
-  sql: string,
-  accountId?: string | null,
-  databaseName?: string | null
-) {
+export async function deleteTableRows(serverId: string, input: TableRowsDeleteInput, accountId?: string | null) {
+  const server = await requireServer(accountId, serverId);
+  return requestDatabaseApi<TableRowsDeleteResponse>(server, 'delete-rows', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
+}
+
+export async function mutateTableSchema(serverId: string, input: TableSchemaMutationInput, accountId?: string | null) {
+  const server = await requireServer(accountId, serverId);
+  return requestDatabaseApi<TableSchemaMutationResponse>(server, 'alter-table', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
+}
+
+export async function executeDatabaseQuery(serverId: string, sql: string, accountId?: string | null, databaseName?: string | null) {
   const server = await requireServer(accountId, serverId);
   if (!sql.trim()) throw new Error('Çalıştırılacak SQL sorgusu boş olamaz.');
-
   const selectedDatabase = databaseName === undefined ? server.databaseName || undefined : databaseName;
-  return requestDatabaseApi<QueryExecutionResult>(
-    server,
-    'query',
-    { database: selectedDatabase, sql },
-    { connectionDatabase: selectedDatabase }
-  );
+  return requestDatabaseApi<QueryExecutionResult>(server, 'query', { database: selectedDatabase, sql }, { connectionDatabase: selectedDatabase });
 }
