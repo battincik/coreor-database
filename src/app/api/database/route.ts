@@ -7,7 +7,12 @@ import {
   isDatabaseWorkbenchAction
 } from '@/lib/server/database-workbench-service';
 import { executeDatabasePerformanceRequest } from '@/lib/server/database-performance-service';
+import {
+  executeDatabaseTransactionRequest,
+  isDatabaseTransactionAction
+} from '@/lib/server/database-transaction-service';
 import type { DatabaseWorkbenchRequest } from '@/lib/databaseWorkbenchTypes';
+import type { DatabaseTransactionRequest } from '@/lib/databaseTransactionTypes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -111,7 +116,8 @@ export async function POST(request: NextRequest) {
     if (!session?.user) return unauthorizedResponse(request);
 
     const user = session.user as typeof session.user & { id?: string };
-    applyRateLimit(user.id || user.email || 'authenticated-user');
+    const identity = user.id || user.email || 'authenticated-user';
+    applyRateLimit(identity);
 
     const rawBody = await request.text();
     const actualBytes = Buffer.byteLength(rawBody, 'utf8');
@@ -120,11 +126,13 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = JSON.parse(rawBody) as Parameters<typeof executeDatabaseRequest>[0] & { action?: unknown };
-    const result = payload.action === 'performance-snapshot'
-      ? await executeDatabasePerformanceRequest(payload as unknown as DatabaseWorkbenchRequest)
-      : isDatabaseWorkbenchAction(payload.action)
-        ? await executeDatabaseWorkbenchRequest(payload as unknown as DatabaseWorkbenchRequest)
-        : await executeDatabaseRequest(payload);
+    const result = isDatabaseTransactionAction(payload.action)
+      ? await executeDatabaseTransactionRequest(payload as unknown as DatabaseTransactionRequest, identity)
+      : payload.action === 'performance-snapshot'
+        ? await executeDatabasePerformanceRequest(payload as unknown as DatabaseWorkbenchRequest)
+        : isDatabaseWorkbenchAction(payload.action)
+          ? await executeDatabaseWorkbenchRequest(payload as unknown as DatabaseWorkbenchRequest)
+          : await executeDatabaseRequest(payload);
     return NextResponse.json(result, { status: 200, headers: noStoreHeaders() });
   } catch (error) {
     if (error instanceof SyntaxError) {
