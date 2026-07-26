@@ -39,6 +39,72 @@ function getActiveServerStorageKey(accountId: string) {
   return `active-database-server:${accountId}`;
 }
 
+function emptyTableDetail(tableName: string): DatabaseTable {
+  return {
+    tableName,
+    tableType: 'BASE TABLE',
+    comment: '',
+    rows: 0,
+    columns: 0,
+    sizeMB: '0.00',
+    dataSizeMB: '0.00',
+    indexSizeMB: '0.00',
+    freeSizeMB: '0.00',
+    avgRowLength: 0,
+    createdAt: null,
+    updatedAt: null,
+    engine: '—',
+    rowFormat: null,
+    collation: null,
+    autoIncrement: null,
+    indexCount: 0,
+    foreignKeyCount: 0
+  };
+}
+
+function normalizeCatalog(value: unknown): DatabaseCatalogItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(item => item && typeof item === 'object' && typeof (item as { name?: unknown }).name === 'string')
+    .map(item => {
+      const source = item as Partial<DatabaseCatalogItem> & { tables?: unknown; tableDetails?: unknown };
+      const tables = Array.isArray(source.tables) ? source.tables.filter((table): table is string => typeof table === 'string') : [];
+      const detailMap = new Map<string, DatabaseTable>();
+      if (Array.isArray(source.tableDetails)) {
+        for (const rawDetail of source.tableDetails) {
+          if (!rawDetail || typeof rawDetail !== 'object' || typeof (rawDetail as { tableName?: unknown }).tableName !== 'string') continue;
+          const detail = rawDetail as Partial<DatabaseTable> & { tableName: string };
+          detailMap.set(detail.tableName, {
+            ...emptyTableDetail(detail.tableName),
+            ...detail,
+            rows: Number(detail.rows || 0),
+            columns: Number(detail.columns || 0),
+            indexCount: Number(detail.indexCount || 0),
+            foreignKeyCount: Number(detail.foreignKeyCount || 0)
+          });
+        }
+      }
+      const normalizedTables = Array.from(new Set([...tables, ...detailMap.keys()]));
+      const tableDetails = normalizedTables.map(tableName => detailMap.get(tableName) || emptyTableDetail(tableName));
+      return {
+        name: String(source.name),
+        defaultCharset: source.defaultCharset || null,
+        defaultCollation: source.defaultCollation || null,
+        tableCount: Number(source.tableCount ?? normalizedTables.length),
+        totalRows: Number(source.totalRows ?? tableDetails.reduce((total, table) => total + table.rows, 0)),
+        dataSizeMB: String(source.dataSizeMB ?? tableDetails.reduce((total, table) => total + Number(table.dataSizeMB || 0), 0).toFixed(2)),
+        indexSizeMB: String(source.indexSizeMB ?? tableDetails.reduce((total, table) => total + Number(table.indexSizeMB || 0), 0).toFixed(2)),
+        totalSizeMB: String(source.totalSizeMB ?? tableDetails.reduce((total, table) => total + Number(table.sizeMB || 0), 0).toFixed(2)),
+        tables: normalizedTables,
+        tableDetails
+      };
+    });
+}
+
+function normalizeServer(server: DatabaseServerConfig): DatabaseServerConfig {
+  return { ...server, databases: normalizeCatalog(server.databases) };
+}
+
 export function DatabaseProvider({ children }: { children: ReactNode }) {
   const { activeToken, isReady } = useAuth();
   const [databases, setDatabases] = useState<DatabaseCatalogItem[]>([]);
@@ -68,7 +134,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     setIsServersLoading(true);
     setServersError(null);
     try {
-      const storedServers = await fetchDatabaseServers(activeToken);
+      const storedServers = (await fetchDatabaseServers(activeToken)).map(normalizeServer);
       setServers(storedServers);
       const storedActiveServerId = localStorage.getItem(getActiveServerStorageKey(activeToken));
       setActiveServerId(currentActiveServerId => {
@@ -162,7 +228,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       host: server.host?.trim(),
       username: server.username?.trim(),
       databaseName: server.databaseName?.trim(),
-      databases: existing?.databases ?? server.databases ?? [],
+      databases: normalizeCatalog(existing?.databases ?? server.databases),
       createdAt: existing?.createdAt ?? server.createdAt,
       updatedAt: new Date().toISOString()
     };
@@ -170,28 +236,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <DatabaseContext.Provider
-      value={{
-        databases,
-        setDatabases,
-        tableInfo,
-        setTableInfo,
-        databaseTables,
-        setDatabaseTables,
-        tableData,
-        setTableData,
-        servers,
-        setServers,
-        activeServerId,
-        setActiveServerId,
-        isServersLoading,
-        isAddingServer,
-        serversError,
-        loadServers,
-        addServer,
-        updateServer
-      }}
-    >
+    <DatabaseContext.Provider value={{ databases, setDatabases, tableInfo, setTableInfo, databaseTables, setDatabaseTables, tableData, setTableData, servers, setServers, activeServerId, setActiveServerId, isServersLoading, isAddingServer, serversError, loadServers, addServer, updateServer }}>
       {children}
     </DatabaseContext.Provider>
   );
