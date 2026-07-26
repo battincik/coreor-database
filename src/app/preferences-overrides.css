@@ -1,0 +1,16 @@
+/* Preference-driven overrides that intentionally win over compact utility classes. */
+.coreor-sql-editor {
+  font-size: var(--coreor-editor-font-size) !important;
+  line-height: var(--coreor-line-height) !important;
+}
+
+/* BottomBar SQL console root has this stable structural class set. */
+div.shrink-0.border-t.border-zinc-800.bg-zinc-950.text-xs,
+div.shrink-0.border-t.border-zinc-800.bg-zinc-950.text-xs * {
+  font-size: var(--coreor-console-font-size) !important;
+}
+
+/* Preserve icon geometry while font size changes. */
+div.shrink-0.border-t.border-zinc-800.bg-zinc-950.text-xs svg {
+  font-size: initial !important;
+}

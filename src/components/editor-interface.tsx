@@ -2,7 +2,7 @@
 
 import { useContext, useEffect, useRef, useState } from 'react';
 import { Code, Plus, RefreshCw, Server } from 'lucide-react';
-import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Sidebar } from '@/components/sidebar';
 import { DatabasePanel } from '@/components/database-panel';
 import { DatabaseMenuBar } from '@/components/database-menu-bar';
@@ -11,6 +11,7 @@ import BottomBar from './BottomBar';
 import { AppContextMenuProvider, useAppContextMenu } from '@/components/app-context-menu';
 import { DatabaseContext } from '@/context/DatabaseContext';
 import { openQueryTab } from '@/lib/queryWorkspaceEvents';
+import { setAppPreferences, useAppPreferences } from '@/lib/appPreferences';
 
 function EditorWorkspace() {
   const [selectedDatabase, setSelectedDatabase] = useState<string | null>(null);
@@ -19,12 +20,15 @@ function EditorWorkspace() {
   const [query, setQuery] = useState('SELECT * FROM users LIMIT 10;');
   const [showTopbar, setShowTopbar] = useState(false);
   const lastTableView = useRef<'table' | 'table-data'>('table-data');
+  const panelSaveTimer = useRef<number | null>(null);
   const { openContextMenu } = useAppContextMenu();
+  const { preferences } = useAppPreferences();
   const { activeServerId, servers } = useContext(DatabaseContext)!;
   const activeServer = servers.find(server => server.id === activeServerId) ?? null;
 
   useEffect(() => {
     if (window.navigator.userAgent.includes('CoreorApp')) setShowTopbar(true);
+    return () => { if (panelSaveTimer.current) window.clearTimeout(panelSaveTimer.current); };
   }, []);
 
   useEffect(() => {
@@ -47,6 +51,14 @@ function EditorWorkspace() {
     return () => window.removeEventListener('coreor:open-table-view', handler);
   }, []);
 
+  useEffect(() => {
+    const openGraph = () => {
+      if (selectedDatabase) setActiveTab('schema-graph');
+    };
+    window.addEventListener('coreor:open-schema-graph', openGraph);
+    return () => window.removeEventListener('coreor:open-schema-graph', openGraph);
+  }, [selectedDatabase]);
+
   const handleDatabaseSelect = (databaseName: string | null) => {
     setSelectedDatabase(databaseName);
     setSelectedTable(null);
@@ -56,6 +68,12 @@ function EditorWorkspace() {
   const handleTableSelect = (tableName: string | null) => {
     setSelectedTable(tableName);
     if (tableName) setActiveTab(lastTableView.current);
+  };
+
+  const rememberLayout = (sizes: number[]) => {
+    if (!preferences.rememberPanelSizes || !Number.isFinite(sizes[0])) return;
+    if (panelSaveTimer.current) window.clearTimeout(panelSaveTimer.current);
+    panelSaveTimer.current = window.setTimeout(() => setAppPreferences({ sidebarSize: sizes[0] }), 180);
   };
 
   return (
@@ -99,11 +117,12 @@ function EditorWorkspace() {
       {showTopbar && <Topbar />}
       <DatabaseMenuBar selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1 overflow-hidden">
-          <ResizablePanel defaultSize={20} minSize={15} maxSize={32}>
+        <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1 overflow-hidden" onLayout={rememberLayout}>
+          <ResizablePanel defaultSize={preferences.sidebarSize} minSize={12} maxSize={45}>
             <Sidebar onDatabaseSelect={handleDatabaseSelect} onTableSelect={handleTableSelect} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
           </ResizablePanel>
-          <ResizablePanel defaultSize={80} className="overflow-hidden">
+          <ResizableHandle withHandle className="z-30 w-1 bg-zinc-900 hover:bg-cyan-500/40 data-[resize-handle-active]:bg-cyan-500/60" />
+          <ResizablePanel defaultSize={100 - preferences.sidebarSize} minSize={45} className="overflow-hidden">
             <DatabasePanel selectedDatabase={selectedDatabase} selectedTable={selectedTable} activeTab={activeTab} setActiveTab={setActiveTab} query={query} setQuery={setQuery} onDatabaseSelect={handleDatabaseSelect} onTableSelect={handleTableSelect} />
           </ResizablePanel>
         </ResizablePanelGroup>
