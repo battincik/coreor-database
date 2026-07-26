@@ -88,8 +88,9 @@ export function SqlHighlightedText({ sql }: { sql: string }) {
   return <>{tokens.map((token, index) => <span key={`${index}-${token.kind}`} className={TOKEN_CLASS[token.kind]}>{token.value}</span>)}</>;
 }
 
-export function SqlCodeBlock({ sql, className = '' }: { sql: string; className?: string }) {
-  return <pre className={`coreor-sql-syntax overflow-auto whitespace-pre font-mono text-[11px] leading-5 ${className}`}><code><SqlHighlightedText sql={sql} /></code></pre>;
+export function SqlCodeBlock({ sql, code, className = '' }: { sql?: string; code?: string; className?: string }) {
+  const source = sql ?? code ?? '';
+  return <pre className={`coreor-sql-syntax overflow-auto whitespace-pre font-mono text-[11px] leading-5 [font-synthesis:none] [text-shadow:none] ${className}`}><code><SqlHighlightedText sql={source} /></code></pre>;
 }
 
 export function SqlEditor({
@@ -116,16 +117,25 @@ export function SqlEditor({
     preRef.current.scrollLeft = event.currentTarget.scrollLeft;
   };
   const updateCursor = (element: HTMLTextAreaElement) => onCursorChange?.(element.selectionStart);
+  const fontStyle: React.CSSProperties = {
+    fontFamily: 'var(--coreor-font-family)',
+    fontSynthesis: 'none',
+    fontVariantLigatures: 'none',
+    letterSpacing: '0',
+    textShadow: 'none',
+    tabSize: 2
+  };
 
   return (
     <div className={`coreor-sql-syntax relative h-full min-h-0 overflow-hidden bg-[var(--coreor-editor-bg)] ${className}`}>
-      <pre ref={preRef} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words p-3 font-mono text-[length:var(--coreor-editor-font-size)] leading-[var(--coreor-line-height)]"><SqlHighlightedText sql={value || `${placeholder || ''}`} />{value.endsWith('\n') ? '\n ' : ''}</pre>
+      <pre ref={preRef} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words p-3 text-[length:var(--coreor-editor-font-size)] leading-[var(--coreor-line-height)]" style={fontStyle}><SqlHighlightedText sql={value} />{value.endsWith('\n') ? '\n ' : ''}</pre>
       <textarea
         value={value}
         spellCheck={false}
         aria-label="SQL sorgu editörü"
         placeholder={placeholder}
-        className="absolute inset-0 h-full w-full resize-none overflow-auto border-0 bg-transparent p-3 font-mono text-[length:var(--coreor-editor-font-size)] leading-[var(--coreor-line-height)] text-transparent caret-[var(--sql-caret)] outline-none selection:bg-[var(--coreor-editor-selection)] placeholder:text-zinc-700"
+        className="absolute inset-0 h-full w-full resize-none overflow-auto border-0 bg-transparent p-3 text-[length:var(--coreor-editor-font-size)] leading-[var(--coreor-line-height)] text-transparent caret-[var(--sql-caret)] outline-none selection:bg-[var(--coreor-editor-selection)] placeholder:text-zinc-700 [-webkit-text-fill-color:transparent]"
+        style={fontStyle}
         onChange={event => onChange(event.target.value, event.currentTarget.selectionStart)}
         onClick={event => updateCursor(event.currentTarget)}
         onSelect={event => updateCursor(event.currentTarget)}
