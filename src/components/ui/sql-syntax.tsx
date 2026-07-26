@@ -92,6 +92,11 @@ export function SqlCodeBlock({ sql, className = '' }: { sql: string; className?:
   return <pre className={`coreor-sql-syntax overflow-auto whitespace-pre font-mono text-[11px] leading-5 ${className}`}><code><SqlHighlightedText sql={sql} /></code></pre>;
 }
 
+// Backward-compatible wrapper for callers that still use the `code` prop.
+export function SqlCode({ code, className = '' }: { code: string; className?: string }) {
+  return <SqlCodeBlock sql={code} className={className} />;
+}
+
 export function SqlEditor({
   value,
   onChange,
