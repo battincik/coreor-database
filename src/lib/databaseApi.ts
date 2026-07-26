@@ -22,6 +22,9 @@ import type {
 import { readEncryptedServerProfiles, writeEncryptedServerProfiles } from '@/lib/secureVault';
 import { recordActivity } from '@/lib/activityConsole';
 import { databaseEngineDefinition, databaseEngineLabel } from '@/lib/databaseEngines';
+import { getAppPreferences } from '@/lib/appPreferences';
+import { addApproval, addMigration, addSchemaSnapshot } from '@/lib/databaseSafetyWorkspace';
+import { looksLikeProductionServer, migrationDownSql, migrationFileName, migrationSqlForMutation } from '@/lib/schemaMigration';
 
 const DATABASE_API_PATH = '/api/database';
 const profileMutationQueues = new Map<string, Promise<void>>();
@@ -50,6 +53,7 @@ interface DatabaseRequestError extends Error {
 interface RequestOptions {
   requestKey?: string;
   connectionDatabase?: string | null;
+  recordActivity?: boolean;
 }
 
 export interface FetchTableDataOptions {
@@ -99,8 +103,9 @@ async function readApiResponse<T>(response: Response) {
   const rawBody = await response.text();
   let body: T | DatabaseErrorPayload | null = null;
   if (rawBody) {
-    try { body = JSON.parse(rawBody) as T | DatabaseErrorPayload; }
-    catch {
+    try {
+      body = JSON.parse(rawBody) as T | DatabaseErrorPayload;
+    } catch {
       throw new Error(response.ok ? 'Next.js veritabanı API geçerli JSON döndürmedi.' : `Veritabanı isteği başarısız oldu (${response.status}).`);
     }
   }
@@ -129,7 +134,14 @@ function fallbackStatements(action: DatabaseApiAction, payload: Record<string, u
 }
 
 function resultMetrics(action: DatabaseApiAction, result: unknown) {
-  const payload = result as { databases?: unknown[]; columns?: unknown[]; data?: unknown[]; rows?: unknown[]; affectedRows?: number; tableInfo?: { columns?: unknown[] } } | null;
+  const payload = result as {
+    databases?: unknown[];
+    columns?: unknown[];
+    data?: unknown[];
+    rows?: unknown[];
+    affectedRows?: number;
+    tableInfo?: { columns?: unknown[] };
+  } | null;
   if (!payload) return {};
   if (action === 'catalog') return { rowCount: payload.databases?.length };
   if (action === 'table-info') return { rowCount: payload.columns?.length };
@@ -199,12 +211,19 @@ async function requestDatabaseApi<T>(
       body: JSON.stringify({ action, connection: createConnectionPayload(server, options.connectionDatabase), ...payload })
     });
     const result = await readApiResponse<T>(response);
-    const queryMeta = (result as { _meta?: DatabaseQueryMeta } | null)?._meta;
-    recordStatements({
-      statements: queryMeta?.statements?.length ? queryMeta.statements : fallbackStatements(action, payload, server),
-      action, level: 'success', server, databaseName, tableName,
-      durationMs: Math.max(0, Math.round(performance.now() - startedAt)), result
-    });
+    if (options.recordActivity !== false) {
+      const queryMeta = (result as { _meta?: DatabaseQueryMeta } | null)?._meta;
+      recordStatements({
+        statements: queryMeta?.statements?.length ? queryMeta.statements : fallbackStatements(action, payload, server),
+        action,
+        level: 'success',
+        server,
+        databaseName,
+        tableName,
+        durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+        result
+      });
+    }
     return result;
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
@@ -215,11 +234,18 @@ async function requestDatabaseApi<T>(
     const normalizedError = error instanceof TypeError
       ? Object.assign(new Error('Next.js veritabanı API erişilemedi. Uygulama sunucusunu ve ağ erişimini kontrol edin.'), { code: 'DATABASE_API_UNREACHABLE' }) as DatabaseRequestError
       : error instanceof Error ? error as DatabaseRequestError : new Error('Bilinmeyen veritabanı hatası.') as DatabaseRequestError;
-    recordStatements({
-      statements: normalizedError.queryMeta?.statements?.length ? normalizedError.queryMeta.statements : fallbackStatements(action, payload, server),
-      action, level: 'error', server, databaseName, tableName,
-      durationMs: Math.max(0, Math.round(performance.now() - startedAt)), error: normalizedError
-    });
+    if (options.recordActivity !== false) {
+      recordStatements({
+        statements: normalizedError.queryMeta?.statements?.length ? normalizedError.queryMeta.statements : fallbackStatements(action, payload, server),
+        action,
+        level: 'error',
+        server,
+        databaseName,
+        tableName,
+        durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+        error: normalizedError
+      });
+    }
     throw normalizedError;
   } finally {
     window.clearTimeout(timeout);
@@ -245,8 +271,12 @@ async function mutateServerProfiles<T>(accountId: string, mutation: (servers: Da
     await writeEncryptedServerProfiles(accountId, nextState.servers);
   });
   profileMutationQueues.set(accountId, currentMutation);
-  try { await currentMutation; return mutationResult; }
-  finally { if (profileMutationQueues.get(accountId) === currentMutation) profileMutationQueues.delete(accountId); }
+  try {
+    await currentMutation;
+    return mutationResult;
+  } finally {
+    if (profileMutationQueues.get(accountId) === currentMutation) profileMutationQueues.delete(accountId);
+  }
 }
 
 async function updateCachedDatabases(accountId: string, serverId: string, databases: DatabaseCatalogItem[]) {
@@ -287,7 +317,8 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
   return mutateServerProfiles(accountId, servers => {
     const existingIndex = servers.findIndex(item => item.id === nextServer.id);
     const nextServers = [...servers];
-    if (existingIndex >= 0) nextServers[existingIndex] = nextServer; else nextServers.push(nextServer);
+    if (existingIndex >= 0) nextServers[existingIndex] = nextServer;
+    else nextServers.push(nextServer);
     return { servers: nextServers, result: nextServer };
   });
 }
@@ -317,8 +348,13 @@ export async function fetchTableInfo(serverId: string, databaseName: string, tab
 export async function fetchTableData(serverId: string, databaseName: string, tableName: string, accountId?: string | null, options: FetchTableDataOptions = {}) {
   const server = await requireServer(accountId, serverId);
   return requestDatabaseApi<TableDataResponse>(server, 'table-data', {
-    database: databaseName, table: tableName, page: options.page ?? 1, pageSize: options.pageSize ?? 50,
-    sorts: options.sorts ?? [], filters: options.filters ?? [], includeTotal: options.includeTotal ?? true,
+    database: databaseName,
+    table: tableName,
+    page: options.page ?? 1,
+    pageSize: options.pageSize ?? 50,
+    sorts: options.sorts ?? [],
+    filters: options.filters ?? [],
+    includeTotal: options.includeTotal ?? true,
     knownTotalRows: options.knownTotalRows
   }, { requestKey: `table-data:${serverId}:${databaseName}:${tableName}`, connectionDatabase: databaseName });
 }
@@ -332,7 +368,80 @@ export async function deleteTableRows(serverId: string, input: TableRowsDeleteIn
 }
 
 export async function mutateTableSchema(serverId: string, input: TableSchemaMutationInput, accountId?: string | null) {
-  return requestDatabaseApi<TableSchemaMutationResponse>(await requireServer(accountId, serverId), 'alter-table', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
+  const server = await requireServer(accountId, serverId);
+  const engine = server.databaseType || 'mysql';
+  const preferences = getAppPreferences();
+  let snapshot: ReturnType<typeof addSchemaSnapshot> | null = null;
+
+  if (preferences.schemaSnapshots) {
+    const before = await requestDatabaseApi<TableInfo>(server, 'table-info', { database: input.database, table: input.table }, {
+      requestKey: `schema-snapshot:${serverId}:${input.database}:${input.table}`,
+      connectionDatabase: input.database,
+      recordActivity: false
+    });
+    snapshot = addSchemaSnapshot({
+      serverId: server.id,
+      serverName: server.name,
+      engine,
+      database: input.database,
+      table: input.table,
+      reason: `ALTER öncesi: ${input.mutation.kind}`,
+      tableInfo: before
+    });
+  }
+
+  const generatedUpSql = migrationSqlForMutation(input.database, input.table, input.mutation, engine);
+  if (preferences.approvalWorkflows && looksLikeProductionServer(server.name, server.host)) {
+    const approval = addApproval({
+      serverId: server.id,
+      serverName: server.name,
+      database: input.database,
+      table: input.table,
+      action: 'production-alter',
+      sql: generatedUpSql,
+      requestedBy: accountId || 'current-user'
+    });
+    const error = new Error(`Production ALTER onay kuyruğuna eklendi (${approval.id}). Güvenlik merkezinden ikinci kullanıcı onayı gerekir.`) as DatabaseRequestError;
+    error.code = 'APPROVAL_REQUIRED';
+    throw error;
+  }
+
+  try {
+    const result = await requestDatabaseApi<TableSchemaMutationResponse>(server, 'alter-table', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
+    const upSql = result._meta?.statements?.map(statement => statement.sql).filter(Boolean).join('\n') || generatedUpSql;
+    addMigration({
+      serverId: server.id,
+      serverName: server.name,
+      engine,
+      database: input.database,
+      table: result.tableName || input.table,
+      name: migrationFileName(input.database, input.table).replace(/\.sql$/, ''),
+      description: `Görsel şema değişikliği: ${input.mutation.kind}`,
+      upSql,
+      downSql: snapshot ? migrationDownSql(snapshot.tableInfo.createSQL, input.database, input.table, engine) : '-- Snapshot kapalı olduğu için otomatik DOWN migration üretilemedi.',
+      mutation: input.mutation,
+      snapshotId: snapshot?.id,
+      appliedAt: new Date().toISOString(),
+      status: 'applied'
+    });
+    return result;
+  } catch (error) {
+    addMigration({
+      serverId: server.id,
+      serverName: server.name,
+      engine,
+      database: input.database,
+      table: input.table,
+      name: migrationFileName(input.database, input.table).replace(/\.sql$/, ''),
+      description: `Başarısız görsel şema değişikliği: ${input.mutation.kind}`,
+      upSql: generatedUpSql,
+      downSql: snapshot ? migrationDownSql(snapshot.tableInfo.createSQL, input.database, input.table, engine) : '-- Snapshot yok.',
+      mutation: input.mutation,
+      snapshotId: snapshot?.id,
+      status: 'failed'
+    });
+    throw error;
+  }
 }
 
 export async function executeDatabaseQuery(serverId: string, sql: string, accountId?: string | null, databaseName?: string | null) {
