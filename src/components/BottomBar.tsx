@@ -3,9 +3,34 @@
 import React, { useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Activity, AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2,
-  ChevronDown, ChevronUp, Clock, Copy, Database, Download, Filter, Gauge, HardDrive,
-  Info, Loader2, Network, PlugZap, Server, Table, Terminal, Timer, Trash2, Wifi, X, XCircle
+  Activity,
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Copy,
+  Database,
+  Download,
+  Filter,
+  Gauge,
+  HardDrive,
+  Info,
+  Loader2,
+  Network,
+  PlugZap,
+  Server,
+  Table,
+  Terminal,
+  Timer,
+  Trash2,
+  Wifi,
+  X,
+  XCircle
 } from 'lucide-react';
 import type { GridRuntimeStatus } from 'types';
 import type { DatabasePerformanceSnapshot } from '@/lib/databaseWorkbenchTypes';
@@ -15,60 +40,237 @@ import { useAuth } from '@/context/AuthContext';
 import { databaseEngineDefinition, databaseEngineLabel } from '@/lib/databaseEngines';
 import { fetchDatabasePerformanceSnapshot } from '@/lib/databaseWorkbenchApi';
 import {
-  clearActivities, exportActivities, getActivitiesServerSnapshot, getActivitiesSnapshot,
-  subscribeActivities, type ActivityEntry
+  clearActivities,
+  exportActivities,
+  getActivitiesServerSnapshot,
+  getActivitiesSnapshot,
+  subscribeActivities,
+  type ActivityEntry
 } from '@/lib/activityConsole';
+import {
+  getDatabaseSafetyWorkspace,
+  getServerDatabaseSafetyWorkspace,
+  subscribeDatabaseSafetyWorkspace
+} from '@/lib/databaseSafetyWorkspace';
+import { shortcutFor, shortcutMatches } from '@/lib/keyboardShortcuts';
 
-interface BottomBarProps { selectedDatabase?: string | null; selectedTable?: string | null }
+interface BottomBarProps {
+  selectedDatabase?: string | null;
+  selectedTable?: string | null;
+}
+
 type ConsoleFilter = 'all' | 'success' | 'errors';
 interface ActiveConnectionSession { serverId: string; startedAt: number }
 interface TooltipRow { label: string; value: React.ReactNode; tone?: 'normal' | 'success' | 'warning' | 'danger' }
 
-const EMPTY_GRID_STATUS: GridRuntimeStatus = { page:1,pageSize:50,totalRows:0,totalPages:1,filters:0,sorts:0,isLoading:false };
+const EMPTY_GRID_STATUS: GridRuntimeStatus = {
+  page: 1,
+  pageSize: 50,
+  totalRows: 0,
+  totalPages: 1,
+  filters: 0,
+  sorts: 0,
+  isLoading: false
+};
 const ACTIVE_CONNECTION_STORAGE_KEY = 'coreor:active-connection-session:v1';
 
-function formatClock(timestamp:string){return new Intl.DateTimeFormat('tr-TR',{hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3}).format(new Date(timestamp));}
-function formatDateTime(timestamp:string){return new Intl.DateTimeFormat('tr-TR',{dateStyle:'long',timeStyle:'medium'}).format(new Date(timestamp));}
-function formatBytes(value:number){if(!Number.isFinite(value)||value<=0)return'0 B';const units=['B','KB','MB','GB','TB','PB'];const index=Math.min(Math.floor(Math.log(value)/Math.log(1024)),units.length-1);const amount=value/1024**index;return`${amount.toLocaleString('tr-TR',{maximumFractionDigits:amount>=100?0:amount>=10?1:2})} ${units[index]}`;}
-function formatDuration(totalSeconds:number,detailed=false){const seconds=Math.max(0,Math.floor(totalSeconds));const days=Math.floor(seconds/86400);const hours=Math.floor(seconds%86400/3600);const minutes=Math.floor(seconds%3600/60);const remaining=seconds%60;const values=detailed?[[days,'gün'],[hours,'saat'],[minutes,'dk'],[remaining,'sn']]as const:[[days,'g'],[hours,'sa'],[minutes,'dk'],[remaining,'sn']]as const;const visible=values.filter(([value])=>value>0).slice(0,detailed?4:2);return visible.length?visible.map(([value,unit])=>`${value} ${unit}`).join(' '):'0 sn';}
-function statusLabel(level:ActivityEntry['level']){return level==='success'?'Başarılı':level==='warning'?'Uyarı':level==='error'?'Hata':'Çalıştırıldı';}
-function statusIcon(level:ActivityEntry['level'],className='h-3 w-3'){return level==='success'?<CheckCircle2 className={`${className} text-emerald-400`}/>:level==='warning'?<AlertTriangle className={`${className} text-amber-400`}/>:level==='error'?<XCircle className={`${className} text-red-400`}/>:<CheckCircle2 className={`${className} text-cyan-400`}/>;}
-function queryTarget(entry:ActivityEntry){const target=entry.databaseName?`${entry.databaseName}${entry.tableName?`.${entry.tableName}`:''}`:entry.tableName||'sunucu geneli';return`${entry.serverName||'Coreor'} • ${target}`;}
-function downloadActivityLog(){const blob=new Blob([exportActivities()],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download=`coreor-sql-log-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;anchor.click();URL.revokeObjectURL(url);}
-
-function StatusTooltip({children,title,description,rows,align='left'}:{children:React.ReactNode;title:string;description?:string;rows:TooltipRow[];align?:'left'|'right'}){
-  return <div className="group relative flex h-full items-center">{children}<div className={`pointer-events-none absolute bottom-[calc(100%+7px)] z-[300] hidden w-80 rounded-xl border border-zinc-700/90 bg-zinc-950/98 p-3.5 shadow-2xl backdrop-blur-xl group-hover:block ${align==='right'?'right-0':'left-0'}`}><div className="flex items-start gap-2 border-b border-zinc-800 pb-2"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-400"/><div><div className="text-[11px] font-semibold text-zinc-100">{title}</div>{description&&<div className="mt-1 text-[9px] leading-4 text-zinc-600">{description}</div>}</div></div><div className="mt-2.5 space-y-1.5">{rows.map((row,index)=><div key={`${row.label}-${index}`} className="flex items-start justify-between gap-4 text-[10px] leading-4"><span className="shrink-0 text-zinc-600">{row.label}</span><span className={`min-w-0 break-all text-right ${row.tone==='success'?'text-emerald-400':row.tone==='warning'?'text-amber-400':row.tone==='danger'?'text-red-400':'text-zinc-300'}`}>{row.value}</span></div>)}</div></div></div>;
+function formatClock(timestamp: string) {
+  return new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 }).format(new Date(timestamp));
+}
+function formatDateTime(timestamp: string) {
+  return new Intl.DateTimeFormat('tr-TR', { dateStyle: 'long', timeStyle: 'medium' }).format(new Date(timestamp));
+}
+function formatBytes(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+  const amount = value / 1024 ** index;
+  return `${amount.toLocaleString('tr-TR', { maximumFractionDigits: amount >= 100 ? 0 : amount >= 10 ? 1 : 2 })} ${units[index]}`;
+}
+function formatDuration(totalSeconds: number, detailed = false) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor(seconds % 86400 / 3600);
+  const minutes = Math.floor(seconds % 3600 / 60);
+  const remaining = seconds % 60;
+  const values = detailed
+    ? [[days, 'gün'], [hours, 'saat'], [minutes, 'dk'], [remaining, 'sn']] as const
+    : [[days, 'g'], [hours, 'sa'], [minutes, 'dk'], [remaining, 'sn']] as const;
+  const visible = values.filter(([value]) => value > 0).slice(0, detailed ? 4 : 2);
+  return visible.length ? visible.map(([value, unit]) => `${value} ${unit}`).join(' ') : '0 sn';
+}
+function statusLabel(level: ActivityEntry['level']) {
+  return level === 'success' ? 'Başarılı' : level === 'warning' ? 'Uyarı' : level === 'error' ? 'Hata' : 'Çalıştırıldı';
+}
+function statusIcon(level: ActivityEntry['level'], className = 'h-3 w-3') {
+  return level === 'success'
+    ? <CheckCircle2 className={`${className} text-emerald-400`} />
+    : level === 'warning'
+      ? <AlertTriangle className={`${className} text-amber-400`} />
+      : level === 'error'
+        ? <XCircle className={`${className} text-red-400`} />
+        : <CheckCircle2 className={`${className} text-cyan-400`} />;
+}
+function queryTarget(entry: ActivityEntry) {
+  const target = entry.databaseName ? `${entry.databaseName}${entry.tableName ? `.${entry.tableName}` : ''}` : entry.tableName || 'sunucu geneli';
+  return `${entry.serverName || 'Coreor'} • ${target}`;
+}
+function downloadActivityLog() {
+  const blob = new Blob([exportActivities()], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `coreor-sql-log-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
-function QueryDetailModal({entry,onClose}:{entry:ActivityEntry|null;onClose:()=>void}){
-  const[copied,setCopied]=useState(false);useEffect(()=>setCopied(false),[entry?.id]);if(!entry||typeof document==='undefined')return null;
-  return createPortal(<div className="fixed inset-0 z-[680] flex items-center justify-center p-4"><button className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}/><div className="relative z-10 flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950"><header className="flex items-start justify-between border-b border-zinc-800 px-5 py-4"><div className="flex gap-3"><div className="rounded-lg border border-zinc-800 bg-black/30 p-2">{statusIcon(entry.level,'h-4 w-4')}</div><div><h2 className="text-sm font-semibold">{entry.title}</h2><p className="mt-1 text-xs text-zinc-500">{formatDateTime(entry.timestamp)}</p></div></div><Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}><X className="h-4 w-4"/></Button></header><div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5"><div className="grid gap-2 sm:grid-cols-4">{[['Durum',statusLabel(entry.level)],['Süre',entry.durationMs===undefined?'—':`${entry.durationMs} ms`],['Dönen satır',entry.rowCount===undefined?'—':entry.rowCount.toLocaleString('tr-TR')],['Etkilenen',entry.affectedRows===undefined?'—':entry.affectedRows.toLocaleString('tr-TR')]].map(([label,value])=><div key={label} className="rounded-xl border border-zinc-800 bg-black/20 p-3"><div className="text-[8px] uppercase text-zinc-600">{label}</div><div className="mt-1 text-[11px] text-zinc-200">{value}</div></div>)}</div>{entry.message&&<div className={`rounded-xl border p-3 text-[10px] ${entry.level==='error'?'border-red-500/25 bg-red-500/10 text-red-300':'border-zinc-800 text-zinc-400'}`}>{entry.message}</div>}<div className="overflow-hidden rounded-xl border border-zinc-800"><div className="flex h-9 items-center justify-between border-b border-zinc-800 px-3 text-[10px] text-zinc-400">SQL<Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={async()=>{await navigator.clipboard.writeText(entry.sql);setCopied(true);}}>{copied?<Check className="mr-1 h-3.5 w-3.5 text-emerald-400"/>:<Copy className="mr-1 h-3.5 w-3.5"/>}{copied?'Kopyalandı':'Kopyala'}</Button></div><pre className="max-h-72 overflow-auto whitespace-pre-wrap bg-black/35 p-4 font-mono text-[11px] leading-5 text-cyan-200">{entry.sql}</pre></div></div></div></div>,document.body);
+function StatusTooltip({ children, title, description, rows, align = 'left' }: { children: React.ReactNode; title: string; description?: string; rows: TooltipRow[]; align?: 'left' | 'right' }) {
+  const triggerRef = useRef<HTMLDivElement | null>(null);
+  const [position, setPosition] = useState<{ left: number; bottom: number } | null>(null);
+
+  const open = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = 336;
+    const preferredLeft = align === 'right' ? rect.right - width : rect.left;
+    const left = Math.min(Math.max(8, preferredLeft), Math.max(8, window.innerWidth - width - 8));
+    setPosition({ left, bottom: Math.max(8, window.innerHeight - rect.top + 8) });
+  };
+
+  return <div ref={triggerRef} className="relative flex h-full items-center" onMouseEnter={open} onMouseLeave={() => setPosition(null)} onFocus={open} onBlur={() => setPosition(null)} tabIndex={0}>
+    {children}
+    {position && typeof document !== 'undefined' && createPortal(
+      <div className="pointer-events-none fixed z-[950] w-[336px] rounded-xl border border-zinc-700/90 bg-zinc-950/98 p-3.5 shadow-2xl backdrop-blur-xl" style={{ left: position.left, bottom: position.bottom }}>
+        <div className="flex items-start gap-2 border-b border-zinc-800 pb-2"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-400" /><div><div className="text-[11px] font-semibold text-zinc-100">{title}</div>{description && <div className="mt-1 text-[9px] leading-4 text-zinc-600">{description}</div>}</div></div>
+        <div className="mt-2.5 space-y-1.5">{rows.map((row, index) => <div key={`${row.label}-${index}`} className="flex items-start justify-between gap-4 text-[10px] leading-4"><span className="shrink-0 text-zinc-600">{row.label}</span><span className={`min-w-0 break-all text-right ${row.tone === 'success' ? 'text-emerald-400' : row.tone === 'warning' ? 'text-amber-400' : row.tone === 'danger' ? 'text-red-400' : 'text-zinc-300'}`}>{row.value}</span></div>)}</div>
+      </div>,
+      document.body
+    )}
+  </div>;
 }
 
-export default function BottomBar({selectedDatabase,selectedTable}:BottomBarProps){
-  const{activeToken}=useAuth();const{servers,activeServerId,isServersLoading}=useContext(DatabaseContext)!;const activeServer=servers.find(server=>server.id===activeServerId)||null;const definition=databaseEngineDefinition(activeServer?.databaseType);const supportsMysqlMetrics=activeServer?.databaseType==='mysql'||activeServer?.databaseType==='mariadb';
-  const[isConsoleOpen,setIsConsoleOpen]=useState(false);const[filter,setFilter]=useState<ConsoleFilter>('all');const[selectedEntry,setSelectedEntry]=useState<ActivityEntry|null>(null);const[gridStatus,setGridStatus]=useState<GridRuntimeStatus>(EMPTY_GRID_STATUS);const[serverSnapshot,setServerSnapshot]=useState<DatabasePerformanceSnapshot|null>(null);const[snapshotError,setSnapshotError]=useState<string|null>(null);const[snapshotLoading,setSnapshotLoading]=useState(false);const[connectionStartedAt,setConnectionStartedAt]=useState<number|null>(null);const[now,setNow]=useState(Date.now());const endRef=useRef<HTMLDivElement|null>(null);const queryEntries=useSyncExternalStore(subscribeActivities,getActivitiesSnapshot,getActivitiesServerSnapshot);
-  useEffect(()=>{const handler=(event:Event)=>setGridStatus((event as CustomEvent<GridRuntimeStatus>).detail||EMPTY_GRID_STATUS);window.addEventListener('coreor:grid-status',handler);return()=>window.removeEventListener('coreor:grid-status',handler);},[]);
-  useEffect(()=>{if(!activeServerId){setConnectionStartedAt(null);window.sessionStorage.removeItem(ACTIVE_CONNECTION_STORAGE_KEY);return;}let session:ActiveConnectionSession|null=null;try{session=JSON.parse(window.sessionStorage.getItem(ACTIVE_CONNECTION_STORAGE_KEY)||'null');}catch{session=null;}if(!session||session.serverId!==activeServerId||!Number.isFinite(session.startedAt)){session={serverId:activeServerId,startedAt:Date.now()};window.sessionStorage.setItem(ACTIVE_CONNECTION_STORAGE_KEY,JSON.stringify(session));}setConnectionStartedAt(session.startedAt);setNow(Date.now());},[activeServerId]);
-  useEffect(()=>{if(!activeServerId)return;const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer);},[activeServerId]);
-  useEffect(()=>{if(!activeServerId||!activeToken||!supportsMysqlMetrics){setServerSnapshot(null);setSnapshotLoading(false);setSnapshotError(activeServer&&!supportsMysqlMetrics?`${databaseEngineLabel(activeServer.databaseType)} için motor özel performans snapshot'ı henüz etkin değil.`:null);return;}let cancelled=false;let inFlight=false;const refresh=async()=>{if(inFlight)return;inFlight=true;setSnapshotLoading(true);try{const snapshot=await fetchDatabasePerformanceSnapshot(activeServerId,activeToken,selectedDatabase||null);if(!cancelled){setServerSnapshot(snapshot);setSnapshotError(null);}}catch(error){if(!cancelled)setSnapshotError(error instanceof Error?error.message:'Sunucu durumu alınamadı.');}finally{inFlight=false;if(!cancelled)setSnapshotLoading(false);}};void refresh();const interval=window.setInterval(()=>void refresh(),30000);return()=>{cancelled=true;window.clearInterval(interval);};},[activeServerId,activeToken,selectedDatabase,supportsMysqlMetrics,activeServer?.databaseType]);
+function QueryDetailModal({ entry, onClose }: { entry: ActivityEntry | null; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => setCopied(false), [entry?.id]);
+  if (!entry || typeof document === 'undefined') return null;
+  return createPortal(<div className="fixed inset-0 z-[680] flex items-center justify-center p-4"><button className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} /><div className="relative z-10 flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950"><header className="flex items-start justify-between border-b border-zinc-800 px-5 py-4"><div className="flex gap-3"><div className="rounded-lg border border-zinc-800 bg-black/30 p-2">{statusIcon(entry.level, 'h-4 w-4')}</div><div><h2 className="text-sm font-semibold">{entry.title}</h2><p className="mt-1 text-xs text-zinc-500">{formatDateTime(entry.timestamp)}</p></div></div><Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}><X className="h-4 w-4" /></Button></header><div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5"><div className="grid gap-2 sm:grid-cols-4">{[['Durum', statusLabel(entry.level)], ['Süre', entry.durationMs === undefined ? '—' : `${entry.durationMs} ms`], ['Dönen satır', entry.rowCount === undefined ? '—' : entry.rowCount.toLocaleString('tr-TR')], ['Etkilenen', entry.affectedRows === undefined ? '—' : entry.affectedRows.toLocaleString('tr-TR')]].map(([label, value]) => <div key={label} className="rounded-xl border border-zinc-800 bg-black/20 p-3"><div className="text-[8px] uppercase text-zinc-600">{label}</div><div className="mt-1 text-[11px] text-zinc-200">{value}</div></div>)}</div>{entry.message && <div className={`rounded-xl border p-3 text-[10px] ${entry.level === 'error' ? 'border-red-500/25 bg-red-500/10 text-red-300' : 'border-zinc-800 text-zinc-400'}`}>{entry.message}</div>}<div className="overflow-hidden rounded-xl border border-zinc-800"><div className="flex h-9 items-center justify-between border-b border-zinc-800 px-3 text-[10px] text-zinc-400">SQL<Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={async () => { await navigator.clipboard.writeText(entry.sql); setCopied(true); }}>{copied ? <Check className="mr-1 h-3.5 w-3.5 text-emerald-400" /> : <Copy className="mr-1 h-3.5 w-3.5" />}{copied ? 'Kopyalandı' : 'Kopyala'}</Button></div><pre className="max-h-72 overflow-auto whitespace-pre-wrap bg-black/35 p-4 font-mono text-[11px] leading-5 text-cyan-200 [font-synthesis:none] [text-shadow:none]">{entry.sql}</pre></div></div></div></div>, document.body);
+}
 
-  const filteredEntries=useMemo(()=>filter==='success'?queryEntries.filter(entry=>entry.level==='success'):filter==='errors'?queryEntries.filter(entry=>entry.level==='error'||entry.level==='warning'):queryEntries,[queryEntries,filter]);
-  const metrics=useMemo(()=>{const successful=queryEntries.filter(entry=>entry.level==='success').length;const failed=queryEntries.filter(entry=>entry.level==='error').length;const warnings=queryEntries.filter(entry=>entry.level==='warning').length;const durations=queryEntries.map(entry=>entry.durationMs).filter((value):value is number=>typeof value==='number');const averageDuration=durations.length?Math.round(durations.reduce((sum,value)=>sum+value,0)/durations.length):undefined;const completed=successful+failed;return{successful,failed,warnings,averageDuration,successRate:completed?Math.round(successful/completed*100):100,lastEntry:queryEntries.at(-1)};},[queryEntries]);
-  useEffect(()=>{if(isConsoleOpen)endRef.current?.scrollIntoView({block:'end'});},[filteredEntries.length,isConsoleOpen]);
-  const targetName=selectedDatabase||activeServer?.databaseName||'Sunucu geneli';const connectionSeconds=connectionStartedAt?Math.max(0,Math.floor((now-connectionStartedAt)/1000)):0;const averageQps=serverSnapshot?.uptimeSeconds?serverSnapshot.questions/serverSnapshot.uptimeSeconds:null;const connectionHealthy=Boolean(activeServer&&!snapshotLoading&&(!supportsMysqlMetrics||serverSnapshot)&&!snapshotError);
+export default function BottomBar({ selectedDatabase, selectedTable }: BottomBarProps) {
+  const { activeToken } = useAuth();
+  const { servers, activeServerId, isServersLoading } = useContext(DatabaseContext)!;
+  const activeServer = servers.find(server => server.id === activeServerId) || null;
+  const definition = databaseEngineDefinition(activeServer?.databaseType);
+  const supportsMysqlMetrics = activeServer?.databaseType === 'mysql' || activeServer?.databaseType === 'mariadb';
+  const safetyWorkspace = useSyncExternalStore(subscribeDatabaseSafetyWorkspace, getDatabaseSafetyWorkspace, getServerDatabaseSafetyWorkspace);
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
+  const [filter, setFilter] = useState<ConsoleFilter>('all');
+  const [selectedEntry, setSelectedEntry] = useState<ActivityEntry | null>(null);
+  const [gridStatus, setGridStatus] = useState<GridRuntimeStatus>(EMPTY_GRID_STATUS);
+  const [serverSnapshot, setServerSnapshot] = useState<DatabasePerformanceSnapshot | null>(null);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [connectionStartedAt, setConnectionStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const endRef = useRef<HTMLDivElement | null>(null);
+  const queryEntries = useSyncExternalStore(subscribeActivities, getActivitiesSnapshot, getActivitiesServerSnapshot);
+  const consoleShortcut = shortcutFor(safetyWorkspace.shortcuts, 'toggle-console', 'Mod+J');
+
+  useEffect(() => {
+    const handler = (event: Event) => setGridStatus((event as CustomEvent<GridRuntimeStatus>).detail || EMPTY_GRID_STATUS);
+    window.addEventListener('coreor:grid-status', handler);
+    return () => window.removeEventListener('coreor:grid-status', handler);
+  }, []);
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (shortcutMatches(event, consoleShortcut)) { event.preventDefault(); setIsConsoleOpen(previous => !previous); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [consoleShortcut]);
+  useEffect(() => {
+    if (!activeServerId) {
+      setConnectionStartedAt(null);
+      window.sessionStorage.removeItem(ACTIVE_CONNECTION_STORAGE_KEY);
+      return;
+    }
+    let session: ActiveConnectionSession | null = null;
+    try { session = JSON.parse(window.sessionStorage.getItem(ACTIVE_CONNECTION_STORAGE_KEY) || 'null'); } catch { session = null; }
+    if (!session || session.serverId !== activeServerId || !Number.isFinite(session.startedAt)) {
+      session = { serverId: activeServerId, startedAt: Date.now() };
+      window.sessionStorage.setItem(ACTIVE_CONNECTION_STORAGE_KEY, JSON.stringify(session));
+    }
+    setConnectionStartedAt(session.startedAt);
+    setNow(Date.now());
+  }, [activeServerId]);
+  useEffect(() => {
+    if (!activeServerId) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [activeServerId]);
+  useEffect(() => {
+    if (!activeServerId || !activeToken || !supportsMysqlMetrics) {
+      setServerSnapshot(null);
+      setSnapshotLoading(false);
+      setSnapshotError(activeServer && !supportsMysqlMetrics ? `${databaseEngineLabel(activeServer.databaseType)} için motor özel performans snapshot'ı henüz etkin değil.` : null);
+      return;
+    }
+    let cancelled = false;
+    let inFlight = false;
+    const refresh = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      setSnapshotLoading(true);
+      try {
+        const snapshot = await fetchDatabasePerformanceSnapshot(activeServerId, activeToken, selectedDatabase || null);
+        if (!cancelled) { setServerSnapshot(snapshot); setSnapshotError(null); }
+      } catch (error) {
+        if (!cancelled) setSnapshotError(error instanceof Error ? error.message : 'Sunucu durumu alınamadı.');
+      } finally {
+        inFlight = false;
+        if (!cancelled) setSnapshotLoading(false);
+      }
+    };
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 30000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, [activeServerId, activeToken, selectedDatabase, supportsMysqlMetrics, activeServer?.databaseType]);
+
+  const filteredEntries = useMemo(() => filter === 'success'
+    ? queryEntries.filter(entry => entry.level === 'success')
+    : filter === 'errors'
+      ? queryEntries.filter(entry => entry.level === 'error' || entry.level === 'warning')
+      : queryEntries, [queryEntries, filter]);
+  const metrics = useMemo(() => {
+    const successful = queryEntries.filter(entry => entry.level === 'success').length;
+    const failed = queryEntries.filter(entry => entry.level === 'error').length;
+    const warnings = queryEntries.filter(entry => entry.level === 'warning').length;
+    const durations = queryEntries.map(entry => entry.durationMs).filter((value): value is number => typeof value === 'number');
+    const averageDuration = durations.length ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length) : undefined;
+    const completed = successful + failed;
+    return { successful, failed, warnings, averageDuration, successRate: completed ? Math.round(successful / completed * 100) : 100, lastEntry: queryEntries.at(-1) };
+  }, [queryEntries]);
+  useEffect(() => { if (isConsoleOpen) endRef.current?.scrollIntoView({ block: 'end' }); }, [filteredEntries.length, isConsoleOpen]);
+
+  const targetName = selectedDatabase || activeServer?.databaseName || 'Sunucu geneli';
+  const connectionSeconds = connectionStartedAt ? Math.max(0, Math.floor((now - connectionStartedAt) / 1000)) : 0;
+  const averageQps = serverSnapshot?.uptimeSeconds ? serverSnapshot.questions / serverSnapshot.uptimeSeconds : null;
 
   return <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 text-xs">
-    <div className={`flex flex-col transition-[height] duration-200 ${isConsoleOpen?'h-[212px]':'h-8'}`}><div className="flex h-8 shrink-0 items-center justify-between border-b border-zinc-800/80 px-2"><button className="flex items-center gap-2 text-zinc-300" onClick={()=>setIsConsoleOpen(previous=>!previous)}><Terminal className="h-3.5 w-3.5"/><span className="font-medium">SQL günlüğü</span><span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px]">{queryEntries.length}</span>{isConsoleOpen?<ChevronDown className="h-3 w-3"/>:<ChevronUp className="h-3 w-3"/>}</button>{isConsoleOpen&&<div className="flex items-center gap-1"><div className="flex rounded-md border border-zinc-800 bg-black/20 p-0.5">{(['all','success','errors']as ConsoleFilter[]).map(item=><button key={item} className={`rounded px-2 py-1 text-[9px] ${filter===item?'bg-zinc-800 text-white':'text-zinc-500'}`} onClick={()=>setFilter(item)}>{item==='all'?'Tümü':item==='success'?'Başarılı':'Hatalar'}</button>)}</div><Button variant="ghost" size="icon" className="h-6 w-6" onClick={downloadActivityLog}><Download className="h-3.5 w-3.5"/></Button><Button variant="ghost" size="icon" className="h-6 w-6 text-red-400" onClick={clearActivities}><Trash2 className="h-3.5 w-3.5"/></Button></div>}</div>{isConsoleOpen&&<div className="min-h-0 flex-1 overflow-auto font-mono">{filteredEntries.length===0?<div className="flex h-full items-center justify-center text-[9px] text-zinc-600">Henüz çalıştırılmış SQL sorgusu yok.</div>:<div className="divide-y divide-zinc-900/80">{filteredEntries.map(entry=><div key={entry.id} className="grid h-[18px] grid-cols-[18px_70px_minmax(150px,.34fr)_minmax(300px,1fr)_auto] items-center gap-1 px-1 text-[9px] hover:bg-white/[.025]"><button className="flex h-4 w-4 items-center justify-center" onClick={()=>setSelectedEntry(entry)}>{statusIcon(entry.level,'h-2.5 w-2.5')}</button><span className="text-zinc-600">{formatClock(entry.timestamp)}</span><span className="truncate text-zinc-500">{queryTarget(entry)}</span><code className={`truncate ${entry.level==='error'?'text-red-300':'text-cyan-300'}`}>{entry.sql.replace(/\s+/g,' ')}</code><span className="pr-1 text-zinc-600">{entry.durationMs===undefined?'':`${entry.durationMs} ms`}</span></div>)}<div ref={endRef}/></div>}</div>}</div>
+    <div className={`flex flex-col transition-[height] duration-200 ${isConsoleOpen ? 'h-[212px]' : 'h-8'}`}>
+      <div className="flex h-8 shrink-0 items-center justify-between border-b border-zinc-800/80 px-2"><button className="flex items-center gap-2 text-zinc-300" onClick={() => setIsConsoleOpen(previous => !previous)}><Terminal className="h-3.5 w-3.5" /><span className="font-medium">SQL günlüğü</span><span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px]">{queryEntries.length}</span>{isConsoleOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}</button>{isConsoleOpen && <div className="flex items-center gap-1"><div className="flex rounded-md border border-zinc-800 bg-black/20 p-0.5">{(['all','success','errors'] as ConsoleFilter[]).map(item => <button key={item} className={`rounded px-2 py-1 text-[9px] ${filter === item ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`} onClick={() => setFilter(item)}>{item === 'all' ? 'Tümü' : item === 'success' ? 'Başarılı' : 'Hatalar'}</button>)}</div><Button variant="ghost" size="icon" className="h-6 w-6" onClick={downloadActivityLog}><Download className="h-3.5 w-3.5" /></Button><Button variant="ghost" size="icon" className="h-6 w-6 text-red-400" onClick={clearActivities}><Trash2 className="h-3.5 w-3.5" /></Button></div>}</div>
+      {isConsoleOpen && <div className="min-h-0 flex-1 overflow-auto font-mono [font-synthesis:none] [text-shadow:none]">{filteredEntries.length === 0 ? <div className="flex h-full items-center justify-center text-[9px] text-zinc-600">Henüz çalıştırılmış SQL sorgusu yok.</div> : <div className="divide-y divide-zinc-900/80">{filteredEntries.map(entry => <div key={entry.id} className="grid h-[18px] grid-cols-[18px_70px_minmax(150px,.34fr)_minmax(300px,1fr)_auto] items-center gap-1 px-1 text-[9px] hover:bg-white/[.025]"><button className="flex h-4 w-4 items-center justify-center" onClick={() => setSelectedEntry(entry)}>{statusIcon(entry.level, 'h-2.5 w-2.5')}</button><span className="text-zinc-600">{formatClock(entry.timestamp)}</span><span className="truncate text-zinc-500">{queryTarget(entry)}</span><code className={`truncate ${entry.level === 'error' ? 'text-red-300' : 'text-cyan-300'}`}>{entry.sql.replace(/\s+/g, ' ')}</code><span className="pr-1 text-right text-zinc-600">{entry.durationMs === undefined ? '—' : `${entry.durationMs} ms`}</span></div>)}<div ref={endRef} /></div>}</div>}
+    </div>
 
-    <div className="coreor-hide-scrollbar h-7 overflow-x-auto overflow-y-visible border-t border-zinc-800 text-[9px] text-zinc-500"><div className="flex h-full min-w-max items-center divide-x divide-zinc-800 tabular-nums">
-      <StatusTooltip title="Bağlantı durumu" description="Aktif profil, ağ erişimi ve motor snapshot durumunu özetler." rows={[{label:'Durum',value:!activeServer?'Sunucu seçilmedi':snapshotLoading?'Kontrol ediliyor':snapshotError&&!supportsMysqlMetrics?'Temel bağlantı hazır':snapshotError?'Kontrol başarısız':'Bağlantı hazır',tone:!activeServer?'normal':snapshotError&&supportsMysqlMetrics?'danger':'success'},{label:'Motor',value:activeServer?definition.label:'—'},{label:'Son snapshot',value:serverSnapshot?formatDateTime(serverSnapshot.sampledAt):'—'},{label:'Not',value:snapshotError||'30 saniyede bir yenilenir'}]}><span className={`flex h-full items-center gap-1.5 px-2 font-medium ${!activeServer?'text-zinc-500':snapshotError&&supportsMysqlMetrics?'text-red-400':'text-emerald-400'}`}>{snapshotLoading?<Loader2 className="h-3 w-3 animate-spin"/>:<Wifi className="h-3 w-3"/>}{!activeServer?'Bağlantı yok':snapshotError&&supportsMysqlMetrics?'Erişilemiyor':'Bağlı'}</span></StatusTooltip>
+    <div className="coreor-hide-scrollbar h-7 overflow-x-auto border-t border-zinc-800 text-[9px] text-zinc-500"><div className="flex h-full min-w-max items-center divide-x divide-zinc-800 tabular-nums">
+      <StatusTooltip title="Bağlantı durumu" description="Aktif profil, ağ erişimi ve motor snapshot durumunu özetler." rows={[{ label:'Durum', value:!activeServer?'Sunucu seçilmedi':snapshotLoading?'Kontrol ediliyor':snapshotError&&supportsMysqlMetrics?'Kontrol başarısız':'Bağlantı hazır', tone:!activeServer?'normal':snapshotError&&supportsMysqlMetrics?'danger':'success' }, { label:'Motor', value:activeServer?definition.label:'—' }, { label:'Son snapshot', value:serverSnapshot?formatDateTime(serverSnapshot.sampledAt):'—' }, { label:'Not', value:snapshotError||'30 saniyede bir yenilenir' }]}><span className={`flex h-full items-center gap-1.5 px-2 font-medium ${!activeServer?'text-zinc-500':snapshotError&&supportsMysqlMetrics?'text-red-400':'text-emerald-400'}`}>{snapshotLoading?<Loader2 className="h-3 w-3 animate-spin"/>:<Wifi className="h-3 w-3"/>}{!activeServer?'Bağlantı yok':snapshotError&&supportsMysqlMetrics?'Erişilemiyor':'Bağlı'}</span></StatusTooltip>
       <StatusTooltip title="Bağlantı profili" description="Kayıtlı motor, sürüm, protokol ve güvenlik seçenekleri." rows={[{label:'Motor',value:activeServer?definition.label:'—'},{label:'Aile / protokol',value:activeServer?definition.family:'—'},{label:'Sürüm profili',value:activeServer?.version||'—'},{label:'TLS',value:activeServer?.sslMode||'—',tone:activeServer?.sslMode==='disabled'?'warning':'success'},{label:'Timeout',value:activeServer?`${activeServer.connectionTimeoutMs||20000} ms`:'—'}]}><span className="flex h-full items-center gap-1 px-2 text-zinc-300"><Server className="h-3 w-3"/>{isServersLoading?'Kasa okunuyor':activeServer?`${definition.label} ${activeServer.version||''}`:'Sunucu yok'}</span></StatusTooltip>
-      {activeServer&&<StatusTooltip title="Ağ hedefi ve kullanıcı" description="Bağlantı kurulurken kullanılan hedef; parola hiçbir zaman gösterilmez." rows={[{label:'Profil',value:activeServer.name},{label:'Host',value:activeServer.host||'—'},{label:'Port',value:activeServer.port||definition.defaultPort},{label:'Kullanıcı',value:activeServer.username||'—'},{label:'Organizasyon',value:activeServer.organizationId||'Kişisel'}]}><span className="flex h-full items-center px-2 font-mono">{activeServer.host}:{activeServer.port||definition.defaultPort}</span></StatusTooltip>}
-      <StatusTooltip title="Sunucu uptime" description={supportsMysqlMetrics?'Motorun son açılışından beri geçen gerçek süre.':'Bu motor için uptime adaptörü daha sonra eklenecek; Coreor bağlantı süresi ayrı gösterilir.'} rows={[{label:'Çalışma süresi',value:serverSnapshot?formatDuration(serverSnapshot.uptimeSeconds,true):'—'},{label:'Toplam sorgu',value:serverSnapshot?.questions.toLocaleString('tr-TR')||'—'},{label:'Ortalama QPS',value:averageQps===null?'—':averageQps.toLocaleString('tr-TR',{maximumFractionDigits:2})},{label:'Yavaş sorgu',value:serverSnapshot?.slowQueries.toLocaleString('tr-TR')||'—'}]}><span className="flex h-full items-center gap-1 px-2 text-cyan-300"><Timer className="h-3 w-3"/>Uptime {serverSnapshot?formatDuration(serverSnapshot.uptimeSeconds):'—'}</span></StatusTooltip>
+      {activeServer && <StatusTooltip title="Ağ hedefi ve kullanıcı" description="Bağlantı kurulurken kullanılan hedef; parola hiçbir zaman gösterilmez." rows={[{label:'Profil',value:activeServer.name},{label:'Host',value:activeServer.host||'—'},{label:'Port',value:activeServer.port||definition.defaultPort},{label:'Kullanıcı',value:activeServer.username||'—'},{label:'Organizasyon',value:activeServer.organizationId||'Kişisel'}]}><span className="flex h-full items-center px-2 font-mono">{activeServer.host}:{activeServer.port||definition.defaultPort}</span></StatusTooltip>}
+      <StatusTooltip title="Sunucu uptime" description={supportsMysqlMetrics?'Motorun son açılışından beri geçen gerçek süre.':'Bu motor için uptime adaptörü henüz etkin değil; Coreor profil süresi ayrı gösterilir.'} rows={[{label:'Çalışma süresi',value:serverSnapshot?formatDuration(serverSnapshot.uptimeSeconds,true):'—'},{label:'Toplam sorgu',value:serverSnapshot?.questions.toLocaleString('tr-TR')||'—'},{label:'Ortalama QPS',value:averageQps===null?'—':averageQps.toLocaleString('tr-TR',{maximumFractionDigits:2})},{label:'Yavaş sorgu',value:serverSnapshot?.slowQueries.toLocaleString('tr-TR')||'—'}]}><span className="flex h-full items-center gap-1 px-2 text-cyan-300"><Timer className="h-3 w-3"/>Uptime {serverSnapshot?formatDuration(serverSnapshot.uptimeSeconds):'—'}</span></StatusTooltip>
       <StatusTooltip title="Coreor profil süresi" description="Bu değer sürekli açık veritabanı bağlantısı değildir; profil seçili kaldığı süredir." rows={[{label:'Aktif süre',value:activeServer?formatDuration(connectionSeconds,true):'—'},{label:'Başlangıç',value:connectionStartedAt?formatDateTime(new Date(connectionStartedAt).toISOString()):'—'},{label:'Profil',value:activeServer?.name||'—'},{label:'Bağlantı modeli',value:'İşlem başına bağlantı'}]}><span className="flex h-full items-center gap-1 px-2 text-emerald-300"><PlugZap className="h-3 w-3"/>Coreor {activeServer?formatDuration(connectionSeconds):'—'}</span></StatusTooltip>
       <StatusTooltip title="Aktif hedef ve katalog" description="Çalışma alanında seçili veritabanı/tablo ve önbellekteki katalog kapsamı." rows={[{label:'Veritabanı',value:targetName},{label:'Tablo',value:selectedTable||'—'},{label:'Katalog DB',value:activeServer?.databases?.length||0},{label:'Katalog tablo',value:activeServer?.databases?.reduce((total,database)=>total+database.tableCount,0)||0}]}><span className="flex h-full max-w-64 items-center gap-1 truncate px-2"><Database className="h-3 w-3"/><span className="truncate">{targetName}{selectedTable?` / ${selectedTable}`:''}</span></span></StatusTooltip>
-      {selectedTable&&<StatusTooltip title="Tablo gridi" description="Görünür sayfa, sunucu tarafı filtre/sıralama ve satır toplamı." rows={[{label:'Sayfa',value:`${gridStatus.page} / ${gridStatus.totalPages}`},{label:'Sayfa boyutu',value:gridStatus.pageSize},{label:'Toplam satır',value:gridStatus.totalRows.toLocaleString('tr-TR')},{label:'Filtre',value:gridStatus.filters},{label:'Sıralama',value:gridStatus.sorts},{label:'Durum',value:gridStatus.isLoading?'Yükleniyor':'Hazır'}]}><span className="flex h-full items-center gap-1 px-2"><Table className="h-3 w-3"/>{gridStatus.page}/{gridStatus.totalPages} • {gridStatus.pageSize}</span></StatusTooltip>}
+      {selectedTable && <StatusTooltip title="Tablo gridi" description="Görünür sayfa, sunucu tarafı filtre/sıralama ve satır toplamı." rows={[{label:'Sayfa',value:`${gridStatus.page} / ${gridStatus.totalPages}`},{label:'Sayfa boyutu',value:gridStatus.pageSize},{label:'Toplam satır',value:gridStatus.totalRows.toLocaleString('tr-TR')},{label:'Filtre',value:gridStatus.filters},{label:'Sıralama',value:gridStatus.sorts},{label:'Durum',value:gridStatus.isLoading?'Yükleniyor':'Hazır'}]}><span className="flex h-full items-center gap-1 px-2"><Table className="h-3 w-3"/>{gridStatus.page}/{gridStatus.totalPages} • {gridStatus.pageSize}</span></StatusTooltip>}
       <StatusTooltip title="Bağlantılar ve iş parçacıkları" description="MySQL/MariaDB canlı thread ve bağlantı kapasitesi." rows={[{label:'Bağlı',value:serverSnapshot?.threadsConnected??'—'},{label:'Çalışan',value:serverSnapshot?.threadsRunning??'—'},{label:'Tepe kullanım',value:serverSnapshot?.maxUsedConnections??'—'},{label:'Maksimum',value:serverSnapshot?.maxConnections??'—'},{label:'Reddedilen',value:serverSnapshot?.abortedConnects??'—'}]}><span className="flex h-full items-center gap-1 px-2"><Activity className="h-3 w-3 text-purple-400"/>{serverSnapshot?`${serverSnapshot.threadsConnected} bağlı • ${serverSnapshot.threadsRunning} çalışan`:'Thread —'}</span></StatusTooltip>
       <StatusTooltip title="Buffer / bellek" description="MySQL ailesinde InnoDB buffer pool kullanımı ve hit ratio." rows={[{label:'Kullanım',value:serverSnapshot?`%${serverSnapshot.bufferPool.usagePercent.toFixed(1)}`:'—'},{label:'Dirty page',value:serverSnapshot?`%${serverSnapshot.bufferPool.dirtyPercent.toFixed(1)}`:'—'},{label:'Hit ratio',value:serverSnapshot?.bufferPool.hitRatio==null?'—':`%${serverSnapshot.bufferPool.hitRatio.toFixed(2)}`},{label:'Toplam',value:serverSnapshot?formatBytes(serverSnapshot.bufferPool.totalPages*serverSnapshot.bufferPool.pageSize):'—'}]}><span className="flex h-full items-center gap-1 px-2"><Gauge className="h-3 w-3 text-amber-400"/>Buffer {serverSnapshot?`%${Math.round(serverSnapshot.bufferPool.usagePercent)}`:'—'}</span></StatusTooltip>
       <StatusTooltip title="Mantıksal depolama" description="information_schema üzerinden hesaplanan veri ve indeks boyutları; fiziksel disk boşluğu değildir." rows={[{label:'Toplam',value:serverSnapshot?formatBytes(serverSnapshot.storage.totalBytes):'—'},{label:'Veri',value:serverSnapshot?formatBytes(serverSnapshot.storage.dataBytes):'—'},{label:'İndeks',value:serverSnapshot?formatBytes(serverSnapshot.storage.indexBytes):'—'},{label:'Boş alan',value:serverSnapshot?formatBytes(serverSnapshot.storage.freeBytes):'—'},{label:'Seçili DB',value:serverSnapshot?.storage.selectedDatabaseBytes==null?'—':formatBytes(serverSnapshot.storage.selectedDatabaseBytes)}]}><span className="flex h-full items-center gap-1 px-2"><HardDrive className="h-3 w-3 text-blue-400"/>{serverSnapshot?formatBytes(serverSnapshot.storage.totalBytes):'Depolama —'}</span></StatusTooltip>
@@ -77,6 +279,6 @@ export default function BottomBar({selectedDatabase,selectedTable}:BottomBarProp
       <StatusTooltip title="Aktif filtre ve sıralamalar" description="Tablo gridinde sunucuya gönderilen geçerli koşullar." align="right" rows={[{label:'Filtre',value:gridStatus.filters},{label:'Sıralama',value:gridStatus.sorts},{label:'Yükleme',value:gridStatus.isLoading?'Devam ediyor':'Beklemede'}]}><span className="flex h-full items-center gap-2 px-2"><span className={gridStatus.filters?'text-cyan-400':''}><Filter className="inline h-3 w-3"/> {gridStatus.filters}</span><span className={gridStatus.sorts?'text-cyan-400':''}><ArrowUpDown className="inline h-3 w-3"/> {gridStatus.sorts}</span></span></StatusTooltip>
       <StatusTooltip title="Son SQL işlemi" description="SQL günlüğüne eklenen en son kullanıcı işlemi." align="right" rows={[{label:'Zaman',value:metrics.lastEntry?formatDateTime(metrics.lastEntry.timestamp):'—'},{label:'Durum',value:metrics.lastEntry?statusLabel(metrics.lastEntry.level):'—'},{label:'Süre',value:metrics.lastEntry?.durationMs===undefined?'—':`${metrics.lastEntry.durationMs} ms`},{label:'Hedef',value:metrics.lastEntry?queryTarget(metrics.lastEntry):'—'}]}><span className="flex h-full items-center gap-1 px-2"><Clock className="h-3 w-3"/>{metrics.lastEntry?.durationMs===undefined?'Son sorgu —':`${metrics.lastEntry.durationMs} ms`}</span></StatusTooltip>
     </div></div>
-    <QueryDetailModal entry={selectedEntry} onClose={()=>setSelectedEntry(null)}/>
+    <QueryDetailModal entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
   </div>;
 }
