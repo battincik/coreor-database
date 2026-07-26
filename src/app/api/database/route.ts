@@ -2,6 +2,11 @@ import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth-options';
 import { DatabaseServiceError, executeDatabaseRequest } from '@/lib/server/database-service';
+import {
+  executeDatabaseWorkbenchRequest,
+  isDatabaseWorkbenchAction
+} from '@/lib/server/database-workbench-service';
+import type { DatabaseWorkbenchRequest } from '@/lib/databaseWorkbenchTypes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -112,8 +117,11 @@ export async function POST(request: NextRequest) {
     if (actualBytes > maximumBytes) {
       throw new DatabaseServiceError(`Veritabanı isteği izin verilen ${(maximumBytes / 1024 / 1024).toFixed(1)} MB sınırını aşıyor.`, 413, 'DATABASE_REQUEST_TOO_LARGE');
     }
-    const payload = JSON.parse(rawBody) as Parameters<typeof executeDatabaseRequest>[0];
-    const result = await executeDatabaseRequest(payload);
+
+    const payload = JSON.parse(rawBody) as Parameters<typeof executeDatabaseRequest>[0] & { action?: unknown };
+    const result = isDatabaseWorkbenchAction(payload.action)
+      ? await executeDatabaseWorkbenchRequest(payload as unknown as DatabaseWorkbenchRequest)
+      : await executeDatabaseRequest(payload);
     return NextResponse.json(result, { status: 200, headers: noStoreHeaders() });
   } catch (error) {
     if (error instanceof SyntaxError) {
