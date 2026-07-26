@@ -59,9 +59,10 @@ export function SearchSelect<T extends string = string>({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const selected = options.find(option => option.value === value);
+  const usePortal = portal || dropdownMinWidth > 340;
 
   const updatePanelPosition = useCallback(() => {
-    if (!portal) return;
+    if (!usePortal) return;
     const trigger = triggerRef.current;
     if (!trigger || typeof window === 'undefined') return;
 
@@ -92,7 +93,7 @@ export function SearchSelect<T extends string = string>({
         ? { top: rect.bottom + gap }
         : { bottom: window.innerHeight - rect.top + gap })
     });
-  }, [dropdownMaxWidth, dropdownMinWidth, portal]);
+  }, [dropdownMaxWidth, dropdownMinWidth, usePortal]);
 
   useEffect(() => {
     const close = (event: MouseEvent) => {
@@ -112,7 +113,7 @@ export function SearchSelect<T extends string = string>({
   }, []);
 
   useLayoutEffect(() => {
-    if (!open || !portal) {
+    if (!open || !usePortal) {
       setPanelPosition(null);
       return;
     }
@@ -129,7 +130,7 @@ export function SearchSelect<T extends string = string>({
       window.removeEventListener('scroll', reposition, true);
       observer?.disconnect();
     };
-  }, [open, portal, updatePanelPosition]);
+  }, [open, updatePanelPosition, usePortal]);
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('tr-TR');
@@ -195,7 +196,7 @@ export function SearchSelect<T extends string = string>({
 
   const panel = !open || typeof document === 'undefined'
     ? null
-    : portal
+    : usePortal
       ? panelPosition
         ? createPortal(
           <div
