@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feature/heidisql-schema-editor-and-catalog
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
