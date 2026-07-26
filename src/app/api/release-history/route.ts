@@ -1,4 +1,6 @@
+import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { authOptions } from '@/lib/auth-options';
 import {
   FALLBACK_RELEASE_HISTORY,
   cleanReleaseTitle,
@@ -28,13 +30,17 @@ interface GitHubPullRequest {
 const DEFAULT_REPOSITORY = 'battincik/web.database.coreor.net';
 const MAX_PAGES = 10;
 
+function responseHeaders() {
+  return { 'Cache-Control': 'private, no-store, max-age=0' };
+}
+
 function statusOf(pullRequest: GitHubPullRequest): ReleasePullRequestStatus {
   if (pullRequest.merged_at) return 'released';
   if (pullRequest.state === 'open') return 'in-progress';
   return 'closed';
 }
 
-function headers() {
+function githubHeaders() {
   const token = process.env.GITHUB_RELEASES_TOKEN?.trim();
   return {
     Accept: 'application/vnd.github+json',
@@ -45,11 +51,12 @@ function headers() {
 }
 
 async function fetchPullRequestPage(repository: string, page: number, fresh: boolean) {
-  const response = await fetch(`https://api.github.com/repos/${repository}/pulls?state=all&sort=created&direction=desc&per_page=100&page=${page}`, {
-    headers: headers(),
-    cache: fresh ? 'no-store' : 'force-cache',
-    ...(fresh ? {} : { next: { revalidate: 300 } })
-  });
+  const response = await fetch(
+    `https://api.github.com/repos/${repository}/pulls?state=all&sort=created&direction=desc&per_page=100&page=${page}`,
+    fresh
+      ? { headers: githubHeaders(), cache: 'no-store' }
+      : { headers: githubHeaders(), next: { revalidate: 300 } }
+  );
 
   if (!response.ok) {
     const rateRemaining = response.headers.get('x-ratelimit-remaining');
@@ -88,6 +95,14 @@ function normalizePullRequest(pullRequest: GitHubPullRequest): ReleasePullReques
 }
 
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json(
+      { error: 'UNAUTHORIZED', message: 'Sürüm geçmişi için giriş yapmalısınız.' },
+      { status: 401, headers: responseHeaders() }
+    );
+  }
+
   const repository = process.env.COREOR_RELEASES_REPOSITORY?.trim() || DEFAULT_REPOSITORY;
   const fresh = request.nextUrl.searchParams.get('fresh') === '1';
 
@@ -102,9 +117,7 @@ export async function GET(request: NextRequest) {
       source: 'github',
       pullRequests
     };
-    return NextResponse.json(payload, {
-      headers: { 'Cache-Control': fresh ? 'no-store' : 'public, max-age=60, stale-while-revalidate=300' }
-    });
+    return NextResponse.json(payload, { headers: responseHeaders() });
   } catch (error) {
     const payload: ReleaseHistoryResponse = {
       repository,
@@ -113,9 +126,6 @@ export async function GET(request: NextRequest) {
       warning: error instanceof Error ? error.message : 'GitHub sürüm geçmişine ulaşılamadı.',
       pullRequests: FALLBACK_RELEASE_HISTORY
     };
-    return NextResponse.json(payload, {
-      status: 200,
-      headers: { 'Cache-Control': 'no-store' }
-    });
+    return NextResponse.json(payload, { status: 200, headers: responseHeaders() });
   }
 }
