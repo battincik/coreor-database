@@ -6,6 +6,7 @@ import type { DatabaseCatalogItem, DatabaseServerConfig, DatabaseTable, TableInf
 import { useAuth } from '@/context/AuthContext';
 import { createDatabaseServer, fetchDatabaseServers, fetchServerTables } from '@/lib/databaseApi';
 import { recordActivity } from '@/lib/activityConsole';
+import { databaseEngineDefinition } from '@/lib/databaseEngines';
 
 interface DatabaseContextType {
   databases: DatabaseCatalogItem[];
@@ -41,68 +42,48 @@ function getActiveServerStorageKey(accountId: string) {
 
 function emptyTableDetail(tableName: string): DatabaseTable {
   return {
-    tableName,
-    tableType: 'BASE TABLE',
-    comment: '',
-    rows: 0,
-    columns: 0,
-    sizeMB: '0.00',
-    dataSizeMB: '0.00',
-    indexSizeMB: '0.00',
-    freeSizeMB: '0.00',
-    avgRowLength: 0,
-    createdAt: null,
-    updatedAt: null,
-    engine: '—',
-    rowFormat: null,
-    collation: null,
-    autoIncrement: null,
-    indexCount: 0,
-    foreignKeyCount: 0
+    tableName, tableType: 'BASE TABLE', comment: '', rows: 0, columns: 0,
+    sizeMB: '0.00', dataSizeMB: '0.00', indexSizeMB: '0.00', freeSizeMB: '0.00', avgRowLength: 0,
+    createdAt: null, updatedAt: null, engine: '—', rowFormat: null, collation: null,
+    autoIncrement: null, indexCount: 0, foreignKeyCount: 0
   };
 }
 
 function normalizeCatalog(value: unknown): DatabaseCatalogItem[] {
   if (!Array.isArray(value)) return [];
-  return value
-    .filter(item => item && typeof item === 'object' && typeof (item as { name?: unknown }).name === 'string')
-    .map(item => {
-      const source = item as Partial<DatabaseCatalogItem> & { tables?: unknown; tableDetails?: unknown };
-      const tables = Array.isArray(source.tables) ? source.tables.filter((table): table is string => typeof table === 'string') : [];
-      const detailMap = new Map<string, DatabaseTable>();
-      if (Array.isArray(source.tableDetails)) {
-        for (const rawDetail of source.tableDetails) {
-          if (!rawDetail || typeof rawDetail !== 'object' || typeof (rawDetail as { tableName?: unknown }).tableName !== 'string') continue;
-          const detail = rawDetail as Partial<DatabaseTable> & { tableName: string };
-          detailMap.set(detail.tableName, {
-            ...emptyTableDetail(detail.tableName),
-            ...detail,
-            rows: Number(detail.rows || 0),
-            columns: Number(detail.columns || 0),
-            indexCount: Number(detail.indexCount || 0),
-            foreignKeyCount: Number(detail.foreignKeyCount || 0)
-          });
-        }
-      }
-      const normalizedTables = Array.from(new Set([...tables, ...detailMap.keys()]));
-      const tableDetails = normalizedTables.map(tableName => detailMap.get(tableName) || emptyTableDetail(tableName));
-      return {
-        name: String(source.name),
-        defaultCharset: source.defaultCharset || null,
-        defaultCollation: source.defaultCollation || null,
-        tableCount: Number(source.tableCount ?? normalizedTables.length),
-        totalRows: Number(source.totalRows ?? tableDetails.reduce((total, table) => total + table.rows, 0)),
-        dataSizeMB: String(source.dataSizeMB ?? tableDetails.reduce((total, table) => total + Number(table.dataSizeMB || 0), 0).toFixed(2)),
-        indexSizeMB: String(source.indexSizeMB ?? tableDetails.reduce((total, table) => total + Number(table.indexSizeMB || 0), 0).toFixed(2)),
-        totalSizeMB: String(source.totalSizeMB ?? tableDetails.reduce((total, table) => total + Number(table.sizeMB || 0), 0).toFixed(2)),
-        tables: normalizedTables,
-        tableDetails
-      };
-    });
+  return value.filter(item => item && typeof item === 'object' && typeof (item as { name?: unknown }).name === 'string').map(item => {
+    const source = item as Partial<DatabaseCatalogItem> & { tables?: unknown; tableDetails?: unknown };
+    const tables = Array.isArray(source.tables) ? source.tables.filter((table): table is string => typeof table === 'string') : [];
+    const detailMap = new Map<string, DatabaseTable>();
+    if (Array.isArray(source.tableDetails)) for (const rawDetail of source.tableDetails) {
+      if (!rawDetail || typeof rawDetail !== 'object' || typeof (rawDetail as { tableName?: unknown }).tableName !== 'string') continue;
+      const detail = rawDetail as Partial<DatabaseTable> & { tableName: string };
+      detailMap.set(detail.tableName, { ...emptyTableDetail(detail.tableName), ...detail, rows: Number(detail.rows || 0), columns: Number(detail.columns || 0), indexCount: Number(detail.indexCount || 0), foreignKeyCount: Number(detail.foreignKeyCount || 0) });
+    }
+    const normalizedTables = Array.from(new Set([...tables, ...detailMap.keys()]));
+    const tableDetails = normalizedTables.map(tableName => detailMap.get(tableName) || emptyTableDetail(tableName));
+    return {
+      name: String(source.name), defaultCharset: source.defaultCharset || null, defaultCollation: source.defaultCollation || null,
+      tableCount: Number(source.tableCount ?? normalizedTables.length),
+      totalRows: Number(source.totalRows ?? tableDetails.reduce((total, table) => total + table.rows, 0)),
+      dataSizeMB: String(source.dataSizeMB ?? tableDetails.reduce((total, table) => total + Number(table.dataSizeMB || 0), 0).toFixed(2)),
+      indexSizeMB: String(source.indexSizeMB ?? tableDetails.reduce((total, table) => total + Number(table.indexSizeMB || 0), 0).toFixed(2)),
+      totalSizeMB: String(source.totalSizeMB ?? tableDetails.reduce((total, table) => total + Number(table.sizeMB || 0), 0).toFixed(2)),
+      tables: normalizedTables, tableDetails
+    };
+  });
 }
 
 function normalizeServer(server: DatabaseServerConfig): DatabaseServerConfig {
-  return { ...server, databases: normalizeCatalog(server.databases) };
+  const definition = databaseEngineDefinition(server.databaseType);
+  return {
+    ...server,
+    databaseType: server.databaseType || 'mysql',
+    version: server.version || definition.defaultVersion,
+    port: server.port || definition.defaultPort,
+    organizationId: server.organizationId || null,
+    databases: normalizeCatalog(server.databases)
+  };
 }
 
 export function DatabaseProvider({ children }: { children: ReactNode }) {
@@ -118,102 +99,56 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
   const [serversError, setServersError] = useState<string | null>(null);
 
   const loadServers = useCallback(async () => {
-    if (!isReady) {
-      setIsServersLoading(true);
-      return;
-    }
-    if (!activeToken) {
-      setServers([]);
-      setActiveServerId(null);
-      setDatabases([]);
-      setServersError(null);
-      setIsServersLoading(false);
-      return;
-    }
-
-    setIsServersLoading(true);
-    setServersError(null);
+    if (!isReady) { setIsServersLoading(true); return; }
+    if (!activeToken) { setServers([]); setActiveServerId(null); setDatabases([]); setServersError(null); setIsServersLoading(false); return; }
+    setIsServersLoading(true); setServersError(null);
     try {
       const storedServers = (await fetchDatabaseServers(activeToken)).map(normalizeServer);
       setServers(storedServers);
       const storedActiveServerId = localStorage.getItem(getActiveServerStorageKey(activeToken));
-      setActiveServerId(currentActiveServerId => {
-        const preferredServerId = currentActiveServerId || storedActiveServerId;
-        if (preferredServerId && storedServers.some(server => server.id === preferredServerId)) return preferredServerId;
-        return storedServers[0]?.id || null;
+      setActiveServerId(current => {
+        const preferred = current || storedActiveServerId;
+        return preferred && storedServers.some(server => server.id === preferred) ? preferred : storedServers[0]?.id || null;
       });
-      if (storedServers.length === 0) setDatabases([]);
+      if (!storedServers.length) setDatabases([]);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Şifreli sunucu kasası yüklenemedi.';
       console.error('Şifreli sunucu kasası yüklenirken bir hata oluştu:', error);
-      setServers([]);
-      setActiveServerId(null);
-      setDatabases([]);
-      setServersError(message);
-    } finally {
-      setIsServersLoading(false);
-    }
+      setServers([]); setActiveServerId(null); setDatabases([]); setServersError(message);
+    } finally { setIsServersLoading(false); }
   }, [activeToken, isReady]);
 
   useEffect(() => {
     if (!activeToken || !activeServerId) return;
-    try {
-      localStorage.setItem(getActiveServerStorageKey(activeToken), activeServerId);
-    } catch (error) {
-      console.error('Aktif sunucu kaydedilirken bir hata oluştu:', error);
-    }
+    try { localStorage.setItem(getActiveServerStorageKey(activeToken), activeServerId); }
+    catch (error) { console.error('Aktif sunucu kaydedilirken bir hata oluştu:', error); }
   }, [activeServerId, activeToken]);
-
-  useEffect(() => {
-    void loadServers();
-  }, [loadServers]);
+  useEffect(() => { void loadServers(); }, [loadServers]);
 
   const persistServer = async (server: DatabaseServerConfig, loadInitialCatalog: boolean) => {
     if (!activeToken) throw new Error('Sunucu kaydetmek için giriş yapmalısınız.');
     setIsAddingServer(true);
     try {
-      await createDatabaseServer(server, activeToken);
-      setActiveServerId(server.id);
-      if (loadInitialCatalog) {
-        try {
-          await fetchServerTables(server.id, activeToken);
-        } catch (error) {
-          recordActivity({
-            level: 'warning',
-            category: 'connection',
-            title: 'Sunucu kaydedildi, katalog alınamadı',
-            message: error instanceof Error ? error.message : 'İlk bağlantı kurulamadı.',
-            serverId: server.id,
-            serverName: server.name,
-            host: server.host
-          });
-        }
+      await createDatabaseServer(server, activeToken); setActiveServerId(server.id);
+      if (loadInitialCatalog) try { await fetchServerTables(server.id, activeToken); }
+      catch (error) {
+        recordActivity({ level: 'warning', category: 'connection', title: 'Sunucu kaydedildi, katalog alınamadı', message: error instanceof Error ? error.message : 'İlk bağlantı kurulamadı.', serverId: server.id, serverName: server.name, host: server.host });
       }
       await loadServers();
-    } finally {
-      setIsAddingServer(false);
-    }
+    } finally { setIsAddingServer(false); }
   };
 
   const addServer = async (server: Omit<DatabaseServerConfig, 'id'>) => {
     const engine = server.databaseType || 'mysql';
+    const definition = databaseEngineDefinition(engine);
     const now = new Date().toISOString();
     const nextServer: DatabaseServerConfig = {
-      id: createServerId(),
-      name: server.name.trim(),
-      databaseType: engine,
-      version: server.version || (engine === 'mariadb' ? '12.3' : '8.4'),
-      host: server.host?.trim(),
-      port: server.port ?? 3306,
-      username: server.username?.trim(),
-      password: server.password,
-      databaseName: server.databaseName?.trim(),
-      sslMode: server.sslMode ?? 'required',
-      connectionTimeoutMs: server.connectionTimeoutMs ?? 20_000,
-      visibleTo: [],
-      databases: [],
-      createdAt: now,
-      updatedAt: now
+      id: createServerId(), name: server.name.trim(), databaseType: engine,
+      version: server.version || definition.defaultVersion, host: server.host?.trim(),
+      port: server.port ?? definition.defaultPort, username: server.username?.trim(), password: server.password,
+      databaseName: server.databaseName?.trim(), sslMode: server.sslMode ?? 'required',
+      connectionTimeoutMs: server.connectionTimeoutMs ?? 20_000, visibleTo: server.visibleTo || [],
+      organizationId: server.organizationId || null, databases: [], createdAt: now, updatedAt: now
     };
     await persistServer(nextServer, true);
   };
@@ -221,23 +156,14 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
   const updateServer = async (server: DatabaseServerConfig) => {
     const existing = servers.find(item => item.id === server.id);
     const nextServer: DatabaseServerConfig = {
-      ...existing,
-      ...server,
-      id: server.id,
-      name: server.name.trim(),
-      host: server.host?.trim(),
-      username: server.username?.trim(),
-      databaseName: server.databaseName?.trim(),
-      databases: normalizeCatalog(existing?.databases ?? server.databases),
-      createdAt: existing?.createdAt ?? server.createdAt,
+      ...existing, ...server, id: server.id, name: server.name.trim(), host: server.host?.trim(),
+      username: server.username?.trim(), databaseName: server.databaseName?.trim(),
+      organizationId: server.organizationId || null,
+      databases: normalizeCatalog(existing?.databases ?? server.databases), createdAt: existing?.createdAt ?? server.createdAt,
       updatedAt: new Date().toISOString()
     };
     await persistServer(nextServer, false);
   };
 
-  return (
-    <DatabaseContext.Provider value={{ databases, setDatabases, tableInfo, setTableInfo, databaseTables, setDatabaseTables, tableData, setTableData, servers, setServers, activeServerId, setActiveServerId, isServersLoading, isAddingServer, serversError, loadServers, addServer, updateServer }}>
-      {children}
-    </DatabaseContext.Provider>
-  );
+  return <DatabaseContext.Provider value={{ databases, setDatabases, tableInfo, setTableInfo, databaseTables, setDatabaseTables, tableData, setTableData, servers, setServers, activeServerId, setActiveServerId, isServersLoading, isAddingServer, serversError, loadServers, addServer, updateServer }}>{children}</DatabaseContext.Provider>;
 }
