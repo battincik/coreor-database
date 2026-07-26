@@ -31,7 +31,7 @@ async function requireServer(accountId: string | null | undefined, serverId: str
 
 function connectionPayload(server: DatabaseServerConfig, database?: string | null): DatabaseConnectionPayload {
   if (server.databaseType !== 'mysql' && server.databaseType !== 'mariadb') throw new Error('Desteklenmeyen veritabanı motoru.');
-  if (!server.host?.trim() || !server.username?.trim() || !server.password) throw new Error('Host, kullanıcı adı ve parola eksik.');
+  if (!server.host?.trim() || !server.username?.trim() || !server.password) throw new Error('Host, kullanıcı adı veya parola eksik.');
   return {
     engine: server.databaseType,
     host: server.host.trim(),
@@ -49,7 +49,8 @@ async function workbenchRequest<T>(
   accountId: string | null | undefined,
   action: DatabaseWorkbenchAction,
   payload: Record<string, unknown> = {},
-  database?: string | null
+  database?: string | null,
+  recordInActivityLog = true
 ) {
   const server = await requireServer(accountId, serverId);
   const startedAt = performance.now();
@@ -70,32 +71,36 @@ async function workbenchRequest<T>(
       error.code = failure?.error;
       throw error;
     }
-    recordActivity({
-      level: 'success',
-      category: 'schema',
-      title: `Çalışma alanı: ${action}`,
-      message: `${server.name} üzerinde tamamlandı.`,
-      serverId: server.id,
-      serverName: server.name,
-      host: server.host,
-      databaseName: database || undefined,
-      sql: `/* structured:${action} */`,
-      durationMs: Math.max(0, Math.round(performance.now() - startedAt))
-    });
+    if (recordInActivityLog) {
+      recordActivity({
+        level: 'success',
+        category: 'schema',
+        title: `Çalışma alanı: ${action}`,
+        message: `${server.name} üzerinde tamamlandı.`,
+        serverId: server.id,
+        serverName: server.name,
+        host: server.host,
+        databaseName: database || undefined,
+        sql: `/* structured:${action} */`,
+        durationMs: Math.max(0, Math.round(performance.now() - startedAt))
+      });
+    }
     return body as T;
   } catch (error) {
-    recordActivity({
-      level: 'error',
-      category: 'schema',
-      title: `Çalışma alanı: ${action}`,
-      message: error instanceof Error ? error.message : 'İşlem başarısız oldu.',
-      serverId: server.id,
-      serverName: server.name,
-      host: server.host,
-      databaseName: database || undefined,
-      sql: `/* structured:${action} */`,
-      durationMs: Math.max(0, Math.round(performance.now() - startedAt))
-    });
+    if (recordInActivityLog) {
+      recordActivity({
+        level: 'error',
+        category: 'schema',
+        title: `Çalışma alanı: ${action}`,
+        message: error instanceof Error ? error.message : 'İşlem başarısız oldu.',
+        serverId: server.id,
+        serverName: server.name,
+        host: server.host,
+        databaseName: database || undefined,
+        sql: `/* structured:${action} */`,
+        durationMs: Math.max(0, Math.round(performance.now() - startedAt))
+      });
+    }
     throw error;
   }
 }
@@ -141,7 +146,7 @@ export function killDatabaseProcess(serverId: string, processId: number, killTyp
 }
 
 export function fetchDatabasePerformanceSnapshot(serverId: string, accountId?: string | null, database?: string | null) {
-  return workbenchRequest<DatabasePerformanceSnapshot>(serverId, accountId, 'performance-snapshot', {}, database);
+  return workbenchRequest<DatabasePerformanceSnapshot>(serverId, accountId, 'performance-snapshot', {}, database, false);
 }
 
 export function importDatabaseRows(serverId: string, importInput: DatabaseImportDataInput, accountId?: string | null) {
