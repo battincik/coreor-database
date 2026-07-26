@@ -20,9 +20,7 @@ import {
   Loader2,
   Plus,
   RefreshCw,
-  Save,
   Trash2,
-  Upload,
   X
 } from 'lucide-react';
 import type {
@@ -108,10 +106,17 @@ function useDebouncedValue<T>(value: T, delay: number) {
   return debouncedValue;
 }
 
+function binaryValue(value: unknown): { type: 'binary'; base64: string } | null {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as { type?: unknown; base64?: unknown };
+  return candidate.type === 'binary' && typeof candidate.base64 === 'string' ? { type: 'binary', base64: candidate.base64 } : null;
+}
+
 function displayValue(value: unknown) {
   if (value === null) return '(NULL)';
   if (value === undefined) return '';
-  if (value && typeof value === 'object' && (value as { type?: string }).type === 'binary') return `[BLOB • ${Math.round(String((value as { base64?: string }).base64 || '').length * 0.75).toLocaleString('tr-TR')} bayt]`;
+  const binary = binaryValue(value);
+  if (binary) return `[BLOB • ${Math.round(binary.base64.length * 0.75).toLocaleString('tr-TR')} bayt]`;
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }
@@ -174,12 +179,6 @@ function downloadText(filename: string, content: string, type = 'text/plain;char
   URL.revokeObjectURL(url);
 }
 
-function binaryValue(value: unknown): { type: 'binary'; base64: string } | null {
-  if (!value || typeof value !== 'object') return null;
-  const candidate = value as { type?: unknown; base64?: unknown };
-  return candidate.type === 'binary' && typeof candidate.base64 === 'string' ? { type: 'binary', base64: candidate.base64 } : null;
-}
-
 function ConfirmDialog({ state, onClose }: { state: ConfirmState | null; onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   if (!state || typeof document === 'undefined') return null;
@@ -224,7 +223,10 @@ function ValueDialog({ state, onChange, onClose, onSave }: {
         </div>
         <div className="flex justify-end gap-2 border-t border-zinc-800 px-4 py-3">
           <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={busy}>İptal</Button>
-          <Button type="button" size="sm" disabled={busy} onClick={async () => { setBusy(true); try { await onSave(); onClose(); } finally { setBusy(false); } }}>{busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}Kaydet</Button>
+          <Button type="button" size="sm" disabled={busy} onClick={async () => {
+            setBusy(true);
+            try { await onSave(); } finally { setBusy(false); }
+          }}>{busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}Kaydet</Button>
         </div>
       </div>
     </div>,
@@ -259,6 +261,18 @@ export function TableDataView({ serverId, databaseName, tableName, accountId, in
   const filterKey = JSON.stringify(effectiveFilters);
   const cacheKey = `${serverId}:${databaseName}:${tableName}:${filterKey}`;
   const keyColumns = primaryKeyColumns(info);
+  const selectedDataRows = useMemo(() => rows.filter((row, index) => selectedRows.has(stableRowKey(row, info, index))), [rows, selectedRows, info]);
+
+  const refresh = () => {
+    totalCache.current = null;
+    setRefreshNonce(previous => previous + 1);
+  };
+
+  useEffect(() => {
+    const handler = () => refresh();
+    window.addEventListener('coreor:refresh-table-data', handler);
+    return () => window.removeEventListener('coreor:refresh-table-data', handler);
+  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -285,9 +299,7 @@ export function TableDataView({ serverId, databaseName, tableName, accountId, in
       setError(null);
       const cachedTotal = totalCache.current?.key === cacheKey ? totalCache.current.totalRows : undefined;
       try {
-        const response = await fetchTableData(serverId, databaseName, tableName, accountId, {
-          page, pageSize, sorts, filters: effectiveFilters, includeTotal: cachedTotal === undefined, knownTotalRows: cachedTotal
-        });
+        const response = await fetchTableData(serverId, databaseName, tableName, accountId, { page, pageSize, sorts, filters: effectiveFilters, includeTotal: cachedTotal === undefined, knownTotalRows: cachedTotal });
         if (sequence !== requestSequence.current) return;
         setRows(response.data || []);
         setPagination(response.pagination);
@@ -310,17 +322,13 @@ export function TableDataView({ serverId, databaseName, tableName, accountId, in
     window.dispatchEvent(new CustomEvent<GridRuntimeStatus>('coreor:grid-status', { detail }));
   }, [pagination, effectiveFilters.length, sorts.length, loading]);
 
-  const refresh = () => {
-    totalCache.current = null;
-    setRefreshNonce(previous => previous + 1);
-  };
-
   const addFilter = (column?: string, operator: TableDataFilterOperator = 'contains', value = '') => {
     setFilters(previous => [...previous, { id: createId('filter'), column: column || info.columns[0]?.Field || '', operator, value }]);
     setFilterOpen(true);
   };
 
   const updateFilter = (id: string | undefined, patch: Partial<TableDataFilter>) => setFilters(previous => previous.map(filter => filter.id === id ? { ...filter, ...patch } : filter));
+
   const sortColumn = (column: string, direction?: 'asc' | 'desc', additive = false) => {
     setPage(1);
     setSorts(previous => {
@@ -362,20 +370,14 @@ export function TableDataView({ serverId, databaseName, tableName, accountId, in
       await updateTableCell(serverId, { database: databaseName, table: tableName, column: column.Field, value, primaryKey: key }, accountId);
       setRows(previous => previous.map((item, index) => index === rowIndex ? { ...item, [column.Field]: value } : item));
       setEditing(null);
+      setValueDialog(null);
     } catch (saveError) {
       setEditError(saveError instanceof Error ? saveError.message : 'Hücre güncellenemedi.');
       if (editor) setEditing({ ...editor, isSaving: false });
     }
   };
 
-  const selectedDataRows = useMemo(() => rows.filter((row, index) => selectedRows.has(stableRowKey(row, info, index))), [rows, selectedRows, info]);
-  const selectContextRow = (row: Record<string, unknown>, rowIndex: number) => {
-    const key = stableRowKey(row, info, rowIndex);
-    if (!selectedRows.has(key)) setSelectedRows(new Set([key]));
-  };
-
-  const deleteSelected = () => {
-    const targetRows = selectedDataRows.length ? selectedDataRows : [];
+  const requestDelete = (targetRows: Record<string, unknown>[]) => {
     const keys = targetRows.map(row => primaryKeyObject(row, info)).filter((value): value is Record<string, unknown> => Boolean(value));
     setConfirm({
       title: `${keys.length} satırı sil`,
@@ -389,12 +391,11 @@ export function TableDataView({ serverId, databaseName, tableName, accountId, in
     });
   };
 
-  const exportRows = (format: 'json' | 'csv') => {
-    const data = selectedDataRows.length ? selectedDataRows : rows;
-    if (format === 'json') downloadText(`${tableName}-${Date.now()}.json`, JSON.stringify(data, null, 2), 'application/json;charset=utf-8');
+  const exportRows = (format: 'json' | 'csv', sourceRows = selectedDataRows.length ? selectedDataRows : rows) => {
+    if (format === 'json') downloadText(`${tableName}-${Date.now()}.json`, JSON.stringify(sourceRows, null, 2), 'application/json;charset=utf-8');
     else {
       const columns = info.columns.map(column => column.Field);
-      const csv = [columns.map(csvCell).join(','), ...data.map(row => columns.map(column => csvCell(row[column])).join(','))].join('\n');
+      const csv = [columns.map(csvCell).join(','), ...sourceRows.map(row => columns.map(column => csvCell(row[column])).join(','))].join('\n');
       downloadText(`${tableName}-${Date.now()}.csv`, `\uFEFF${csv}`, 'text/csv;charset=utf-8');
     }
   };
@@ -425,7 +426,11 @@ export function TableDataView({ serverId, databaseName, tableName, accountId, in
   };
 
   const openCellMenu = (event: React.MouseEvent, row: Record<string, unknown>, rowIndex: number, column: TableColumnInfo) => {
-    selectContextRow(row, rowIndex);
+    const rowKey = stableRowKey(row, info, rowIndex);
+    const wasSelected = selectedRows.has(rowKey);
+    const contextRows = wasSelected && selectedDataRows.length ? selectedDataRows : [row];
+    if (!wasSelected) setSelectedRows(new Set([rowKey]));
+
     const value = row[column.Field];
     const primaryKey = primaryKeyObject(row, info);
     const foreignKey = info.foreignKeys.find(item => item.COLUMN_NAME === column.Field);
@@ -437,7 +442,9 @@ export function TableDataView({ serverId, databaseName, tableName, accountId, in
 
     openContextMenu(event, [
       { id: 'copy', label: 'Kopyala', icon: Copy, shortcut: 'Ctrl+C', onSelect: () => navigator.clipboard.writeText(value === null ? 'NULL' : text) },
-      { id: 'paste', label: 'Yapıştır', icon: Clipboard, shortcut: 'Ctrl+V', disabled: !primaryKey, onSelect: async () => startEdit(rowIndex, column, await navigator.clipboard.readText()) },
+      { id: 'paste', label: 'Yapıştır', icon: Clipboard, shortcut: 'Ctrl+V', disabled: !primaryKey, onSelect: async () => {
+        try { startEdit(rowIndex, column, await navigator.clipboard.readText()); } catch { setEditError('Panoya erişilemedi. Tarayıcı iznini kontrol edin.'); }
+      } },
       { id: 'set-value', label: 'Değer Ekle / Düzenle', icon: Code, disabled: !primaryKey, onSelect: () => setValueDialog({ rowIndex, column, value: value === null ? '' : typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value), useNull: value === null }) },
       { id: 'file-in', label: 'TEXT/BLOB alanının içine dosya koy', icon: FileInput, disabled: !primaryKey, onSelect: () => { fileTargetRef.current = { rowIndex, column }; fileInputRef.current?.click(); } },
       { id: 'blob-out', label: 'BLOB\'u dosyaya kaydet', icon: FileDown, disabled: !binary, onSelect: () => saveBlob(value, column.Field) },
@@ -448,14 +455,14 @@ export function TableDataView({ serverId, databaseName, tableName, accountId, in
       { id: 'duplicate-no-keys', label: 'Anahtarlar olmadan yinelenen satır', icon: Copy, onSelect: () => onOpenQuery(`${tableName} satır kopyası`, duplicateSql(row, false)) },
       { id: 'duplicate-keys', label: 'Yinelenen satır — anahtarları koru', icon: Copy, onSelect: () => onOpenQuery(`${tableName} tam satır kopyası`, duplicateSql(row, true)) },
       { id: 'cancel-edit', label: 'Düzenlemeyi iptal et', icon: X, disabled: !editing, onSelect: () => { setEditing(null); setEditError(null); } },
-      { id: 'delete-selected', label: `Seçili satırları sil (${selectedRows.has(stableRowKey(row, info, rowIndex)) ? Math.max(selectedRows.size, 1) : 1})`, icon: Trash2, danger: true, disabled: !primaryKey, onSelect: deleteSelected },
+      { id: 'delete-selected', label: `Seçili satırları sil (${contextRows.length})`, icon: Trash2, danger: true, disabled: contextRows.some(item => !primaryKeyObject(item, info)), onSelect: () => requestDelete(contextRows) },
       { id: 'sep-2', separator: true },
       { id: 'reset-sort', label: 'Sıralamayı Sıfırla', icon: ArrowUpDown, disabled: sorts.length === 0, onSelect: () => setSorts([]) },
       { id: 'filter', label: value === null ? 'NULL değerleri filtrele' : 'Bu değere göre filtrele', icon: Filter, onSelect: () => addFilter(column.Field, value === null ? 'isNull' : 'equals', value === null ? '' : String(value)) },
       { id: 'sep-3', separator: true },
       { id: 'export', label: 'Satırları dışa Aktar', icon: Download, children: [
-        { id: 'export-csv', label: 'CSV olarak aktar', icon: FileDown, onSelect: () => exportRows('csv') },
-        { id: 'export-json', label: 'JSON olarak aktar', icon: FileDown, onSelect: () => exportRows('json') }
+        { id: 'export-csv', label: 'CSV olarak aktar', icon: FileDown, onSelect: () => exportRows('csv', contextRows) },
+        { id: 'export-json', label: 'JSON olarak aktar', icon: FileDown, onSelect: () => exportRows('json', contextRows) }
       ] },
       { id: 'refresh', label: 'Yenile', icon: RefreshCw, onSelect: refresh },
       { id: 'sep-4', separator: true },
@@ -487,21 +494,19 @@ export function TableDataView({ serverId, databaseName, tableName, accountId, in
         <button type="button" className={`flex items-center gap-1 text-xs ${filterOpen ? 'text-cyan-400' : 'text-zinc-500 hover:text-zinc-200'}`} onClick={() => setFilterOpen(previous => !previous)}><Filter className="h-3.5 w-3.5" /> Filtre {effectiveFilters.length ? `(${effectiveFilters.length})` : ''}</button>
         <button type="button" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-200 disabled:opacity-40" disabled={!sorts.length} onClick={() => setSorts([])}><ArrowUpDown className="h-3.5 w-3.5" /> Sıralamayı temizle</button>
         <button type="button" className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300" onClick={insertTemplate}><Plus className="h-3.5 w-3.5" /> Satır ekle</button>
-        {selectedRows.size > 0 && <button type="button" className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300" onClick={deleteSelected}><Trash2 className="h-3.5 w-3.5" /> {selectedRows.size} satırı sil</button>}
+        {selectedRows.size > 0 && <button type="button" className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300" onClick={() => requestDelete(selectedDataRows)}><Trash2 className="h-3.5 w-3.5" /> {selectedRows.size} satırı sil</button>}
         <span className="ml-auto text-[10px] text-zinc-600">Sağ tık: gelişmiş hücre/satır işlemleri • Çift tık: düzenle</span>
       </div>
 
-      {filterOpen && (
-        <div className="shrink-0 space-y-2 border-b border-zinc-800 bg-zinc-950/80 p-2">
-          {filters.map(filter => <div key={filter.id} className="grid gap-2 sm:grid-cols-[minmax(140px,0.7fr)_minmax(120px,0.5fr)_minmax(180px,1fr)_32px]">
-            <select value={filter.column} onChange={event => updateFilter(filter.id, { column: event.target.value })} className="h-8 rounded border border-zinc-800 bg-zinc-950 px-2 text-xs">{info.columns.map(column => <option key={column.Field}>{column.Field}</option>)}</select>
-            <select value={filter.operator} onChange={event => updateFilter(filter.id, { operator: event.target.value as TableDataFilterOperator })} className="h-8 rounded border border-zinc-800 bg-zinc-950 px-2 text-xs">{FILTER_OPERATORS.map(operator => <option key={operator.value} value={operator.value}>{operator.label}</option>)}</select>
-            <Input value={filter.value || ''} disabled={!operatorNeedsValue(filter.operator)} onChange={event => updateFilter(filter.id, { value: event.target.value })} className="h-8 text-xs" placeholder="Filtre değeri" />
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-red-400" onClick={() => setFilters(previous => previous.filter(item => item.id !== filter.id))}><Trash2 className="h-3.5 w-3.5" /></Button>
-          </div>)}
-          <div className="flex items-center gap-2"><Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[10px]" onClick={() => addFilter()}><Plus className="h-3 w-3" /> Filtre ekle</Button>{filters.length > 0 && <Button type="button" variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setFilters([])}>Tümünü temizle</Button>}</div>
-        </div>
-      )}
+      {filterOpen && <div className="shrink-0 space-y-2 border-b border-zinc-800 bg-zinc-950/80 p-2">
+        {filters.map(filter => <div key={filter.id} className="grid gap-2 sm:grid-cols-[minmax(140px,0.7fr)_minmax(120px,0.5fr)_minmax(180px,1fr)_32px]">
+          <select value={filter.column} onChange={event => updateFilter(filter.id, { column: event.target.value })} className="h-8 rounded border border-zinc-800 bg-zinc-950 px-2 text-xs">{info.columns.map(column => <option key={column.Field}>{column.Field}</option>)}</select>
+          <select value={filter.operator} onChange={event => updateFilter(filter.id, { operator: event.target.value as TableDataFilterOperator })} className="h-8 rounded border border-zinc-800 bg-zinc-950 px-2 text-xs">{FILTER_OPERATORS.map(operator => <option key={operator.value} value={operator.value}>{operator.label}</option>)}</select>
+          <Input value={filter.value || ''} disabled={!operatorNeedsValue(filter.operator)} onChange={event => updateFilter(filter.id, { value: event.target.value })} className="h-8 text-xs" placeholder="Filtre değeri" />
+          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-red-400" onClick={() => setFilters(previous => previous.filter(item => item.id !== filter.id))}><Trash2 className="h-3.5 w-3.5" /></Button>
+        </div>)}
+        <div className="flex items-center gap-2"><Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-[10px]" onClick={() => addFilter()}><Plus className="h-3 w-3" /> Filtre ekle</Button>{filters.length > 0 && <Button type="button" variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setFilters([])}>Tümünü temizle</Button>}</div>
+      </div>}
 
       {editError && <div className="shrink-0 border-b border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[10px] text-red-300">{editError}</div>}
 
@@ -509,72 +514,51 @@ export function TableDataView({ serverId, databaseName, tableName, accountId, in
         <div className="relative min-h-0 flex-1">
           {loading && <div className="absolute inset-x-0 top-0 z-40 h-0.5 overflow-hidden bg-zinc-800"><div className="h-full w-1/3 animate-pulse bg-cyan-400" /></div>}
           {error && <div className="absolute inset-x-2 top-2 z-30 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-[10px] text-red-300">{error}</div>}
-          <ScrollArea className="h-full w-full">
-            <div className="min-w-max pb-10">
-              <Table size="sm" className="w-full">
-                <TableHeader><TableRow>
-                  <TableHead className="sticky left-0 top-0 z-30 w-9 border bg-zinc-950 text-center"><input type="checkbox" checked={rows.length > 0 && selectedRows.size === rows.length} onChange={event => toggleAll(event.target.checked)} /></TableHead>
-                  {info.columns.map(column => {
-                    const sortIndex = sorts.findIndex(sort => sort.column === column.Field);
-                    const sort = sortIndex >= 0 ? sorts[sortIndex] : null;
-                    return <TableHead key={column.Field} className="sticky top-0 z-20 cursor-pointer whitespace-nowrap border bg-zinc-950 select-none" onClick={event => sortColumn(column.Field, undefined, event.shiftKey)} onContextMenu={event => openColumnMenu(event, column)}><span className="inline-flex items-center gap-1">{column.Field}{column.Key === 'PRI' && <Key className="h-3 w-3 text-amber-400" />}{sort ? sort.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-cyan-400" /> : <ArrowDown className="h-3 w-3 text-cyan-400" /> : <ArrowUpDown className="h-3 w-3 opacity-30" />}{sorts.length > 1 && sort && <span className="rounded bg-cyan-500/15 px-1 text-[9px] text-cyan-300">{sortIndex + 1}</span>}</span></TableHead>;
-                  })}
-                </TableRow></TableHeader>
-                <TableBody>{rows.map((row, rowIndex) => {
-                  const key = stableRowKey(row, info, rowIndex);
-                  return <TableRow key={key} className={selectedRows.has(key) ? 'bg-cyan-500/[0.06]' : ''}>
-                    <TableCell className="sticky left-0 z-10 border bg-zinc-950/95 text-center"><input type="checkbox" checked={selectedRows.has(key)} onChange={event => toggleRow(row, rowIndex, event.target.checked)} /></TableCell>
-                    {info.columns.map(column => {
-                      const value = row[column.Field];
-                      const text = displayValue(value);
-                      const isEditing = editing?.rowIndex === rowIndex && editing.column === column.Field;
-                      const tone = value === null ? 'text-zinc-500 italic' : binaryValue(value) ? 'text-amber-300' : typeof value === 'number' ? 'text-blue-400' : typeof value === 'boolean' ? 'text-purple-400' : typeof value === 'object' ? 'text-amber-400' : 'text-green-400';
-                      return <TableCell key={column.Field} className={`relative max-w-[520px] overflow-visible whitespace-nowrap border p-0 font-mono text-[11px] ${tone}`} title={isEditing ? undefined : text} onDoubleClick={() => startEdit(rowIndex, column)} onContextMenu={event => openCellMenu(event, row, rowIndex, column)}>
-                        {isEditing ? <div className="relative min-w-40">
-                          <input autoFocus value={editing.draft} disabled={editing.isSaving} onChange={event => setEditing(current => current ? { ...current, draft: event.target.value } : current)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void saveValue(rowIndex, column); } if (event.key === 'Escape') { event.preventDefault(); setEditing(null); setEditError(null); } }} className="h-7 w-full border-0 bg-cyan-500/10 px-2 font-mono text-[11px] text-cyan-100 outline-none ring-1 ring-inset ring-cyan-500/60" />
-                          <div className="absolute right-0 top-[calc(100%+2px)] z-50 flex items-center rounded-md border border-zinc-700 bg-zinc-950 p-0.5 shadow-xl">
-                            <button type="button" className="flex h-6 w-6 items-center justify-center rounded text-emerald-400 hover:bg-emerald-500/10" disabled={editing.isSaving} onClick={() => void saveValue(rowIndex, column)} title="Kaydet">{editing.isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}</button>
-                            <button type="button" className="flex h-6 w-6 items-center justify-center rounded text-red-400 hover:bg-red-500/10" disabled={editing.isSaving} onClick={() => { setEditing(null); setEditError(null); }} title="İptal"><X className="h-3.5 w-3.5" /></button>
-                          </div>
-                        </div> : <div className="truncate px-2 py-1">{text}</div>}
-                      </TableCell>;
-                    })}
-                  </TableRow>;
-                })}</TableBody>
-              </Table>
-            </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+          <ScrollArea className="h-full w-full"><div className="min-w-max pb-10"><Table size="sm" className="w-full">
+            <TableHeader><TableRow><TableHead className="sticky left-0 top-0 z-30 w-9 border bg-zinc-950 text-center"><input type="checkbox" checked={rows.length > 0 && selectedRows.size === rows.length} onChange={event => toggleAll(event.target.checked)} /></TableHead>{info.columns.map(column => {
+              const sortIndex = sorts.findIndex(sort => sort.column === column.Field);
+              const sort = sortIndex >= 0 ? sorts[sortIndex] : null;
+              return <TableHead key={column.Field} className="sticky top-0 z-20 cursor-pointer whitespace-nowrap border bg-zinc-950 select-none" onClick={event => sortColumn(column.Field, undefined, event.shiftKey)} onContextMenu={event => openColumnMenu(event, column)}><span className="inline-flex items-center gap-1">{column.Field}{column.Key === 'PRI' && <Key className="h-3 w-3 text-amber-400" />}{sort ? sort.direction === 'asc' ? <ArrowUp className="h-3 w-3 text-cyan-400" /> : <ArrowDown className="h-3 w-3 text-cyan-400" /> : <ArrowUpDown className="h-3 w-3 opacity-30" />}{sorts.length > 1 && sort && <span className="rounded bg-cyan-500/15 px-1 text-[9px] text-cyan-300">{sortIndex + 1}</span>}</span></TableHead>;
+            })}</TableRow></TableHeader>
+            <TableBody>{rows.map((row, rowIndex) => {
+              const key = stableRowKey(row, info, rowIndex);
+              return <TableRow key={key} className={selectedRows.has(key) ? 'bg-cyan-500/[0.06]' : ''}><TableCell className="sticky left-0 z-10 border bg-zinc-950/95 text-center"><input type="checkbox" checked={selectedRows.has(key)} onChange={event => toggleRow(row, rowIndex, event.target.checked)} /></TableCell>{info.columns.map(column => {
+                const value = row[column.Field];
+                const text = displayValue(value);
+                const isEditing = editing?.rowIndex === rowIndex && editing.column === column.Field;
+                const tone = value === null ? 'text-zinc-500 italic' : binaryValue(value) ? 'text-amber-300' : typeof value === 'number' ? 'text-blue-400' : typeof value === 'boolean' ? 'text-purple-400' : typeof value === 'object' ? 'text-amber-400' : 'text-green-400';
+                return <TableCell key={column.Field} className={`relative max-w-[520px] overflow-visible whitespace-nowrap border p-0 font-mono text-[11px] ${tone}`} title={isEditing ? undefined : text} onDoubleClick={() => startEdit(rowIndex, column)} onContextMenu={event => openCellMenu(event, row, rowIndex, column)}>{isEditing ? <div className="relative min-w-40"><input autoFocus value={editing.draft} disabled={editing.isSaving} onChange={event => setEditing(current => current ? { ...current, draft: event.target.value } : current)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void saveValue(rowIndex, column); } if (event.key === 'Escape') { event.preventDefault(); setEditing(null); setEditError(null); } }} className="h-7 w-full border-0 bg-cyan-500/10 px-2 font-mono text-[11px] text-cyan-100 outline-none ring-1 ring-inset ring-cyan-500/60" /><div className="absolute right-0 top-[calc(100%+2px)] z-50 flex items-center rounded-md border border-zinc-700 bg-zinc-950 p-0.5 shadow-xl"><button type="button" className="flex h-6 w-6 items-center justify-center rounded text-emerald-400 hover:bg-emerald-500/10" disabled={editing.isSaving} onClick={() => void saveValue(rowIndex, column)} title="Kaydet">{editing.isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}</button><button type="button" className="flex h-6 w-6 items-center justify-center rounded text-red-400 hover:bg-red-500/10" disabled={editing.isSaving} onClick={() => { setEditing(null); setEditError(null); }} title="İptal"><X className="h-3.5 w-3.5" /></button></div></div> : <div className="truncate px-2 py-1">{text}</div>}</TableCell>;
+              })}</TableRow>;
+            })}</TableBody>
+          </Table></div><ScrollBar orientation="horizontal" /></ScrollArea>
         </div>
       )}
 
-      <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 border-t border-zinc-800 px-2 py-1 text-[10px] text-zinc-500">
-        <span>{pagination.totalRows.toLocaleString('tr-TR')} satır</span><span>•</span><span>{pagination.totalPages.toLocaleString('tr-TR')} sayfa</span><span>•</span><span>{keyColumns.length ? `Primary key: ${keyColumns.join(', ')}` : 'Primary key yok: düzenleme kapalı'}</span>{selectedRows.size > 0 && <><span>•</span><span className="text-cyan-400">{selectedRows.size} seçili</span></>}
-        <label className="ml-auto flex items-center gap-1.5">Sayfa boyutu<select value={pageSize} onChange={event => setPageSize(Number(event.target.value))} className="h-7 rounded border border-zinc-800 bg-zinc-950 px-2 text-[10px]">{[25, 50, 100, 250, 500].map(size => <option key={size}>{size}</option>)}</select></label>
-        <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[10px]" disabled={!pagination.hasPreviousPage || loading} onClick={() => setPage(1)}>İlk</Button>
-        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={!pagination.hasPreviousPage || loading} onClick={() => setPage(previous => Math.max(1, previous - 1))}><ArrowUp className="h-3.5 w-3.5 -rotate-90" /></Button>
-        <span className="min-w-20 text-center">{pagination.page} / {pagination.totalPages}</span>
-        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={!pagination.hasNextPage || loading} onClick={() => setPage(previous => Math.min(pagination.totalPages, previous + 1))}><ArrowDown className="h-3.5 w-3.5 -rotate-90" /></Button>
-        <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[10px]" disabled={!pagination.hasNextPage || loading} onClick={() => setPage(pagination.totalPages)}>Son</Button>
-      </div>
+      <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 border-t border-zinc-800 px-2 py-1 text-[10px] text-zinc-500"><span>{pagination.totalRows.toLocaleString('tr-TR')} satır</span><span>•</span><span>{pagination.totalPages.toLocaleString('tr-TR')} sayfa</span><span>•</span><span>{keyColumns.length ? `Primary key: ${keyColumns.join(', ')}` : 'Primary key yok: düzenleme kapalı'}</span>{selectedRows.size > 0 && <><span>•</span><span className="text-cyan-400">{selectedRows.size} seçili</span></>}<label className="ml-auto flex items-center gap-1.5">Sayfa boyutu<select value={pageSize} onChange={event => setPageSize(Number(event.target.value))} className="h-7 rounded border border-zinc-800 bg-zinc-950 px-2 text-[10px]">{[25, 50, 100, 250, 500].map(size => <option key={size}>{size}</option>)}</select></label><Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[10px]" disabled={!pagination.hasPreviousPage || loading} onClick={() => setPage(1)}>İlk</Button><Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={!pagination.hasPreviousPage || loading} onClick={() => setPage(previous => Math.max(1, previous - 1))}><ArrowUp className="h-3.5 w-3.5 -rotate-90" /></Button><span className="min-w-20 text-center">{pagination.page} / {pagination.totalPages}</span><Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={!pagination.hasNextPage || loading} onClick={() => setPage(previous => Math.min(pagination.totalPages, previous + 1))}><ArrowDown className="h-3.5 w-3.5 -rotate-90" /></Button><Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[10px]" disabled={!pagination.hasNextPage || loading} onClick={() => setPage(pagination.totalPages)}>Son</Button></div>
 
       <input ref={fileInputRef} type="file" className="hidden" onChange={async event => {
         const file = event.target.files?.[0];
         const target = fileTargetRef.current;
         event.target.value = '';
         if (!file || !target) return;
+        if (file.size > 6_000_000) { setEditError('Dosya en fazla 6 MB olabilir.'); return; }
         const binaryColumn = /BLOB|BINARY|GEOMETRY/i.test(target.column.Data_type);
         if (binaryColumn) {
-          const buffer = await file.arrayBuffer();
-          const bytes = new Uint8Array(buffer);
+          const bytes = new Uint8Array(await file.arrayBuffer());
           let binary = '';
           for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
           await saveValue(target.rowIndex, target.column, { type: 'binary', base64: btoa(binary) });
-        } else {
-          await saveValue(target.rowIndex, target.column, await file.text());
+        } else await saveValue(target.rowIndex, target.column, await file.text());
+      }} />
+      <ValueDialog state={valueDialog} onChange={setValueDialog} onClose={() => setValueDialog(null)} onSave={async () => {
+        if (!valueDialog) return;
+        try {
+          const nextValue = valueDialog.useNull ? null : parseEditedValue(valueDialog.value, valueDialog.column, rows[valueDialog.rowIndex]?.[valueDialog.column.Field]);
+          await saveValue(valueDialog.rowIndex, valueDialog.column, nextValue);
+        } catch (valueError) {
+          setEditError(valueError instanceof Error ? valueError.message : 'Değer dönüştürülemedi.');
         }
       }} />
-      <ValueDialog state={valueDialog} onChange={setValueDialog} onClose={() => setValueDialog(null)} onSave={async () => { if (valueDialog) await saveValue(valueDialog.rowIndex, valueDialog.column, valueDialog.useNull ? null : parseEditedValue(valueDialog.value, valueDialog.column, rows[valueDialog.rowIndex]?.[valueDialog.column.Field])); }} />
       <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
     </div>
   );
