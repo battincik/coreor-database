@@ -21,6 +21,8 @@ interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
   resizable?: boolean;
 }
 
+let measurementCanvas: HTMLCanvasElement | null = null;
+
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, Math.round(value)));
 }
@@ -29,18 +31,19 @@ function safeStorageRead(key: string): StoredWidths {
   if (typeof window === 'undefined') return {};
   try {
     const parsed = JSON.parse(window.localStorage.getItem(key) || '{}') as Record<string, unknown>;
-    return Object.fromEntries(
-      Object.entries(parsed)
-        .map(([column, value]) => [column, Number(value)] as const)
-        .filter((entry): entry is [string, number] => Number.isFinite(entry[1]) && entry[1] > 0)
-    );
+    const result: StoredWidths = {};
+    for (const [column, rawValue] of Object.entries(parsed)) {
+      const value = Number(rawValue);
+      if (Number.isFinite(value) && value > 0) result[column] = value;
+    }
+    return result;
   } catch {
     return {};
   }
 }
 
 function safeStorageWrite(key: string, widths: StoredWidths) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !key) return;
   try {
     window.localStorage.setItem(key, JSON.stringify(widths));
   } catch {
@@ -49,7 +52,7 @@ function safeStorageWrite(key: string, widths: StoredWidths) {
 }
 
 function safeStorageRemove(key: string) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !key) return;
   try {
     window.localStorage.removeItem(key);
   } catch {
@@ -59,13 +62,12 @@ function safeStorageRemove(key: string) {
 
 function textWidth(text: string, font: string) {
   if (typeof document === 'undefined') return text.length * 7;
-  const canvas = textWidth.canvas || (textWidth.canvas = document.createElement('canvas'));
-  const context = canvas.getContext('2d');
+  measurementCanvas ||= document.createElement('canvas');
+  const context = measurementCanvas.getContext('2d');
   if (!context) return text.length * 7;
   context.font = font;
   return context.measureText(text).width;
 }
-textWidth.canvas = undefined as HTMLCanvasElement | undefined;
 
 function columnIdentifier(header: HTMLTableCellElement, index: number) {
   return header.dataset.columnKey || `column-${index}`;
