@@ -3,6 +3,7 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
+  Archive,
   BookOpen,
   CheckCircle2,
   Command,
@@ -15,6 +16,7 @@ import {
   Server,
   Settings2,
   ShieldAlert,
+  Sparkles,
   UserCog,
   XCircle
 } from 'lucide-react';
@@ -41,12 +43,10 @@ import { DatabasePerformancePanelModal } from '@/components/database-performance
 import { SqlNotebookModal } from '@/components/sql-notebook-modal';
 import { DatabaseSettingsModal, type DatabaseSettingsTab } from '@/components/database-settings-modal';
 import { DatabaseTransactionWorkspaceModal } from '@/components/database-transaction-workspace-modal';
+import { DatabaseAutomationCenterModal, type AutomationCenterTab } from '@/components/database-automation-center-modal';
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 
-interface DatabaseMenuBarProps {
-  selectedDatabase: string | null;
-  selectedTable: string | null;
-}
+interface DatabaseMenuBarProps { selectedDatabase: string | null; selectedTable: string | null; }
 
 export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMenuBarProps) {
   const { activeToken } = useAuth();
@@ -63,55 +63,39 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<DatabaseSettingsTab>('account');
   const [transactionOpen, setTransactionOpen] = useState(false);
+  const [automationOpen, setAutomationOpen] = useState(false);
+  const [automationTab, setAutomationTab] = useState<AutomationCenterTab>('history');
 
   const serverOptions = useMemo<SearchSelectOption[]>(() => servers.map(server => ({
-    value: server.id,
-    label: server.name,
-    description: `${server.host}:${server.port || 3306}`,
-    badge: databaseEngineLabel(server.databaseType),
-    keywords: [server.host || '', server.username || '', server.databaseType || 'mysql']
+    value: server.id, label: server.name, description: `${server.host}:${server.port || 3306}`,
+    badge: databaseEngineLabel(server.databaseType), keywords: [server.host || '', server.username || '', server.databaseType || 'mysql']
   })), [servers]);
 
   useEffect(() => {
-    const openUsers = () => setUsersOpen(true);
-    const openProcesses = () => setProcessOpen(true);
-    const openTransfer = () => setTransferOpen(true);
-    const openPerformance = () => setPerformanceOpen(true);
-    const openNotebook = () => setNotebookOpen(true);
-    const openTransaction = () => setTransactionOpen(true);
-    const openSettings = (event: Event) => {
-      const detail = (event as CustomEvent<OpenSettingsModalDetail>).detail;
-      setSettingsTab(detail?.tab || 'account'); setSettingsOpen(true);
-    };
-    window.addEventListener(OPEN_USER_MANAGER_EVENT, openUsers);
-    window.addEventListener(OPEN_PROCESS_CENTER_EVENT, openProcesses);
-    window.addEventListener(OPEN_IMPORT_EXPORT_EVENT, openTransfer);
-    window.addEventListener(OPEN_PERFORMANCE_PANEL_EVENT, openPerformance);
-    window.addEventListener(OPEN_SQL_NOTEBOOK_EVENT, openNotebook);
-    window.addEventListener(OPEN_TRANSACTION_WORKSPACE_EVENT, openTransaction);
-    window.addEventListener(OPEN_SETTINGS_MODAL_EVENT, openSettings);
+    const openUsers = () => setUsersOpen(true); const openProcesses = () => setProcessOpen(true);
+    const openTransfer = () => setTransferOpen(true); const openPerformance = () => setPerformanceOpen(true);
+    const openNotebook = () => setNotebookOpen(true); const openTransaction = () => setTransactionOpen(true);
+    const openSettings = (event: Event) => { const detail = (event as CustomEvent<OpenSettingsModalDetail>).detail; setSettingsTab(detail?.tab || 'account'); setSettingsOpen(true); };
+    const openAutomation = (event: Event) => { const detail = (event as CustomEvent<{ tab?: AutomationCenterTab }>).detail; setAutomationTab(detail?.tab || 'history'); setAutomationOpen(true); };
+    window.addEventListener(OPEN_USER_MANAGER_EVENT, openUsers); window.addEventListener(OPEN_PROCESS_CENTER_EVENT, openProcesses);
+    window.addEventListener(OPEN_IMPORT_EXPORT_EVENT, openTransfer); window.addEventListener(OPEN_PERFORMANCE_PANEL_EVENT, openPerformance);
+    window.addEventListener(OPEN_SQL_NOTEBOOK_EVENT, openNotebook); window.addEventListener(OPEN_TRANSACTION_WORKSPACE_EVENT, openTransaction);
+    window.addEventListener(OPEN_SETTINGS_MODAL_EVENT, openSettings); window.addEventListener('coreor:open-automation-center', openAutomation);
     return () => {
-      window.removeEventListener(OPEN_USER_MANAGER_EVENT, openUsers);
-      window.removeEventListener(OPEN_PROCESS_CENTER_EVENT, openProcesses);
-      window.removeEventListener(OPEN_IMPORT_EXPORT_EVENT, openTransfer);
-      window.removeEventListener(OPEN_PERFORMANCE_PANEL_EVENT, openPerformance);
-      window.removeEventListener(OPEN_SQL_NOTEBOOK_EVENT, openNotebook);
-      window.removeEventListener(OPEN_TRANSACTION_WORKSPACE_EVENT, openTransaction);
-      window.removeEventListener(OPEN_SETTINGS_MODAL_EVENT, openSettings);
+      window.removeEventListener(OPEN_USER_MANAGER_EVENT, openUsers); window.removeEventListener(OPEN_PROCESS_CENTER_EVENT, openProcesses);
+      window.removeEventListener(OPEN_IMPORT_EXPORT_EVENT, openTransfer); window.removeEventListener(OPEN_PERFORMANCE_PANEL_EVENT, openPerformance);
+      window.removeEventListener(OPEN_SQL_NOTEBOOK_EVENT, openNotebook); window.removeEventListener(OPEN_TRANSACTION_WORKSPACE_EVENT, openTransaction);
+      window.removeEventListener(OPEN_SETTINGS_MODAL_EVENT, openSettings); window.removeEventListener('coreor:open-automation-center', openAutomation);
     };
   }, []);
 
   const connect = async () => {
     if (!activeServer || !activeToken || busy) return;
     setBusy(true); setStatus(null);
-    try {
-      const result = await testStoredDatabaseConnection(activeServer.id, activeToken);
-      await fetchServerTables(activeServer.id, activeToken); await loadServers();
-      setStatus({ tone: 'success', text: `${result.connection?.version || databaseEngineLabel(activeServer.databaseType)} bağlantısı hazır` });
-    } catch (error) { setStatus({ tone: 'error', text: error instanceof Error ? error.message : 'Bağlantı kurulamadı.' }); }
+    try { const result = await testStoredDatabaseConnection(activeServer.id, activeToken); await fetchServerTables(activeServer.id, activeToken); await loadServers(); setStatus({ tone: 'success', text: `${result.connection?.version || databaseEngineLabel(activeServer.databaseType)} bağlantısı hazır` }); }
+    catch (error) { setStatus({ tone: 'error', text: error instanceof Error ? error.message : 'Bağlantı kurulamadı.' }); }
     finally { setBusy(false); }
   };
-
   const refreshCatalog = async () => {
     if (!activeServer || !activeToken || busy) return;
     setBusy(true); setStatus(null);
@@ -119,33 +103,30 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
     catch (error) { setStatus({ tone: 'error', text: error instanceof Error ? error.message : 'Katalog yenilenemedi.' }); }
     finally { setBusy(false); }
   };
-
   const openSettings = (tab: DatabaseSettingsTab = 'account') => { setSettingsTab(tab); setSettingsOpen(true); };
+  const openAutomation = (tab: AutomationCenterTab) => { setAutomationTab(tab); setAutomationOpen(true); };
   const toolButton = 'flex h-7 shrink-0 items-center gap-1.5 rounded px-2 text-[10px] text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-35';
 
   return <>
     <div className="coreor-hide-scrollbar flex h-8 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-zinc-800 bg-zinc-950/95 px-2 text-[11px] text-zinc-400 shadow-sm backdrop-blur">
-      <div className="mr-1 flex min-w-44 max-w-64 shrink-0 items-center gap-2">
-        <Database className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-        <SearchSelect value={activeServerId || ''} options={serverOptions} onValueChange={serverId => setActiveServerId(serverId || null)} placeholder="Bağlantı seç" searchPlaceholder="Sunucu, host veya motor ara…" emptyText="Kayıtlı sunucu yok." className="min-w-0 flex-1" triggerClassName="min-h-7 h-7 rounded-lg border-zinc-800/80 bg-black/20 px-2 [&>span]:py-0" dropdownMinWidth={390} showDescriptionInTrigger={false} />
-      </div>
-      <button type="button" className={toolButton} disabled={!activeServer || busy} onClick={() => void connect()} title="Bağlantıyı test et ve katalogla bağlan">{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400" /> : <Server className="h-3.5 w-3.5 text-emerald-400" />}Bağlan</button>
-      <button type="button" className={toolButton} disabled={!activeServer || busy} onClick={() => void refreshCatalog()} title="Veritabanı kataloğunu yenile"><RefreshCw className="h-3.5 w-3.5" />Yenile</button>
+      <div className="mr-1 flex min-w-44 max-w-64 shrink-0 items-center gap-2"><Database className="h-3.5 w-3.5 shrink-0 text-emerald-400" /><SearchSelect value={activeServerId || ''} options={serverOptions} onValueChange={serverId => setActiveServerId(serverId || null)} placeholder="Bağlantı seç" searchPlaceholder="Sunucu, host veya motor ara…" emptyText="Kayıtlı sunucu yok." className="min-w-0 flex-1" triggerClassName="min-h-7 h-7 rounded-lg border-zinc-800/80 bg-black/20 px-2 [&>span]:py-0" dropdownMinWidth={390} showDescriptionInTrigger={false} /></div>
+      <button className={toolButton} disabled={!activeServer || busy} onClick={() => void connect()}>{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400" /> : <Server className="h-3.5 w-3.5 text-emerald-400" />}Bağlan</button>
+      <button className={toolButton} disabled={!activeServer || busy} onClick={() => void refreshCatalog()}><RefreshCw className="h-3.5 w-3.5" />Yenile</button>
       <span className="mx-1 h-4 w-px shrink-0 bg-zinc-800" />
-      <button type="button" className={toolButton} onClick={() => dispatchDatabaseTool(TOGGLE_COMMAND_PALETTE_EVENT)} title="Komut paleti; > ile hızlı SQL"><Command className="h-3.5 w-3.5 text-cyan-400" />Komut<span className="rounded border border-zinc-800 px-1 py-0.5 text-[8px] text-zinc-600">⌘K</span></button>
-      <button type="button" className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setTransactionOpen(true)} title={mysqlWorkbench ? 'Autocommit, commit ve rollback' : 'Transaction merkezi bu motor için henüz kullanılamıyor'}><ShieldAlert className="h-3.5 w-3.5 text-amber-400" />Transaction</button>
-      <button type="button" className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setUsersOpen(true)} title={mysqlWorkbench ? 'Kullanıcı, rol ve yetki yönetimi' : 'Motor özel kullanıcı yönetimi henüz kullanılamıyor'}><UserCog className="h-3.5 w-3.5 text-purple-400" />Kullanıcılar</button>
-      <button type="button" className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setProcessOpen(true)} title="Çalışan sorgular ve kilitler"><Activity className="h-3.5 w-3.5 text-amber-400" />Processler</button>
-      <button type="button" className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setPerformanceOpen(true)} title="Canlı motor performansı"><Gauge className="h-3.5 w-3.5 text-emerald-400" />Performans</button>
-      <button type="button" className={toolButton} disabled={!activeServer} onClick={() => setNotebookOpen(true)}><BookOpen className="h-3.5 w-3.5 text-purple-400" />Notebook</button>
-      <button type="button" className={toolButton} disabled={!activeServer} onClick={() => setTransferOpen(true)}><FileInput className="h-3.5 w-3.5 text-emerald-400" />Aktarım</button>
-      <button type="button" className={toolButton} disabled={!activeServer || !selectedDatabase} onClick={() => window.dispatchEvent(new Event('coreor:open-schema-graph'))}><Network className="h-3.5 w-3.5 text-cyan-400" />Şema</button>
-      <button type="button" className={toolButton} onClick={() => openSettings('account')}><Settings2 className="h-3.5 w-3.5" />Ayarlar</button>
-
-      {status && <button type="button" className={`ml-2 inline-flex min-w-0 shrink-0 items-center gap-1.5 truncate text-[10px] ${status.tone === 'success' ? 'text-emerald-400' : 'text-red-400'}`} onClick={() => setStatus(null)} title={status.text}>{status.tone === 'success' ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}<span className="max-w-64 truncate">{status.text}</span></button>}
+      <button className={toolButton} onClick={() => dispatchDatabaseTool(TOGGLE_COMMAND_PALETTE_EVENT)}><Command className="h-3.5 w-3.5 text-cyan-400" />Komut<span className="rounded border border-zinc-800 px-1 py-0.5 text-[8px] text-zinc-600">⌘K</span></button>
+      <button className={toolButton} disabled={!activeServer} onClick={() => openAutomation('backups')} title="mysqldump, pg_dump ve SQL Server yedek görevleri"><Archive className="h-3.5 w-3.5 text-emerald-400" />Yedekleme</button>
+      <button className={toolButton} disabled={!activeServer} onClick={() => openAutomation('history')} title="Snapshot, migration, indeks, prepared, onay, karşılaştırma ve maskeleme"><Sparkles className="h-3.5 w-3.5 text-cyan-400" />Operasyonlar</button>
+      <button className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setTransactionOpen(true)}><ShieldAlert className="h-3.5 w-3.5 text-amber-400" />Transaction</button>
+      <button className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setUsersOpen(true)}><UserCog className="h-3.5 w-3.5 text-purple-400" />Kullanıcılar</button>
+      <button className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setProcessOpen(true)}><Activity className="h-3.5 w-3.5 text-amber-400" />Processler</button>
+      <button className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setPerformanceOpen(true)}><Gauge className="h-3.5 w-3.5 text-emerald-400" />Performans</button>
+      <button className={toolButton} disabled={!activeServer} onClick={() => setNotebookOpen(true)}><BookOpen className="h-3.5 w-3.5 text-purple-400" />Notebook</button>
+      <button className={toolButton} disabled={!activeServer} onClick={() => setTransferOpen(true)}><FileInput className="h-3.5 w-3.5 text-emerald-400" />Aktarım</button>
+      <button className={toolButton} disabled={!activeServer || !selectedDatabase} onClick={() => window.dispatchEvent(new Event('coreor:open-schema-graph'))}><Network className="h-3.5 w-3.5 text-cyan-400" />Şema</button>
+      <button className={toolButton} onClick={() => openSettings('account')}><Settings2 className="h-3.5 w-3.5" />Ayarlar</button>
+      {status && <button className={`ml-2 inline-flex min-w-0 shrink-0 items-center gap-1.5 truncate text-[10px] ${status.tone === 'success' ? 'text-emerald-400' : 'text-red-400'}`} onClick={() => setStatus(null)}>{status.tone === 'success' ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}<span className="max-w-64 truncate">{status.text}</span></button>}
       <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 pl-3 text-[10px] text-zinc-600"><span className="max-w-40 truncate text-zinc-400">{activeServer ? databaseEngineLabel(activeServer.databaseType) : 'Bağlantı yok'}</span>{selectedDatabase && <><span>›</span><span className="max-w-40 truncate">{selectedDatabase}</span></>}{selectedTable && <><span>›</span><span className="max-w-40 truncate text-cyan-400">{selectedTable}</span></>}</div>
     </div>
-
     <DatabaseUserManagerModal open={usersOpen} onClose={() => setUsersOpen(false)} serverId={activeServerId} accountId={activeToken} databases={databases} />
     <DatabaseProcessCenterModal open={processOpen} onClose={() => setProcessOpen(false)} serverId={activeServerId} accountId={activeToken} />
     <DatabasePerformancePanelModal open={performanceOpen} onClose={() => setPerformanceOpen(false)} serverId={activeServerId} accountId={activeToken} selectedDatabase={selectedDatabase} />
@@ -153,5 +134,6 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
     <DatabaseImportExportModal open={transferOpen} onClose={() => setTransferOpen(false)} serverId={activeServerId} accountId={activeToken} databases={databases} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
     <DatabaseSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialTab={settingsTab} />
     <DatabaseTransactionWorkspaceModal open={transactionOpen} onClose={() => setTransactionOpen(false)} serverId={activeServerId} accountId={activeToken} databases={databases} selectedDatabase={selectedDatabase} />
+    <DatabaseAutomationCenterModal open={automationOpen} onClose={() => setAutomationOpen(false)} initialTab={automationTab} servers={servers} activeServerId={activeServerId} accountId={activeToken} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
   </>;
 }
