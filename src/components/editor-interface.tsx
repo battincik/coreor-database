@@ -3,7 +3,7 @@
 import { useContext, useEffect, useRef, useState } from 'react';
 import { Code, Plus, RefreshCw, Server } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { Sidebar } from '@/components/sidebar';
+import Sidebar from '@/components/sidebar';
 import { DatabasePanel } from '@/components/database-panel';
 import { DatabaseMenuBar } from '@/components/database-menu-bar';
 import { DatabaseCommandPalette } from '@/components/database-command-palette';
@@ -31,7 +31,9 @@ function EditorWorkspace() {
 
   useEffect(() => {
     if (window.navigator.userAgent.includes('CoreorApp')) setShowTopbar(true);
-    return () => { if (panelSaveTimer.current) window.clearTimeout(panelSaveTimer.current); };
+    return () => {
+      if (panelSaveTimer.current) window.clearTimeout(panelSaveTimer.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -84,51 +86,46 @@ function EditorWorkspace() {
   return (
     <div
       className="flex h-screen flex-col"
-      onContextMenu={event => openContextMenu(
-        event,
-        [
-          {
-            id: 'new-global-query',
-            label: 'Yeni sunucu geneli sorgu',
-            icon: Code,
-            disabled: !activeServer,
-            onSelect: () => openQueryTab({ serverId: activeServerId, databaseName: null, title: 'Genel sorgu' })
-          },
-          {
-            id: 'new-database-query',
-            label: selectedDatabase ? `${selectedDatabase} için yeni sorgu` : 'Veritabanı sorgusu',
-            icon: Plus,
-            disabled: !activeServer || !selectedDatabase,
-            onSelect: () => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase || 'Sorgu' })
-          },
-          { id: 'separator-1', separator: true },
-          {
-            id: 'refresh-view',
-            label: 'Aktif görünümü yenile',
-            icon: RefreshCw,
-            disabled: !activeServer,
-            onSelect: () => window.dispatchEvent(new Event('coreor:refresh-active-view'))
-          },
-          {
-            id: 'add-server',
-            label: 'Yeni sunucu ekle',
-            icon: Server,
-            onSelect: () => window.dispatchEvent(new Event('coreor:open-server-modal'))
-          }
-        ],
-        activeServer ? `${activeServer.name} çalışma alanı` : 'Coreor Database'
-      )}
+      onContextMenu={event =>
+        openContextMenu(
+          event,
+          [
+            {
+              id: 'new-global-query',
+              label: 'Yeni sunucu geneli sorgu',
+              icon: Code,
+              disabled: !activeServer,
+              onSelect: () => openQueryTab({ serverId: activeServerId, databaseName: null, title: 'Genel sorgu' })
+            },
+            {
+              id: 'new-database-query',
+              label: selectedDatabase ? `${selectedDatabase} için yeni sorgu` : 'Veritabanı sorgusu',
+              icon: Plus,
+              disabled: !activeServer || !selectedDatabase,
+              onSelect: () => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase || 'Sorgu' })
+            },
+            { id: 'separator-1', separator: true },
+            {
+              id: 'refresh-view',
+              label: 'Aktif görünümü yenile',
+              icon: RefreshCw,
+              disabled: !activeServer,
+              onSelect: () => window.dispatchEvent(new Event('coreor:refresh-active-view'))
+            },
+            {
+              id: 'add-server',
+              label: 'Yeni sunucu ekle',
+              icon: Server,
+              onSelect: () => window.dispatchEvent(new Event('coreor:open-server-modal'))
+            }
+          ],
+          activeServer ? `${activeServer.name} çalışma alanı` : 'Coreor Database'
+        )
+      }
     >
       {showTopbar && <Topbar />}
       <DatabaseMenuBar selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
-      <DatabaseCommandPalette
-        servers={servers}
-        activeServerId={activeServerId}
-        selectedDatabase={selectedDatabase}
-        selectedTable={selectedTable}
-        onDatabaseSelect={handleDatabaseSelect}
-        onTableSelect={handleTableSelect}
-      />
+      <DatabaseCommandPalette servers={servers} activeServerId={activeServerId} selectedDatabase={selectedDatabase} selectedTable={selectedTable} onDatabaseSelect={handleDatabaseSelect} onTableSelect={handleTableSelect} />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1 overflow-hidden" onLayout={rememberLayout}>
           <ResizablePanel defaultSize={preferences.sidebarSize} minSize={12} maxSize={45}>
