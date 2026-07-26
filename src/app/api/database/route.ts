@@ -95,8 +95,8 @@ function normalizeRouteError(error: unknown) {
 export async function POST(request: NextRequest) {
   try {
     assertSameOrigin(request);
-    const contentLength = Number(request.headers.get('content-length') || 0);
     const maximumBytes = maximumRequestBytes();
+    const contentLength = Number(request.headers.get('content-length') || 0);
     if (contentLength > maximumBytes) {
       throw new DatabaseServiceError(`Veritabanı isteği izin verilen ${(maximumBytes / 1024 / 1024).toFixed(1)} MB sınırını aşıyor.`, 413, 'DATABASE_REQUEST_TOO_LARGE');
     }
@@ -107,7 +107,12 @@ export async function POST(request: NextRequest) {
     const user = session.user as typeof session.user & { id?: string };
     applyRateLimit(user.id || user.email || 'authenticated-user');
 
-    const payload = (await request.json()) as Parameters<typeof executeDatabaseRequest>[0];
+    const rawBody = await request.text();
+    const actualBytes = Buffer.byteLength(rawBody, 'utf8');
+    if (actualBytes > maximumBytes) {
+      throw new DatabaseServiceError(`Veritabanı isteği izin verilen ${(maximumBytes / 1024 / 1024).toFixed(1)} MB sınırını aşıyor.`, 413, 'DATABASE_REQUEST_TOO_LARGE');
+    }
+    const payload = JSON.parse(rawBody) as Parameters<typeof executeDatabaseRequest>[0];
     const result = await executeDatabaseRequest(payload);
     return NextResponse.json(result, { status: 200, headers: noStoreHeaders() });
   } catch (error) {
