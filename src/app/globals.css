@@ -6,104 +6,154 @@
   :root {
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
-
     --card: 0 0% 100%;
     --card-foreground: 0 0% 3.9%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
-
     --primary: 0 0% 9%;
     --primary-light: 0 0% 40%;
     --primary-dark: 0 0% 4%;
     --primary-foreground: 0 0% 98%;
-
     --secondary: 0 0% 96.1%;
     --secondary-light: 0 0% 98%;
     --secondary-dark: 0 0% 85%;
     --secondary-foreground: 0 0% 9%;
-
     --muted: 0 0% 96.1%;
     --muted-light: 0 0% 98%;
     --muted-dark: 0 0% 75%;
     --muted-foreground: 0 0% 45.1%;
-
     --accent: 0 0% 96.1%;
     --accent-light: 0 0% 99%;
     --accent-dark: 0 0% 85%;
     --accent-foreground: 0 0% 9%;
-
     --destructive: 0 84.2% 60.2%;
     --destructive-light: 0 84.2% 75%;
     --destructive-dark: 0 84.2% 45%;
     --destructive-foreground: 0 0% 98%;
-
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
     --ring: 0 0% 3.9%;
-
     --radius: 0.5rem;
-
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
+    --coreor-ui-font-size: 12px;
+    --coreor-editor-font-size: 13px;
+    --coreor-console-font-size: 9px;
+    --coreor-line-height: 1.55;
+    --coreor-font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --coreor-editor-bg: #08090b;
+    --coreor-editor-fg: #cffafe;
+    --coreor-editor-selection: rgba(6, 182, 212, 0.24);
   }
 
-  .dark {
-    --background: 0 0% 3.9%;
+  .dark,
+  :root[data-coreor-theme='amoled'] {
+    --background: 0 0% 0%;
     --foreground: 0 0% 98%;
-
     --card: 0 0% 3.9%;
     --card-foreground: 0 0% 98%;
-
     --popover: 0 0% 3.9%;
     --popover-foreground: 0 0% 98%;
-
-    --primary: 0 0% 98%;
-    --primary-light: 0 0% 90%;
-    --primary-dark: 0 0% 70%;
-    --primary-foreground: 0 0% 9%;
-
-    --secondary: 0 0% 14.9%;
-    --secondary-light: 0 0% 25%;
-    --secondary-dark: 0 0% 10%;
+    --primary: 186 82% 52%;
+    --primary-light: 186 90% 72%;
+    --primary-dark: 186 82% 34%;
+    --primary-foreground: 0 0% 4%;
+    --secondary: 0 0% 8%;
+    --secondary-light: 0 0% 14%;
+    --secondary-dark: 0 0% 4%;
     --secondary-foreground: 0 0% 98%;
-
-    --muted: 0 0% 14.9%;
-    --muted-light: 0 0% 22%;
-    --muted-dark: 0 0% 10%;
+    --muted: 0 0% 8%;
+    --muted-light: 0 0% 13%;
+    --muted-dark: 0 0% 3%;
     --muted-foreground: 0 0% 63.9%;
-
-    --accent: 0 0% 14.9%;
-    --accent-light: 0 0% 22%;
-    --accent-dark: 0 0% 10%;
+    --accent: 0 0% 10%;
+    --accent-light: 0 0% 16%;
+    --accent-dark: 0 0% 4%;
     --accent-foreground: 0 0% 98%;
-
     --destructive: 0 62.8% 30.6%;
     --destructive-light: 0 62.8% 45%;
     --destructive-dark: 0 62.8% 20%;
     --destructive-foreground: 0 0% 98%;
-
     --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --ring: 186 82% 52%;
   }
+
+  :root[data-coreor-theme='graphite'] {
+    --background: 220 9% 8%; --foreground: 210 20% 94%; --card: 220 8% 12%;
+    --card-foreground: 210 20% 94%; --popover: 220 8% 11%; --popover-foreground: 210 20% 94%;
+    --primary: 196 82% 57%; --primary-foreground: 220 9% 8%; --secondary: 220 7% 17%;
+    --secondary-foreground: 210 20% 94%; --muted: 220 7% 16%; --muted-foreground: 215 12% 64%;
+    --accent: 220 7% 20%; --accent-foreground: 210 20% 96%; --border: 220 7% 23%; --input: 220 7% 23%; --ring: 196 82% 57%;
+  }
+
+  :root[data-coreor-theme='midnight'] {
+    --background: 224 40% 7%; --foreground: 214 32% 94%; --card: 224 34% 11%;
+    --card-foreground: 214 32% 94%; --popover: 224 34% 10%; --popover-foreground: 214 32% 94%;
+    --primary: 258 90% 70%; --primary-foreground: 224 40% 7%; --secondary: 224 24% 17%;
+    --secondary-foreground: 214 32% 94%; --muted: 224 24% 16%; --muted-foreground: 218 17% 66%;
+    --accent: 258 28% 22%; --accent-foreground: 214 32% 96%; --border: 224 21% 24%; --input: 224 21% 24%; --ring: 258 90% 70%;
+  }
+
+  :root[data-coreor-theme='nord'] {
+    --background: 220 16% 22%; --foreground: 218 27% 92%; --card: 220 16% 26%;
+    --card-foreground: 218 27% 92%; --popover: 220 16% 24%; --popover-foreground: 218 27% 92%;
+    --primary: 193 43% 67%; --primary-foreground: 220 16% 18%; --secondary: 220 15% 31%;
+    --secondary-foreground: 218 27% 92%; --muted: 220 15% 29%; --muted-foreground: 219 28% 76%;
+    --accent: 213 32% 38%; --accent-foreground: 218 27% 96%; --border: 220 14% 36%; --input: 220 14% 36%; --ring: 193 43% 67%;
+  }
+
+  :root[data-coreor-theme='solarized'] {
+    --background: 192 100% 11%; --foreground: 44 87% 94%; --card: 192 81% 14%;
+    --card-foreground: 44 87% 94%; --popover: 192 81% 13%; --popover-foreground: 44 87% 94%;
+    --primary: 175 59% 40%; --primary-foreground: 192 100% 8%; --secondary: 192 48% 20%;
+    --secondary-foreground: 44 87% 94%; --muted: 192 48% 18%; --muted-foreground: 186 13% 55%;
+    --accent: 205 69% 49%; --accent-foreground: 44 87% 96%; --border: 192 37% 25%; --input: 192 37% 25%; --ring: 175 59% 40%;
+  }
+
+  :root[data-coreor-theme='light'] {
+    --background: 210 30% 98%; --foreground: 222 47% 11%; --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%; --popover: 0 0% 100%; --popover-foreground: 222 47% 11%;
+    --primary: 199 89% 48%; --primary-foreground: 0 0% 100%; --secondary: 210 25% 93%;
+    --secondary-foreground: 222 47% 11%; --muted: 210 25% 94%; --muted-foreground: 215 16% 47%;
+    --accent: 199 70% 92%; --accent-foreground: 202 80% 24%; --border: 214 20% 84%; --input: 214 20% 84%; --ring: 199 89% 48%;
+  }
+
+  :root[data-coreor-theme='high-contrast'] {
+    --background: 0 0% 0%; --foreground: 0 0% 100%; --card: 0 0% 0%; --card-foreground: 0 0% 100%;
+    --popover: 0 0% 0%; --popover-foreground: 0 0% 100%; --primary: 55 100% 50%; --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 8%; --secondary-foreground: 0 0% 100%; --muted: 0 0% 10%; --muted-foreground: 0 0% 84%;
+    --accent: 192 100% 50%; --accent-foreground: 0 0% 0%; --border: 0 0% 70%; --input: 0 0% 70%; --ring: 55 100% 50%;
+  }
+
+  :root[data-syntax-theme='dracula'] { --coreor-editor-bg: #282a36; --coreor-editor-fg: #f8f8f2; --coreor-editor-selection: rgba(68, 71, 90, .9); }
+  :root[data-syntax-theme='nord'] { --coreor-editor-bg: #2e3440; --coreor-editor-fg: #d8dee9; --coreor-editor-selection: rgba(76, 86, 106, .9); }
+  :root[data-syntax-theme='monokai'] { --coreor-editor-bg: #272822; --coreor-editor-fg: #f8f8f2; --coreor-editor-selection: rgba(73, 72, 62, .9); }
+  :root[data-syntax-theme='github-dark'] { --coreor-editor-bg: #0d1117; --coreor-editor-fg: #c9d1d9; --coreor-editor-selection: rgba(56, 139, 253, .28); }
+  :root[data-syntax-theme='github-light'] { --coreor-editor-bg: #ffffff; --coreor-editor-fg: #24292f; --coreor-editor-selection: rgba(9, 105, 218, .18); }
 }
 
 @layer base {
-  * {
-    @apply border-border;
+  * { @apply border-border; }
+  html { font-size: var(--coreor-ui-font-size); }
+  body { @apply bg-background text-foreground; font-family: var(--coreor-font-family); line-height: var(--coreor-line-height); }
+  :root[data-reduced-motion='true'] *, :root[data-reduced-motion='true'] *::before, :root[data-reduced-motion='true'] *::after {
+    animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.001ms !important;
   }
+  :root[data-strong-focus='true'] :focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+  :root[data-high-contrast-borders='true'] * { border-color: hsl(var(--foreground) / .45) !important; }
+  :root[data-dyslexia-spacing='true'] body { letter-spacing: .035em; word-spacing: .08em; }
+  :root[data-color-blind-mode='protanopia'] { filter: url('#coreor-protanopia'); }
+  :root[data-color-blind-mode='deuteranopia'] { filter: url('#coreor-deuteranopia'); }
+  :root[data-color-blind-mode='tritanopia'] { filter: url('#coreor-tritanopia'); }
+}
 
-  body {
-    @apply bg-background text-foreground;
-  }
+@layer components {
+  .coreor-sql-editor { background: var(--coreor-editor-bg) !important; color: var(--coreor-editor-fg) !important; font-size: var(--coreor-editor-font-size) !important; line-height: var(--coreor-line-height); }
+  .coreor-sql-editor::selection { background: var(--coreor-editor-selection); }
+  .coreor-console-text { font-size: var(--coreor-console-font-size) !important; }
+  :root[data-compact='false'] .coreor-compact-row { min-height: 2.25rem; padding-top: .375rem; padding-bottom: .375rem; }
 }
