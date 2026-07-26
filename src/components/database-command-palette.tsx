@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Activity, BookOpen, Code, Command, Database, Gauge, Network, Play, Search, Settings, Table2, Users } from 'lucide-react';
 import type { DatabaseServerConfig } from 'types';
-import { openQueryTab, qualifiedSqlName } from '@/lib/queryWorkspaceEvents';
+import { openQueryTab } from '@/lib/queryWorkspaceEvents';
 import {
   OPEN_PERFORMANCE_PANEL_EVENT,
   OPEN_PROCESS_CENTER_EVENT,
@@ -170,7 +170,7 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
             value={query}
             onChange={event => setQuery(event.target.value)}
             onKeyDown={event => {
-              if (event.key === 'ArrowDown') { event.preventDefault(); setActiveIndex(previous => Math.min(visibleItems.length - 1, previous + 1)); }
+              if (event.key === 'ArrowDown') { event.preventDefault(); setActiveIndex(previous => visibleItems.length ? Math.min(visibleItems.length - 1, previous + 1) : 0); }
               if (event.key === 'ArrowUp') { event.preventDefault(); setActiveIndex(previous => Math.max(0, previous - 1)); }
               if (event.key === 'Enter') { event.preventDefault(); execute(visibleItems[activeIndex]); }
               if (event.key === 'Escape') { event.preventDefault(); setOpen(false); }
