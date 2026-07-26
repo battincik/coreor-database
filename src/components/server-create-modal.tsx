@@ -119,11 +119,16 @@ function FormSection({
   );
 }
 
-function SummaryCard({ icon: Icon, label, value, mono = false }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; mono?: boolean }) {
+function SummaryItem({ icon: Icon, label, value, mono = false }: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
-    <div className="min-w-0 rounded-xl border border-zinc-800 bg-black/20 px-3 py-2.5">
-      <div className="flex items-center gap-2 text-[8px] uppercase tracking-[0.12em] text-zinc-600"><Icon className="h-3 w-3" />{label}</div>
-      <div className={`mt-1.5 truncate text-[11px] font-medium text-zinc-200 ${mono ? 'font-mono' : ''}`} title={value}>{value}</div>
+    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-zinc-800 bg-black/20 px-3 py-2.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-500"><Icon className="h-3.5 w-3.5" /></span>
+      <span className="min-w-0 flex-1"><span className="block text-[8px] uppercase tracking-[0.12em] text-zinc-600">{label}</span><span className={`mt-1 block truncate text-[11px] font-medium text-zinc-200 ${mono ? 'font-mono' : ''}`} title={value}>{value}</span></span>
     </div>
   );
 }
@@ -154,7 +159,12 @@ export function ServerCreateModal({ open, onClose, onSubmit, initialServer, onUp
   );
 
   const engineSelectOptions = useMemo<SearchSelectOption<DatabaseEngine>[]>(
-    () => ENGINE_OPTIONS.map(option => ({ value: option.value, label: option.label, description: option.description, badge: option.value === 'mysql' ? 'Oracle' : 'Community' })),
+    () => ENGINE_OPTIONS.map(option => ({
+      value: option.value,
+      label: option.label,
+      description: option.description,
+      badge: option.value === 'mysql' ? 'Oracle' : 'Community'
+    })),
     []
   );
 
@@ -228,6 +238,9 @@ export function ServerCreateModal({ open, onClose, onSubmit, initialServer, onUp
 
   if (!mounted || !open) return null;
 
+  const tlsLabel = TLS_OPTIONS.find(option => option.value === values.sslMode)?.label || values.sslMode;
+  const timeoutLabel = TIMEOUT_OPTIONS.find(option => option.value === values.connectionTimeoutMs)?.label || `${Number(values.connectionTimeoutMs || 0) / 1000} saniye`;
+
   return createPortal(
     <div className="fixed inset-0 z-[360] flex items-center justify-center p-2 sm:p-4">
       <button type="button" aria-label="Kapat" className="absolute inset-0 bg-black/85 backdrop-blur-md" onClick={onClose} />
@@ -236,53 +249,69 @@ export function ServerCreateModal({ open, onClose, onSubmit, initialServer, onUp
           <div className="min-w-0">
             <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[9px] font-medium text-emerald-300"><Shield className="h-3 w-3" />Şifreli tarayıcı kasası</div>
             <h2 className="truncate text-lg font-semibold tracking-tight text-white sm:text-xl">{isEditing ? `${initialServer?.name} bağlantısını düzenle` : 'Yeni veritabanı sunucusu'}</h2>
-            <p className="mt-1 max-w-3xl text-[10px] leading-4 text-zinc-500 sm:text-[11px] sm:leading-5">Bağlantı profilini tanımlayın, güvenlik politikasını seçin ve kaydetmeden önce gerçek sunucuyla test edin.</p>
+            <p className="mt-1 max-w-3xl text-[10px] leading-4 text-zinc-500 sm:text-[11px] sm:leading-5">Sunucu bilgilerini solda tanımlayın; motor, sürüm ve bağlantı politikasını sağdaki ayar sütunundan seçin.</p>
           </div>
           <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 rounded-full" onClick={onClose}><X className="h-4 w-4" /></Button>
         </header>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5 lg:p-6">
-            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-12">
-              <FormSection className="lg:col-span-7" icon={Server} title="Profil ve ağ" description="Bu bilgiler sidebar ve bağlantı seçimlerinde görünür.">
-                <div className="grid gap-3">
-                  <div><label className={LABEL_CLASS}>Sunucu adı</label><Input value={values.name} onChange={event => updateValue('name', event.target.value)} placeholder="Üretim MySQL" className={INPUT_CLASS} required /></div>
-                  <div className="grid grid-cols-[minmax(0,1fr)_104px] gap-3 sm:grid-cols-[minmax(0,1fr)_132px]">
+            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+              <FormSection icon={Server} title="Sunucu bilgileri" description="Profil, ağ hedefi ve bağlantı kullanıcısı tek grupta yönetilir.">
+                <div className="grid gap-4">
+                  <div>
+                    <label className={LABEL_CLASS}>Sunucu adı</label>
+                    <Input value={values.name} onChange={event => updateValue('name', event.target.value)} placeholder="Üretim MySQL" className={INPUT_CLASS} required />
+                  </div>
+
+                  <div className="grid grid-cols-[minmax(0,1fr)_112px] gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
                     <div className="min-w-0"><label className={LABEL_CLASS}>Host veya IP</label><Input value={values.host} onChange={event => updateValue('host', event.target.value)} placeholder="192.168.50.25" className={INPUT_CLASS} required /></div>
                     <div><label className={LABEL_CLASS}>Port</label><Input value={values.port} onChange={event => updateValue('port', event.target.value)} inputMode="numeric" className={INPUT_CLASS} required /></div>
                   </div>
-                  <div><label className={LABEL_CLASS}>Varsayılan veritabanı</label><Input value={values.databaseName} onChange={event => updateValue('databaseName', event.target.value)} placeholder="Boş bırakılırsa sunucu geneli açılır" className={INPUT_CLASS} /></div>
+
+                  <div>
+                    <label className={LABEL_CLASS}>Varsayılan veritabanı</label>
+                    <Input value={values.databaseName} onChange={event => updateValue('databaseName', event.target.value)} placeholder="Boş bırakılırsa sunucu geneli açılır" className={INPUT_CLASS} />
+                  </div>
+
+                  <div className="border-t border-zinc-800/80 pt-4">
+                    <div className="mb-3 flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-600"><UserRound className="h-3.5 w-3.5 text-cyan-400" />Kimlik doğrulama</div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div><label className={LABEL_CLASS}>Kullanıcı adı</label><Input value={values.username} onChange={event => updateValue('username', event.target.value)} autoComplete="off" placeholder="coreor_app" className={INPUT_CLASS} required /></div>
+                      <div><label className={LABEL_CLASS}>Parola</label><div className="relative"><Input value={values.password} onChange={event => updateValue('password', event.target.value)} type={showPassword ? 'text' : 'password'} autoComplete="new-password" className={`${INPUT_CLASS} pr-10`} required /><button type="button" aria-label={showPassword ? 'Parolayı gizle' : 'Parolayı göster'} onClick={() => setShowPassword(previous => !previous)} className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-md text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300">{showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}</button></div></div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.04] p-3 text-[9px] leading-4 text-emerald-100"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />Parola uygulama sunucusunda kalıcı tutulmaz; yalnızca istek anında bu cihazdaki şifreli kasadan çözülür.</div>
                 </div>
               </FormSection>
 
-              <FormSection className="lg:col-span-5" icon={UserRound} title="Kimlik doğrulama" description="Kullanıcı adı ve parola bu cihazdaki şifreli kasada saklanır.">
-                <div className="grid gap-3">
-                  <div><label className={LABEL_CLASS}>Kullanıcı adı</label><Input value={values.username} onChange={event => updateValue('username', event.target.value)} autoComplete="off" placeholder="coreor_app" className={INPUT_CLASS} required /></div>
-                  <div><label className={LABEL_CLASS}>Parola</label><div className="relative"><Input value={values.password} onChange={event => updateValue('password', event.target.value)} type={showPassword ? 'text' : 'password'} autoComplete="new-password" className={`${INPUT_CLASS} pr-10`} required /><button type="button" aria-label={showPassword ? 'Parolayı gizle' : 'Parolayı göster'} onClick={() => setShowPassword(previous => !previous)} className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-md text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300">{showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}</button></div></div>
-                  <div className="flex items-start gap-2 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.04] p-3 text-[9px] leading-4 text-emerald-100"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />Parola uygulama sunucusunda kalıcı tutulmaz; istek anında şifreli kasadan çözülür.</div>
-                </div>
-              </FormSection>
+              <div className="grid content-start gap-4">
+                <FormSection icon={Database} title="Sunucu türü ve sürüm" description="Veritabanı motorunu ve uyumluluk profilini seçin.">
+                  <div className="grid gap-3">
+                    <div className="min-w-0"><label className={LABEL_CLASS}>Veritabanı motoru</label><SearchSelect value={values.databaseType} options={engineSelectOptions} onValueChange={engine => { updateValue('databaseType', engine); updateValue('version', engine === 'mariadb' ? '12.3' : '8.4'); }} searchPlaceholder="Motor ara…" dropdownMinWidth={380} showDescriptionInTrigger={false} /></div>
+                    <div className="min-w-0"><label className={LABEL_CLASS}>Sürüm profili</label><SearchSelect value={values.version} options={versionOptions} onValueChange={version => updateValue('version', version)} searchPlaceholder="Sürüm ara…" dropdownMinWidth={380} showDescriptionInTrigger={false} /></div>
+                    <div className="rounded-xl border border-cyan-500/15 bg-cyan-500/[0.04] px-3 py-2.5"><div className="text-[8px] uppercase tracking-[0.12em] text-cyan-500">Seçili sunucu</div><div className="mt-1 text-sm font-semibold text-cyan-100">{selectedEngine.label} {values.version}</div><div className="mt-1 text-[9px] leading-4 text-zinc-600">{selectedEngine.description}</div></div>
+                  </div>
+                </FormSection>
 
-              <FormSection className="lg:col-span-7" icon={Database} title="Motor ve sürüm" description="Arama yaparak motor veya uyumluluk profilini hızlıca seçin.">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="min-w-0"><label className={LABEL_CLASS}>Veritabanı motoru</label><SearchSelect value={values.databaseType} options={engineSelectOptions} onValueChange={engine => { updateValue('databaseType', engine); updateValue('version', engine === 'mariadb' ? '12.3' : '8.4'); }} searchPlaceholder="Motor ara…" dropdownMinWidth={380} showDescriptionInTrigger={false} /></div>
-                  <div className="min-w-0"><label className={LABEL_CLASS}>Sürüm profili</label><SearchSelect value={values.version} options={versionOptions} onValueChange={version => updateValue('version', version)} searchPlaceholder="Sürüm ara…" dropdownMinWidth={360} showDescriptionInTrigger={false} /></div>
-                </div>
-              </FormSection>
-
-              <FormSection className="lg:col-span-5" icon={Network} title="Güvenlik ve zaman aşımı" description="Bağlantı şifrelemesi ve ağ bekleme süresini belirleyin.">
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                  <div className="min-w-0"><label className={LABEL_CLASS}>TLS politikası</label><SearchSelect value={values.sslMode} options={TLS_OPTIONS} onValueChange={sslMode => updateValue('sslMode', sslMode)} searchPlaceholder="TLS seçeneği ara…" dropdownMinWidth={380} showDescriptionInTrigger={false} /></div>
-                  <div className="min-w-0"><label className={LABEL_CLASS}>Bağlantı zaman aşımı</label><SearchSelect value={values.connectionTimeoutMs} options={TIMEOUT_OPTIONS} onValueChange={timeout => updateValue('connectionTimeoutMs', timeout)} searchPlaceholder="Süre ara…" dropdownMinWidth={360} showDescriptionInTrigger={false} /></div>
-                </div>
-              </FormSection>
+                <FormSection icon={Network} title="Bağlantı politikası" description="TLS koruması ve ağ bekleme süresi.">
+                  <div className="grid gap-3">
+                    <div className="min-w-0"><label className={LABEL_CLASS}>TLS politikası</label><SearchSelect value={values.sslMode} options={TLS_OPTIONS} onValueChange={sslMode => updateValue('sslMode', sslMode)} searchPlaceholder="TLS seçeneği ara…" dropdownMinWidth={380} showDescriptionInTrigger={false} /></div>
+                    <div className="min-w-0"><label className={LABEL_CLASS}>Bağlantı zaman aşımı</label><SearchSelect value={values.connectionTimeoutMs} options={TIMEOUT_OPTIONS} onValueChange={timeout => updateValue('connectionTimeoutMs', timeout)} searchPlaceholder="Süre ara…" dropdownMinWidth={380} showDescriptionInTrigger={false} /></div>
+                  </div>
+                </FormSection>
+              </div>
             </div>
 
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <SummaryCard icon={Database} label="Motor" value={`${selectedEngine.label} ${values.version}`} />
-              <SummaryCard icon={Network} label="Hedef" value={`${values.host || 'host'}:${values.port || '3306'}`} mono />
-              <SummaryCard icon={Shield} label="TLS" value={TLS_OPTIONS.find(option => option.value === values.sslMode)?.label || values.sslMode} />
-              <SummaryCard icon={Clock3} label="Timeout" value={`${Number(values.connectionTimeoutMs || 0) / 1000} saniye`} />
+            <div className="mt-4 rounded-2xl border border-zinc-800 bg-black/15 p-3">
+              <div className="mb-2 text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-600">Bağlantı özeti</div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <SummaryItem icon={Server} label="Profil" value={values.name || 'Adsız bağlantı'} />
+                <SummaryItem icon={Network} label="Hedef" value={`${values.host || 'host'}:${values.port || '3306'}`} mono />
+                <SummaryItem icon={Database} label="Tür ve sürüm" value={`${selectedEngine.label} ${values.version}`} />
+                <SummaryItem icon={Clock3} label="Politika" value={`${tlsLabel} • ${timeoutLabel}`} />
+              </div>
             </div>
 
             {error && <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-[11px] text-red-300">{error}</div>}
@@ -290,7 +319,7 @@ export function ServerCreateModal({ open, onClose, onSubmit, initialServer, onUp
           </div>
 
           <footer className="flex shrink-0 flex-col gap-3 border-t border-white/10 bg-zinc-950/96 px-4 py-3 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div className="flex min-w-0 items-center gap-2 text-[9px] text-zinc-600"><Sparkles className="h-3.5 w-3.5 shrink-0 text-cyan-400" /><span className="truncate">Coreor bağlantı profili • MySQL / MariaDB</span></div>
+            <div className="flex min-w-0 items-center gap-2 text-[9px] text-zinc-600"><Sparkles className="h-3.5 w-3.5 shrink-0 text-cyan-400" /><span className="truncate">{selectedEngine.label} {values.version} • {values.host || 'host'}:{values.port || '3306'} • {tlsLabel}</span></div>
             <div className="flex shrink-0 items-center gap-2">
               <Button type="button" variant="outline" size="sm" className="h-9 flex-1 gap-1.5 sm:flex-none" onClick={handleTest} disabled={testing || submitting}>{testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Server className="h-3.5 w-3.5" />}Bağlantıyı test et</Button>
               <Button type="submit" size="sm" className="h-9 flex-1 sm:flex-none" disabled={submitting || testing}>{submitting && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}{isEditing ? 'Değişiklikleri kaydet' : 'Sunucuyu ekle'}</Button>
