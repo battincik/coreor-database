@@ -25,6 +25,7 @@ interface SearchSelectProps<T extends string = string> {
   dropdownMinWidth?: number;
   dropdownMaxWidth?: number;
   showDescriptionInTrigger?: boolean;
+  portal?: boolean;
 }
 
 interface PanelPosition {
@@ -48,7 +49,8 @@ export function SearchSelect<T extends string = string>({
   triggerClassName = '',
   dropdownMinWidth = 340,
   dropdownMaxWidth = 440,
-  showDescriptionInTrigger = true
+  showDescriptionInTrigger = true,
+  portal = false
 }: SearchSelectProps<T>) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -59,6 +61,7 @@ export function SearchSelect<T extends string = string>({
   const selected = options.find(option => option.value === value);
 
   const updatePanelPosition = useCallback(() => {
+    if (!portal) return;
     const trigger = triggerRef.current;
     if (!trigger || typeof window === 'undefined') return;
 
@@ -69,7 +72,7 @@ export function SearchSelect<T extends string = string>({
     const availableAbove = rect.top - viewportPadding - gap;
     const placement: PanelPosition['placement'] = availableBelow < 250 && availableAbove > availableBelow ? 'top' : 'bottom';
     const availableHeight = placement === 'top' ? availableAbove : availableBelow;
-    const maxHeight = Math.max(180, Math.min(360, availableHeight));
+    const maxHeight = Math.max(120, Math.min(360, availableHeight));
     const width = Math.min(
       Math.max(rect.width, dropdownMinWidth),
       dropdownMaxWidth,
@@ -89,7 +92,7 @@ export function SearchSelect<T extends string = string>({
         ? { top: rect.bottom + gap }
         : { bottom: window.innerHeight - rect.top + gap })
     });
-  }, [dropdownMaxWidth, dropdownMinWidth]);
+  }, [dropdownMaxWidth, dropdownMinWidth, portal]);
 
   useEffect(() => {
     const close = (event: MouseEvent) => {
@@ -109,7 +112,7 @@ export function SearchSelect<T extends string = string>({
   }, []);
 
   useLayoutEffect(() => {
-    if (!open) {
+    if (!open || !portal) {
       setPanelPosition(null);
       return;
     }
@@ -126,7 +129,7 @@ export function SearchSelect<T extends string = string>({
       window.removeEventListener('scroll', reposition, true);
       observer?.disconnect();
     };
-  }, [open, updatePanelPosition]);
+  }, [open, portal, updatePanelPosition]);
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('tr-TR');
@@ -138,72 +141,84 @@ export function SearchSelect<T extends string = string>({
     );
   }, [options, query]);
 
-  const panel = open && panelPosition && typeof document !== 'undefined'
-    ? createPortal(
-      <div
-        ref={panelRef}
-        className="fixed z-[520] flex overflow-hidden rounded-2xl border border-zinc-700/90 bg-zinc-950/98 shadow-[0_24px_70px_rgba(0,0,0,0.72)] backdrop-blur-xl"
-        style={{
-          left: panelPosition.left,
-          top: panelPosition.top,
-          bottom: panelPosition.bottom,
-          width: panelPosition.width,
-          maxHeight: panelPosition.maxHeight
-        }}
-      >
-        <div className="flex min-h-0 w-full flex-col">
-          <div className="flex h-11 shrink-0 items-center gap-2 border-b border-zinc-800 bg-zinc-900/70 px-3">
-            <Search className="h-3.5 w-3.5 text-cyan-400" />
-            <input
-              autoFocus
-              value={query}
-              onChange={event => setQuery(event.target.value)}
-              placeholder={searchPlaceholder}
-              className="h-8 min-w-0 flex-1 bg-transparent text-[11px] text-zinc-100 outline-none placeholder:text-zinc-600"
-            />
-            {query && (
-              <button type="button" className="rounded-md p-1.5 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" onClick={() => setQuery('')}>
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5" role="listbox">
-            {filtered.length === 0 ? (
-              <div className="px-4 py-10 text-center text-[10px] text-zinc-600">{emptyText}</div>
-            ) : filtered.map(option => {
-              const active = option.value === value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  role="option"
-                  aria-selected={active}
-                  onClick={() => {
-                    onValueChange(option.value);
-                    setOpen(false);
-                    setQuery('');
-                  }}
-                  className={`flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-cyan-500/12 text-cyan-50' : 'text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-100'}`}
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[11px] font-semibold">{option.label}</span>
-                    {option.description && <span className="mt-1 block text-[9px] leading-4 text-zinc-500">{option.description}</span>}
-                  </span>
-                  {option.badge && <span className="mt-0.5 shrink-0 rounded-full border border-zinc-700 bg-black/25 px-2 py-0.5 text-[8px] text-zinc-400">{option.badge}</span>}
-                  {active && <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-400" />}
-                </button>
-              );
-            })}
-          </div>
-          <div className="flex h-7 shrink-0 items-center justify-between border-t border-zinc-800 bg-black/30 px-3 text-[8px] text-zinc-600">
-            <span>{filtered.length} seçenek</span>
-            <span>ESC ile kapat</span>
-          </div>
+  const panelContents = (
+    <div className="flex min-h-0 w-full flex-col">
+      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-zinc-800 bg-zinc-900/70 px-3">
+        <Search className="h-3.5 w-3.5 text-cyan-400" />
+        <input
+          autoFocus
+          value={query}
+          onChange={event => setQuery(event.target.value)}
+          placeholder={searchPlaceholder}
+          className="h-8 min-w-0 flex-1 bg-transparent text-[11px] text-zinc-100 outline-none placeholder:text-zinc-600"
+        />
+        {query && (
+          <button type="button" className="rounded-md p-1.5 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" onClick={() => setQuery('')}>
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5" role="listbox">
+        {filtered.length === 0 ? (
+          <div className="px-4 py-10 text-center text-[10px] text-zinc-600">{emptyText}</div>
+        ) : filtered.map(option => {
+          const active = option.value === value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={active}
+              onClick={() => {
+                onValueChange(option.value);
+                setOpen(false);
+                setQuery('');
+              }}
+              className={`flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-cyan-500/12 text-cyan-50' : 'text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-100'}`}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-semibold">{option.label}</span>
+                {option.description && <span className="mt-1 block text-[9px] leading-4 text-zinc-500">{option.description}</span>}
+              </span>
+              {option.badge && <span className="mt-0.5 shrink-0 rounded-full border border-zinc-700 bg-black/25 px-2 py-0.5 text-[8px] text-zinc-400">{option.badge}</span>}
+              {active && <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-400" />}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex h-7 shrink-0 items-center justify-between border-t border-zinc-800 bg-black/30 px-3 text-[8px] text-zinc-600">
+        <span>{filtered.length} seçenek</span>
+        <span>ESC ile kapat</span>
+      </div>
+    </div>
+  );
+
+  const panel = !open || typeof document === 'undefined'
+    ? null
+    : portal
+      ? panelPosition
+        ? createPortal(
+          <div
+            ref={panelRef}
+            className="fixed z-[520] flex overflow-hidden rounded-2xl border border-zinc-700/90 bg-zinc-950/98 shadow-[0_24px_70px_rgba(0,0,0,0.72)] backdrop-blur-xl"
+            style={{
+              left: panelPosition.left,
+              top: panelPosition.top,
+              bottom: panelPosition.bottom,
+              width: panelPosition.width,
+              maxHeight: panelPosition.maxHeight
+            }}
+          >
+            {panelContents}
+          </div>,
+          document.body
+        )
+        : null
+      : (
+        <div ref={panelRef} className="absolute left-0 right-0 top-[calc(100%+7px)] z-[420] flex max-h-80 overflow-hidden rounded-2xl border border-zinc-700/90 bg-zinc-950/98 shadow-2xl backdrop-blur-xl">
+          {panelContents}
         </div>
-      </div>,
-      document.body
-    )
-    : null;
+      );
 
   return (
     <div ref={rootRef} className={`relative min-w-0 ${className}`}>
