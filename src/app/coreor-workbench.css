@@ -1,0 +1,101 @@
+:root {
+  --sql-plain: #c7d2d9;
+  --sql-keyword: #22d3ee;
+  --sql-type: #a78bfa;
+  --sql-function: #fbbf24;
+  --sql-string: #4ade80;
+  --sql-number: #60a5fa;
+  --sql-comment: #64748b;
+  --sql-identifier: #e2e8f0;
+  --sql-operator: #f472b6;
+  --sql-parameter: #fb7185;
+  --sql-caret: #e6edf3;
+  --coreor-scroll-track: rgba(9, 9, 11, .78);
+  --coreor-scroll-thumb: rgba(82, 82, 91, .78);
+  --coreor-scroll-thumb-hover: rgba(113, 113, 122, .95);
+}
+
+html[data-syntax-theme='dracula'] {
+  --sql-plain: #f8f8f2; --sql-keyword: #ff79c6; --sql-type: #8be9fd; --sql-function: #50fa7b;
+  --sql-string: #f1fa8c; --sql-number: #bd93f9; --sql-comment: #6272a4; --sql-identifier: #f8f8f2;
+  --sql-operator: #ff79c6; --sql-parameter: #ffb86c; --coreor-editor-bg: #282a36; --sql-caret: #f8f8f2;
+}
+html[data-syntax-theme='nord'] {
+  --sql-plain: #d8dee9; --sql-keyword: #81a1c1; --sql-type: #8fbcbb; --sql-function: #88c0d0;
+  --sql-string: #a3be8c; --sql-number: #b48ead; --sql-comment: #616e88; --sql-identifier: #e5e9f0;
+  --sql-operator: #81a1c1; --sql-parameter: #d08770; --coreor-editor-bg: #2e3440; --sql-caret: #eceff4;
+}
+html[data-syntax-theme='monokai'] {
+  --sql-plain: #f8f8f2; --sql-keyword: #f92672; --sql-type: #66d9ef; --sql-function: #a6e22e;
+  --sql-string: #e6db74; --sql-number: #ae81ff; --sql-comment: #75715e; --sql-identifier: #f8f8f2;
+  --sql-operator: #f92672; --sql-parameter: #fd971f; --coreor-editor-bg: #272822; --sql-caret: #f8f8f2;
+}
+html[data-syntax-theme='github-dark'] {
+  --sql-plain: #c9d1d9; --sql-keyword: #ff7b72; --sql-type: #79c0ff; --sql-function: #d2a8ff;
+  --sql-string: #a5d6ff; --sql-number: #79c0ff; --sql-comment: #8b949e; --sql-identifier: #e6edf3;
+  --sql-operator: #ff7b72; --sql-parameter: #ffa657; --coreor-editor-bg: #0d1117; --sql-caret: #e6edf3;
+}
+html[data-syntax-theme='github-light'] {
+  --sql-plain: #24292f; --sql-keyword: #cf222e; --sql-type: #0550ae; --sql-function: #8250df;
+  --sql-string: #0a3069; --sql-number: #0550ae; --sql-comment: #6e7781; --sql-identifier: #24292f;
+  --sql-operator: #cf222e; --sql-parameter: #953800; --coreor-editor-bg: #ffffff; --sql-caret: #24292f;
+}
+
+.coreor-sql-syntax { font-variant-ligatures: contextual; tab-size: 2; }
+
+/* Let Radix own table scrolling so both bars stay pinned to the visible viewport. */
+.coreor-radix-scroll div.w-full.overflow-auto:has(> table) {
+  overflow: visible !important;
+  width: max-content !important;
+  min-width: 100% !important;
+}
+.coreor-radix-scroll div.w-full.overflow-auto:has(> table) > table { min-width: 100%; }
+
+.coreor-scroll-frame {
+  scrollbar-gutter: stable both-edges;
+  scrollbar-width: auto;
+  scrollbar-color: var(--coreor-scroll-thumb) var(--coreor-scroll-track);
+}
+.coreor-scroll-frame::-webkit-scrollbar { width: 12px; height: 12px; }
+.coreor-scroll-frame::-webkit-scrollbar-track { background: var(--coreor-scroll-track); border: 1px solid rgba(63,63,70,.38); }
+.coreor-scroll-frame::-webkit-scrollbar-thumb { background: var(--coreor-scroll-thumb); border: 3px solid var(--coreor-scroll-track); border-radius: 999px; min-height: 44px; min-width: 44px; }
+.coreor-scroll-frame::-webkit-scrollbar-thumb:hover { background: var(--coreor-scroll-thumb-hover); }
+.coreor-scroll-frame::-webkit-scrollbar-corner { background: var(--coreor-scroll-track); }
+
+.coreor-hide-scrollbar,
+.coreor-schema-canvas,
+.coreor-tab-strip,
+div.h-8.overflow-x-auto.border-b:has([role='tab']) {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.coreor-hide-scrollbar::-webkit-scrollbar,
+.coreor-schema-canvas::-webkit-scrollbar,
+.coreor-tab-strip::-webkit-scrollbar,
+div.h-8.overflow-x-auto.border-b:has([role='tab'])::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+/* Older utility screens still using native select receive the same transparent visual language. */
+select:not([multiple]) {
+  color-scheme: dark;
+  border-radius: .65rem;
+  border-color: rgba(63,63,70,.82);
+  background-color: rgba(9,9,11,.72);
+  color: rgb(212,212,216);
+  outline: none;
+}
+select:not([multiple]):focus { border-color: rgba(34,211,238,.55); box-shadow: 0 0 0 3px rgba(34,211,238,.08); }
+select:not([multiple]) option { background: rgb(9,9,11); color: rgb(228,228,231); }
+
+.coreor-range { appearance: none; height: 4px; border-radius: 999px; background: rgba(63,63,70,.85); outline: none; }
+.coreor-range::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; border-radius: 999px; background: #22d3ee; border: 3px solid #09090b; box-shadow: 0 0 0 1px rgba(34,211,238,.4); cursor: pointer; }
+.coreor-range::-moz-range-thumb { width: 14px; height: 14px; border-radius: 999px; background: #22d3ee; border: 3px solid #09090b; cursor: pointer; }
+
+html[data-coreor-theme='light'] {
+  --coreor-scroll-track: rgba(228,228,231,.9);
+  --coreor-scroll-thumb: rgba(113,113,122,.62);
+  --coreor-scroll-thumb-hover: rgba(82,82,91,.82);
+}

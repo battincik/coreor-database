@@ -1,460 +1,253 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
 import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { signOut, useSession } from 'next-auth/react';
 import {
-  AlertTriangle,
+  Activity,
+  Braces,
   ChevronDown,
   ChevronRight,
-  ChevronUp,
-  Code,
-  Copy,
+  Circle,
+  Code2,
   Database,
+  Download,
+  FileCode2,
+  FunctionSquare,
+  Gauge,
+  HardDrive,
+  KeyRound,
   LogOut,
-  Pencil,
+  MoreHorizontal,
+  Network,
   Plus,
   RefreshCw,
   Search,
   Server,
   Settings2,
-  Table
+  ShieldCheck,
+  Sparkles,
+  Table2,
+  Trash2,
+  UserRound,
+  View,
+  Wifi,
+  WifiOff,
+  Wrench,
+  X,
+  Zap
 } from 'lucide-react';
-import { signOut, useSession } from 'next-auth/react';
-import type { DatabaseServerConfig, SidebarProps } from 'types';
+import type { DatabaseEngine, DatabaseServerConfig, SidebarProps } from 'types';
+import { DatabaseContext } from '@/context/DatabaseContext';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useLanguage } from '@/context/LanguageContext';
-import { DatabaseContext } from '@/context/DatabaseContext';
 import { ServerCreateModal } from '@/components/server-create-modal';
-import { useAuth } from '@/context/AuthContext';
-import { fetchServerTables, fetchTableInfo } from '@/lib/databaseApi';
-import { EmptyState, ErrorState, LoadingState } from '@/components/app-state';
-import { recordActivity } from '@/lib/activityConsole';
+import { DatabaseActionConfirmModal, type DatabaseActionConfirmation } from '@/components/database-action-confirm-modal';
 import { useAppContextMenu } from '@/components/app-context-menu';
-import { openQueryTab, qualifiedSqlName, quoteSqlIdentifier } from '@/lib/queryWorkspaceEvents';
-import { OPEN_SETTINGS_MODAL_EVENT, dispatchDatabaseTool } from '@/lib/databaseToolEvents';
+import { executeDatabaseQuery, fetchServerTables } from '@/lib/databaseApi';
+import { openQueryTab } from '@/lib/queryWorkspaceEvents';
+import { OPEN_IMPORT_EXPORT_EVENT, OPEN_SETTINGS_MODAL_EVENT } from '@/lib/databaseToolEvents';
+import { databaseEngineDefinition, databaseEngineFamily, databaseEngineLabel, quoteDatabaseIdentifier, qualifiedDatabaseTable } from '@/lib/databaseEngines';
 
-type ColumnMeta = { name: string; type: string; key: string };
-
-function columnTypeClass(sqlType: string) {
-  const value = sqlType.toUpperCase();
-  if (/\b(TINYINT|SMALLINT|MEDIUMINT|INT|INTEGER|BIGINT|DECIMAL|NUMERIC|FLOAT|DOUBLE|REAL|BIT|YEAR)\b/.test(value)) return 'text-blue-500';
-  if (/\b(DATE|DATETIME|TIMESTAMP|TIME|YEAR)\b/.test(value)) return 'text-red-300 font-semibold';
-  if (/\b(BOOL|BOOLEAN)\b/.test(value)) return 'text-purple-500';
-  if (/\b(JSON|BLOB|LONGBLOB|MEDIUMBLOB|TINYBLOB|VARBINARY|BINARY)\b/.test(value)) return 'text-yellow-500';
-  if (/\b(CHAR|VARCHAR|TEXT|TINYTEXT|MEDIUMTEXT|LONGTEXT|ENUM|SET)\b/.test(value)) return 'text-green-500';
-  return 'text-muted-foreground';
+interface CreateDatabaseState {
+  server: DatabaseServerConfig;
+  name: string;
+  busy: boolean;
+  error: string | null;
 }
 
 function initials(name?: string | null, email?: string | null) {
-  return (name?.trim() || email?.trim() || 'K')
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase())
-    .join('');
+  return (name?.trim() || email?.trim() || 'C').split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase()).join('');
 }
 
-function tableTemplate(
-  databaseName: string,
-  tableName: string,
-  kind: 'insert' | 'update' | 'delete' | 'truncate' | 'drop'
-) {
-  const table = qualifiedSqlName(databaseName, tableName);
-  if (kind === 'insert') return `INSERT INTO ${table} (\n  \`column_name\`\n) VALUES (\n  'value'\n);`;
-  if (kind === 'update') return `UPDATE ${table}\nSET \`column_name\` = 'new_value'\nWHERE \`primary_key\` = 'value'\nLIMIT 1;`;
-  if (kind === 'delete') return `DELETE FROM ${table}\nWHERE \`primary_key\` = 'value'\nLIMIT 1;`;
-  if (kind === 'truncate') return `-- DİKKAT: Bu işlem tablodaki tüm satırları kalıcı olarak siler.\nTRUNCATE TABLE ${table};`;
-  return `-- DİKKAT: Bu işlem tabloyu ve içindeki tüm verileri kalıcı olarak siler.\nDROP TABLE ${table};`;
+function objectTemplate(engine: DatabaseEngine, databaseName: string, type: string, tableName = 'new_object') {
+  const family = databaseEngineFamily(engine);
+  const object = quoteDatabaseIdentifier(tableName, engine);
+  const table = qualifiedDatabaseTable(databaseName, tableName, engine);
+  if (type === 'table') return `CREATE TABLE ${table} (\n  id ${family === 'mysql' ? 'BIGINT UNSIGNED AUTO_INCREMENT' : family === 'mssql' ? 'BIGINT IDENTITY(1,1)' : 'BIGSERIAL'} PRIMARY KEY,\n  created_at ${family === 'mssql' ? 'DATETIME2' : 'TIMESTAMP'} NOT NULL DEFAULT ${family === 'mssql' ? 'SYSUTCDATETIME()' : 'CURRENT_TIMESTAMP'}\n);`;
+  if (type === 'view') return `CREATE VIEW ${object} AS\nSELECT *\nFROM ${qualifiedDatabaseTable(databaseName, 'source_table', engine)};`;
+  if (type === 'procedure') return family === 'mysql'
+    ? `DELIMITER //\nCREATE PROCEDURE ${object}()\nBEGIN\n  SELECT CURRENT_TIMESTAMP;\nEND //\nDELIMITER ;`
+    : family === 'mssql'
+      ? `CREATE PROCEDURE ${object}\nAS\nBEGIN\n  SET NOCOUNT ON;\n  SELECT SYSUTCDATETIME() AS current_time;\nEND;`
+      : `CREATE PROCEDURE ${object}()\nLANGUAGE SQL\nAS $$\n  SELECT CURRENT_TIMESTAMP;\n$$;`;
+  if (type === 'function') return family === 'mssql'
+    ? `CREATE FUNCTION ${object}()\nRETURNS DATETIME2\nAS\nBEGIN\n  RETURN SYSUTCDATETIME();\nEND;`
+    : `CREATE FUNCTION ${object}()\nRETURNS TIMESTAMP\n${family === 'mysql' ? 'DETERMINISTIC\nRETURN CURRENT_TIMESTAMP' : 'LANGUAGE SQL\nAS $$ SELECT CURRENT_TIMESTAMP $$'};`;
+  if (type === 'trigger') return `CREATE TRIGGER ${object}\n${family === 'mssql' ? 'ON' : 'BEFORE INSERT ON'} ${qualifiedDatabaseTable(databaseName, 'target_table', engine)}\n${family === 'mssql' ? 'AFTER INSERT\nAS\nBEGIN\n  SET NOCOUNT ON;\nEND;' : 'FOR EACH ROW\nBEGIN\n  -- trigger body\nEND;'}`;
+  if (type === 'event') return family === 'mysql' ? `CREATE EVENT ${object}\nON SCHEDULE EVERY 1 DAY\nDO\n  SELECT CURRENT_TIMESTAMP;` : `-- ${databaseEngineLabel(engine)} zamanlanmış görevleri için sunucu scheduler/agent kullanın.`;
+  return `CREATE INDEX ${object}\nON ${qualifiedDatabaseTable(databaseName, 'target_table', engine)} (${quoteDatabaseIdentifier('column_name', engine)});`;
 }
 
-export function Sidebar({
-  onDatabaseSelect,
-  onTableSelect,
-  selectedDatabase,
-  selectedTable
-}: SidebarProps) {
+function maintenanceSql(engine: DatabaseEngine, database: string, table: string, operation: 'analyze' | 'check' | 'optimize' | 'repair') {
+  const family = databaseEngineFamily(engine);
+  const target = qualifiedDatabaseTable(database, table, engine);
+  if (family === 'mysql') return `${operation.toUpperCase()} TABLE ${target};`;
+  if (family === 'postgresql') return operation === 'analyze' ? `ANALYZE ${target};` : operation === 'optimize' ? `VACUUM (ANALYZE) ${target};` : `-- ${operation} işlemi için PostgreSQL katalog ve loglarını inceleyin.\nANALYZE ${target};`;
+  return operation === 'analyze' ? `UPDATE STATISTICS ${target};` : operation === 'check' ? `DBCC CHECKTABLE ('${table}') WITH NO_INFOMSGS;` : `ALTER INDEX ALL ON ${target} REORGANIZE;`;
+}
+
+function CreateDatabaseModal({ state, onChange, onClose, onCreate }: {
+  state: CreateDatabaseState | null;
+  onChange: (state: CreateDatabaseState) => void;
+  onClose: () => void;
+  onCreate: () => void | Promise<void>;
+}) {
+  if (!state || typeof document === 'undefined') return null;
+  return createPortal(<div className="fixed inset-0 z-[610] flex items-center justify-center p-4"><button type="button" className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={state.busy ? undefined : onClose} /><div className="relative z-10 w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl"><header className="flex items-center gap-3 border-b border-zinc-800 px-5 py-4"><div className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10"><Database className="h-4 w-4 text-cyan-300" /></div><div className="min-w-0 flex-1"><h2 className="text-sm font-semibold">Yeni veritabanı</h2><p className="mt-0.5 truncate text-[9px] text-zinc-600">{state.server.name} • {databaseEngineLabel(state.server.databaseType)}</p></div><Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}><X className="h-4 w-4" /></Button></header><div className="p-5"><label className="mb-2 block text-[10px] text-zinc-400">Veritabanı adı</label><Input autoFocus value={state.name} onChange={event => onChange({ ...state, name: event.target.value, error: null })} className="h-10 bg-black/25 font-mono" placeholder="coreor_app" />{state.error && <div className="mt-3 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[10px] text-red-300">{state.error}</div>}</div><footer className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3"><Button variant="ghost" size="sm" onClick={onClose}>İptal</Button><Button size="sm" disabled={!/^[A-Za-z0-9_$-]+$/.test(state.name) || state.busy} onClick={() => void onCreate()}>{state.busy && <Activity className="mr-1.5 h-3.5 w-3.5 animate-spin" />}Oluştur</Button></footer></div></div>, document.body);
+}
+
+export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatabase, selectedTable }: SidebarProps) {
   const { data: session } = useSession();
-  const { t } = useLanguage();
   const { activeToken } = useAuth();
+  const context = useContext(DatabaseContext)!;
   const { openContextMenu } = useAppContextMenu();
-  const {
-    servers,
-    activeServerId,
-    setActiveServerId,
-    addServer,
-    updateServer,
-    loadServers,
-    isServersLoading,
-    isAddingServer,
-    serversError
-  } = useContext(DatabaseContext)!;
-
-  const activeServer = servers.find(item => item.id === activeServerId) ?? servers[0] ?? null;
-  const [expandedServers, setExpandedServers] = useState<Record<string, boolean>>({});
-  const [expandedDatabases, setExpandedDatabases] = useState<Record<string, Record<string, boolean>>>({});
-  const [expandedTables, setExpandedTables] = useState<Record<string, Record<string, boolean>>>({});
-  const [columns, setColumns] = useState<Record<string, ColumnMeta[]>>({});
-  const [columnLoading, setColumnLoading] = useState<Record<string, boolean>>({});
-  const [columnErrors, setColumnErrors] = useState<Record<string, string | null>>({});
-  const [catalogLoading, setCatalogLoading] = useState<Record<string, boolean>>({});
-  const [searchFilter, setSearchFilter] = useState<'database' | 'table'>('table');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isServerModalOpen, setIsServerModalOpen] = useState(false);
+  const { servers, activeServerId, setActiveServerId, addServer, updateServer, loadServers, isAddingServer, isServersLoading } = context;
+  const [search, setSearch] = useState('');
+  const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
+  const [expandedDatabases, setExpandedDatabases] = useState<Set<string>>(new Set());
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [serverModalOpen, setServerModalOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<DatabaseServerConfig | null>(null);
-
-  const displayName = session?.user?.name || 'Coreor kullanıcısı';
-  const displayEmail = session?.user?.email || 'GitHub oturumu';
-  const displayImage = session?.user?.image || undefined;
-
-  useEffect(() => {
-    const openHandler = () => {
-      setEditingServer(null);
-      setIsServerModalOpen(true);
-    };
-    const editHandler = (event: Event) => {
-      const serverId = (event as CustomEvent<{ serverId?: string }>).detail?.serverId || activeServerId;
-      const server = servers.find(item => item.id === serverId) || null;
-      if (!server) return;
-      setEditingServer(server);
-      setIsServerModalOpen(true);
-    };
-    window.addEventListener('coreor:open-server-modal', openHandler);
-    window.addEventListener('coreor:edit-server-modal', editHandler);
-    return () => {
-      window.removeEventListener('coreor:open-server-modal', openHandler);
-      window.removeEventListener('coreor:edit-server-modal', editHandler);
-    };
-  }, [servers, activeServerId]);
+  const [confirmation, setConfirmation] = useState<DatabaseActionConfirmation | null>(null);
+  const [createDatabase, setCreateDatabase] = useState<CreateDatabaseState | null>(null);
+  const [online, setOnline] = useState(true);
 
   useEffect(() => {
-    if (!activeServerId && servers[0]) setActiveServerId(servers[0].id);
-  }, [servers, activeServerId]);
+    setOnline(navigator.onLine);
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener('online', update); window.addEventListener('offline', update);
+    return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); };
+  }, []);
+  useEffect(() => {
+    if (!activeServerId) return;
+    setExpandedServers(previous => new Set(previous).add(activeServerId));
+  }, [activeServerId]);
+  useEffect(() => {
+    const open = () => { setEditingServer(null); setServerModalOpen(true); };
+    const edit = (event: Event) => {
+      const id = (event as CustomEvent<{ serverId?: string }>).detail?.serverId;
+      const server = servers.find(item => item.id === id);
+      if (server) { setEditingServer(server); setServerModalOpen(true); }
+    };
+    window.addEventListener('coreor:open-server-modal', open);
+    window.addEventListener('coreor:edit-server-modal', edit);
+    return () => { window.removeEventListener('coreor:open-server-modal', open); window.removeEventListener('coreor:edit-server-modal', edit); };
+  }, [servers]);
 
-  const filteredServers = useMemo(() => {
-    const query = searchQuery.toLocaleLowerCase('tr-TR');
-    if (!query) return servers;
-    return servers
-      .map(serverItem => ({
-        ...serverItem,
-        databases: (serverItem.databases || [])
-          .map(database => ({
-            ...database,
-            tables: searchFilter === 'table'
-              ? database.tables.filter(tableName => tableName.toLocaleLowerCase('tr-TR').includes(query))
-              : database.tables,
-            tableDetails: searchFilter === 'table'
-              ? database.tableDetails.filter(table => table.tableName.toLocaleLowerCase('tr-TR').includes(query))
-              : database.tableDetails
-          }))
-          .filter(database => searchFilter === 'database'
-            ? database.name.toLocaleLowerCase('tr-TR').includes(query)
-            : database.tables.length > 0)
-      }))
-      .filter(serverItem => (serverItem.databases || []).length > 0);
-  }, [servers, searchFilter, searchQuery]);
+  const normalizedSearch = search.trim().toLocaleLowerCase('tr-TR');
+  const filteredServers = useMemo(() => servers.map(server => ({
+    ...server,
+    databases: (server.databases || []).map(database => ({ ...database, tables: database.tables.filter(table => !normalizedSearch || `${server.name} ${database.name} ${table}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch)) })).filter(database => !normalizedSearch || database.tables.length || `${server.name} ${database.name}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch))
+  })).filter(server => !normalizedSearch || server.databases?.length || `${server.name} ${server.host} ${databaseEngineLabel(server.databaseType)}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch)), [servers, normalizedSearch]);
 
-  const loadCatalog = async (serverId: string) => {
-    if (!activeToken || catalogLoading[serverId]) return;
-    setCatalogLoading(previous => ({ ...previous, [serverId]: true }));
-    try {
-      await fetchServerTables(serverId, activeToken);
-      await loadServers();
-    } finally {
-      setCatalogLoading(previous => ({ ...previous, [serverId]: false }));
-    }
+  const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, value: string, force?: boolean) => setter(previous => {
+    const next = new Set(previous); const enabled = force ?? !next.has(value); if (enabled) next.add(value); else next.delete(value); return next;
+  });
+  const expandAll = (server?: DatabaseServerConfig) => {
+    const targets = server ? [server] : servers;
+    setExpandedServers(new Set(targets.map(item => item.id)));
+    setExpandedDatabases(new Set(targets.flatMap(item => (item.databases || []).map(database => `${item.id}:${database.name}`))));
   };
-
-  const selectServer = async (serverId: string) => {
-    const serverItem = servers.find(item => item.id === serverId);
-    const opening = !expandedServers[serverId];
-    setActiveServerId(serverId);
-    setExpandedServers(previous => ({ ...previous, [serverId]: opening }));
-    onDatabaseSelect(null);
-    onTableSelect(null);
-    recordActivity({
-      level: 'info',
-      category: 'navigation',
-      title: 'Sunucu seçildi',
-      message: serverItem?.name || serverId,
-      serverId,
-      serverName: serverItem?.name,
-      host: serverItem?.host
-    });
-    if (opening && (serverItem?.databases || []).length === 0) {
-      await loadCatalog(serverId).catch(() => undefined);
-    }
+  const collapseAll = () => { setExpandedServers(new Set()); setExpandedDatabases(new Set()); };
+  const refreshServer = async (server: DatabaseServerConfig) => {
+    if (!activeToken) return;
+    await fetchServerTables(server.id, activeToken); await loadServers();
   };
+  const runDangerous = (server: DatabaseServerConfig, database: string, table: string, sql: string, title: string, description: string, label: string) => setConfirmation({
+    title, description, expectedText: table, sql, confirmLabel: label,
+    onConfirm: async () => { if (!activeToken) throw new Error('Oturum bulunamadı.'); await executeDatabaseQuery(server.id, sql, activeToken, database); await refreshServer(server); if (/DROP\s+TABLE/i.test(sql)) onTableSelect(null); }
+  });
+  const openSql = (server: DatabaseServerConfig, database: string | null, title: string, sql: string, runImmediately = false) => openQueryTab({ serverId: server.id, databaseName: database, title, sql, runImmediately });
 
-  const selectDatabase = (serverId: string, databaseName: string) => {
-    const serverItem = servers.find(item => item.id === serverId);
-    setActiveServerId(serverId);
-    onDatabaseSelect(databaseName);
-    onTableSelect(null);
-    recordActivity({
-      level: 'info',
-      category: 'navigation',
-      title: 'Veritabanı seçildi',
-      serverId,
-      serverName: serverItem?.name,
-      host: serverItem?.host,
-      databaseName
-    });
-  };
+  const serverMenu = (event: React.MouseEvent, server: DatabaseServerConfig) => openContextMenu(event, [
+    { id: 'activate', label: 'Sunucuyu etkinleştir', icon: Server, onSelect: () => setActiveServerId(server.id) },
+    { id: 'create-db', label: 'Yeni veritabanı oluştur', icon: Plus, onSelect: () => setCreateDatabase({ server, name: '', busy: false, error: null }) },
+    { id: 'query', label: 'Sunucu geneli sorgu', icon: Code2, onSelect: () => openSql(server, null, `${server.name} sorgu`, '') },
+    { id: 'refresh', label: 'Bütün kataloğu yenile', icon: RefreshCw, onSelect: () => void refreshServer(server) },
+    { id: 'sep1', separator: true },
+    { id: 'expand', label: 'Hepsini genişlet', icon: ChevronDown, onSelect: () => expandAll(server) },
+    { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: collapseAll },
+    { id: 'edit', label: 'Bağlantıyı düzenle', icon: Settings2, onSelect: () => { setEditingServer(server); setServerModalOpen(true); } }
+  ], `${server.name} • ${databaseEngineLabel(server.databaseType)}`);
 
-  const selectTable = (
-    serverId: string,
-    databaseName: string,
-    tableName: string,
-    view?: 'structure' | 'data'
-  ) => {
-    const serverItem = servers.find(item => item.id === serverId);
-    setActiveServerId(serverId);
-    onDatabaseSelect(databaseName);
-    onTableSelect(tableName);
-    if (view) window.dispatchEvent(new CustomEvent('coreor:open-table-view', { detail: { view } }));
-    recordActivity({
-      level: 'info',
-      category: 'navigation',
-      title: 'Tablo seçildi',
-      serverId,
-      serverName: serverItem?.name,
-      host: serverItem?.host,
-      databaseName,
-      tableName
-    });
-  };
+  const databaseMenu = (event: React.MouseEvent, server: DatabaseServerConfig, database: string) => openContextMenu(event, [
+    { id: 'open', label: 'Veritabanını aç', icon: Database, onSelect: () => { setActiveServerId(server.id); onDatabaseSelect(database); onTableSelect(null); } },
+    { id: 'query', label: 'Yeni SQL sorgusu', icon: Code2, onSelect: () => openSql(server, database, `${database} sorgu`, '') },
+    { id: 'schema', label: 'Şema grafiğini aç', icon: Network, onSelect: () => { setActiveServerId(server.id); onDatabaseSelect(database); onTableSelect(null); window.dispatchEvent(new Event('coreor:open-schema-graph')); } },
+    { id: 'new', label: 'Yeni oluştur', icon: Plus, children: [
+      ['table', 'Tablo', Table2], ['view', 'View', View], ['procedure', 'Stored procedure', Zap], ['function', 'Function', FunctionSquare], ['trigger', 'Trigger', Activity], ['event', 'Event / zamanlanmış olay', Sparkles], ['index', 'İndeks', KeyRound]
+    ].map(([type, label, icon]) => ({ id: `new-${type}`, label: String(label), icon: icon as typeof Plus, onSelect: () => openSql(server, database, `Yeni ${label}`, objectTemplate(server.databaseType || 'mysql', database, String(type))) })) },
+    { id: 'routines', label: 'Rutinleri yürüt', icon: Braces, children: [
+      { id: 'call', label: 'Procedure çağır', icon: Zap, onSelect: () => openSql(server, database, 'Procedure çağır', databaseEngineFamily(server.databaseType) === 'postgresql' ? 'CALL procedure_name();' : 'CALL procedure_name();') },
+      { id: 'function', label: 'Function çalıştır', icon: FunctionSquare, onSelect: () => openSql(server, database, 'Function çalıştır', 'SELECT function_name();') }
+    ] },
+    { id: 'export', label: 'Veritabanını SQL olarak dışa aktar', icon: Download, onSelect: () => { setActiveServerId(server.id); onDatabaseSelect(database); window.dispatchEvent(new Event(OPEN_IMPORT_EXPORT_EVENT)); } },
+    { id: 'sep2', separator: true },
+    { id: 'expand', label: 'Hepsini genişlet', icon: ChevronDown, onSelect: () => { toggle(setExpandedServers, server.id, true); toggle(setExpandedDatabases, `${server.id}:${database}`, true); } },
+    { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: () => toggle(setExpandedDatabases, `${server.id}:${database}`, false) },
+    { id: 'refresh', label: 'Yenile', icon: RefreshCw, onSelect: () => void refreshServer(server) }
+  ], `${server.name}.${database}`);
 
-  const toggleDatabase = (serverId: string, databaseName: string) => setExpandedDatabases(previous => ({
-    ...previous,
-    [serverId]: {
-      ...(previous[serverId] || {}),
-      [databaseName]: !previous[serverId]?.[databaseName]
-    }
-  }));
-
-  const toggleTable = async (serverId: string, databaseName: string, tableName: string) => {
-    const key = `${serverId}:${databaseName}:${tableName}`;
-    const opening = !expandedTables[serverId]?.[key];
-    setExpandedTables(previous => ({
-      ...previous,
-      [serverId]: { ...(previous[serverId] || {}), [key]: opening }
-    }));
-    if (!opening || columns[key] || !activeToken) return;
-    setColumnLoading(previous => ({ ...previous, [key]: true }));
-    setColumnErrors(previous => ({ ...previous, [key]: null }));
-    try {
-      const info = await fetchTableInfo(serverId, databaseName, tableName, activeToken);
-      setColumns(previous => ({
-        ...previous,
-        [key]: info.columns.map(column => ({ name: column.Field, type: column.Type, key: column.Key }))
-      }));
-    } catch (error) {
-      setColumnErrors(previous => ({
-        ...previous,
-        [key]: error instanceof Error ? error.message : 'Tablo bilgileri yüklenemedi.'
-      }));
-    } finally {
-      setColumnLoading(previous => ({ ...previous, [key]: false }));
-    }
-  };
-
-  const openServerMenu = (event: React.MouseEvent, serverItem: DatabaseServerConfig) => {
-    const endpoint = `${serverItem.host || ''}:${serverItem.port || 3306}`;
+  const tableMenu = (event: React.MouseEvent, server: DatabaseServerConfig, database: string, table: string) => {
+    const engine = server.databaseType || 'mysql';
+    const qualified = qualifiedDatabaseTable(database, table, engine);
     openContextMenu(event, [
-      { id: 'query', label: 'Yeni sunucu geneli sorgu', icon: Code, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName: null, title: `${serverItem.name} sorgu` }) },
-      { id: 'connection', label: 'Bağlantı ve sürüm sorgusu', icon: Server, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName: null, title: 'Bağlantı bilgisi', sql: 'SELECT VERSION() AS version, CURRENT_USER() AS currentUser, DATABASE() AS currentDatabase;', runImmediately: true }) },
-      { id: 'edit', label: 'Bağlantıyı düzenle', icon: Pencil, onSelect: () => { setEditingServer(serverItem); setIsServerModalOpen(true); } },
-      { id: 'separator', separator: true },
-      { id: 'refresh', label: 'Kataloğu yenile', icon: RefreshCw, onSelect: () => void loadCatalog(serverItem.id) },
-      { id: 'copy', label: 'Host ve portu kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(endpoint) }
-    ], serverItem.name);
+      { id: 'data', label: 'Verileri aç', icon: Table2, onSelect: () => { setActiveServerId(server.id); onDatabaseSelect(database); onTableSelect(table); } },
+      { id: 'structure', label: 'Yapıyı aç', icon: Wrench, onSelect: () => { setActiveServerId(server.id); onDatabaseSelect(database); onTableSelect(table); } },
+      { id: 'query', label: 'SELECT sorgusu', icon: Code2, onSelect: () => openSql(server, database, `${table} SELECT`, `SELECT * FROM ${qualified}\nLIMIT 100;`) },
+      { id: 'new', label: 'Yeni oluştur', icon: Plus, children: [
+        ['table', 'Tablo', Table2], ['view', 'View', View], ['procedure', 'Stored procedure', Zap], ['function', 'Function', FunctionSquare], ['trigger', 'Trigger', Activity], ['event', 'Event', Sparkles], ['index', 'İndeks', KeyRound]
+      ].map(([type, label, icon]) => ({ id: `new-${type}`, label: String(label), icon: icon as typeof Plus, onSelect: () => openSql(server, database, `Yeni ${label}`, objectTemplate(engine, database, String(type))) })) },
+      { id: 'routines', label: 'Rutinleri yürüt', icon: Braces, onSelect: () => openSql(server, database, `${table} rutin`, `CALL routine_name(${quoteDatabaseIdentifier('parameter', engine)});`) },
+      { id: 'sep1', separator: true },
+      { id: 'truncate', label: 'Boş tablo — bütün veriyi sil', icon: Trash2, danger: true, onSelect: () => runDangerous(server, database, table, `TRUNCATE TABLE ${qualified};`, `${table} tablosunu boşalt`, 'Tablodaki bütün satırlar tek işlemde kalıcı olarak silinecek.', 'Tabloyu boşalt') },
+      { id: 'drop', label: 'Düşür — tabloyu sil', icon: Trash2, danger: true, onSelect: () => runDangerous(server, database, table, `DROP TABLE ${qualified};`, `${table} tablosunu düşür`, 'Tablo yapısı, verileri, indeksleri ve bağlı nesneleri kalıcı olarak silinebilir.', 'Tabloyu sil') },
+      { id: 'sep2', separator: true },
+      { id: 'export', label: 'SQL olarak dışa aktar', icon: Download, onSelect: () => { setActiveServerId(server.id); onDatabaseSelect(database); onTableSelect(table); window.dispatchEvent(new Event(OPEN_IMPORT_EXPORT_EVENT)); } },
+      { id: 'maintenance', label: 'Bakım', icon: Wrench, children: [
+        ['analyze', 'İstatistikleri analiz et'], ['check', 'Bütünlüğü kontrol et'], ['optimize', 'Optimize / vacuum'], ['repair', 'Onarım taslağı']
+      ].map(([operation, label]) => ({ id: `maintenance-${operation}`, label, icon: Gauge, onSelect: () => openSql(server, database, `${table} bakım`, maintenanceSql(engine, database, table, operation as 'analyze' | 'check' | 'optimize' | 'repair')) })) },
+      { id: 'sep3', separator: true },
+      { id: 'expand', label: 'Hepsini genişlet', icon: ChevronDown, onSelect: () => expandAll(server) },
+      { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: collapseAll },
+      { id: 'refresh', label: 'Yenile', icon: RefreshCw, onSelect: () => void refreshServer(server) }
+    ], `${database}.${table}`);
   };
 
-  const openDatabaseMenu = (
-    event: React.MouseEvent,
-    serverItem: DatabaseServerConfig,
-    databaseName: string
-  ) => {
-    const quotedDatabase = quoteSqlIdentifier(databaseName);
-    openContextMenu(event, [
-      { id: 'open', label: 'Veritabanını aç', icon: Database, onSelect: () => selectDatabase(serverItem.id, databaseName) },
-      { id: 'query', label: 'Yeni sorgu sekmesi', icon: Code, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: databaseName }) },
-      { id: 'tables', label: 'SHOW FULL TABLES', icon: Table, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${databaseName} tabloları`, sql: 'SHOW FULL TABLES;', runImmediately: true }) },
-      { id: 'create', label: 'CREATE TABLE taslağı', icon: Plus, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: 'Yeni tablo', sql: `CREATE TABLE ${quotedDatabase}.\`new_table\` (\n  \`id\` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (\`id\`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;` }) },
-      { id: 'separator', separator: true },
-      { id: 'copy', label: 'Veritabanı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(databaseName) },
-      { id: 'refresh', label: 'Kataloğu yenile', icon: RefreshCw, onSelect: () => void loadCatalog(serverItem.id) }
-    ], databaseName);
-  };
+  const user = session?.user;
+  return <aside className="flex h-full min-h-0 w-full flex-col border-r border-zinc-800 bg-zinc-950/96">
+    <header className="shrink-0 border-b border-zinc-800 p-2"><div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10"><Database className="h-4 w-4 text-cyan-300" /></div><div className="min-w-0 flex-1"><div className="text-[11px] font-semibold text-zinc-100">Coreor Database</div><div className="text-[8px] text-zinc-600">v2.1.0 • Çoklu motor çalışma alanı</div></div><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingServer(null); setServerModalOpen(true); }} title="Yeni sunucu"><Plus className="h-3.5 w-3.5" /></Button><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => void loadServers()} title="Kasa ve katalogları yenile"><RefreshCw className={`h-3.5 w-3.5 ${isServersLoading ? 'animate-spin' : ''}`} /></Button></div><div className="relative mt-2"><Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" /><Input value={search} onChange={event => setSearch(event.target.value)} className="h-8 rounded-xl border-zinc-800 bg-black/30 pl-8 pr-8 text-[10px]" placeholder="Sunucu, veritabanı veya tablo ara…" />{search && <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600" onClick={() => setSearch('')}><X className="h-3.5 w-3.5" /></button>}</div></header>
 
-  const openTableMenu = (
-    event: React.MouseEvent,
-    serverItem: DatabaseServerConfig,
-    databaseName: string,
-    tableName: string
-  ) => {
-    const table = qualifiedSqlName(databaseName, tableName);
-    openContextMenu(event, [
-      { id: 'data', label: 'Verileri aç', icon: Table, onSelect: () => selectTable(serverItem.id, databaseName, tableName, 'data') },
-      { id: 'structure', label: 'Tablo yapısını aç', icon: Database, onSelect: () => selectTable(serverItem.id, databaseName, tableName, 'structure') },
-      { id: 'separator-1', separator: true },
-      {
-        id: 'read',
-        label: 'Okuma sorguları',
-        icon: Search,
-        children: [
-          { id: 'select', label: 'İlk 100 satır', icon: Table, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} SELECT`, sql: `SELECT * FROM ${table}\nLIMIT 100;`, runImmediately: true }) },
-          { id: 'count', label: 'Satır sayısı', icon: Search, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} COUNT`, sql: `SELECT COUNT(*) AS totalRows FROM ${table};`, runImmediately: true }) },
-          { id: 'describe', label: 'DESCRIBE', icon: Database, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} DESCRIBE`, sql: `DESCRIBE ${table};`, runImmediately: true }) },
-          { id: 'create', label: 'SHOW CREATE TABLE', icon: Code, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} CREATE`, sql: `SHOW CREATE TABLE ${table};`, runImmediately: true }) }
-        ]
-      },
-      {
-        id: 'write',
-        label: 'Değişiklik sorgusu oluştur',
-        icon: Code,
-        children: [
-          { id: 'insert', label: 'INSERT taslağı', icon: Plus, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} INSERT`, sql: tableTemplate(databaseName, tableName, 'insert') }) },
-          { id: 'update', label: 'UPDATE taslağı', icon: Code, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} UPDATE`, sql: tableTemplate(databaseName, tableName, 'update') }) },
-          { id: 'delete', label: 'DELETE taslağı', icon: AlertTriangle, danger: true, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} DELETE`, sql: tableTemplate(databaseName, tableName, 'delete') }) },
-          { id: 'truncate', label: 'TRUNCATE taslağı', icon: AlertTriangle, danger: true, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} TRUNCATE`, sql: tableTemplate(databaseName, tableName, 'truncate') }) },
-          { id: 'drop', label: 'DROP TABLE taslağı', icon: AlertTriangle, danger: true, onSelect: () => openQueryTab({ serverId: serverItem.id, databaseName, title: `${tableName} DROP`, sql: tableTemplate(databaseName, tableName, 'drop') }) }
-        ]
-      },
-      { id: 'separator-2', separator: true },
-      { id: 'copy', label: 'Tam tablo adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(table) }
-    ], `${databaseName}.${tableName}`);
-  };
-
-  const renderTree = () => {
-    if (isServersLoading) return <LoadingState compact title="Sunucu kasası açılıyor" description="Şifreli profiller okunuyor." />;
-    if (serversError) return <ErrorState compact title="Sunucular yüklenemedi" description={serversError} actionLabel="Tekrar dene" onAction={loadServers} />;
-    if (servers.length === 0) return <EmptyState compact icon={Server} title="Henüz sunucu yok" description="MySQL veya MariaDB bağlantısı ekleyerek başlayın." actionLabel="Sunucu ekle" onAction={() => { setEditingServer(null); setIsServerModalOpen(true); }} />;
-    if (filteredServers.length === 0) return <EmptyState compact icon={Search} title="Sonuç bulunamadı" description="Arama metnini veya filtreyi değiştirin." />;
-
-    return filteredServers.map(serverItem => {
-      const serverExpanded = Boolean(expandedServers[serverItem.id]);
-      const databases = serverItem.databases || [];
-      return (
-        <div key={serverItem.id} className="space-y-0.5">
-          <button type="button" className={`flex w-full items-center justify-between rounded px-1.5 py-1.5 text-left text-xs hover:bg-muted/50 ${activeServerId === serverItem.id ? 'bg-muted/40 text-primary' : ''}`} onClick={() => void selectServer(serverItem.id)} onContextMenu={event => openServerMenu(event, serverItem)}>
-            <span className="flex min-w-0 items-center gap-1.5">{serverExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}<Server className="h-3.5 w-3.5 text-emerald-500" /><span className="truncate font-medium">{serverItem.name}</span></span>
-            <span className="text-[9px] text-zinc-600">{serverItem.databaseType === 'mariadb' ? 'MariaDB' : 'MySQL'}</span>
-          </button>
-
-          {serverExpanded && (
-            <div className="ml-3 border-l border-zinc-800 pl-2">
-              {catalogLoading[serverItem.id] ? (
-                <LoadingState compact title="Katalog okunuyor" />
-              ) : databases.length === 0 ? (
-                <div className="space-y-2 px-2 py-3 text-[10px] text-zinc-500"><p>Görüntülenebilir veritabanı bulunamadı.</p><button type="button" className="inline-flex items-center gap-1 text-emerald-400" onClick={() => void loadCatalog(serverItem.id)}><RefreshCw className="h-3 w-3" />Yenile</button></div>
-              ) : databases.map(database => {
-                const databaseExpanded = Boolean(expandedDatabases[serverItem.id]?.[database.name]);
-                return (
-                  <div key={database.name}>
-                    <div className={`flex items-center gap-1 rounded px-1 py-1 text-xs hover:bg-muted/50 ${selectedDatabase === database.name && activeServerId === serverItem.id ? 'bg-muted/30 text-primary' : ''}`} onContextMenu={event => openDatabaseMenu(event, serverItem, database.name)}>
-                      <button type="button" onClick={() => toggleDatabase(serverItem.id, database.name)}>{databaseExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}</button>
-                      <button type="button" className="flex min-w-0 flex-1 items-center gap-1 text-left" onClick={() => selectDatabase(serverItem.id, database.name)}><Database className="h-3 w-3 text-emerald-500" /><span className="truncate">{database.name}</span><span className="ml-auto text-[9px] text-zinc-600" title={`${database.totalRows.toLocaleString('tr-TR')} tahmini satır`}>{database.tableCount} tablo</span></button>
-                    </div>
-
-                    {databaseExpanded && (
-                      <div className="ml-3 border-l border-zinc-800 pl-2">
-                        {database.tables.length === 0 ? (
-                          <div className="px-2 py-2 text-[10px] text-zinc-500">Bu veritabanında tablo yok.</div>
-                        ) : database.tables.map(tableName => {
-                          const key = `${serverItem.id}:${database.name}:${tableName}`;
-                          const tableExpanded = Boolean(expandedTables[serverItem.id]?.[key]);
-                          const detail = database.tableDetails.find(table => table.tableName === tableName);
-                          return (
-                            <div key={tableName}>
-                              <div className={`flex items-center gap-1 rounded px-1 py-1 text-xs hover:bg-muted/50 ${selectedDatabase === database.name && selectedTable === tableName ? 'bg-muted/30 text-primary' : ''}`} onContextMenu={event => openTableMenu(event, serverItem, database.name, tableName)}>
-                                <button type="button" onClick={() => void toggleTable(serverItem.id, database.name, tableName)}>{tableExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}</button>
-                                <button type="button" className="flex min-w-0 flex-1 items-center gap-1 text-left" onClick={() => selectTable(serverItem.id, database.name, tableName)}><Table className="h-3 w-3 text-blue-500" /><span className="truncate">{tableName}</span><span className="ml-auto shrink-0 text-[9px] tabular-nums text-zinc-600" title="information_schema tahmini satır sayısı">{detail ? detail.rows.toLocaleString('tr-TR') : '—'}</span></button>
-                              </div>
-                              {tableExpanded && (
-                                <div className="ml-4 space-y-0.5">
-                                  {columnLoading[key] && <div className="px-1 py-1 text-[10px] text-zinc-500">Kolonlar yükleniyor…</div>}
-                                  {columnErrors[key] && <div className="px-1 py-1 text-[10px] text-red-400">{columnErrors[key]}</div>}
-                                  {(columns[key] || []).map(column => (
-                                    <div key={column.name} className="flex items-center gap-1.5 rounded px-1 py-1 text-[9px] text-zinc-500">
-                                      <span className={`h-1.5 w-1.5 rounded-full ${column.key === 'PRI' ? 'bg-amber-400' : column.key === 'UNI' ? 'bg-red-400' : column.key === 'MUL' ? 'bg-emerald-400' : 'bg-zinc-700'}`} />
-                                      <span className="truncate">{column.name}</span>
-                                      <span className={`ml-auto rounded bg-white/[0.03] px-1 py-0.5 ${columnTypeClass(column.type)}`}>{column.type.toUpperCase()}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      );
-    });
-  };
-
-  return (
-    <div className="flex h-full flex-col border-r border-zinc-800 bg-zinc-950">
-      <div className="shrink-0 border-b border-zinc-800 p-2">
-        <div className="mb-2 flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200"><Database className="h-4 w-4 text-emerald-500" /><span>{t('servers', 'Sunucular')}</span></div>
-          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingServer(null); setIsServerModalOpen(true); }}><Plus className="h-3.5 w-3.5" /></Button>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-8 w-full justify-between text-xs" disabled={isServersLoading}><span className="flex min-w-0 items-center gap-2"><Server className="h-3.5 w-3.5" /><span className="truncate">{activeServer?.name || t('selectServer', 'Sunucu seç')}</span></span><ChevronDown className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64 text-xs">
-            {servers.map(serverItem => <DropdownMenuItem key={serverItem.id} className={activeServerId === serverItem.id ? 'bg-muted' : ''} onClick={() => void selectServer(serverItem.id)}><div className="flex min-w-0 flex-col"><span className="truncate font-medium">{serverItem.name}</span><span className="truncate text-[10px] text-zinc-500">{serverItem.host}:{serverItem.port || 3306}</span></div></DropdownMenuItem>)}
-            {servers.length > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuItem onClick={() => { setEditingServer(null); setIsServerModalOpen(true); }}><Plus className="mr-2 h-4 w-4" />Sunucu ekle</DropdownMenuItem>
-            {activeServer && <DropdownMenuItem onClick={() => { setEditingServer(activeServer); setIsServerModalOpen(true); }}><Pencil className="mr-2 h-4 w-4" />Bağlantıyı düzenle</DropdownMenuItem>}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <div className="mt-2 flex items-center gap-1.5 border-t border-zinc-800 pt-2">
-          <div className="relative min-w-0 flex-1"><Input placeholder={`${t('search', 'Ara')} ${searchFilter === 'table' ? t('tables', 'tablolar') : t('databases', 'veritabanları')}…`} className="h-7 pr-7 text-xs" value={searchQuery} disabled={servers.length === 0} onChange={event => setSearchQuery(event.target.value)} /><Search className="absolute right-2 top-1.5 h-3 w-3 text-zinc-600" /></div>
-          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-7 px-2 text-[10px]" disabled={servers.length === 0}>{searchFilter === 'table' ? t('tables', 'Tablolar') : t('databases', 'Veritabanları')}</Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="text-xs"><DropdownMenuItem onClick={() => setSearchFilter('table')}>{t('tables', 'Tablolar')}</DropdownMenuItem><DropdownMenuItem onClick={() => setSearchFilter('database')}>{t('databases', 'Veritabanları')}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
-        </div>
-      </div>
-
-      <ScrollArea className="min-h-0 flex-1"><div className="space-y-0.5 p-1">{renderTree()}</div></ScrollArea>
-      <ServerCreateModal open={isServerModalOpen} onClose={() => { setIsServerModalOpen(false); setEditingServer(null); }} onSubmit={addServer} initialServer={editingServer} onUpdate={updateServer} />
-
-      <div className="shrink-0 border-t border-zinc-800 p-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className="flex w-full items-center gap-3 rounded-xl border border-zinc-800/80 bg-black/20 p-2.5 text-left transition hover:border-zinc-700 hover:bg-white/[0.035]">
-              <div className="relative shrink-0">
-                <Avatar className="h-11 w-11 border border-zinc-700 shadow-lg"><AvatarImage src={displayImage} alt={displayName} /><AvatarFallback className="text-sm">{initials(displayName, displayEmail)}</AvatarFallback></Avatar>
-                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-zinc-950 bg-emerald-400" title="Oturum açık" />
-              </div>
-              <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-zinc-100">{displayName}</div><div className="mt-0.5 truncate text-[10px] text-zinc-500">{displayEmail}</div><div className="mt-1 text-[8px] uppercase tracking-[0.12em] text-emerald-400">GitHub oturumu aktif</div></div>
-              <ChevronUp className="h-4 w-4 text-zinc-600" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent side="top" align="start" className="w-72 p-1.5">
-            <div className="flex items-center gap-3 px-2 py-3"><Avatar className="h-12 w-12 border border-zinc-700"><AvatarImage src={displayImage} alt={displayName} /><AvatarFallback>{initials(displayName, displayEmail)}</AvatarFallback></Avatar><div className="min-w-0"><div className="truncate text-sm font-semibold">{displayName}</div><div className="truncate text-xs text-zinc-500">{displayEmail}</div><div className="mt-1 text-[9px] text-emerald-400">Oturum açık</div></div></div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => dispatchDatabaseTool(OPEN_SETTINGS_MODAL_EVENT, { tab: 'account' })}><Settings2 className="mr-2 h-4 w-4" />Ayarları aç</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setEditingServer(null); setIsServerModalOpen(true); }} disabled={isAddingServer}><Plus className="mr-2 h-4 w-4" />Yeni sunucu ekle</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-400" onClick={() => signOut({ callbackUrl: '/' })}><LogOut className="mr-2 h-4 w-4" />{t('logout', 'Çıkış yap')}</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+    <div className="coreor-scroll-frame min-h-0 flex-1 overflow-auto p-1.5">
+      {isServersLoading && !servers.length ? <div className="flex h-32 items-center justify-center gap-2 text-[10px] text-zinc-600"><Activity className="h-3.5 w-3.5 animate-spin" />Bağlantı kasası okunuyor…</div> : !filteredServers.length ? <div className="p-6 text-center"><Server className="mx-auto h-7 w-7 text-zinc-700" /><div className="mt-3 text-[10px] text-zinc-500">{search ? 'Aramayla eşleşen kayıt yok.' : 'Henüz sunucu eklenmedi.'}</div></div> : filteredServers.map(server => {
+        const serverOpen = expandedServers.has(server.id) || Boolean(search);
+        const active = activeServerId === server.id;
+        return <section key={server.id} className="mb-1 overflow-hidden rounded-xl border border-transparent hover:border-zinc-800/70"><div className={`group flex h-9 items-center gap-1.5 px-1.5 ${active ? 'bg-cyan-500/[0.07]' : 'hover:bg-white/[0.025]'}`} onContextMenu={event => serverMenu(event, server)}><button type="button" className="flex h-6 w-6 items-center justify-center rounded hover:bg-zinc-800" onClick={() => toggle(setExpandedServers, server.id)}>{serverOpen ? <ChevronDown className="h-3.5 w-3.5 text-cyan-400" /> : <ChevronRight className="h-3.5 w-3.5 text-zinc-600" />}</button><button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => setActiveServerId(server.id)}><Server className={`h-3.5 w-3.5 shrink-0 ${active ? 'text-emerald-400' : 'text-zinc-600'}`} /><span className="min-w-0 flex-1 truncate text-[10px] font-medium text-zinc-300">{server.name}</span><span className="rounded bg-zinc-900 px-1.5 py-0.5 text-[7px] text-zinc-600">{databaseEngineLabel(server.databaseType)}</span></button><button type="button" className="flex h-6 w-6 items-center justify-center rounded opacity-0 hover:bg-zinc-800 group-hover:opacity-100" onClick={event => serverMenu(event, server)}><MoreHorizontal className="h-3.5 w-3.5" /></button></div>
+          {serverOpen && <div className="ml-4 border-l border-zinc-800 pl-1.5">{(server.databases || []).map(database => {
+            const databaseKey = `${server.id}:${database.name}`; const databaseOpen = expandedDatabases.has(databaseKey) || Boolean(search); const selected = active && selectedDatabase === database.name;
+            return <div key={database.name}><div className={`group flex h-8 items-center gap-1 px-1 ${selected ? 'bg-cyan-500/[0.05]' : 'hover:bg-white/[0.02]'}`} onContextMenu={event => databaseMenu(event, server, database.name)}><button type="button" className="flex h-6 w-6 items-center justify-center" onClick={() => toggle(setExpandedDatabases, databaseKey)}>{databaseOpen ? <ChevronDown className="h-3 w-3 text-cyan-400" /> : <ChevronRight className="h-3 w-3 text-zinc-700" />}</button><button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => { setActiveServerId(server.id); onDatabaseSelect(database.name); onTableSelect(null); }}><Database className="h-3 w-3 shrink-0 text-emerald-500" /><span className="min-w-0 flex-1 truncate text-[9px] text-zinc-400">{database.name}</span><span className="text-[7px] tabular-nums text-zinc-700">{database.tableCount}</span></button></div>
+              {databaseOpen && <div className="ml-5 border-l border-zinc-900 pl-1">{database.tables.map(table => <button key={table} type="button" className={`group flex h-7 w-full min-w-0 items-center gap-2 rounded px-2 text-left ${active && selectedDatabase === database.name && selectedTable === table ? 'bg-cyan-500/10 text-cyan-200' : 'text-zinc-500 hover:bg-white/[0.025] hover:text-zinc-300'}`} onClick={() => { setActiveServerId(server.id); onDatabaseSelect(database.name); onTableSelect(table); }} onContextMenu={event => tableMenu(event, server, database.name, table)}><Table2 className="h-3 w-3 shrink-0" /><span className="min-w-0 flex-1 truncate text-[9px]">{table}</span></button>)}</div>}
+            </div>;
+          })}</div>}
+        </section>;
+      })}
     </div>
-  );
+
+    <div className="relative shrink-0 border-t border-zinc-800 p-2"><button type="button" onClick={() => setProfileOpen(previous => !previous)} className="flex w-full items-center gap-3 rounded-xl border border-zinc-800 bg-black/25 p-2.5 text-left transition hover:border-zinc-700 hover:bg-white/[0.025]"><div className="relative"><Avatar className="h-10 w-10 border border-zinc-700"><AvatarImage src={user?.image || undefined} /><AvatarFallback>{initials(user?.name, user?.email)}</AvatarFallback></Avatar><span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-zinc-950 ${online ? 'bg-emerald-400' : 'bg-red-400'}`} /></div><div className="min-w-0 flex-1"><div className="truncate text-[11px] font-semibold text-zinc-100">{user?.name || 'Coreor kullanıcısı'}</div><div className="truncate text-[9px] text-zinc-600">{user?.email || 'E-posta paylaşılmadı'}</div><div className={`mt-1 flex items-center gap-1 text-[8px] font-medium ${online ? 'text-emerald-400' : 'text-red-400'}`}>{online ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}{online ? 'Bağlı' : 'Çevrimdışı'}</div></div><ChevronDown className={`h-3.5 w-3.5 text-zinc-600 transition ${profileOpen ? 'rotate-180' : ''}`} /></button>
+      {profileOpen && <div className="absolute bottom-[calc(100%+7px)] left-2 right-2 z-[220] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl"><div className="border-b border-zinc-800 px-3 py-2.5"><div className="flex items-center justify-between text-[9px]"><span className="text-zinc-500">Bağlantı durumu</span><span className={online ? 'text-emerald-400' : 'text-red-400'}>{online ? 'İnternet bağlı' : 'İnternet yok'}</span></div><div className="mt-2 flex items-center justify-between text-[9px]"><span className="text-zinc-500">Kayıtlı sunucu</span><span className="text-zinc-300">{servers.length}</span></div></div><button type="button" className="flex h-9 w-full items-center gap-2 px-3 text-[10px] text-zinc-300 hover:bg-white/[0.04]" onClick={() => { window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_MODAL_EVENT, { detail: { tab: 'account' } })); setProfileOpen(false); }}><Settings2 className="h-3.5 w-3.5" />Ayarları aç</button><button type="button" className="flex h-9 w-full items-center gap-2 px-3 text-[10px] text-zinc-300 hover:bg-white/[0.04]" onClick={() => { setEditingServer(null); setServerModalOpen(true); setProfileOpen(false); }}><Plus className="h-3.5 w-3.5" />Yeni sunucu ekle</button><button type="button" className="flex h-9 w-full items-center gap-2 border-t border-zinc-800 px-3 text-[10px] text-red-400 hover:bg-red-500/[0.06]" onClick={() => void signOut({ callbackUrl: '/login' })}><LogOut className="h-3.5 w-3.5" />Çıkış yap</button></div>}
+    </div>
+
+    <ServerCreateModal open={serverModalOpen} onClose={() => { setServerModalOpen(false); setEditingServer(null); }} initialServer={editingServer} onSubmit={addServer} onUpdate={updateServer} />
+    <DatabaseActionConfirmModal action={confirmation} onClose={() => setConfirmation(null)} />
+    <CreateDatabaseModal state={createDatabase} onChange={setCreateDatabase} onClose={() => setCreateDatabase(null)} onCreate={async () => {
+      if (!createDatabase || !activeToken) return;
+      const name = createDatabase.name.trim(); const engine = createDatabase.server.databaseType || 'mysql';
+      setCreateDatabase({ ...createDatabase, busy: true, error: null });
+      try { await executeDatabaseQuery(createDatabase.server.id, `CREATE DATABASE ${quoteDatabaseIdentifier(name, engine)};`, activeToken, null); await refreshServer(createDatabase.server); setCreateDatabase(null); }
+      catch (error) { setCreateDatabase(previous => previous ? { ...previous, busy: false, error: error instanceof Error ? error.message : 'Veritabanı oluşturulamadı.' } : null); }
+    }} />
+  </aside>;
 }
