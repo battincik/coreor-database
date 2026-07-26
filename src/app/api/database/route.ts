@@ -116,8 +116,8 @@ export async function POST(request: NextRequest) {
     if (!session?.user) return unauthorizedResponse(request);
 
     const user = session.user as typeof session.user & { id?: string };
-    const identity = user.id || user.email || 'authenticated-user';
-    applyRateLimit(identity);
+    const stableIdentity = user.id || user.email || null;
+    applyRateLimit(stableIdentity || 'authenticated-user');
 
     const rawBody = await request.text();
     const actualBytes = Buffer.byteLength(rawBody, 'utf8');
@@ -126,8 +126,12 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = JSON.parse(rawBody) as Parameters<typeof executeDatabaseRequest>[0] & { action?: unknown };
+    if (isDatabaseTransactionAction(payload.action) && !stableIdentity) {
+      throw new DatabaseServiceError('Transaction oturumu için kararlı kullanıcı kimliği bulunamadı. GitHub ile yeniden giriş yapın.', 401, 'TRANSACTION_OWNER_IDENTITY_REQUIRED');
+    }
+
     const result = isDatabaseTransactionAction(payload.action)
-      ? await executeDatabaseTransactionRequest(payload as unknown as DatabaseTransactionRequest, identity)
+      ? await executeDatabaseTransactionRequest(payload as unknown as DatabaseTransactionRequest, stableIdentity!)
       : payload.action === 'performance-snapshot'
         ? await executeDatabasePerformanceRequest(payload as unknown as DatabaseWorkbenchRequest)
         : isDatabaseWorkbenchAction(payload.action)
