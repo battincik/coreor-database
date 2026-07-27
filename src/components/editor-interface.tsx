@@ -11,6 +11,7 @@ import { EditorPanelErrorBoundary } from '@/components/editor-panel-error-bounda
 import { BottomBarGuide } from '@/components/bottom-bar-guide';
 import { CoreorToastProvider } from '@/components/ui/coreor-toast';
 import { DatabaseNotificationMonitor } from '@/components/database-notification-monitor';
+import { RuntimeCompatibility } from '@/components/runtime-compatibility';
 import Topbar from './Topbar';
 import BottomBar from './BottomBar';
 import { AppContextMenuProvider, useAppContextMenu } from '@/components/app-context-menu';
@@ -125,6 +126,7 @@ function EditorWorkspace() {
         )
       }
     >
+      <RuntimeCompatibility />
       <DatabaseNotificationMonitor />
       {showTopbar && <Topbar />}
       <DatabaseMenuBar selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
