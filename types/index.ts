@@ -42,6 +42,7 @@ export interface DatabaseConnectionPayload {
   database?: string | null;
   sslMode: DatabaseSslMode;
   connectTimeoutMs?: number;
+  readOnly?: boolean;
 }
 
 export interface OrganizationDatabaseBinding {
@@ -122,6 +123,7 @@ export interface DatabaseServerConfig {
   version?: string;
   sslMode?: DatabaseSslMode;
   connectionTimeoutMs?: number;
+  readOnly?: boolean;
   visibleTo?: string[];
   organizationId?: string | null;
   databases?: DatabaseCatalogItem[];
@@ -218,92 +220,62 @@ export interface TableColumnInfo {
   Comment: string;
   Collation: string | null;
   Ordinal_position: number;
-  Data_type: string;
-  Character_maximum_length: number | null;
-  Numeric_precision: number | null;
-  Numeric_scale: number | null;
-  Datetime_precision: number | null;
-  Character_set_name: string | null;
-  Generation_expression: string;
+}
+
+export interface TableIndexColumn {
+  name: string;
+  length: number | null;
+  order: 'ASC' | 'DESC';
 }
 
 export interface TableIndexInfo {
-  Key_name: string;
-  Column_name: string;
-  Non_unique: string;
-  Seq_in_index: string;
-  Index_type: string;
-  Collation: string | null;
-  Cardinality: number | null;
-  Sub_part: number | null;
-  Nullable: string;
-  Index_comment: string;
-  Is_visible: string;
-  Expression: string | null;
+  name: string;
+  kind: 'PRIMARY' | 'UNIQUE' | 'KEY' | 'FULLTEXT' | 'SPATIAL';
+  unique: boolean;
+  indexType: string;
+  columns: TableIndexColumn[];
+  comment: string;
+  visible: boolean;
 }
 
 export interface TableForeignKeyInfo {
-  CONSTRAINT_NAME: string;
-  COLUMN_NAME: string;
-  ORDINAL_POSITION: number;
-  REFERENCED_TABLE_SCHEMA: string;
-  REFERENCED_TABLE_NAME: string;
-  REFERENCED_COLUMN_NAME: string;
-  UPDATE_RULE: string;
-  DELETE_RULE: string;
-}
-
-export interface TableCheckConstraintInfo {
-  CONSTRAINT_NAME: string;
-  CHECK_CLAUSE: string;
-  ENFORCED: string;
-}
-
-export interface TablePartitionInfo {
-  PARTITION_NAME: string | null;
-  PARTITION_METHOD: string | null;
-  PARTITION_EXPRESSION: string | null;
-  PARTITION_DESCRIPTION: string | null;
-  TABLE_ROWS: number;
-  DATA_LENGTH: number;
-  INDEX_LENGTH: number;
-}
-
-export interface TableOptionsInfo {
   name: string;
-  comment: string;
-  engine: string;
-  collation: string | null;
-  charset: string | null;
-  autoIncrement: string | number | null;
-  rowFormat: string | null;
-  tableType: string;
-  createTime: string | null;
-  updateTime: string | null;
+  columns: string[];
+  referencedDatabase: string;
+  referencedTable: string;
+  referencedColumns: string[];
+  onUpdate: string;
+  onDelete: string;
 }
 
 export interface TableInfo {
-  table: TableOptionsInfo;
   columns: TableColumnInfo[];
   indexes: TableIndexInfo[];
   foreignKeys: TableForeignKeyInfo[];
-  checkConstraints: TableCheckConstraintInfo[];
-  partitions: TablePartitionInfo[];
-  createSQL: string;
+  table: DatabaseTable | null;
+  createSql: string;
   _meta?: DatabaseQueryMeta;
 }
 
-export type ColumnDefaultKind = 'none' | 'null' | 'literal' | 'expression';
+export interface QueryExecutionResult {
+  rows: Record<string, unknown>[];
+  fields?: Array<{ name: string; type?: number | string }>;
+  affectedRows?: number;
+  insertId?: unknown;
+  warningStatus?: number;
+  maximumRows?: number;
+  _meta?: DatabaseQueryMeta;
+}
 
 export interface TableColumnDefinition {
   name: string;
   dataType: string;
   length?: string;
+  nullable: boolean;
   unsigned?: boolean;
   zerofill?: boolean;
-  nullable?: boolean;
   autoIncrement?: boolean;
-  defaultKind?: ColumnDefaultKind;
+  defaultKind?: 'none' | 'null' | 'literal' | 'expression';
   defaultValue?: string;
   comment?: string;
   charset?: string;
@@ -312,18 +284,10 @@ export interface TableColumnDefinition {
   generatedStorage?: 'VIRTUAL' | 'STORED';
 }
 
-export interface TableIndexColumnDefinition {
-  name: string;
-  length?: number | null;
-  order?: 'ASC' | 'DESC';
-}
-
-export type TableIndexKind = 'PRIMARY' | 'INDEX' | 'UNIQUE' | 'FULLTEXT' | 'SPATIAL';
-
 export interface TableIndexDefinition {
-  kind: TableIndexKind;
-  name?: string;
-  columns: TableIndexColumnDefinition[];
+  name: string;
+  kind: 'PRIMARY' | 'UNIQUE' | 'KEY' | 'FULLTEXT' | 'SPATIAL';
+  columns: TableIndexColumn[];
   comment?: string;
 }
 
@@ -333,20 +297,12 @@ export interface TableForeignKeyDefinition {
   referencedDatabase?: string;
   referencedTable: string;
   referencedColumns: string[];
-  onDelete?: 'RESTRICT' | 'CASCADE' | 'SET NULL' | 'NO ACTION';
-  onUpdate?: 'RESTRICT' | 'CASCADE' | 'SET NULL' | 'NO ACTION';
+  onUpdate?: string;
+  onDelete?: string;
 }
 
 export type TableSchemaMutation =
-  | {
-      kind: 'table-options';
-      name?: string;
-      comment?: string;
-      engine?: string;
-      collation?: string;
-      autoIncrement?: number | null;
-      rowFormat?: string | null;
-    }
+  | { kind: 'table-options'; name?: string; engine?: string; collation?: string; autoIncrement?: number | null; rowFormat?: string; comment?: string }
   | { kind: 'add-column'; column: TableColumnDefinition; first?: boolean; after?: string | null }
   | { kind: 'modify-column'; originalName: string; column: TableColumnDefinition; first?: boolean; after?: string | null }
   | { kind: 'drop-column'; columnName: string }
@@ -367,30 +323,6 @@ export interface TableSchemaMutationResponse {
   _meta?: DatabaseQueryMeta;
 }
 
-export interface QueryExecutionResult {
-  rows: Record<string, unknown>[];
-  affectedRows?: number;
-  insertId?: string | number;
-  warningStatus?: number;
-  fields?: Array<{ name: string; type: string | number }>;
-  maximumRows?: number;
-  _meta?: DatabaseQueryMeta;
-}
-
-export interface EditorQueryTab {
-  id: string;
-  title: string;
-  serverId: string | null;
-  databaseName: string | null;
-  sql: string;
-  isRunning: boolean;
-  runImmediately?: boolean;
-  error?: string | null;
-  result?: QueryExecutionResult | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface GridRuntimeStatus {
   page: number;
   pageSize: number;
@@ -401,31 +333,23 @@ export interface GridRuntimeStatus {
   isLoading: boolean;
 }
 
-export interface EditorPanelProps {
-  query: string;
-  setQuery: (query: string) => void;
-  openTables: { dbName: string; tableName: string }[];
-  onTabChange: (tabId: string) => void;
-  activeTab: string;
-}
-
-export interface Tab {
-  id: string;
-  label: string;
-  content: string;
-  type: 'table' | 'query';
-  dbName?: string;
-  tableName?: string;
-}
-
-export interface ResultsPanelProps {
-  results: Record<string, any>[];
-}
-
 export interface SidebarProps {
-  selectedServerId?: string | null;
-  onDatabaseSelect: (dbName: string | null) => void;
+  onDatabaseSelect: (databaseName: string | null) => void;
   onTableSelect: (tableName: string | null) => void;
   selectedDatabase: string | null;
   selectedTable: string | null;
+}
+
+export interface EditorQueryTab {
+  id: string;
+  title: string;
+  serverId: string | null;
+  databaseName: string | null;
+  sql: string;
+  isRunning: boolean;
+  result: QueryExecutionResult | null;
+  error: string | null;
+  runImmediately?: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
