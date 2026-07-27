@@ -91,7 +91,8 @@ function createConnectionPayload(server: DatabaseServerConfig, databaseOverride?
     password: server.password,
     database: databaseOverride === undefined ? server.databaseName?.trim() || undefined : databaseOverride,
     sslMode: server.sslMode ?? 'required',
-    connectTimeoutMs: server.connectionTimeoutMs ?? 20_000
+    connectTimeoutMs: server.connectionTimeoutMs ?? 20_000,
+    readOnly: Boolean(server.readOnly)
   };
 }
 
@@ -278,6 +279,7 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
     databaseName: server.databaseName?.trim(),
     sslMode: server.sslMode ?? 'required',
     connectionTimeoutMs: server.connectionTimeoutMs ?? 20_000,
+    readOnly: Boolean(server.readOnly),
     visibleTo: server.visibleTo ?? [],
     organizationId: server.organizationId ?? null,
     databases: server.databases ?? [],
