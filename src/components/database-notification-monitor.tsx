@@ -1,20 +1,15 @@
 'use client';
 
-import { useContext, useEffect, useRef } from 'react';
+import { useContext, useEffect, useRef, useSyncExternalStore } from 'react';
 import { DatabaseContext } from '@/context/DatabaseContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAppPreferences } from '@/lib/appPreferences';
 import { fetchDatabasePerformanceSnapshot } from '@/lib/databaseWorkbenchApi';
+import type { DatabasePerformanceSnapshot } from '@/lib/databaseWorkbenchTypes';
 import { databaseEngineFamily } from '@/lib/databaseEngines';
-import { getActivitiesSnapshot } from '@/lib/activityConsole';
+import { getActivitiesServerSnapshot, getActivitiesSnapshot, subscribeActivities } from '@/lib/activityConsole';
 import { backupTasks } from '@/lib/databaseAutomation';
-import {
-  calculateHealthScore,
-  compareMetric,
-  notificationRuleStore,
-  performanceHistoryStore,
-  type NotificationRule
-} from '@/lib/decentralizedIntelligence';
+import { calculateHealthScore, compareMetric, notificationRuleStore, performanceHistoryStore, type NotificationRule } from '@/lib/decentralizedIntelligence';
 import { dispatchCoreorToast, type CoreorToastVariant } from '@/components/ui/coreor-toast';
 
 const COOLDOWN_KEY = 'coreor:notification-cooldowns:v1';
@@ -29,11 +24,11 @@ function writeCooldowns(value: Record<string, number>) {
   try { sessionStorage.setItem(COOLDOWN_KEY, JSON.stringify(value)); } catch { /* bildirimler ana akışı durdurmaz */ }
 }
 
-function metricValue(rule: NotificationRule, snapshot: Awaited<ReturnType<typeof fetchDatabasePerformanceSnapshot>>, previousSlow: number | null, healthScore: number) {
+function metricValue(rule: NotificationRule, snapshot: DatabasePerformanceSnapshot, previous: DatabasePerformanceSnapshot | null, healthScore: number) {
   switch (rule.metric) {
     case 'connection-percent': return snapshot.maxConnections ? snapshot.threadsConnected / snapshot.maxConnections * 100 : 0;
     case 'running-threads': return snapshot.threadsRunning;
-    case 'slow-query-delta': return previousSlow === null ? 0 : Math.max(0, snapshot.slowQueries - previousSlow);
+    case 'slow-query-delta': return previous ? Math.max(0, snapshot.slowQueries - previous.slowQueries) : 0;
     case 'buffer-usage': return snapshot.bufferPool.usagePercent;
     case 'replication-lag': return snapshot.replication.secondsBehind ?? 0;
     case 'health-score': return healthScore;
@@ -51,13 +46,54 @@ export function DatabaseNotificationMonitor() {
   const { activeToken } = useAuth();
   const { preferences } = useAppPreferences();
   const { servers, activeServerId } = useContext(DatabaseContext)!;
+  const activities = useSyncExternalStore(subscribeActivities, getActivitiesSnapshot, getActivitiesServerSnapshot);
   const server = servers.find(item => item.id === activeServerId) || null;
-  const previousSlowRef = useRef<number | null>(null);
+  const previousSnapshotRef = useRef<DatabasePerformanceSnapshot | null>(null);
+  const lastActivityIdRef = useRef<string | null>(null);
+  const activityReadyRef = useRef(false);
   const runningRef = useRef(false);
 
+  useEffect(() => { previousSnapshotRef.current = null; }, [activeServerId]);
+
   useEffect(() => {
-    previousSlowRef.current = null;
-  }, [activeServerId]);
+    const latest = activities.at(-1);
+    if (!activityReadyRef.current) {
+      activityReadyRef.current = true;
+      lastActivityIdRef.current = latest?.id || null;
+      return;
+    }
+    if (!preferences.liveNotifications || !latest || latest.id === lastActivityIdRef.current) return;
+    lastActivityIdRef.current = latest.id;
+    if (latest.level === 'error') {
+      dispatchCoreorToast({
+        variant: 'error',
+        title: latest.title || 'SQL işlemi başarısız',
+        description: latest.message || 'Veritabanı işlemi hata verdi.',
+        duration: 9000,
+        metadata: [
+          { label: 'Sunucu', value: latest.serverName || '—' },
+          { label: 'Hedef', value: latest.databaseName || 'sunucu geneli' },
+          { label: 'Süre', value: latest.durationMs === undefined ? '—' : `${latest.durationMs} ms` },
+          { label: 'Kod', value: latest.errorCode || 'DATABASE_ERROR' }
+        ]
+      });
+      return;
+    }
+    if ((latest.durationMs || 0) >= 1500) {
+      dispatchCoreorToast({
+        variant: 'warning',
+        title: 'Yavaş SQL işlemi algılandı',
+        description: latest.title || latest.sql.replace(/\s+/g, ' ').slice(0, 160),
+        duration: 7000,
+        metadata: [
+          { label: 'Sunucu', value: latest.serverName || '—' },
+          { label: 'Süre', value: `${latest.durationMs} ms` },
+          { label: 'Satır', value: latest.rowCount ?? latest.affectedRows ?? '—' },
+          { label: 'Kaynak', value: 'Yerel SQL günlüğü' }
+        ]
+      });
+    }
+  }, [activities, preferences.liveNotifications]);
 
   useEffect(() => {
     if (!preferences.liveNotifications || !server || !activeToken || databaseEngineFamily(server.databaseType) !== 'mysql') return;
@@ -72,17 +108,18 @@ export function DatabaseNotificationMonitor() {
       try {
         const snapshot = await fetchDatabasePerformanceSnapshot(server.id, activeToken, server.databaseName || null);
         if (cancelled) return;
-        const activities = getActivitiesSnapshot().filter(item => item.serverId === server.id);
+        const previous = previousSnapshotRef.current;
+        const elapsed = previous ? Math.max(0.25, (new Date(snapshot.sampledAt).getTime() - new Date(previous.sampledAt).getTime()) / 1000) : Math.max(1, snapshot.uptimeSeconds);
+        const delta = (current: number, old: number) => current >= old ? current - old : current;
+        const activitiesForServer = getActivitiesSnapshot().filter(item => item.serverId === server.id);
         const lastBackup = backupTasks.list().filter(item => item.serverId === server.id && item.status === 'completed' && item.lastRunAt).sort((left, right) => (right.lastRunAt || '').localeCompare(left.lastRunAt || ''))[0];
         const backupAge = lastBackup?.lastRunAt ? (Date.now() - new Date(lastBackup.lastRunAt).getTime()) / 3600000 : null;
-        const health = calculateHealthScore(snapshot, activities, backupAge);
-        const elapsed = previousSlowRef.current === null ? Math.max(1, snapshot.uptimeSeconds) : preferences.performanceRefreshSeconds;
-        const qps = previousSlowRef.current === null ? snapshot.questions / elapsed : 0;
+        const health = calculateHealthScore(snapshot, activitiesForServer, backupAge);
         performanceHistoryStore.add({
           id: `${server.id}:${snapshot.sampledAt}`,
           serverId: server.id,
           sampledAt: snapshot.sampledAt,
-          qps,
+          qps: previous ? delta(snapshot.questions, previous.questions) / elapsed : snapshot.questions / elapsed,
           slowQueries: snapshot.slowQueries,
           connections: snapshot.threadsConnected,
           running: snapshot.threadsRunning,
@@ -96,7 +133,7 @@ export function DatabaseNotificationMonitor() {
 
         for (const rule of rules) {
           if (rule.metric === 'server-unreachable') continue;
-          const value = metricValue(rule, snapshot, previousSlowRef.current, health.score);
+          const value = metricValue(rule, snapshot, previous, health.score);
           if (!compareMetric(value, rule.operator, rule.threshold)) continue;
           const key = `${server.id}:${rule.id}`;
           const lastShown = cooldowns[key] || 0;
@@ -116,7 +153,7 @@ export function DatabaseNotificationMonitor() {
             ]
           });
         }
-        previousSlowRef.current = snapshot.slowQueries;
+        previousSnapshotRef.current = snapshot;
         writeCooldowns(cooldowns);
       } catch (error) {
         const unreachableRule = rules.find(rule => rule.metric === 'server-unreachable');
