@@ -23,6 +23,22 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_REQUESTS = 120;
 const SESSION_COOKIE_PREFIXES = ['next-auth.session-token', '__Secure-next-auth.session-token'];
 const requestBuckets = new Map<string, { count: number; resetAt: number }>();
+const READ_ONLY_ACTIONS = new Set([
+  'update-cell',
+  'delete-rows',
+  'alter-table',
+  'user-save',
+  'user-drop',
+  'privilege-change',
+  'role-create',
+  'role-assign',
+  'process-kill',
+  'import-data',
+  'transaction-begin',
+  'transaction-query',
+  'transaction-commit',
+  'transaction-rollback'
+]);
 
 function noStoreHeaders() {
   return { 'Cache-Control': 'no-store, max-age=0', Pragma: 'no-cache' };
@@ -95,6 +111,27 @@ function applyRateLimit(identity: string) {
   bucket.count += 1;
 }
 
+function isMutatingSql(sql: unknown) {
+  if (typeof sql !== 'string') return false;
+  const normalized = sql
+    .replace(/--.*$/gm, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .trim();
+  return /^(?:INSERT|UPDATE|DELETE|REPLACE|MERGE|ALTER|CREATE|DROP|TRUNCATE|RENAME|GRANT|REVOKE|CALL|EXEC(?:UTE)?|LOAD\s+DATA|LOCK\s+TABLES|UNLOCK\s+TABLES|SET\s+(?:GLOBAL|SESSION)?\s*(?:TRANSACTION|AUTOCOMMIT)|BEGIN|START\s+TRANSACTION|COMMIT|ROLLBACK)\b/i.test(normalized);
+}
+
+function assertReadOnlyPolicy(payload: { action?: unknown; connection?: { readOnly?: unknown }; sql?: unknown }) {
+  if (!payload.connection?.readOnly) return;
+  const action = typeof payload.action === 'string' ? payload.action : '';
+  if (READ_ONLY_ACTIONS.has(action) || (action === 'query' && isMutatingSql(payload.sql))) {
+    throw new DatabaseServiceError(
+      'Bu bağlantı profili salt-okunur. Yazma, şema, yetki, import, process sonlandırma ve transaction işlemleri engellendi.',
+      403,
+      'READ_ONLY_PROFILE'
+    );
+  }
+}
+
 function normalizeRouteError(error: unknown) {
   if (error instanceof DatabaseServiceError) return error;
   const candidate = error as { code?: string; message?: string };
@@ -126,12 +163,13 @@ export async function POST(request: NextRequest) {
       throw new DatabaseServiceError(`Veritabanı isteği izin verilen ${(maximumBytes / 1024 / 1024).toFixed(1)} MB sınırını aşıyor.`, 413, 'DATABASE_REQUEST_TOO_LARGE');
     }
 
-    const payload = JSON.parse(rawBody) as Parameters<typeof executeDatabaseRequest>[0] & { action?: unknown };
+    const payload = JSON.parse(rawBody) as Parameters<typeof executeDatabaseRequest>[0] & { action?: unknown; connection?: { engine?: unknown; readOnly?: unknown } };
+    assertReadOnlyPolicy(payload);
     if (isDatabaseTransactionAction(payload.action) && !stableIdentity) {
       throw new DatabaseServiceError('Transaction oturumu için kararlı kullanıcı kimliği bulunamadı. GitHub ile yeniden giriş yapın.', 401, 'TRANSACTION_OWNER_IDENTITY_REQUIRED');
     }
 
-    const engine = (payload as { connection?: { engine?: unknown } }).connection?.engine;
+    const engine = payload.connection?.engine;
     const isExtendedCoreAction = isExtendedDatabaseEngine(engine) && !isDatabaseWorkbenchAction(payload.action) && !isDatabaseTransactionAction(payload.action) && payload.action !== 'performance-snapshot';
     const mysqlProtocolPayload = engine === 'tidb'
       ? { ...payload, connection: { ...(payload as { connection: Record<string, unknown> }).connection, engine: 'mysql' as const } }
