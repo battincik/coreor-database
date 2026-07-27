@@ -10,7 +10,9 @@ import {
   Database,
   FileClock,
   History,
+  Info,
   Loader2,
+  LockKeyhole,
   Play,
   Search,
   ShieldCheck,
@@ -34,6 +36,8 @@ import { SqlEditor } from '@/components/ui/sql-syntax';
 import { DatabaseActionConfirmModal, type DatabaseActionConfirmation } from '@/components/database-action-confirm-modal';
 import { useAppPreferences } from '@/lib/appPreferences';
 import { approvalRequests, automationId, migrationDrafts, schemaSnapshots } from '@/lib/databaseAutomation';
+import { analyzeSqlDocument, type SqlDiagnostic } from '@/lib/sqlLanguageServer';
+import { useCoreorToast } from '@/components/ui/coreor-toast';
 
 interface QueryWorkspaceProps {
   tab: EditorQueryTab;
@@ -83,6 +87,11 @@ function operationType(sql: string) {
   return null;
 }
 
+function isWriteStatement(sql: string) {
+  const clean = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+  return /^(?:INSERT|UPDATE|DELETE|REPLACE|MERGE|ALTER|CREATE|DROP|TRUNCATE|RENAME|GRANT|REVOKE|CALL|EXEC(?:UTE)?|LOAD\s+DATA|LOCK\s+TABLES|UNLOCK\s+TABLES|SET\s+(?:GLOBAL|SESSION)?\s*(?:TRANSACTION|AUTOCOMMIT)|BEGIN|START\s+TRANSACTION|COMMIT|ROLLBACK)\b/i.test(clean);
+}
+
 function parseMutation(sql: string) {
   const update = /^UPDATE\s+([^\s]+)\s+SET\s+[\s\S]+?\s+WHERE\s+([\s\S]+)$/i.exec(sql.trim().replace(/;$/, ''));
   if (update) return { table: update[1], where: update[2], preview: `SELECT * FROM ${update[1]} WHERE ${update[2]} LIMIT 250` };
@@ -99,9 +108,11 @@ function parseAlterTable(sql: string) {
 
 function cursorToken(sql: string, cursor: number) { const match = /([A-Za-z0-9_$`".\[\]-]+)$/.exec(sql.slice(0, cursor)); return { value: match?.[1] || '', start: match ? cursor - match[1].length : cursor }; }
 function suggestionIcon(kind: Suggestion['kind']) { if (kind === 'database') return <Database className="h-3.5 w-3.5 text-purple-400"/>; if (kind === 'table') return <Database className="h-3.5 w-3.5 text-emerald-400"/>; if (kind === 'column') return <Code2 className="h-3.5 w-3.5 text-cyan-400"/>; return <Sparkles className="h-3.5 w-3.5 text-amber-300"/>; }
+function diagnosticIcon(item: SqlDiagnostic) { return item.severity === 'error' ? <XCircle className="h-3.5 w-3.5 text-red-400"/> : item.severity === 'warning' ? <AlertTriangle className="h-3.5 w-3.5 text-amber-400"/> : <Info className="h-3.5 w-3.5 text-cyan-400"/>; }
 
 export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate }: QueryWorkspaceProps) {
   const { openContextMenu } = useAppContextMenu();
+  const toast = useCoreorToast();
   const { preferences } = useAppPreferences();
   const autoRunHandled = useRef(false);
   const [history, setHistory] = useState<StoredQuery[]>([]);
@@ -115,6 +126,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   const [resultSets, setResultSets] = useState<ResultSet[]>([]);
   const [activeResultId, setActiveResultId] = useState<string | null>(null);
   const [dryRunPending, setDryRunPending] = useState<{ statement: string; preview: QueryExecutionResult; table: string } | null>(null);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(true);
 
   const selectedServer = useMemo(() => servers.find(server => server.id === tab.serverId) ?? servers[0] ?? null, [servers, tab.serverId]);
   const databases = selectedServer?.databases || [];
@@ -127,12 +139,15 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   useEffect(() => { setHistory(readStored(HISTORY_KEY)); setFavorites(readStored(FAVORITES_KEY)); }, []);
   useEffect(() => { setColumnCache({}); }, [selectedServer?.id, tab.databaseName]);
   useEffect(() => {
-    if (!preferences.autocomplete || !selectedServer || !tab.databaseName || !accountId || !suggestionsOpen) return;
-    for (const tableName of (selectedDatabase?.tables || []).slice(0, 12)) {
+    if (!preferences.autocomplete || !selectedServer || !tab.databaseName || !accountId || (!suggestionsOpen && !tab.sql.trim())) return;
+    for (const tableName of (selectedDatabase?.tables || []).slice(0, 24)) {
       if (columnCache[tableName]) continue;
       void fetchTableInfo(selectedServer.id, tab.databaseName, tableName, accountId).then(info => setColumnCache(previous => ({ ...previous, [tableName]: info }))).catch(() => undefined);
     }
-  }, [preferences.autocomplete, selectedServer, tab.databaseName, accountId, suggestionsOpen, selectedDatabase, columnCache]);
+  }, [preferences.autocomplete, selectedServer, tab.databaseName, accountId, suggestionsOpen, selectedDatabase, columnCache, tab.sql]);
+
+  const diagnostics = useMemo(() => selectedServer ? analyzeSqlDocument(tab.sql, { engine, currentDatabase: tab.databaseName, databases, tableInfo: columnCache }) : [], [tab.sql, engine, tab.databaseName, databases, columnCache, selectedServer]);
+  const diagnosticCounts = useMemo(() => ({ errors: diagnostics.filter(item => item.severity === 'error').length, warnings: diagnostics.filter(item => item.severity === 'warning').length, info: diagnostics.filter(item => item.severity === 'info').length }), [diagnostics]);
 
   const suggestions = useMemo<Suggestion[]>(() => {
     if (!preferences.autocomplete || !suggestionsOpen || !selectedServer) return [];
@@ -141,7 +156,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     for (const database of databases) if (!lower || database.name.toLocaleLowerCase('tr-TR').includes(lower)) list.push({ id: `d:${database.name}`, label: database.name, insertText: quote(database.name), detail: `${database.tableCount} tablo`, kind: 'database' });
     for (const tableName of selectedDatabase?.tables || []) if (!lower || tableName.toLocaleLowerCase('tr-TR').includes(lower)) list.push({ id: `t:${tableName}`, label: tableName, insertText: quote(tableName), detail: tab.databaseName || '', kind: 'table' });
     for (const [tableName, info] of Object.entries(columnCache)) for (const column of info.columns) if (!lower || column.Field.toLocaleLowerCase('tr-TR').includes(lower)) list.push({ id: `c:${tableName}:${column.Field}`, label: column.Field, insertText: quote(column.Field), detail: `${tableName} • ${column.Type}`, kind: 'column' });
-    return list.slice(0, 28);
+    return list.slice(0, 36);
   }, [preferences.autocomplete, suggestionsOpen, selectedServer, token.value, engine, databases, selectedDatabase, columnCache, tab.databaseName]);
 
   const recordHistory = useCallback((sql: string) => {
@@ -178,8 +193,17 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     return true;
   }, [preferences.requireSecondApproval, preferences.productionAlterApproval, selectedServer?.id, tab.databaseName, onChange]);
 
+  const assertWritable = useCallback((statements: string[]) => {
+    const write = statements.find(isWriteStatement);
+    if (!selectedServer?.readOnly || !write) return true;
+    const message = `${selectedServer.name} salt-okunur profildir. Yazma ve şema sorguları çalıştırılamaz.`;
+    onChange({ isRunning: false, error: message });
+    toast.show({ variant: 'warning', title: 'Salt-okunur bağlantı', description: message, metadata: [{ label: 'Engellenen SQL', value: queryTitle(write) }] });
+    return false;
+  }, [selectedServer, onChange, toast]);
+
   const executeStatements = useCallback(async (statements: string[]) => {
-    if (!selectedServer || !accountId) return;
+    if (!selectedServer || !accountId || !assertWritable(statements)) return;
     onChange({ isRunning: true, error: null, runImmediately: false, serverId: selectedServer.id });
     const sets: ResultSet[] = [];
     for (let index = 0; index < statements.length; index += 1) {
@@ -196,11 +220,12 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     }
     setResultSets(sets); setActiveResultId(sets[0]?.id || null);
     const first = sets[0]; onChange({ isRunning: false, error: first?.error || null, result: first?.result || null, updatedAt: new Date().toISOString() });
-  }, [selectedServer, accountId, tab.databaseName, onChange, requiresApproval, takeSnapshot]);
+  }, [selectedServer, accountId, tab.databaseName, onChange, requiresApproval, takeSnapshot, assertWritable]);
 
   const executeNow = useCallback(async (skipDryRun = false) => {
     if (!selectedServer || !accountId || tab.isRunning || !tab.sql.trim()) return;
     const statements = splitStatements(tab.sql); recordHistory(tab.sql);
+    if (!assertWritable(statements)) return;
     if (!skipDryRun && preferences.dryRunMutations && statements.length === 1) {
       const mutation = parseMutation(statements[0]);
       if (mutation) {
@@ -215,15 +240,22 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       }
     }
     await executeStatements(statements);
-  }, [selectedServer, accountId, tab.isRunning, tab.sql, tab.databaseName, preferences.dryRunMutations, onChange, recordHistory, executeStatements]);
+  }, [selectedServer, accountId, tab.isRunning, tab.sql, tab.databaseName, preferences.dryRunMutations, onChange, recordHistory, executeStatements, assertWritable]);
 
   const runQuery = useCallback(() => {
-    const dangerous = splitStatements(tab.sql).some(statement => operationType(statement) || (/^(UPDATE|DELETE)\b/i.test(statement) && !/\bWHERE\b/i.test(statement)));
+    const statements = splitStatements(tab.sql);
+    if (!assertWritable(statements)) return;
+    const blockingDiagnostics = diagnostics.filter(item => item.severity === 'error' && ['UNTERMINATED_STRING','UNEXPECTED_PAREN','UNCLOSED_PAREN','MISSING_WHERE','ENGINE_SYNTAX'].includes(item.code));
+    if (blockingDiagnostics.length) {
+      toast.show({ variant: 'error', title: 'SQL dil servisi sorguyu durdurdu', description: blockingDiagnostics[0].message, metadata: [{ label: 'Kod', value: blockingDiagnostics[0].code }, { label: 'Toplam hata', value: blockingDiagnostics.length }] });
+      return;
+    }
+    const dangerous = statements.some(statement => operationType(statement) || (/^(UPDATE|DELETE)\b/i.test(statement) && !/\bWHERE\b/i.test(statement)));
     if (preferences.confirmDangerousQueries && dangerous) {
       setConfirmation({ title: 'Güvenli SQL doğrulaması', description: 'Bu sorgu veri veya şema değişikliği oluşturabilir.', expectedText: 'ÇALIŞTIR', sql: tab.sql, confirmLabel: 'Güvenlik adımına devam et', onConfirm: () => void executeNow() }); return;
     }
     void executeNow();
-  }, [preferences.confirmDangerousQueries, tab.sql, executeNow]);
+  }, [preferences.confirmDangerousQueries, tab.sql, executeNow, diagnostics, toast, assertWritable]);
 
   useEffect(() => { if (tab.runImmediately && !autoRunHandled.current) { autoRunHandled.current = true; runQuery(); } }, [tab.runImmediately, runQuery]);
   useEffect(() => { autoRunHandled.current = false; }, [tab.id]);
@@ -236,7 +268,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   const insertSuggestion = (suggestion: Suggestion) => { const next = `${tab.sql.slice(0, token.start)}${suggestion.insertText}${tab.sql.slice(cursor)}`; onChange({ sql: next }); setCursor(token.start + suggestion.insertText.length); setSuggestionsOpen(false); };
   const libraryItems = library === 'history' ? history : favorites;
   const editorContextMenu = (event: React.MouseEvent) => openContextMenu(event, [
-    { id: 'run', label: 'Sorguyu çalıştır', icon: Play, shortcut: 'Ctrl+Enter', onSelect: runQuery },
+    { id: 'run', label: 'Sorguyu çalıştır', icon: Play, shortcut: 'Ctrl+Enter', disabled: Boolean(selectedServer?.readOnly && splitStatements(tab.sql).some(isWriteStatement)), onSelect: runQuery },
     { id: 'format', label: 'SQL biçimlendir', icon: Wand2, onSelect: () => onChange({ sql: formatSql(tab.sql) }) },
     { id: 'favorite', label: isFavorite ? 'Favorilerden kaldır' : 'Favorilere ekle', icon: isFavorite ? StarOff : Star, onSelect: toggleFavorite },
     { id: 'duplicate', label: 'Sekmeyi çoğalt', icon: Copy, onSelect: onDuplicate },
@@ -245,21 +277,24 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
 
   return <div className="flex h-full min-h-0 flex-col bg-zinc-950/30">
     <div className="coreor-hide-scrollbar flex min-h-10 shrink-0 items-center gap-1.5 overflow-x-auto border-b border-zinc-800 px-2 py-1">
-      <Button size="sm" className="h-7 gap-1.5 text-[11px]" disabled={!selectedServer || !accountId || tab.isRunning || !tab.sql.trim()} onClick={runQuery}>{tab.isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <Play className="h-3.5 w-3.5"/>}Çalıştır</Button>
+      <Button size="sm" className="h-7 gap-1.5 text-[11px]" disabled={!selectedServer || !accountId || tab.isRunning || !tab.sql.trim() || Boolean(selectedServer?.readOnly && splitStatements(tab.sql).some(isWriteStatement))} onClick={runQuery}>{tab.isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : selectedServer?.readOnly ? <LockKeyhole className="h-3.5 w-3.5"/> : <Play className="h-3.5 w-3.5"/>}Çalıştır</Button>
       <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px]" onClick={() => onChange({ sql: formatSql(tab.sql) })}><Wand2 className="mr-1 h-3.5 w-3.5"/>Biçimlendir</Button>
       <Button variant="ghost" size="icon" className={`h-7 w-7 ${isFavorite ? 'text-amber-300' : ''}`} onClick={toggleFavorite}>{isFavorite ? <Star className="h-3.5 w-3.5 fill-current"/> : <StarOff className="h-3.5 w-3.5"/>}</Button>
       <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setLibrary(library === 'history' ? null : 'history')}><History className="mr-1 h-3.5 w-3.5"/>Geçmiş</Button>
       <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setLibrary(library === 'favorites' ? null : 'favorites')}><BookOpen className="mr-1 h-3.5 w-3.5"/>Favoriler</Button>
+      <button type="button" className="flex h-7 items-center gap-1 rounded px-2 text-[9px] text-zinc-500 hover:bg-zinc-900" onClick={() => setDiagnosticsOpen(previous => !previous)}><CheckCircle2 className="h-3.5 w-3.5 text-cyan-400"/>LSP <span className={diagnosticCounts.errors ? 'text-red-400' : 'text-emerald-400'}>{diagnosticCounts.errors}</span>/<span className="text-amber-400">{diagnosticCounts.warnings}</span></button>
       <div className="w-48 shrink-0"><SearchSelect value={selectedServer?.id || ''} options={serverOptions} onValueChange={serverId => onChange({ serverId: serverId || null, databaseName: null, result: null })} triggerClassName="h-7 min-h-7" showDescriptionInTrigger={false}/></div>
       <div className="w-52 shrink-0"><SearchSelect value={tab.databaseName || ''} options={databaseOptions} onValueChange={databaseName => onChange({ databaseName: databaseName || null, result: null })} triggerClassName="h-7 min-h-7" showDescriptionInTrigger={false}/></div>
-      <span className="ml-auto flex items-center gap-2 text-[9px] text-zinc-600"><span className={preferences.dryRunMutations ? 'text-emerald-400' : ''}>Dry-run {preferences.dryRunMutations ? 'açık' : 'kapalı'}</span><span>•</span><span>{preferences.autoSchemaSnapshots ? 'Snapshot açık' : 'Snapshot kapalı'}</span></span>
+      <span className="ml-auto flex items-center gap-2 text-[9px] text-zinc-600">{selectedServer?.readOnly && <span className="rounded bg-amber-500/10 px-2 py-1 text-amber-300">READ ONLY</span>}<span className={preferences.dryRunMutations ? 'text-emerald-400' : ''}>Dry-run {preferences.dryRunMutations ? 'açık' : 'kapalı'}</span><span>•</span><span>{preferences.autoSchemaSnapshots ? 'Snapshot açık' : 'Snapshot kapalı'}</span></span>
     </div>
 
-    {dryRunPending && <div className="flex shrink-0 items-center gap-3 border-b border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-[10px] text-amber-100"><AlertTriangle className="h-4 w-4"/><div className="min-w-0 flex-1"><b>{dryRunPending.preview.rows.length.toLocaleString('tr-TR')} satır</b> etkilenebilir. Kaynak tablo: {dryRunPending.table}</div><Button size="sm" className="h-7" onClick={() => { const statement = dryRunPending.statement; setDryRunPending(null); void executeStatements([statement]); }}><ShieldCheck className="mr-1 h-3.5 w-3.5"/>Değişikliği uygula</Button><Button variant="ghost" size="sm" onClick={() => setDryRunPending(null)}>İptal</Button></div>}
+    {diagnosticsOpen && diagnostics.length > 0 && <div className="coreor-hide-scrollbar flex max-h-20 shrink-0 gap-2 overflow-x-auto border-b border-zinc-800 bg-black/20 px-2 py-1.5">{diagnostics.slice(0, 12).map(item => <button key={item.id} type="button" className="flex min-w-[260px] max-w-[420px] items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1.5 text-left" title={item.suggestion}><span className="mt-0.5">{diagnosticIcon(item)}</span><span className="min-w-0"><span className="block truncate text-[9px] text-zinc-300">{item.message}</span><span className="mt-0.5 block text-[8px] text-zinc-600">{item.code}{item.suggestion ? ` • ${item.suggestion}` : ''}</span></span></button>)}</div>}
+
+    {dryRunPending && <div className="flex shrink-0 items-center gap-3 border-b border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-[10px] text-amber-100"><AlertTriangle className="h-4 w-4"/><div className="min-w-0 flex-1"><b>{dryRunPending.preview.rows.length.toLocaleString('tr-TR')} satır</b> etkilenebilir. Kaynak tablo: {dryRunPending.table}</div><Button size="sm" className="h-7" disabled={selectedServer?.readOnly} onClick={() => { const statement = dryRunPending.statement; setDryRunPending(null); void executeStatements([statement]); }}><ShieldCheck className="mr-1 h-3.5 w-3.5"/>Değişikliği uygula</Button><Button variant="ghost" size="sm" onClick={() => setDryRunPending(null)}>İptal</Button></div>}
 
     <div className={`grid min-h-0 flex-1 ${library ? 'grid-cols-[minmax(0,1fr)_300px]' : 'grid-cols-1'}`}>
       <div className="grid min-h-0 grid-rows-[minmax(160px,.48fr)_minmax(170px,.52fr)]">
-        <div className="relative min-h-0 border-b border-zinc-800"><SqlEditor value={tab.sql} onChange={(sql, position) => { onChange({ sql }); setCursor(position); setSuggestionsOpen(preferences.autocomplete); }} onCursorChange={setCursor} onContextMenu={editorContextMenu} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); runQuery(); } else if (suggestionsOpen && suggestions.length && (event.key === 'Enter' || event.key === 'Tab')) { event.preventDefault(); insertSuggestion(suggestions[suggestionIndex] || suggestions[0]); } else if (suggestionsOpen && event.key === 'ArrowDown') { event.preventDefault(); setSuggestionIndex(value => (value + 1) % suggestions.length); } else if (event.key === 'Escape') setSuggestionsOpen(false); }}/>
+        <div className="relative min-h-0 border-b border-zinc-800"><SqlEditor value={tab.sql} onChange={(sql, position) => { onChange({ sql }); setCursor(position); setSuggestionsOpen(preferences.autocomplete); setSuggestionIndex(0); }} onCursorChange={setCursor} onContextMenu={editorContextMenu} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); runQuery(); } else if (suggestionsOpen && suggestions.length && (event.key === 'Enter' || event.key === 'Tab')) { event.preventDefault(); insertSuggestion(suggestions[suggestionIndex] || suggestions[0]); } else if (suggestionsOpen && event.key === 'ArrowDown') { event.preventDefault(); setSuggestionIndex(value => (value + 1) % suggestions.length); } else if (suggestionsOpen && event.key === 'ArrowUp') { event.preventDefault(); setSuggestionIndex(value => (value - 1 + suggestions.length) % suggestions.length); } else if (event.key === 'Escape') setSuggestionsOpen(false); }}/>
           {suggestionsOpen && suggestions.length > 0 && <div className="absolute bottom-3 left-3 z-30 max-h-80 w-[500px] overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-950 p-1 shadow-2xl">{suggestions.map((suggestion, index) => <button key={suggestion.id} onMouseDown={event => { event.preventDefault(); insertSuggestion(suggestion); }} className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left ${index === suggestionIndex ? 'bg-cyan-500/15' : 'hover:bg-zinc-900'}`}>{suggestionIcon(suggestion.kind)}<span className="min-w-0 flex-1 truncate font-mono text-[10px]">{suggestion.label}</span><span className="text-[9px] text-zinc-600">{suggestion.detail}</span></button>)}</div>}
         </div>
         <div className="flex min-h-0 flex-col bg-black/20">
