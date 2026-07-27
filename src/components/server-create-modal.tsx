@@ -10,6 +10,7 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  LockKeyhole,
   Network,
   Server,
   Shield,
@@ -21,10 +22,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
+import { CoreorSwitch } from '@/components/ui/coreor-switch';
 import type { DatabaseEngine, DatabaseServerConfig, DatabaseSslMode } from 'types';
 import { testDatabaseConnection } from '@/lib/databaseApi';
 import { DATABASE_ENGINES, databaseEngineDefinition } from '@/lib/databaseEngines';
 import { useOrganizations } from '@/lib/organizationStore';
+import { getAppPreferences } from '@/lib/appPreferences';
 
 interface ServerCreateModalValues {
   name: string;
@@ -38,6 +41,7 @@ interface ServerCreateModalValues {
   sslMode: DatabaseSslMode;
   connectionTimeoutMs: string;
   organizationId: string;
+  readOnly: boolean;
 }
 
 interface ServerCreateModalProps {
@@ -66,14 +70,14 @@ const DEFAULT_ENGINE = databaseEngineDefinition('mysql');
 const DEFAULT_VALUES: ServerCreateModalValues = {
   name: '', databaseType: 'mysql', version: DEFAULT_ENGINE.defaultVersion, host: '',
   port: String(DEFAULT_ENGINE.defaultPort), username: '', password: '', databaseName: '',
-  sslMode: 'required', connectionTimeoutMs: '20000', organizationId: ''
+  sslMode: 'required', connectionTimeoutMs: '20000', organizationId: '', readOnly: false
 };
 
 const INPUT_CLASS = 'h-10 rounded-xl border-white/10 bg-zinc-950/70 px-3 text-xs text-white placeholder:text-zinc-700 focus-visible:ring-cyan-500/25';
 const LABEL_CLASS = 'mb-1.5 block text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-600';
 
 function valuesFromServer(server?: DatabaseServerConfig | null): ServerCreateModalValues {
-  if (!server) return DEFAULT_VALUES;
+  if (!server) return { ...DEFAULT_VALUES, readOnly: getAppPreferences().defaultReadOnlyConnections };
   const definition = databaseEngineDefinition(server.databaseType);
   return {
     name: server.name || '', databaseType: server.databaseType || 'mysql',
@@ -81,7 +85,7 @@ function valuesFromServer(server?: DatabaseServerConfig | null): ServerCreateMod
     port: String(server.port || definition.defaultPort), username: server.username || '',
     password: server.password || '', databaseName: server.databaseName || '',
     sslMode: server.sslMode || 'required', connectionTimeoutMs: String(server.connectionTimeoutMs || 20000),
-    organizationId: server.organizationId || ''
+    organizationId: server.organizationId || '', readOnly: Boolean(server.readOnly)
   };
 }
 
@@ -153,7 +157,7 @@ export function ServerCreateModal({ open, onClose, onSubmit, initialServer, onUp
       host: values.host.trim(), port: Number.isFinite(port) ? port : selectedEngine.defaultPort,
       username: values.username.trim(), password: values.password, databaseName: values.databaseName.trim(),
       sslMode: values.sslMode, connectionTimeoutMs: Number.isFinite(timeout) ? Math.min(Math.max(timeout, 3000), 60000) : 20000,
-      organizationId: values.organizationId || null,
+      organizationId: values.organizationId || null, readOnly: values.readOnly,
       visibleTo: initialServer?.visibleTo || [], databases: initialServer?.databases || [],
       createdAt: initialServer?.createdAt, updatedAt: initialServer?.updatedAt
     };
@@ -202,16 +206,16 @@ export function ServerCreateModal({ open, onClose, onSubmit, initialServer, onUp
             <div className="grid content-start gap-4">
               <FormSection icon={Database} title="Sunucu türü ve sürüm" description="Motoru seçtiğinizde port ve sürüm profili otomatik güncellenir."><div className="grid gap-3"><div><label className={LABEL_CLASS}>Veritabanı motoru</label><SearchSelect value={values.databaseType} options={engineOptions} onValueChange={chooseEngine} searchPlaceholder="MySQL, PostgreSQL, MSSQL…" dropdownMinWidth={500} dropdownMaxWidth={620} showDescriptionInTrigger /></div><div><label className={LABEL_CLASS}>Sürüm profili</label><SearchSelect value={values.version} options={versionOptions} onValueChange={version => updateValue('version', version)} searchPlaceholder="Sürüm ara…" dropdownMinWidth={460} dropdownMaxWidth={560} /></div><div className="rounded-xl border border-cyan-500/15 bg-cyan-500/[0.04] px-3 py-2.5"><div className="flex items-center justify-between"><span className="text-[8px] uppercase tracking-[0.12em] text-cyan-500">{selectedEngine.family} protokolü</span><span className="rounded-full border border-cyan-500/20 px-2 py-0.5 text-[8px] text-cyan-300">:{selectedEngine.defaultPort}</span></div><div className="mt-1 text-sm font-semibold text-cyan-100">{selectedEngine.label} {values.version}</div><div className="mt-1 text-[9px] leading-4 text-zinc-600">{selectedEngine.description}</div></div></div></FormSection>
               <FormSection icon={Building2} title="Çalışma alanı" description="Bağlantıyı kişisel kasada veya bir organizasyon kapsamında tutun."><SearchSelect value={values.organizationId} options={organizationOptions} onValueChange={organizationId => updateValue('organizationId', organizationId)} searchPlaceholder="Organizasyon ara…" dropdownMinWidth={460} dropdownMaxWidth={580} /></FormSection>
-              <FormSection icon={Network} title="Bağlantı politikası" description="TLS koruması ve ağ bekleme süresi."><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"><div><label className={LABEL_CLASS}>TLS politikası</label><SearchSelect value={values.sslMode} options={TLS_OPTIONS} onValueChange={sslMode => updateValue('sslMode', sslMode)} searchPlaceholder="TLS seçeneği ara…" dropdownMinWidth={460} /></div><div><label className={LABEL_CLASS}>Zaman aşımı</label><SearchSelect value={values.connectionTimeoutMs} options={TIMEOUT_OPTIONS} onValueChange={connectionTimeoutMs => updateValue('connectionTimeoutMs', connectionTimeoutMs)} searchPlaceholder="Süre ara…" dropdownMinWidth={440} /></div></div></FormSection>
+              <FormSection icon={Network} title="Bağlantı politikası" description="TLS, ağ bekleme süresi ve yazma yetkisi."><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"><div><label className={LABEL_CLASS}>TLS politikası</label><SearchSelect value={values.sslMode} options={TLS_OPTIONS} onValueChange={sslMode => updateValue('sslMode', sslMode)} searchPlaceholder="TLS seçeneği ara…" dropdownMinWidth={460} /></div><div><label className={LABEL_CLASS}>Zaman aşımı</label><SearchSelect value={values.connectionTimeoutMs} options={TIMEOUT_OPTIONS} onValueChange={connectionTimeoutMs => updateValue('connectionTimeoutMs', connectionTimeoutMs)} searchPlaceholder="Süre ara…" dropdownMinWidth={440} /></div></div><div className="mt-3 rounded-xl border border-amber-500/15 bg-amber-500/[0.04] p-3"><CoreorSwitch checked={values.readOnly} onCheckedChange={readOnly => updateValue('readOnly', readOnly)} label="Salt-okunur profil" description="UPDATE, DELETE, INSERT, ALTER, DROP, TRUNCATE ve görsel veri değişikliklerini engeller." /></div></FormSection>
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-zinc-800 bg-black/15 p-3"><div className="mb-2 text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-600">Bağlantı özeti</div><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5"><SummaryItem icon={Server} label="Profil" value={values.name || 'Adsız bağlantı'} /><SummaryItem icon={Network} label="Hedef" value={`${values.host || 'host'}:${values.port || selectedEngine.defaultPort}`} mono /><SummaryItem icon={Database} label="Tür ve sürüm" value={`${selectedEngine.label} ${values.version}`} /><SummaryItem icon={Building2} label="Çalışma alanı" value={organizationLabel} /><SummaryItem icon={Clock3} label="Politika" value={`${tlsLabel} • ${timeoutLabel}`} /></div></div>
+          <div className="mt-4 rounded-2xl border border-zinc-800 bg-black/15 p-3"><div className="mb-2 text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-600">Bağlantı özeti</div><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6"><SummaryItem icon={Server} label="Profil" value={values.name || 'Adsız bağlantı'} /><SummaryItem icon={Network} label="Hedef" value={`${values.host || 'host'}:${values.port || selectedEngine.defaultPort}`} mono /><SummaryItem icon={Database} label="Tür ve sürüm" value={`${selectedEngine.label} ${values.version}`} /><SummaryItem icon={Building2} label="Çalışma alanı" value={organizationLabel} /><SummaryItem icon={Clock3} label="Politika" value={`${tlsLabel} • ${timeoutLabel}`} /><SummaryItem icon={LockKeyhole} label="Erişim" value={values.readOnly ? 'Salt okunur' : 'Okuma ve yazma'} /></div></div>
           {error && <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-[11px] text-red-300">{error}</div>}
           {testResult && <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-[11px] text-emerald-300"><CheckCircle2 className="h-3.5 w-3.5" />{testResult}</div>}
         </div>
 
-        <footer className="flex shrink-0 flex-col gap-3 border-t border-white/10 bg-zinc-950/96 px-4 py-3 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-6"><div className="flex min-w-0 items-center gap-2 text-[9px] text-zinc-600"><Sparkles className="h-3.5 w-3.5 shrink-0 text-cyan-400" /><span className="truncate">{selectedEngine.label} {values.version} • {values.host || 'host'}:{values.port || selectedEngine.defaultPort} • {organizationLabel}</span></div><div className="flex shrink-0 items-center gap-2"><Button type="button" variant="outline" size="sm" className="h-9 flex-1 gap-1.5 sm:flex-none" onClick={handleTest} disabled={testing || submitting}>{testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Server className="h-3.5 w-3.5" />}Bağlantıyı test et</Button><Button type="submit" size="sm" className="h-9 flex-1 sm:flex-none" disabled={submitting || testing}>{submitting && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}{isEditing ? 'Değişiklikleri kaydet' : 'Sunucuyu ekle'}</Button></div></footer>
+        <footer className="flex shrink-0 flex-col gap-3 border-t border-white/10 bg-zinc-950/96 px-4 py-3 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-6"><div className="flex min-w-0 items-center gap-2 text-[9px] text-zinc-600"><Sparkles className="h-3.5 w-3.5 shrink-0 text-cyan-400" /><span className="truncate">{selectedEngine.label} {values.version} • {values.host || 'host'}:{values.port || selectedEngine.defaultPort} • {values.readOnly ? 'READ ONLY' : 'READ/WRITE'} • {organizationLabel}</span></div><div className="flex shrink-0 items-center gap-2"><Button type="button" variant="outline" size="sm" className="h-9 flex-1 gap-1.5 sm:flex-none" onClick={handleTest} disabled={testing || submitting}>{testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Server className="h-3.5 w-3.5" />}Bağlantıyı test et</Button><Button type="submit" size="sm" className="h-9 flex-1 sm:flex-none" disabled={submitting || testing}>{submitting && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}{isEditing ? 'Değişiklikleri kaydet' : 'Sunucuyu ekle'}</Button></div></footer>
       </form>
     </div>
   </div>, document.body);
