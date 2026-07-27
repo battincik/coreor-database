@@ -40,7 +40,8 @@ function connectionPayload(server: DatabaseServerConfig, database?: string | nul
     password: server.password,
     database: database === undefined ? server.databaseName?.trim() || undefined : database,
     sslMode: server.sslMode ?? 'required',
-    connectTimeoutMs: server.connectionTimeoutMs ?? 20_000
+    connectTimeoutMs: server.connectionTimeoutMs ?? 20_000,
+    readOnly: Boolean(server.readOnly)
   };
 }
 
