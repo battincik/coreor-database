@@ -2,11 +2,11 @@
 
 import { useEffect } from 'react';
 
-type BigIntWithJson = BigInt & { toJSON?: () => string };
+type BigIntJsonPrototype = { toJSON?: () => string };
 
 export function RuntimeCompatibility() {
   useEffect(() => {
-    const prototype = BigInt.prototype as BigIntWithJson;
+    const prototype = BigInt.prototype as unknown as BigIntJsonPrototype;
     if (!prototype.toJSON) {
       Object.defineProperty(prototype, 'toJSON', {
         configurable: true,
