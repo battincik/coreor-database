@@ -16,7 +16,10 @@ export function CoreorLoadingScreen({ title = 'Coreor Database hazırlanıyor', 
         <div className="mx-auto mt-6 h-1 w-52 overflow-hidden rounded-full bg-muted">
           <div className="h-full w-1/3 animate-[coreor-loading_1.25s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-cyan-500 via-emerald-400 to-purple-500" />
         </div>
-        <div className="mt-5 flex items-center justify-center gap-2 text-[9px] uppercase tracking-[0.18em] text-muted-foreground/70"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />Next.js 16 • Turbopack • MySQL</div>
+        <div className="mt-5 flex items-center justify-center gap-2 text-[9px] uppercase tracking-[0.18em] text-muted-foreground/70">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+          Coreor.net
+        </div>
       </div>
       <style>{`@keyframes coreor-loading { 0% { transform: translateX(-115%); } 50% { transform: translateX(115%); } 100% { transform: translateX(315%); } }`}</style>
     </div>
