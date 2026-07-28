@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Search, X } from 'lucide-react';
 
-export interface SearchSelectOption<T extends string = string> {
+export interface SearchSelectOption<T extends string | number = string> {
   value: T;
   label: string;
   description?: string;
@@ -12,7 +12,7 @@ export interface SearchSelectOption<T extends string = string> {
   keywords?: string[];
 }
 
-interface SearchSelectProps<T extends string = string> {
+interface SearchSelectProps<T extends string | number = string> {
   value: T;
   options: SearchSelectOption<T>[];
   onValueChange: (value: T) => void;
@@ -37,7 +37,7 @@ interface PanelPosition {
   placement: 'top' | 'bottom';
 }
 
-export function SearchSelect<T extends string = string>({
+export function SearchSelect<T extends string | number = string>({
   value,
   options,
   onValueChange,
@@ -136,7 +136,7 @@ export function SearchSelect<T extends string = string>({
     const normalized = query.trim().toLocaleLowerCase('tr-TR');
     if (!normalized) return options;
     return options.filter(option =>
-      `${option.label} ${option.description || ''} ${(option.keywords || []).join(' ')}`
+      `${option.label} ${option.description || ''} ${String(option.value)} ${(option.keywords || []).join(' ')}`
         .toLocaleLowerCase('tr-TR')
         .includes(normalized)
     );
@@ -166,7 +166,7 @@ export function SearchSelect<T extends string = string>({
           const active = option.value === value;
           return (
             <button
-              key={option.value}
+              key={String(option.value)}
               type="button"
               role="option"
               aria-selected={active}
