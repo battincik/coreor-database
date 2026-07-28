@@ -42,6 +42,7 @@ export interface DatabaseConnectionPayload {
   database?: string | null;
   sslMode: DatabaseSslMode;
   connectTimeoutMs?: number;
+  readOnly?: boolean;
 }
 
 export interface OrganizationDatabaseBinding {
@@ -122,6 +123,7 @@ export interface DatabaseServerConfig {
   version?: string;
   sslMode?: DatabaseSslMode;
   connectionTimeoutMs?: number;
+  readOnly?: boolean;
   visibleTo?: string[];
   organizationId?: string | null;
   databases?: DatabaseCatalogItem[];

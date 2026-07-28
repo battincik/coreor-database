@@ -5,6 +5,7 @@ import { useSyncExternalStore } from 'react';
 export type AppThemeName = 'amoled' | 'graphite' | 'midnight' | 'nord' | 'solarized' | 'light' | 'high-contrast';
 export type AppFontFamily = 'system' | 'inter' | 'geist' | 'mono' | 'cascadia' | 'fira-code' | 'humanist' | 'serif';
 export type SyntaxThemeName = 'coreor' | 'dracula' | 'nord' | 'monokai' | 'github-dark' | 'github-light';
+export type PerformanceRefreshSeconds = 1 | 3 | 5 | 10 | 15 | 30;
 
 export interface AppPreferences {
   theme: AppThemeName;
@@ -31,10 +32,13 @@ export interface AppPreferences {
   queryResultLimit: number;
   importBatchSize: number;
   rememberPanelSizes: boolean;
+  defaultReadOnlyConnections: boolean;
+  liveNotifications: boolean;
+  performanceRefreshSeconds: PerformanceRefreshSeconds;
 }
 
-const STORAGE_KEY = 'coreor:app-preferences:v4';
-const LEGACY_STORAGE_KEY = 'coreor:app-preferences:v3';
+const STORAGE_KEY = 'coreor:app-preferences:v5';
+const LEGACY_STORAGE_KEYS = ['coreor:app-preferences:v4', 'coreor:app-preferences:v3'];
 const listeners = new Set<() => void>();
 const DEFAULTS: AppPreferences = {
   theme: 'amoled', syntaxTheme: 'coreor', fontFamily: 'system', uiFontSize: 12,
@@ -43,7 +47,8 @@ const DEFAULTS: AppPreferences = {
   dyslexiaSpacing: false, colorBlindMode: 'none', autocomplete: true,
   autoRefreshProcesses: false, confirmDangerousQueries: true, dryRunMutations: true,
   requireSecondApproval: true, productionAlterApproval: true, autoSchemaSnapshots: true,
-  queryResultLimit: 5000, importBatchSize: 250, rememberPanelSizes: true
+  queryResultLimit: 5000, importBatchSize: 250, rememberPanelSizes: true,
+  defaultReadOnlyConnections: false, liveNotifications: true, performanceRefreshSeconds: 5
 };
 let snapshot: AppPreferences = DEFAULTS;
 let hydrated = false;
@@ -51,6 +56,12 @@ let hydrated = false;
 function clamp(value: unknown, fallback: number, minimum: number, maximum: number) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? Math.min(Math.max(numeric, minimum), maximum) : fallback;
+}
+
+function normalizeRefresh(value: unknown): PerformanceRefreshSeconds {
+  const allowed: PerformanceRefreshSeconds[] = [1, 3, 5, 10, 15, 30];
+  const numeric = Number(value);
+  return allowed.includes(numeric as PerformanceRefreshSeconds) ? numeric as PerformanceRefreshSeconds : DEFAULTS.performanceRefreshSeconds;
 }
 
 function normalize(value: Partial<AppPreferences> | null | undefined): AppPreferences {
@@ -64,7 +75,8 @@ function normalize(value: Partial<AppPreferences> | null | undefined): AppPrefer
     lineHeight: clamp(source.lineHeight, DEFAULTS.lineHeight, 1.2, 2.2),
     sidebarSize: clamp(source.sidebarSize, DEFAULTS.sidebarSize, 12, 45),
     queryResultLimit: Math.trunc(clamp(source.queryResultLimit, DEFAULTS.queryResultLimit, 100, 50000)),
-    importBatchSize: Math.trunc(clamp(source.importBatchSize, DEFAULTS.importBatchSize, 25, 1000))
+    importBatchSize: Math.trunc(clamp(source.importBatchSize, DEFAULTS.importBatchSize, 25, 1000)),
+    performanceRefreshSeconds: normalizeRefresh(source.performanceRefreshSeconds)
   };
 }
 
@@ -79,6 +91,7 @@ function applyToDocument(preferences: AppPreferences) {
   root.dataset.strongFocus = preferences.strongFocusRing ? 'true' : 'false';
   root.dataset.highContrastBorders = preferences.highContrastBorders ? 'true' : 'false';
   root.dataset.dyslexiaSpacing = preferences.dyslexiaSpacing ? 'true' : 'false';
+  root.dataset.liveNotifications = preferences.liveNotifications ? 'true' : 'false';
   root.style.setProperty('--coreor-ui-font-size', `${preferences.uiFontSize}px`);
   root.style.setProperty('--coreor-editor-font-size', `${preferences.editorFontSize}px`);
   root.style.setProperty('--coreor-console-font-size', `${preferences.consoleFontSize}px`);
@@ -100,7 +113,9 @@ function hydrate() {
   if (hydrated || typeof window === 'undefined') return;
   hydrated = true;
   try {
-    const stored = window.localStorage.getItem(STORAGE_KEY) || window.localStorage.getItem(LEGACY_STORAGE_KEY) || '{}';
+    const stored = window.localStorage.getItem(STORAGE_KEY)
+      || LEGACY_STORAGE_KEYS.map(key => window.localStorage.getItem(key)).find(Boolean)
+      || '{}';
     snapshot = normalize(JSON.parse(stored));
   } catch {
     snapshot = DEFAULTS;
@@ -119,7 +134,10 @@ export function setAppPreferences(patch: Partial<AppPreferences>) {
 }
 export function resetAppPreferences() {
   snapshot = DEFAULTS; hydrated = true;
-  if (typeof window !== 'undefined') { window.localStorage.removeItem(STORAGE_KEY); window.localStorage.removeItem(LEGACY_STORAGE_KEY); }
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(STORAGE_KEY);
+    for (const key of LEGACY_STORAGE_KEYS) window.localStorage.removeItem(key);
+  }
   applyToDocument(snapshot); emit();
 }
 export function useAppPreferences() {

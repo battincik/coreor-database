@@ -35,7 +35,8 @@ function connectionPayload(server: DatabaseServerConfig, database?: string | nul
     password: server.password,
     database,
     sslMode: server.sslMode ?? 'required',
-    connectTimeoutMs: server.connectionTimeoutMs ?? 20_000
+    connectTimeoutMs: server.connectionTimeoutMs ?? 20_000,
+    readOnly: Boolean(server.readOnly)
   };
 }
 

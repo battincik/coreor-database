@@ -5,6 +5,7 @@ import {
   Activity,
   Archive,
   BookOpen,
+  BrainCircuit,
   CheckCircle2,
   Command,
   Database,
@@ -44,6 +45,7 @@ import { SqlNotebookModal } from '@/components/sql-notebook-modal';
 import { DatabaseSettingsModal, type DatabaseSettingsTab } from '@/components/database-settings-modal';
 import { DatabaseTransactionWorkspaceModal } from '@/components/database-transaction-workspace-modal';
 import { DatabaseAutomationCenterModal, type AutomationCenterTab } from '@/components/database-automation-center-modal';
+import { DatabaseIntelligenceCenterModal, type IntelligenceCenterTab } from '@/components/database-intelligence-center-modal';
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 
 interface DatabaseMenuBarProps { selectedDatabase: string | null; selectedTable: string | null; }
@@ -65,6 +67,8 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
   const [transactionOpen, setTransactionOpen] = useState(false);
   const [automationOpen, setAutomationOpen] = useState(false);
   const [automationTab, setAutomationTab] = useState<AutomationCenterTab>('history');
+  const [intelligenceOpen, setIntelligenceOpen] = useState(false);
+  const [intelligenceTab, setIntelligenceTab] = useState<IntelligenceCenterTab>('profiler');
 
   const serverOptions = useMemo<SearchSelectOption[]>(() => servers.map(server => ({
     value: server.id, label: server.name, description: `${server.host}:${server.port || 3306}`,
@@ -77,15 +81,18 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
     const openNotebook = () => setNotebookOpen(true); const openTransaction = () => setTransactionOpen(true);
     const openSettings = (event: Event) => { const detail = (event as CustomEvent<OpenSettingsModalDetail>).detail; setSettingsTab(detail?.tab || 'account'); setSettingsOpen(true); };
     const openAutomation = (event: Event) => { const detail = (event as CustomEvent<{ tab?: AutomationCenterTab }>).detail; setAutomationTab(detail?.tab || 'history'); setAutomationOpen(true); };
+    const openIntelligence = (event: Event) => { const detail = (event as CustomEvent<{ tab?: IntelligenceCenterTab }>).detail; setIntelligenceTab(detail?.tab || 'profiler'); setIntelligenceOpen(true); };
     window.addEventListener(OPEN_USER_MANAGER_EVENT, openUsers); window.addEventListener(OPEN_PROCESS_CENTER_EVENT, openProcesses);
     window.addEventListener(OPEN_IMPORT_EXPORT_EVENT, openTransfer); window.addEventListener(OPEN_PERFORMANCE_PANEL_EVENT, openPerformance);
     window.addEventListener(OPEN_SQL_NOTEBOOK_EVENT, openNotebook); window.addEventListener(OPEN_TRANSACTION_WORKSPACE_EVENT, openTransaction);
     window.addEventListener(OPEN_SETTINGS_MODAL_EVENT, openSettings); window.addEventListener('coreor:open-automation-center', openAutomation);
+    window.addEventListener('coreor:open-intelligence-center', openIntelligence);
     return () => {
       window.removeEventListener(OPEN_USER_MANAGER_EVENT, openUsers); window.removeEventListener(OPEN_PROCESS_CENTER_EVENT, openProcesses);
       window.removeEventListener(OPEN_IMPORT_EXPORT_EVENT, openTransfer); window.removeEventListener(OPEN_PERFORMANCE_PANEL_EVENT, openPerformance);
       window.removeEventListener(OPEN_SQL_NOTEBOOK_EVENT, openNotebook); window.removeEventListener(OPEN_TRANSACTION_WORKSPACE_EVENT, openTransaction);
       window.removeEventListener(OPEN_SETTINGS_MODAL_EVENT, openSettings); window.removeEventListener('coreor:open-automation-center', openAutomation);
+      window.removeEventListener('coreor:open-intelligence-center', openIntelligence);
     };
   }, []);
 
@@ -105,6 +112,7 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
   };
   const openSettings = (tab: DatabaseSettingsTab = 'account') => { setSettingsTab(tab); setSettingsOpen(true); };
   const openAutomation = (tab: AutomationCenterTab) => { setAutomationTab(tab); setAutomationOpen(true); };
+  const openIntelligence = (tab: IntelligenceCenterTab) => { setIntelligenceTab(tab); setIntelligenceOpen(true); };
   const toolButton = 'flex h-7 shrink-0 items-center gap-1.5 rounded px-2 text-[10px] text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-35';
 
   return <>
@@ -114,8 +122,9 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
       <button className={toolButton} disabled={!activeServer || busy} onClick={() => void refreshCatalog()}><RefreshCw className="h-3.5 w-3.5" />Yenile</button>
       <span className="mx-1 h-4 w-px shrink-0 bg-zinc-800" />
       <button className={toolButton} onClick={() => dispatchDatabaseTool(TOGGLE_COMMAND_PALETTE_EVENT)}><Command className="h-3.5 w-3.5 text-cyan-400" />Komut<span className="rounded border border-zinc-800 px-1 py-0.5 text-[8px] text-zinc-600">⌘K</span></button>
+      <button className={toolButton} disabled={!activeServer} onClick={() => openIntelligence('profiler')} title="Profiler, slow query, sağlık, maskeleme, test verisi ve snippetler"><BrainCircuit className="h-3.5 w-3.5 text-fuchsia-400" />Veri Zekâsı</button>
       <button className={toolButton} disabled={!activeServer} onClick={() => openAutomation('backups')} title="mysqldump, pg_dump ve SQL Server yedek görevleri"><Archive className="h-3.5 w-3.5 text-emerald-400" />Yedekleme</button>
-      <button className={toolButton} disabled={!activeServer} onClick={() => openAutomation('history')} title="Snapshot, migration, indeks, prepared, onay, karşılaştırma ve maskeleme"><Sparkles className="h-3.5 w-3.5 text-cyan-400" />Operasyonlar</button>
+      <button className={toolButton} disabled={!activeServer} onClick={() => openAutomation('history')} title="Snapshot, migration, indeks, prepared, onay ve karşılaştırma"><Sparkles className="h-3.5 w-3.5 text-cyan-400" />Operasyonlar</button>
       <button className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setTransactionOpen(true)}><ShieldAlert className="h-3.5 w-3.5 text-amber-400" />Transaction</button>
       <button className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setUsersOpen(true)}><UserCog className="h-3.5 w-3.5 text-purple-400" />Kullanıcılar</button>
       <button className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setProcessOpen(true)}><Activity className="h-3.5 w-3.5 text-amber-400" />Processler</button>
@@ -125,7 +134,7 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
       <button className={toolButton} disabled={!activeServer || !selectedDatabase} onClick={() => window.dispatchEvent(new Event('coreor:open-schema-graph'))}><Network className="h-3.5 w-3.5 text-cyan-400" />Şema</button>
       <button className={toolButton} onClick={() => openSettings('account')}><Settings2 className="h-3.5 w-3.5" />Ayarlar</button>
       {status && <button className={`ml-2 inline-flex min-w-0 shrink-0 items-center gap-1.5 truncate text-[10px] ${status.tone === 'success' ? 'text-emerald-400' : 'text-red-400'}`} onClick={() => setStatus(null)}>{status.tone === 'success' ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}<span className="max-w-64 truncate">{status.text}</span></button>}
-      <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 pl-3 text-[10px] text-zinc-600"><span className="max-w-40 truncate text-zinc-400">{activeServer ? databaseEngineLabel(activeServer.databaseType) : 'Bağlantı yok'}</span>{selectedDatabase && <><span>›</span><span className="max-w-40 truncate">{selectedDatabase}</span></>}{selectedTable && <><span>›</span><span className="max-w-40 truncate text-cyan-400">{selectedTable}</span></>}</div>
+      <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 pl-3 text-[10px] text-zinc-600"><span className="max-w-40 truncate text-zinc-400">{activeServer ? databaseEngineLabel(activeServer.databaseType) : 'Bağlantı yok'}</span>{activeServer?.readOnly && <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[8px] text-amber-300">READ ONLY</span>}{selectedDatabase && <><span>›</span><span className="max-w-40 truncate">{selectedDatabase}</span></>}{selectedTable && <><span>›</span><span className="max-w-40 truncate text-cyan-400">{selectedTable}</span></>}</div>
     </div>
     <DatabaseUserManagerModal open={usersOpen} onClose={() => setUsersOpen(false)} serverId={activeServerId} accountId={activeToken} databases={databases} />
     <DatabaseProcessCenterModal open={processOpen} onClose={() => setProcessOpen(false)} serverId={activeServerId} accountId={activeToken} />
@@ -135,5 +144,6 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
     <DatabaseSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialTab={settingsTab} />
     <DatabaseTransactionWorkspaceModal open={transactionOpen} onClose={() => setTransactionOpen(false)} serverId={activeServerId} accountId={activeToken} databases={databases} selectedDatabase={selectedDatabase} />
     <DatabaseAutomationCenterModal open={automationOpen} onClose={() => setAutomationOpen(false)} initialTab={automationTab} servers={servers} activeServerId={activeServerId} accountId={activeToken} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
+    <DatabaseIntelligenceCenterModal open={intelligenceOpen} onClose={() => setIntelligenceOpen(false)} initialTab={intelligenceTab} servers={servers} activeServerId={activeServerId} accountId={activeToken} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
   </>;
 }
