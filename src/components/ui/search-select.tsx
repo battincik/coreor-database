@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Search, X } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 
 export interface SearchSelectOption<T extends string | number = string> {
   value: T;
@@ -41,9 +42,9 @@ export function SearchSelect<T extends string | number = string>({
   value,
   options,
   onValueChange,
-  placeholder = 'Seçim yapın',
-  searchPlaceholder = 'Seçenek ara…',
-  emptyText = 'Eşleşen seçenek bulunamadı.',
+  placeholder,
+  searchPlaceholder,
+  emptyText,
   disabled = false,
   className = '',
   triggerClassName = '',
@@ -52,6 +53,7 @@ export function SearchSelect<T extends string | number = string>({
   showDescriptionInTrigger = true,
   portal = true
 }: SearchSelectProps<T>) {
+  const { t, language } = useLanguage();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
@@ -60,6 +62,9 @@ export function SearchSelect<T extends string | number = string>({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const selected = options.find(option => option.value === value);
   const usePortal = portal || dropdownMinWidth > 340;
+  const resolvedPlaceholder = placeholder ?? t('common.select');
+  const resolvedSearchPlaceholder = searchPlaceholder ?? t('common.searchOptions');
+  const resolvedEmptyText = emptyText ?? t('common.noResults');
 
   const updatePanelPosition = useCallback(() => {
     if (!usePortal) return;
@@ -133,14 +138,14 @@ export function SearchSelect<T extends string | number = string>({
   }, [open, updatePanelPosition, usePortal]);
 
   const filtered = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase('tr-TR');
+    const normalized = query.trim().toLocaleLowerCase(language);
     if (!normalized) return options;
     return options.filter(option =>
       `${option.label} ${option.description || ''} ${String(option.value)} ${(option.keywords || []).join(' ')}`
-        .toLocaleLowerCase('tr-TR')
+        .toLocaleLowerCase(language)
         .includes(normalized)
     );
-  }, [options, query]);
+  }, [language, options, query]);
 
   const panelContents = (
     <div className="flex min-h-0 w-full flex-col">
@@ -150,18 +155,18 @@ export function SearchSelect<T extends string | number = string>({
           autoFocus
           value={query}
           onChange={event => setQuery(event.target.value)}
-          placeholder={searchPlaceholder}
+          placeholder={resolvedSearchPlaceholder}
           className="h-8 min-w-0 flex-1 bg-transparent text-[11px] text-zinc-100 outline-none placeholder:text-zinc-600"
         />
         {query && (
-          <button type="button" className="rounded-md p-1.5 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" onClick={() => setQuery('')}>
+          <button type="button" aria-label={t('common.reset')} className="rounded-md p-1.5 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" onClick={() => setQuery('')}>
             <X className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5" role="listbox">
         {filtered.length === 0 ? (
-          <div className="px-4 py-10 text-center text-[10px] text-zinc-600">{emptyText}</div>
+          <div className="px-4 py-10 text-center text-[10px] text-zinc-600">{resolvedEmptyText}</div>
         ) : filtered.map(option => {
           const active = option.value === value;
           return (
@@ -188,8 +193,8 @@ export function SearchSelect<T extends string | number = string>({
         })}
       </div>
       <div className="flex h-7 shrink-0 items-center justify-between border-t border-zinc-800 bg-black/30 px-3 text-[8px] text-zinc-600">
-        <span>{filtered.length} seçenek</span>
-        <span>ESC ile kapat</span>
+        <span>{t('common.optionsCount', { count: filtered.length })}</span>
+        <span>{t('common.escapeToClose')}</span>
       </div>
     </div>
   );
@@ -238,7 +243,7 @@ export function SearchSelect<T extends string | number = string>({
       >
         <span className="min-w-0 flex-1 py-1.5">
           <span className={`block truncate text-[11px] font-semibold ${selected ? 'text-zinc-100' : 'text-zinc-600'}`}>
-            {selected?.label || placeholder}
+            {selected?.label || resolvedPlaceholder}
           </span>
           {showDescriptionInTrigger && selected?.description && <span className="mt-0.5 block truncate text-[9px] text-zinc-600">{selected.description}</span>}
         </span>
