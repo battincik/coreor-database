@@ -10,6 +10,7 @@ const ignoredTechnicalPattern = /^(?:SELECT|INSERT|UPDATE|DELETE|ALTER|CREATE|DR
 const allowedExtensions = new Set(['.tsx', '.ts', '.jsx', '.js']);
 const excludedFragments = [
   `${join('src', 'locales')}`,
+  `${join('src', 'i18n')}`,
   `${join('src', 'lib', 'releaseHistory')}`,
   `${join('src', 'lib', 'databaseEngines')}`,
   `${join('src', 'lib', 'server')}`,
@@ -21,6 +22,23 @@ async function readDictionary(code, coverage = false) {
     ? join(root, 'src', 'locales', 'coverage', `${code}.json`)
     : join(root, 'src', 'locales', `${code}.json`);
   return JSON.parse(await readFile(path, 'utf8'));
+}
+
+async function readLegacyTurkish() {
+  const catalog = JSON.parse(await readFile(join(root, 'src', 'locales', 'legacy-phrases.json'), 'utf8'));
+  return catalog.tr || {};
+}
+
+async function readAliasSources() {
+  const source = await readFile(join(root, 'src', 'i18n', 'legacy-source-aliases.ts'), 'utf8');
+  const values = [];
+  const pattern = /^\s*'((?:\\'|[^'])+)'\s*:/gm;
+  let match = pattern.exec(source);
+  while (match) {
+    values.push(match[1].replace(/\\'/g, "'"));
+    match = pattern.exec(source);
+  }
+  return values;
 }
 
 async function walk(directory) {
@@ -65,7 +83,12 @@ function collectCandidates(source) {
 
 const baseTurkish = await readDictionary('tr');
 const coverageTurkish = await readDictionary('tr', true);
-const translatedSources = new Set(Object.values({ ...baseTurkish, ...coverageTurkish }).map(normalize));
+const legacyTurkish = await readLegacyTurkish();
+const aliasSources = await readAliasSources();
+const translatedSources = new Set([
+  ...Object.values({ ...baseTurkish, ...coverageTurkish, ...legacyTurkish }),
+  ...aliasSources
+].map(normalize));
 const findings = [];
 
 for (const scanRoot of scanRoots) {
