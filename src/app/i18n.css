@@ -1,0 +1,27 @@
+html[dir='rtl'] body {
+  direction: rtl;
+}
+
+html[dir='rtl'] .coreor-sql-editor,
+html[dir='rtl'] pre,
+html[dir='rtl'] code,
+html[dir='rtl'] .font-mono,
+html[dir='rtl'] [data-database-value],
+html[dir='rtl'] [data-sql-value],
+html[dir='rtl'] input[type='number'],
+html[dir='rtl'] input[type='email'],
+html[dir='rtl'] input[type='url'] {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+
+html[dir='rtl'] .coreor-ltr {
+  direction: ltr;
+  text-align: left;
+}
+
+html[dir='rtl'] .coreor-rtl-safe {
+  direction: rtl;
+  text-align: right;
+}

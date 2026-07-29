@@ -1,6 +1,6 @@
 {
   "name": "web.database.coreor.net",
-  "version": "3.0.1",
+  "version": "3.1.0",
   "private": true,
   "engines": {
     "node": ">=20.9.0"
@@ -11,7 +11,8 @@
     "start": "next start -p 3302",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run lint && npm run build"
+    "i18n:check": "node scripts/validate-locales.mjs",
+    "check": "npm run i18n:check && npm run typecheck && npm run lint && npm run build"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.3",
