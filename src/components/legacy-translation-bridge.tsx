@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { SOURCE_TRANSLATIONS, useLanguage } from '@/context/LanguageContext';
 
 const SKIPPED_TAGS = new Set(['SCRIPT', 'STYLE', 'CODE', 'PRE', 'TEXTAREA', 'TD', 'TH', 'CANVAS', 'SVG']);
@@ -26,6 +26,8 @@ function shouldSkip(element: Element | null) {
 
 export function LegacyTranslationBridge() {
   const { translations, language } = useLanguage();
+  const textKeysRef = useRef(new WeakMap<Text, string>());
+  const attributeKeysRef = useRef(new WeakMap<Element, Map<string, string>>());
   const sourceToKey = useMemo(() => {
     const entries = Object.entries(SOURCE_TRANSLATIONS)
       .filter(([, value]) => value.length > 0 && value.length <= 180 && !value.includes('{'))
@@ -34,8 +36,8 @@ export function LegacyTranslationBridge() {
   }, []);
 
   useEffect(() => {
-    const textKeys = new WeakMap<Text, string>();
-    const attributeKeys = new WeakMap<Element, Map<string, string>>();
+    const textKeys = textKeysRef.current;
+    const attributeKeys = attributeKeysRef.current;
     let scheduled = false;
 
     const translateText = (node: Text) => {
