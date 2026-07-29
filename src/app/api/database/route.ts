@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_REQUESTS = 120;
+const RATE_LIMIT_REQUESTS = 900;
 const SESSION_COOKIE_PREFIXES = ['next-auth.session-token', '__Secure-next-auth.session-token'];
 const requestBuckets = new Map<string, { count: number; resetAt: number }>();
 const READ_ONLY_ACTIONS = new Set([
