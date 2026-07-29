@@ -7,6 +7,7 @@ import {
   type TranslationValues,
   useLanguage
 } from '@/context/LanguageContext';
+import { LEGACY_SOURCE_ALIASES } from '@/i18n/legacy-source-aliases';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 
 const SKIPPED_TAGS = new Set(['SCRIPT', 'STYLE', 'CODE', 'PRE', 'TEXTAREA', 'TD', 'CANVAS', 'SVG']);
@@ -79,13 +80,15 @@ export function LegacyTranslationBridge() {
   const catalog = useMemo(() => {
     const exact = new Map<string, string>();
     const templates: TemplateMatcher[] = [];
-    for (const [key, value] of Object.entries(SOURCE_TRANSLATIONS)) {
-      if (!value || value.length > 240) continue;
-      const normalized = normalize(value);
+    const register = (source: string, key: string) => {
+      if (!source || source.length > 240) return;
+      const normalized = normalize(source);
       const template = compileTemplate(key, normalized);
       if (template) templates.push(template);
       else exact.set(normalized, key);
-    }
+    };
+    for (const [key, value] of Object.entries(SOURCE_TRANSLATIONS)) register(value, key);
+    for (const [source, key] of Object.entries(LEGACY_SOURCE_ALIASES)) register(source, key);
     templates.sort((left, right) => right.pattern.source.length - left.pattern.source.length);
     return { exact, templates };
   }, []);
