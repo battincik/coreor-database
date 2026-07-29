@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { SOURCE_TRANSLATIONS, useLanguage } from '@/context/LanguageContext';
+import { APP_VERSION_LABEL } from '@/lib/appVersion';
 
 const SKIPPED_TAGS = new Set(['SCRIPT', 'STYLE', 'CODE', 'PRE', 'TEXTAREA', 'TD', 'TH', 'CANVAS', 'SVG']);
 const TRANSLATED_ATTRIBUTES = ['placeholder', 'title', 'aria-label'] as const;
+const VERSION_LABEL_PATTERN = /^Coreor Database v\d+\.\d+\.\d+$/;
 
 function normalize(value: string) {
   return value.replace(/\s+/g, ' ').trim();
@@ -45,6 +47,11 @@ export function LegacyTranslationBridge() {
       if (shouldSkip(parent)) return;
       const normalized = normalize(node.data);
       if (!normalized) return;
+      if (VERSION_LABEL_PATTERN.test(normalized)) {
+        const nextVersion = preserveWhitespace(node.data, APP_VERSION_LABEL);
+        if (node.data !== nextVersion) node.data = nextVersion;
+        return;
+      }
       const key = textKeys.get(node) ?? sourceToKey.get(normalized);
       if (!key) return;
       textKeys.set(node, key);
