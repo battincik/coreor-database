@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -6,27 +6,69 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const localeDirectory = join(root, 'src', 'locales');
 const supportedLocales = ['tr', 'en', 'es', 'zh-CN', 'hi', 'ar', 'pt-BR', 'fr', 'de', 'ru', 'ja', 'ko'];
 const placeholderPattern = /\{([A-Za-z0-9_]+)\}/g;
+const sqlKeywordKeys = {
+  'sql.keyword.select': 'SELECT',
+  'sql.keyword.insert': 'INSERT',
+  'sql.keyword.update': 'UPDATE',
+  'sql.keyword.delete': 'DELETE',
+  'sql.keyword.create': 'CREATE',
+  'sql.keyword.alter': 'ALTER',
+  'sql.keyword.drop': 'DROP',
+  'sql.keyword.truncate': 'TRUNCATE'
+};
+
+async function readJson(path) {
+  const raw = await readFile(path, 'utf8');
+  const value = JSON.parse(raw);
+  if (!value || Array.isArray(value) || typeof value !== 'object') throw new Error(`${path} kök değeri bir JSON nesnesi olmalıdır.`);
+  return value;
+}
 
 async function readLocale(code) {
-  const path = join(localeDirectory, `${code}.json`);
-  const raw = await readFile(path, 'utf8');
-  const dictionary = JSON.parse(raw);
-  if (!dictionary || Array.isArray(dictionary) || typeof dictionary !== 'object') {
-    throw new Error(`${code}.json kök değeri bir JSON nesnesi olmalıdır.`);
-  }
-  return dictionary;
+  return readJson(join(localeDirectory, `${code}.json`));
 }
 
 function placeholders(value) {
   return [...String(value).matchAll(placeholderPattern)].map(match => match[1]).sort();
 }
 
+const localeFiles = await readdir(localeDirectory);
+const catalogFiles = localeFiles
+  .filter(file => /^workbench(?:-\d+)?\.json$/.test(file))
+  .sort((left, right) => left.localeCompare(right, 'en', { numeric: true }));
+const catalog = {};
+for (const file of catalogFiles) Object.assign(catalog, await readJson(join(localeDirectory, file)));
+
+const problems = [];
+for (const [key, values] of Object.entries(catalog)) {
+  if (!values || Array.isArray(values) || typeof values !== 'object') {
+    problems.push(`${key}: workbench çevirisi locale nesnesi olmalıdır.`);
+    continue;
+  }
+  for (const code of supportedLocales) {
+    const value = values[code];
+    if (typeof value !== 'string' || !value.trim()) problems.push(`${key}: ${code} çevirisi eksik veya boş.`);
+  }
+  const expectedPlaceholders = placeholders(values.en ?? '');
+  for (const code of supportedLocales) {
+    const actualPlaceholders = placeholders(values[code] ?? '');
+    if (expectedPlaceholders.join('|') !== actualPlaceholders.join('|')) {
+      problems.push(`${key}: ${code} yer tutucuları İngilizceyle eşleşmiyor.`);
+    }
+  }
+}
+
 const dictionaries = new Map();
-for (const code of supportedLocales) dictionaries.set(code, await readLocale(code));
+for (const code of supportedLocales) {
+  const base = await readLocale(code);
+  const workbench = Object.fromEntries(
+    Object.entries(catalog).map(([key, values]) => [key, values[code] ?? values.en ?? values.tr ?? key])
+  );
+  dictionaries.set(code, { ...base, ...workbench });
+}
 
 const reference = dictionaries.get('en');
 const referenceKeys = Object.keys(reference).sort();
-const problems = [];
 
 for (const code of supportedLocales) {
   const dictionary = dictionaries.get(code);
@@ -54,6 +96,12 @@ for (const code of supportedLocales) {
   if (!dictionary['meta.nativeName']?.trim()) problems.push(`${code}: meta.nativeName zorunludur.`);
 }
 
+for (const [key, keyword] of Object.entries(sqlKeywordKeys)) {
+  for (const code of supportedLocales) {
+    if (dictionaries.get(code)[key] !== keyword) problems.push(`${code}: ${key} SQL anahtar kelimesi ${keyword} olarak korunmalıdır.`);
+  }
+}
+
 if (dictionaries.get('ar')['meta.direction'] !== 'rtl') problems.push('ar: Arapça dil paketi rtl olmalıdır.');
 for (const code of supportedLocales.filter(locale => locale !== 'ar')) {
   if (dictionaries.get(code)['meta.direction'] !== 'ltr') problems.push(`${code}: Bu dil paketi ltr olmalıdır.`);
@@ -66,5 +114,6 @@ if (problems.length) {
 }
 
 console.log(`✓ ${supportedLocales.length} dil paketi doğrulandı.`);
+console.log(`✓ ${catalogFiles.length} workbench sözlük dosyasında ${Object.keys(catalog).length} bağlamsal anahtar doğrulandı.`);
 console.log(`✓ Her pakette ${referenceKeys.length} ortak çeviri anahtarı bulunuyor.`);
-console.log('✓ Yer tutucular ve yazım yönleri uyumlu.');
+console.log('✓ Yer tutucular, yazım yönleri ve SQL anahtar kelimeleri uyumlu.');
