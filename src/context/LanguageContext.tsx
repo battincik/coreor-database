@@ -25,6 +25,7 @@ import japaneseCoverage from '@/locales/coverage/ja.json';
 import koreanCoverage from '@/locales/coverage/ko.json';
 import hindiCoverage from '@/locales/coverage/hi.json';
 import arabicCoverage from '@/locales/coverage/ar.json';
+import legacyPhrases from '@/locales/legacy-phrases.json';
 
 export type LocaleCode = 'tr' | 'en' | 'es' | 'zh-CN' | 'hi' | 'ar' | 'pt-BR' | 'fr' | 'de' | 'ru' | 'ja' | 'ko';
 export type LocaleDirection = 'ltr' | 'rtl';
@@ -55,23 +56,25 @@ export const SUPPORTED_LANGUAGES: SupportedLanguage[] = [
   { code: 'ko', nativeName: '한국어', englishName: 'Korean', direction: 'ltr', region: '대한민국', searchTerms: ['korean', '한국어', 'korece'] }
 ];
 
-function mergeDictionaries(base: TranslationDictionary, coverage: TranslationDictionary): TranslationDictionary {
-  return { ...base, ...coverage };
+const LEGACY_PHRASES = legacyPhrases as Record<LocaleCode, TranslationDictionary>;
+
+function mergeDictionaries(base: TranslationDictionary, coverage: TranslationDictionary, legacy: TranslationDictionary): TranslationDictionary {
+  return { ...base, ...coverage, ...legacy };
 }
 
 export const LANGUAGE_DICTIONARIES: Record<LocaleCode, TranslationDictionary> = {
-  tr: mergeDictionaries(turkish, turkishCoverage),
-  en: mergeDictionaries(english, englishCoverage),
-  es: mergeDictionaries(spanish, spanishCoverage),
-  'zh-CN': mergeDictionaries(simplifiedChinese, simplifiedChineseCoverage),
-  hi: mergeDictionaries(hindi, hindiCoverage),
-  ar: mergeDictionaries(arabic, arabicCoverage),
-  'pt-BR': mergeDictionaries(portugueseBrazil, portugueseBrazilCoverage),
-  fr: mergeDictionaries(french, frenchCoverage),
-  de: mergeDictionaries(german, germanCoverage),
-  ru: mergeDictionaries(russian, russianCoverage),
-  ja: mergeDictionaries(japanese, japaneseCoverage),
-  ko: mergeDictionaries(korean, koreanCoverage)
+  tr: mergeDictionaries(turkish, turkishCoverage, LEGACY_PHRASES.tr),
+  en: mergeDictionaries(english, englishCoverage, LEGACY_PHRASES.en),
+  es: mergeDictionaries(spanish, spanishCoverage, LEGACY_PHRASES.es),
+  'zh-CN': mergeDictionaries(simplifiedChinese, simplifiedChineseCoverage, LEGACY_PHRASES['zh-CN']),
+  hi: mergeDictionaries(hindi, hindiCoverage, LEGACY_PHRASES.hi),
+  ar: mergeDictionaries(arabic, arabicCoverage, LEGACY_PHRASES.ar),
+  'pt-BR': mergeDictionaries(portugueseBrazil, portugueseBrazilCoverage, LEGACY_PHRASES['pt-BR']),
+  fr: mergeDictionaries(french, frenchCoverage, LEGACY_PHRASES.fr),
+  de: mergeDictionaries(german, germanCoverage, LEGACY_PHRASES.de),
+  ru: mergeDictionaries(russian, russianCoverage, LEGACY_PHRASES.ru),
+  ja: mergeDictionaries(japanese, japaneseCoverage, LEGACY_PHRASES.ja),
+  ko: mergeDictionaries(korean, koreanCoverage, LEGACY_PHRASES.ko)
 };
 
 export const SOURCE_TRANSLATIONS: TranslationDictionary = LANGUAGE_DICTIONARIES.tr;
