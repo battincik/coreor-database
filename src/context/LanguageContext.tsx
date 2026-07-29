@@ -13,6 +13,18 @@ import japanese from '@/locales/ja.json';
 import korean from '@/locales/ko.json';
 import hindi from '@/locales/hi.json';
 import arabic from '@/locales/ar.json';
+import englishCoverage from '@/locales/coverage/en.json';
+import turkishCoverage from '@/locales/coverage/tr.json';
+import spanishCoverage from '@/locales/coverage/es.json';
+import frenchCoverage from '@/locales/coverage/fr.json';
+import germanCoverage from '@/locales/coverage/de.json';
+import portugueseBrazilCoverage from '@/locales/coverage/pt-BR.json';
+import russianCoverage from '@/locales/coverage/ru.json';
+import simplifiedChineseCoverage from '@/locales/coverage/zh-CN.json';
+import japaneseCoverage from '@/locales/coverage/ja.json';
+import koreanCoverage from '@/locales/coverage/ko.json';
+import hindiCoverage from '@/locales/coverage/hi.json';
+import arabicCoverage from '@/locales/coverage/ar.json';
 
 export type LocaleCode = 'tr' | 'en' | 'es' | 'zh-CN' | 'hi' | 'ar' | 'pt-BR' | 'fr' | 'de' | 'ru' | 'ja' | 'ko';
 export type LocaleDirection = 'ltr' | 'rtl';
@@ -43,22 +55,26 @@ export const SUPPORTED_LANGUAGES: SupportedLanguage[] = [
   { code: 'ko', nativeName: '한국어', englishName: 'Korean', direction: 'ltr', region: '대한민국', searchTerms: ['korean', '한국어', 'korece'] }
 ];
 
+function mergeDictionaries(base: TranslationDictionary, coverage: TranslationDictionary): TranslationDictionary {
+  return { ...base, ...coverage };
+}
+
 export const LANGUAGE_DICTIONARIES: Record<LocaleCode, TranslationDictionary> = {
-  tr: turkish,
-  en: english,
-  es: spanish,
-  'zh-CN': simplifiedChinese,
-  hi: hindi,
-  ar: arabic,
-  'pt-BR': portugueseBrazil,
-  fr: french,
-  de: german,
-  ru: russian,
-  ja: japanese,
-  ko: korean
+  tr: mergeDictionaries(turkish, turkishCoverage),
+  en: mergeDictionaries(english, englishCoverage),
+  es: mergeDictionaries(spanish, spanishCoverage),
+  'zh-CN': mergeDictionaries(simplifiedChinese, simplifiedChineseCoverage),
+  hi: mergeDictionaries(hindi, hindiCoverage),
+  ar: mergeDictionaries(arabic, arabicCoverage),
+  'pt-BR': mergeDictionaries(portugueseBrazil, portugueseBrazilCoverage),
+  fr: mergeDictionaries(french, frenchCoverage),
+  de: mergeDictionaries(german, germanCoverage),
+  ru: mergeDictionaries(russian, russianCoverage),
+  ja: mergeDictionaries(japanese, japaneseCoverage),
+  ko: mergeDictionaries(korean, koreanCoverage)
 };
 
-export const SOURCE_TRANSLATIONS: TranslationDictionary = turkish;
+export const SOURCE_TRANSLATIONS: TranslationDictionary = LANGUAGE_DICTIONARIES.tr;
 const DEFAULT_LOCALE: LocaleCode = 'tr';
 const FALLBACK_LOCALE: LocaleCode = 'en';
 const STORAGE_KEY = 'coreor:language:v1';
@@ -85,7 +101,7 @@ function detectBrowserLocale(): LocaleCode {
   return DEFAULT_LOCALE;
 }
 
-function interpolate(template: string, values?: TranslationValues) {
+export function interpolateTranslation(template: string, values?: TranslationValues) {
   if (!values) return template;
   return template.replace(/\{([A-Za-z0-9_]+)\}/g, (match, key: string) => String(values[key] ?? match));
 }
@@ -155,7 +171,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     const fallback = typeof fallbackOrValues === 'string' ? fallbackOrValues : undefined;
     const interpolationValues = typeof fallbackOrValues === 'object' ? fallbackOrValues : values;
     const template = translations[key] ?? LANGUAGE_DICTIONARIES[FALLBACK_LOCALE][key] ?? fallback ?? key;
-    return interpolate(template, interpolationValues);
+    return interpolateTranslation(template, interpolationValues);
   }, [translations]);
 
   const formatNumber = useCallback(
