@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const localeDirectory = join(root, 'src', 'locales');
 const coverageDirectory = join(localeDirectory, 'coverage');
+const legacyPath = join(localeDirectory, 'legacy-phrases.json');
 const supportedLocales = ['tr', 'en', 'es', 'zh-CN', 'hi', 'ar', 'pt-BR', 'fr', 'de', 'ru', 'ja', 'ko'];
 const placeholderPattern = /\{([A-Za-z0-9_]+)\}/g;
 
@@ -17,10 +18,16 @@ async function readDictionary(path, label) {
   return dictionary;
 }
 
+const legacyCatalog = await readDictionary(legacyPath, 'legacy-phrases.json');
+
 async function readLocale(code) {
   const base = await readDictionary(join(localeDirectory, `${code}.json`), `${code}.json`);
   const coverage = await readDictionary(join(coverageDirectory, `${code}.json`), `coverage/${code}.json`);
-  return { base, coverage, merged: { ...base, ...coverage } };
+  const legacy = legacyCatalog[code];
+  if (!legacy || Array.isArray(legacy) || typeof legacy !== 'object') {
+    throw new Error(`legacy-phrases.json içinde ${code} sözlüğü bulunamadı.`);
+  }
+  return { base, coverage, legacy, merged: { ...base, ...coverage, ...legacy } };
 }
 
 function placeholders(value) {
@@ -59,6 +66,7 @@ for (const code of supportedLocales) {
   const dictionary = dictionaries.get(code);
   compareDictionaryKeys(reference.base, dictionary.base, code, 'ana sözlük', problems);
   compareDictionaryKeys(reference.coverage, dictionary.coverage, code, 'coverage', problems);
+  compareDictionaryKeys(reference.legacy, dictionary.legacy, code, 'legacy', problems);
   compareDictionaryKeys(reference.merged, dictionary.merged, code, 'birleşik sözlük', problems);
 
   const direction = dictionary.merged['meta.direction'];
@@ -78,5 +86,5 @@ if (problems.length) {
 }
 
 console.log(`✓ ${supportedLocales.length} dil paketi doğrulandı.`);
-console.log(`✓ Ana sözlükte ${Object.keys(reference.base).length}, genişletilmiş pakette ${Object.keys(reference.coverage).length} ortak anahtar bulunuyor.`);
+console.log(`✓ Ana sözlükte ${Object.keys(reference.base).length}, coverage paketinde ${Object.keys(reference.coverage).length}, legacy sözlüğünde ${Object.keys(reference.legacy).length} ortak anahtar bulunuyor.`);
 console.log(`✓ Birleşik sözlüklerde ${Object.keys(reference.merged).length} anahtar, placeholder ve yazım yönü uyumlu.`);
