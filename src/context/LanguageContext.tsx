@@ -163,7 +163,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     [language]
   );
   const formatDate = useCallback(
-    (value: Date | string | number, options?: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(language, options).format(new Date(value)),
+    (value: Date | string | number, options?: Intl.DateTimeFormatOptions) => {
+      const date = value instanceof Date ? value : new Date(value);
+      return new Intl.DateTimeFormat(language, options).format(date);
+    },
     [language]
   );
 
