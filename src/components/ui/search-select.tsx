@@ -62,9 +62,9 @@ export function SearchSelect<T extends string | number = string>({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const selected = options.find(option => option.value === value);
   const usePortal = portal || dropdownMinWidth > 340;
-  const resolvedPlaceholder = placeholder ?? t('common.select');
-  const resolvedSearchPlaceholder = searchPlaceholder ?? t('common.searchOptions');
-  const resolvedEmptyText = emptyText ?? t('common.noResults');
+  const resolvedPlaceholder = placeholder ?? t('control.select.placeholder');
+  const resolvedSearchPlaceholder = searchPlaceholder ?? t('control.select.search');
+  const resolvedEmptyText = emptyText ?? t('control.select.empty');
 
   const updatePanelPosition = useCallback(() => {
     if (!usePortal) return;
@@ -156,15 +156,16 @@ export function SearchSelect<T extends string | number = string>({
           value={query}
           onChange={event => setQuery(event.target.value)}
           placeholder={resolvedSearchPlaceholder}
+          aria-label={resolvedSearchPlaceholder}
           className="h-8 min-w-0 flex-1 bg-transparent text-[11px] text-zinc-100 outline-none placeholder:text-zinc-600"
         />
         {query && (
-          <button type="button" aria-label={t('common.reset')} className="rounded-md p-1.5 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" onClick={() => setQuery('')}>
+          <button type="button" aria-label={t('common.reset')} title={t('common.reset')} className="rounded-md p-1.5 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" onClick={() => setQuery('')}>
             <X className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5" role="listbox">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5" role="listbox" aria-label={resolvedPlaceholder}>
         {filtered.length === 0 ? (
           <div className="px-4 py-10 text-center text-[10px] text-zinc-600">{resolvedEmptyText}</div>
         ) : filtered.map(option => {
@@ -193,8 +194,8 @@ export function SearchSelect<T extends string | number = string>({
         })}
       </div>
       <div className="flex h-7 shrink-0 items-center justify-between border-t border-zinc-800 bg-black/30 px-3 text-[8px] text-zinc-600">
-        <span>{t('common.optionsCount', { count: filtered.length })}</span>
-        <span>{t('common.escapeToClose')}</span>
+        <span>{t('control.select.count', { count: filtered.length })}</span>
+        <span>{t('control.select.escape')}</span>
       </div>
     </div>
   );
@@ -234,6 +235,8 @@ export function SearchSelect<T extends string | number = string>({
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={`${open ? t('control.select.close') : t('control.select.open')}: ${selected?.label ?? resolvedPlaceholder}`}
+        title={open ? t('control.select.close') : t('control.select.open')}
         onClick={() => setOpen(previous => !previous)}
         className={`flex min-h-10 w-full min-w-0 items-center gap-2.5 rounded-xl border px-3 text-left transition outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-50 ${
           open
