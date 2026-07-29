@@ -19,6 +19,8 @@ import workbench3 from '@/locales/workbench-3.json';
 import workbench4 from '@/locales/workbench-4.json';
 import workbench5 from '@/locales/workbench-5.json';
 import workbench6 from '@/locales/workbench-6.json';
+import workbench7 from '@/locales/workbench-7.json';
+import workbench8 from '@/locales/workbench-8.json';
 
 export type LocaleCode = 'tr' | 'en' | 'es' | 'zh-CN' | 'hi' | 'ar' | 'pt-BR' | 'fr' | 'de' | 'ru' | 'ja' | 'ko';
 export type LocaleDirection = 'ltr' | 'rtl';
@@ -72,7 +74,9 @@ const WORKBENCH_CATALOG: WorkbenchCatalog = Object.assign(
   workbench3 as WorkbenchCatalog,
   workbench4 as WorkbenchCatalog,
   workbench5 as WorkbenchCatalog,
-  workbench6 as WorkbenchCatalog
+  workbench6 as WorkbenchCatalog,
+  workbench7 as WorkbenchCatalog,
+  workbench8 as WorkbenchCatalog
 );
 
 function createWorkbenchDictionary(locale: LocaleCode): TranslationDictionary {
