@@ -59,6 +59,7 @@ function compileTemplate(key: string, source: string): TemplateMatcher | null {
 function shouldSkip(element: Element | null) {
   if (!element) return true;
   if (SKIPPED_TAGS.has(element.tagName)) return true;
+  if (element.tagName === 'TH' && !element.hasAttribute('data-i18n-key')) return true;
   if (element.closest('[data-i18n-ignore], [contenteditable="true"], .monaco-editor, .coreor-sql-editor')) return true;
   if (element.closest('.font-mono, [data-database-value], [data-sql-value]')) return true;
   return false;
@@ -82,8 +83,7 @@ function chooseKey(keys: string[], element: Element | null, attribute?: string) 
 }
 
 function explicitAttributeKey(element: Element, attribute: string) {
-  const suffix = attribute.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
-  return element.getAttribute(`data-i18n-${attribute}`) ?? element.getAttribute(`data-i18n-${suffix}`);
+  return element.getAttribute(`data-i18n-${attribute}`);
 }
 
 export function LegacyTranslationBridge() {
@@ -221,7 +221,10 @@ export function LegacyTranslationBridge() {
     const observer = new MutationObserver(records => {
       for (const record of records) {
         if (record.type === 'characterData') translateText(record.target as Text);
-        if (record.type === 'attributes') translateAttributes(record.target as Element);
+        if (record.type === 'attributes') {
+          translateAttributes(record.target as Element);
+          if (record.attributeName === 'data-i18n-key') scan(record.target);
+        }
         record.addedNodes.forEach(scan);
       }
     });
