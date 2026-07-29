@@ -13,11 +13,18 @@ import japanese from '@/locales/ja.json';
 import korean from '@/locales/ko.json';
 import hindi from '@/locales/hi.json';
 import arabic from '@/locales/ar.json';
+import workbench1 from '@/locales/workbench.json';
+import workbench2 from '@/locales/workbench-2.json';
+import workbench3 from '@/locales/workbench-3.json';
+import workbench4 from '@/locales/workbench-4.json';
+import workbench5 from '@/locales/workbench-5.json';
+import workbench6 from '@/locales/workbench-6.json';
 
 export type LocaleCode = 'tr' | 'en' | 'es' | 'zh-CN' | 'hi' | 'ar' | 'pt-BR' | 'fr' | 'de' | 'ru' | 'ja' | 'ko';
 export type LocaleDirection = 'ltr' | 'rtl';
 export type TranslationValues = Record<string, string | number>;
 export type TranslationDictionary = Record<string, string>;
+type WorkbenchCatalog = Record<string, Partial<Record<LocaleCode, string>>>;
 
 export interface SupportedLanguage {
   code: LocaleCode;
@@ -43,7 +50,7 @@ export const SUPPORTED_LANGUAGES: SupportedLanguage[] = [
   { code: 'ko', nativeName: '한국어', englishName: 'Korean', direction: 'ltr', region: '대한민국', searchTerms: ['korean', '한국어', 'korece'] }
 ];
 
-export const LANGUAGE_DICTIONARIES: Record<LocaleCode, TranslationDictionary> = {
+const BASE_LANGUAGE_DICTIONARIES: Record<LocaleCode, TranslationDictionary> = {
   tr: turkish,
   en: english,
   es: spanish,
@@ -58,7 +65,30 @@ export const LANGUAGE_DICTIONARIES: Record<LocaleCode, TranslationDictionary> = 
   ko: korean
 };
 
-export const SOURCE_TRANSLATIONS: TranslationDictionary = turkish;
+const WORKBENCH_CATALOG: WorkbenchCatalog = Object.assign(
+  {},
+  workbench1 as WorkbenchCatalog,
+  workbench2 as WorkbenchCatalog,
+  workbench3 as WorkbenchCatalog,
+  workbench4 as WorkbenchCatalog,
+  workbench5 as WorkbenchCatalog,
+  workbench6 as WorkbenchCatalog
+);
+
+function createWorkbenchDictionary(locale: LocaleCode): TranslationDictionary {
+  return Object.fromEntries(
+    Object.entries(WORKBENCH_CATALOG).map(([key, values]) => [key, values[locale] ?? values.en ?? values.tr ?? key])
+  );
+}
+
+export const LANGUAGE_DICTIONARIES = Object.fromEntries(
+  SUPPORTED_LANGUAGES.map(({ code }) => [
+    code,
+    { ...BASE_LANGUAGE_DICTIONARIES.en, ...BASE_LANGUAGE_DICTIONARIES[code], ...createWorkbenchDictionary(code) }
+  ])
+) as Record<LocaleCode, TranslationDictionary>;
+
+export const SOURCE_TRANSLATIONS: TranslationDictionary = LANGUAGE_DICTIONARIES.tr;
 const DEFAULT_LOCALE: LocaleCode = 'tr';
 const FALLBACK_LOCALE: LocaleCode = 'en';
 const STORAGE_KEY = 'coreor:language:v1';
@@ -113,10 +143,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     () => SUPPORTED_LANGUAGES.find(item => item.code === language) ?? SUPPORTED_LANGUAGES[0],
     [language]
   );
-  const translations = useMemo<TranslationDictionary>(
-    () => ({ ...LANGUAGE_DICTIONARIES[FALLBACK_LOCALE], ...LANGUAGE_DICTIONARIES[language] }),
-    [language]
-  );
+  const translations = useMemo<TranslationDictionary>(() => LANGUAGE_DICTIONARIES[language], [language]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY) || window.localStorage.getItem(LEGACY_STORAGE_KEY);
