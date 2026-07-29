@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { SOURCE_TRANSLATIONS, useLanguage, type TranslationDictionary } from '@/context/LanguageContext';
+import { SOURCE_TRANSLATIONS, useLanguage } from '@/context/LanguageContext';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 
 const SKIPPED_TAGS = new Set(['SCRIPT', 'STYLE', 'CODE', 'PRE', 'TEXTAREA', 'TD', 'CANVAS', 'SVG']);
