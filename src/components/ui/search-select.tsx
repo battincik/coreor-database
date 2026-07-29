@@ -50,7 +50,7 @@ export function SearchSelect<T extends string | number = string>({
   dropdownMinWidth = 340,
   dropdownMaxWidth = 440,
   showDescriptionInTrigger = true,
-  portal = false
+  portal = true
 }: SearchSelectProps<T>) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
