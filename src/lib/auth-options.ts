@@ -34,7 +34,7 @@ function resolveAuthSecret() {
   const explicitSecret = process.env.NEXTAUTH_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
 
   if (explicitSecret) {
-    if (process.env.NODE_ENV === 'production' && explicitSecret.length < 32) {
+    if (process.env.NODE_ENV === 'production' && !isProductionBuild() && explicitSecret.length < 32) {
       throw new Error('NEXTAUTH_SECRET üretimde en az 32 karakter olmalıdır.');
     }
     return explicitSecret;
