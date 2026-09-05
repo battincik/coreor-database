@@ -7,12 +7,12 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run typecheck && next build",
     "start": "next start -p 3302",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "i18n:check": "node scripts/validate-locales.mjs",
-    "check": "npm run i18n:check && npm run typecheck && npm run lint && npm run build"
+    "check": "npm run i18n:check && npm run lint && npm run build"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.3",
