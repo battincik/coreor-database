@@ -19,6 +19,11 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
+type DatabaseRoutePayload =
+  | Parameters<typeof executeDatabaseRequest>[0]
+  | DatabaseWorkbenchRequest
+  | DatabaseTransactionRequest;
+
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_REQUESTS = 900;
 const SESSION_COOKIE_PREFIXES = ['next-auth.session-token', '__Secure-next-auth.session-token'];
@@ -163,27 +168,28 @@ export async function POST(request: NextRequest) {
       throw new DatabaseServiceError(`Veritabanı isteği izin verilen ${(maximumBytes / 1024 / 1024).toFixed(1)} MB sınırını aşıyor.`, 413, 'DATABASE_REQUEST_TOO_LARGE');
     }
 
-    const payload = JSON.parse(rawBody) as Parameters<typeof executeDatabaseRequest>[0] & { action?: unknown; connection?: { engine?: unknown; readOnly?: unknown } };
+    const payload = JSON.parse(rawBody) as DatabaseRoutePayload;
+    const action = payload.action;
     assertReadOnlyPolicy(payload);
-    if (isDatabaseTransactionAction(payload.action) && !stableIdentity) {
+    if (isDatabaseTransactionAction(action) && !stableIdentity) {
       throw new DatabaseServiceError('Transaction oturumu için kararlı kullanıcı kimliği bulunamadı. GitHub ile yeniden giriş yapın.', 401, 'TRANSACTION_OWNER_IDENTITY_REQUIRED');
     }
 
     const engine = payload.connection?.engine;
-    const isExtendedCoreAction = isExtendedDatabaseEngine(engine) && !isDatabaseWorkbenchAction(payload.action) && !isDatabaseTransactionAction(payload.action) && payload.action !== 'performance-snapshot';
-    const mysqlProtocolPayload = engine === 'tidb'
-      ? { ...payload, connection: { ...(payload as { connection: Record<string, unknown> }).connection, engine: 'mysql' as const } }
+    const isExtendedCoreAction = isExtendedDatabaseEngine(engine) && !isDatabaseWorkbenchAction(action) && !isDatabaseTransactionAction(action);
+    const mysqlProtocolPayload = engine === 'tidb' && payload.connection
+      ? { ...payload, connection: { ...payload.connection, engine: 'mysql' as const } }
       : payload;
 
-    const result = isDatabaseTransactionAction(payload.action)
-      ? await executeDatabaseTransactionRequest(payload as unknown as DatabaseTransactionRequest, stableIdentity!)
-      : payload.action === 'performance-snapshot'
-        ? await executeDatabasePerformanceRequest(payload as unknown as DatabaseWorkbenchRequest)
-        : isDatabaseWorkbenchAction(payload.action)
-          ? await executeDatabaseWorkbenchRequest(payload as unknown as DatabaseWorkbenchRequest)
+    const result = isDatabaseTransactionAction(action)
+      ? await executeDatabaseTransactionRequest(payload as DatabaseTransactionRequest, stableIdentity!)
+      : action === 'performance-snapshot'
+        ? await executeDatabasePerformanceRequest(payload as DatabaseWorkbenchRequest)
+        : isDatabaseWorkbenchAction(action)
+          ? await executeDatabaseWorkbenchRequest(payload as DatabaseWorkbenchRequest)
           : isExtendedCoreAction
-            ? await executeExtendedDatabaseRequest(payload)
-            : await executeDatabaseRequest(mysqlProtocolPayload);
+            ? await executeExtendedDatabaseRequest(payload as unknown as Parameters<typeof executeExtendedDatabaseRequest>[0])
+            : await executeDatabaseRequest(mysqlProtocolPayload as unknown as Parameters<typeof executeDatabaseRequest>[0]);
     return NextResponse.json(result, { status: 200, headers: noStoreHeaders() });
   } catch (error) {
     if (error instanceof SyntaxError) {
