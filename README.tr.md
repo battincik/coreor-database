@@ -11,8 +11,10 @@
 
 <p align="center">
   <a href="https://web.database.coreor.net">Canlı Uygulama</a> ·
+  <a href="docs/README.md">Dokümantasyon</a> ·
   <a href="SECURITY.md">Güvenlik</a> ·
-  <a href="CONTRIBUTING.md">Katkı Rehberi</a>
+  <a href="CONTRIBUTING.md">Katkı Rehberi</a> ·
+  <a href="LICENSE">Apache-2.0</a>
 </p>
 
 Coreor Web Database, Next.js ile geliştirilen self-host edilebilir bir web veritabanı istemcisidir. Masaüstü veritabanı araçlarındaki çalışma modelini tarayıcıya taşırken bağlantı profillerini kullanıcı hesabına göre ayırır ve sunucu bilgilerini tarayıcıdaki şifreli vault içerisinde saklar.
@@ -50,6 +52,8 @@ Public olarak yayınlanan uygulamada herhangi bir GitHub kullanıcısı giriş y
 
 Özellikler motor ve sunucu sürümüne göre değişebilir. Kullanıcı yönetimi, transaction, metadata ve performans özellikleri hedef veritabanı sunucusunun sağladığı yetki ve kabiliyetlere bağlıdır.
 
+Detaylı motor ve kabiliyet matrisi için [`DATABASE_SUPPORT.md`](DATABASE_SUPPORT.md) dosyasına bakın.
+
 ## Nasıl çalışır?
 
 ```text
@@ -74,7 +78,7 @@ Hedef veritabanı sunucusu
 
 Bağlantı profilleri ve veritabanı parolaları Next.js sunucusunda kalıcı olarak saklanmaz. Tarayıcı profili yalnız gerektiğinde çözer ve bağlantı bilgisini aynı origin üzerindeki veritabanı API'sine gönderir. Node.js runtime veritabanı bağlantısı kurulurken credential değerini bellekte görmek zorundadır; bu nedenle mimariyi uçtan uca veya zero-knowledge şifreleme olarak tanımlamak doğru değildir.
 
-Detaylı vault ve API modeli için [`docs/browser-vault-and-next-api.md`](docs/browser-vault-and-next-api.md) dosyasına bakın.
+Daha derin teknik bilgi için [`ARCHITECTURE.md`](ARCHITECTURE.md), [`SECURITY_MODEL.md`](SECURITY_MODEL.md), [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) ve [`docs/browser-vault-and-next-api.md`](docs/browser-vault-and-next-api.md) dosyalarına bakın.
 
 ## Public SaaS ağ modeli
 
@@ -118,6 +122,8 @@ Copy-Item .env.example .env.local
 ```
 
 Giriş yapmadan önce bir GitHub OAuth uygulaması oluşturun ve gerekli environment değişkenlerini tanımlayın.
+
+Contributor odaklı kurulum ve geliştirme kuralları için [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) dosyasına bakın.
 
 ## Ortam değişkenleri
 
@@ -179,6 +185,8 @@ Repository mevcut durumda production sunucusunu `3302` portunda başlatır. Uygu
 - Public contribution kabul etmeden önce `main` için branch protection ve zorunlu status check kullanın.
 - Repository görünürlüğünü değiştirmeden önce [`docs/PUBLIC_RELEASE_CHECKLIST.md`](docs/PUBLIC_RELEASE_CHECKLIST.md) dosyasını kontrol edin.
 
+Tam operasyon rehberi için [`SELF_HOSTING.md`](SELF_HOSTING.md) ve [`DEPLOYMENT.md`](DEPLOYMENT.md) dosyalarına bakın.
+
 ## Güvenlik ve gizlilik notları
 
 - GitHub OAuth kullanıcıyı tanımlar ve hesap bazlı browser verisini ayırır; public serviste tüm GitHub kullanıcıları giriş yapabilir.
@@ -223,15 +231,41 @@ npm run check
 
 `npm run check`, locale doğrulamasını, lint kontrollerini ve production build sürecini çalıştırır.
 
+## Dokümantasyon
+
+| Dosya | İçerik |
+| --- | --- |
+| [`docs/README.md`](docs/README.md) | Dokümantasyon indeksi |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Uygulama mimarisi ve trust boundary'leri |
+| [`SECURITY_MODEL.md`](SECURITY_MODEL.md) | Credential/network güvenlik modeli ve sınırları |
+| [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) | Tehditler, saldırgan modelleri, önlemler ve invariants |
+| [`DATABASE_SUPPORT.md`](DATABASE_SUPPORT.md) | DB motoru desteği ve uyumluluk notları |
+| [`SELF_HOSTING.md`](SELF_HOSTING.md) | PM2/systemd/Nginx ile self-host ve private DB kullanımı |
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | Production deploy, rollout ve rollback |
+| [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) | OAuth, TLS, DNS, DB ve deploy sorunları |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | Contributor geliştirme rehberi |
+| [`RELEASING.md`](RELEASING.md) | Release/version/tag/deploy süreci |
+| [`CHANGELOG.md`](CHANGELOG.md) | Sürüm değişiklikleri |
+| [`ROADMAP.md`](ROADMAP.md) | Proje yol haritası |
+| [`SUPPORT.md`](SUPPORT.md) | Destek ve issue açma rehberi |
+| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Topluluk davranış kuralları |
+| [`docs/LICENSE_GUIDE.md`](docs/LICENSE_GUIDE.md) | Apache-2.0 sade anlatım rehberi |
+
 ## Katkıda bulunma
 
-Repository public olduktan sonra issue ve pull request katkıları kabul edilebilir. Özellikle DB motoru davranışı veya güvenlik açısından hassas network değişiklikleri göndermeden önce [`CONTRIBUTING.md`](CONTRIBUTING.md) dosyasını okuyun.
+Issue ve pull request katkıları kabul edilir. Özellikle DB motoru davranışı veya güvenlik açısından hassas network değişiklikleri göndermeden önce [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) ve [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) dosyalarını okuyun.
 
 ## Lisans
 
-Repository için henüz bir lisans seçilmedi. Bir lisans eklenene kadar kaynak kodun public olarak görünmesi, kodun kopyalanması, değiştirilmesi veya yeniden dağıtılması için otomatik izin vermez. Lisans seçimi public-release gereksinimi olarak takip edilmektedir.
+Coreor Web Database **Apache License, Version 2.0** altında lisanslanmıştır.
+
+Hukuken geçerli lisans metni için [`LICENSE`](LICENSE), attribution bilgileri için [`NOTICE`](NOTICE), sade açıklama için [`docs/LICENSE_GUIDE.md`](docs/LICENSE_GUIDE.md) dosyasına bakın.
+
+Apache-2.0 genel olarak lisans ve notice şartlarına uyulması koşuluyla kişisel kullanım, ticari kullanım, değiştirme ve yeniden dağıtıma izin verir ve açık bir patent lisansı içerir. Lisans, “Coreor” ticari adı, logo ve marka kullanımına ilişkin geniş bir trademark hakkı vermez.
 
 ## Yol haritası
+
+Tam yol haritası için [`ROADMAP.md`](ROADMAP.md) dosyasına bakın. Güncel odak alanları:
 
 - Çok büyük sonuç setleri için cursor/stream tabanlı işleme
 - Şifreli vault export/import
