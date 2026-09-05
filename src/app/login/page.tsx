@@ -2,7 +2,8 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AlertTriangle, Github } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import { IconBrandGithub } from '@tabler/icons-react';
 import { signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -45,7 +46,7 @@ export default function LoginPage() {
             )}
 
             <Button onClick={() => handleLogin('github')} variant="secondary" className="flex w-full items-center justify-center gap-2 bg-white text-black transition hover:bg-zinc-200">
-              <Github className="h-5 w-5" />
+              <IconBrandGithub className="h-5 w-5" />
               GitHub ile Giriş Yap
             </Button>
           </CardContent>
