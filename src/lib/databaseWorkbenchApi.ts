@@ -15,11 +15,7 @@ import type {
 } from '@/lib/databaseWorkbenchTypes';
 import { readEncryptedServerProfiles } from '@/lib/secureVault';
 import { recordActivity } from '@/lib/activityConsole';
-
-interface WorkbenchErrorPayload {
-  error?: string;
-  message?: string;
-}
+import { normalizeDatabaseClientError, readDatabaseApiResponse } from '@/lib/databaseErrorPresentation';
 
 async function requireServer(accountId: string | null | undefined, serverId: string) {
   if (!accountId) throw new Error('Veritabanı çalışma alanına erişmek için kullanıcı oturumu gerekli.');
@@ -64,14 +60,7 @@ async function workbenchRequest<T>(
       referrerPolicy: 'same-origin',
       body: JSON.stringify({ action, connection: connectionPayload(server, database), database, ...payload })
     });
-    const raw = await response.text();
-    const body = raw ? JSON.parse(raw) as T | WorkbenchErrorPayload : null;
-    if (!response.ok) {
-      const failure = body as WorkbenchErrorPayload | null;
-      const error = new Error(failure?.message || `Veritabanı yönetim isteği başarısız oldu (${response.status}).`) as Error & { code?: string };
-      error.code = failure?.error;
-      throw error;
-    }
+    const body = await readDatabaseApiResponse<T>(response);
     if (recordInActivityLog) {
       recordActivity({
         level: 'success',
@@ -86,23 +75,25 @@ async function workbenchRequest<T>(
         durationMs: Math.max(0, Math.round(performance.now() - startedAt))
       });
     }
-    return body as T;
+    return body;
   } catch (error) {
+    const normalizedError = normalizeDatabaseClientError(error);
     if (recordInActivityLog) {
       recordActivity({
         level: 'error',
         category: 'schema',
         title: `Çalışma alanı: ${action}`,
-        message: error instanceof Error ? error.message : 'İşlem başarısız oldu.',
+        message: normalizedError.message,
         serverId: server.id,
         serverName: server.name,
         host: server.host,
         databaseName: database || undefined,
         sql: `/* structured:${action} */`,
-        durationMs: Math.max(0, Math.round(performance.now() - startedAt))
+        durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+        errorCode: normalizedError.code
       });
     }
-    throw error;
+    throw normalizedError;
   }
 }
 

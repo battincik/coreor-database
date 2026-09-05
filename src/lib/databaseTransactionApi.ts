@@ -10,11 +10,7 @@ import type {
 } from '@/lib/databaseTransactionTypes';
 import { readEncryptedServerProfiles } from '@/lib/secureVault';
 import { recordActivity } from '@/lib/activityConsole';
-
-interface TransactionApiErrorPayload {
-  error?: string;
-  message?: string;
-}
+import { normalizeDatabaseClientError, readDatabaseApiResponse } from '@/lib/databaseErrorPresentation';
 
 async function requireServer(accountId: string | null | undefined, serverId: string) {
   if (!accountId) throw new Error('Transaction çalışma alanı için kullanıcı oturumu gerekli.');
@@ -41,23 +37,19 @@ function connectionPayload(server: DatabaseServerConfig, database?: string | nul
 }
 
 async function requestTransaction<T>(payload: DatabaseTransactionRequest) {
-  const response = await fetch('/api/database', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    credentials: 'same-origin',
-    cache: 'no-store',
-    referrerPolicy: 'same-origin',
-    body: JSON.stringify(payload)
-  });
-  const raw = await response.text();
-  const body = raw ? JSON.parse(raw) as T | TransactionApiErrorPayload : null;
-  if (!response.ok) {
-    const failure = body as TransactionApiErrorPayload | null;
-    const error = new Error(failure?.message || `Transaction isteği başarısız oldu (${response.status}).`) as Error & { code?: string };
-    error.code = failure?.error;
-    throw error;
+  try {
+    const response = await fetch('/api/database', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      cache: 'no-store',
+      referrerPolicy: 'same-origin',
+      body: JSON.stringify(payload)
+    });
+    return await readDatabaseApiResponse<T>(response);
+  } catch (error) {
+    throw normalizeDatabaseClientError(error);
   }
-  return body as T;
 }
 
 export async function beginDatabaseTransaction(serverId: string, accountId?: string | null, database?: string | null) {
@@ -83,19 +75,21 @@ export async function beginDatabaseTransaction(serverId: string, accountId?: str
     });
     return result;
   } catch (error) {
+    const normalizedError = normalizeDatabaseClientError(error);
     recordActivity({
       level: 'error',
       category: 'query',
       title: 'Transaction başlatılamadı',
-      message: error instanceof Error ? error.message : 'Transaction başlatılamadı.',
+      message: normalizedError.message,
       serverId: server.id,
       serverName: server.name,
       host: server.host,
       databaseName: database || undefined,
       sql: 'START TRANSACTION',
-      durationMs: Math.max(0, Math.round(performance.now() - startedAt))
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      errorCode: normalizedError.code
     });
-    throw error;
+    throw normalizedError;
   }
 }
 
@@ -120,19 +114,21 @@ export async function executeDatabaseTransactionQuery(serverId: string, transact
     });
     return result;
   } catch (error) {
+    const normalizedError = normalizeDatabaseClientError(error);
     recordActivity({
       level: 'error',
       category: 'query',
       title: 'Transaction sorgusu başarısız',
-      message: error instanceof Error ? error.message : 'Transaction sorgusu başarısız oldu.',
+      message: normalizedError.message,
       serverId: server.id,
       serverName: server.name,
       host: server.host,
       databaseName: database || undefined,
       sql,
-      durationMs: Math.max(0, Math.round(performance.now() - startedAt))
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      errorCode: normalizedError.code
     });
-    throw error;
+    throw normalizedError;
   }
 }
 
@@ -140,20 +136,38 @@ async function finishDatabaseTransaction(serverId: string, transactionId: string
   const server = await requireServer(accountId, serverId);
   const sql = action === 'transaction-commit' ? 'COMMIT' : 'ROLLBACK';
   const startedAt = performance.now();
-  const result = await requestTransaction<DatabaseTransactionFinishResponse>({ action, transactionId });
-  recordActivity({
-    level: 'success',
-    category: 'query',
-    title: action === 'transaction-commit' ? 'Transaction commit edildi' : 'Transaction geri alındı',
-    message: `${result.statementCount} statement ile tamamlandı.`,
-    serverId: server.id,
-    serverName: server.name,
-    host: server.host,
-    databaseName: database || undefined,
-    sql,
-    durationMs: Math.max(0, Math.round(performance.now() - startedAt))
-  });
-  return result;
+  try {
+    const result = await requestTransaction<DatabaseTransactionFinishResponse>({ action, transactionId });
+    recordActivity({
+      level: 'success',
+      category: 'query',
+      title: action === 'transaction-commit' ? 'Transaction commit edildi' : 'Transaction geri alındı',
+      message: `${result.statementCount} statement ile tamamlandı.`,
+      serverId: server.id,
+      serverName: server.name,
+      host: server.host,
+      databaseName: database || undefined,
+      sql,
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt))
+    });
+    return result;
+  } catch (error) {
+    const normalizedError = normalizeDatabaseClientError(error);
+    recordActivity({
+      level: 'error',
+      category: 'query',
+      title: action === 'transaction-commit' ? 'Transaction commit edilemedi' : 'Transaction geri alınamadı',
+      message: normalizedError.message,
+      serverId: server.id,
+      serverName: server.name,
+      host: server.host,
+      databaseName: database || undefined,
+      sql,
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      errorCode: normalizedError.code
+    });
+    throw normalizedError;
+  }
 }
 
 export function commitDatabaseTransaction(serverId: string, transactionId: string, accountId?: string | null, database?: string | null) {
