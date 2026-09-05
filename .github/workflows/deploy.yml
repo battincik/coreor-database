@@ -1,43 +1,98 @@
-name: Deploy to gold.vm.coreor.net
-
+name: Deploy web.database.coreor.net
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-database-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    runs-on: gold-vm
+    runs-on:
+      - self-hosted
+      - gold-vm
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        shell: bash
 
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@v2
-
-      - name: Pull latest changes
+      - name: Sync production checkout
+        id: sync
         run: |
-          cd ~/coreor-apps/web.database.coreor.net
-          git pull origin main
+          set -Eeuo pipefail
+          APP_DIR="$HOME/coreor-apps/web.database.coreor.net"
+          cd "$APP_DIR"
 
-      - name: Install dependencies
-        run: |
-          cd ~/coreor-apps/web.database.coreor.net
-          npm install
+          previous_sha="$(git rev-parse HEAD)"
+          echo "previous_sha=$previous_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Build project
-        run: |
-          cd ~/coreor-apps/web.database.coreor.net
-          npm run build
+          git fetch --prune origin main
+          git reset --hard origin/main
 
-      - name: Fix package-lock.json conflicts (if any)
-        run: |
-          cd ~/coreor-apps/web.database.coreor.net
-          if git status | grep -q "package-lock.json"; then
-            git checkout -- package-lock.json
-            git pull origin main
+          current_sha="$(git rev-parse HEAD)"
+          if [[ "$current_sha" != "$GITHUB_SHA" ]]; then
+            echo "Expected $GITHUB_SHA but production checkout resolved to $current_sha" >&2
+            exit 1
           fi
 
-      - name: Restart application on port 3302
+      - name: Install locked dependencies
         run: |
-          cd ~/coreor-apps/web.database.coreor.net
-          pm2 start npm --name "web.database.coreor.net" -- run start -- -p 3302 || pm2 restart web.database.coreor.net
+          set -Eeuo pipefail
+          cd "$HOME/coreor-apps/web.database.coreor.net"
+          node --version
+          npm --version
+          npm ci --no-audit --no-fund
+
+      - name: Validate and build
+        run: |
+          set -Eeuo pipefail
+          cd "$HOME/coreor-apps/web.database.coreor.net"
+          npm run check
+
+      - name: Restart application
+        run: |
+          set -Eeuo pipefail
+          cd "$HOME/coreor-apps/web.database.coreor.net"
+          if pm2 describe web.database.coreor.net >/dev/null 2>&1; then
+            pm2 restart web.database.coreor.net --update-env
+          else
+            pm2 start npm --name web.database.coreor.net -- run start
+          fi
+          pm2 save
+
+      - name: Verify production health
+        run: |
+          set -Eeuo pipefail
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if curl --fail --silent --show-error --max-time 5 http://127.0.0.1:3302/login >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          pm2 logs web.database.coreor.net --lines 80 --nostream || true
+          exit 1
+
+      - name: Restore previous release on failure
+        if: ${{ failure() && steps.sync.outputs.previous_sha != '' }}
+        run: |
+          set -Eeuo pipefail
+          APP_DIR="$HOME/coreor-apps/web.database.coreor.net"
+          cd "$APP_DIR"
+          git reset --hard "${{ steps.sync.outputs.previous_sha }}"
+          npm ci --no-audit --no-fund
+          npm run build
+          if pm2 describe web.database.coreor.net >/dev/null 2>&1; then
+            pm2 restart web.database.coreor.net --update-env
+          else
+            pm2 start npm --name web.database.coreor.net -- run start
+          fi
+          pm2 save
