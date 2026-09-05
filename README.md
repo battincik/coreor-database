@@ -11,8 +11,10 @@
 
 <p align="center">
   <a href="https://web.database.coreor.net">Live App</a> ·
+  <a href="docs/README.md">Documentation</a> ·
   <a href="SECURITY.md">Security</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a>
+  <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="LICENSE">Apache-2.0</a>
 </p>
 
 Coreor Web Database is a self-hostable web database client built with Next.js. It brings a desktop-database-client workflow to the browser while keeping server profiles separated per authenticated user and storing connection profiles in an encrypted browser vault.
@@ -50,6 +52,8 @@ The public application is designed so that any GitHub user can sign in and conne
 
 Capabilities can differ by engine and server version. Features such as user management, transactions, metadata queries and performance diagnostics depend on the permissions and capabilities exposed by the target server.
 
+See [`DATABASE_SUPPORT.md`](DATABASE_SUPPORT.md) for the detailed capability and compatibility guide.
+
 ## How it works
 
 ```text
@@ -74,7 +78,7 @@ Target database server
 
 Connection profiles and database passwords are not persistently stored by the Next.js server. The browser decrypts a profile only when it is needed and sends the connection data to the same-origin database API. The Node.js runtime necessarily receives the credential in memory while establishing the database connection, so this architecture should not be described as end-to-end or zero-knowledge encryption.
 
-For the detailed vault and API model, see [`docs/browser-vault-and-next-api.md`](docs/browser-vault-and-next-api.md).
+For deeper technical detail, see [`ARCHITECTURE.md`](ARCHITECTURE.md), [`SECURITY_MODEL.md`](SECURITY_MODEL.md), [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) and [`docs/browser-vault-and-next-api.md`](docs/browser-vault-and-next-api.md).
 
 ## Public SaaS network model
 
@@ -118,6 +122,8 @@ Copy-Item .env.example .env.local
 ```
 
 Create a GitHub OAuth application and configure the required environment variables before signing in.
+
+For contributor-focused setup and engineering rules, see [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
 ## Environment variables
 
@@ -179,6 +185,8 @@ The repository currently starts the production server on port `3302`. Put the ap
 - Enable branch protection and required checks for `main` before accepting public contributions.
 - Review [`docs/PUBLIC_RELEASE_CHECKLIST.md`](docs/PUBLIC_RELEASE_CHECKLIST.md) before changing repository visibility.
 
+For complete operational guidance, see [`SELF_HOSTING.md`](SELF_HOSTING.md) and [`DEPLOYMENT.md`](DEPLOYMENT.md).
+
 ## Security and privacy notes
 
 - GitHub OAuth identifies the user and separates account-scoped browser data; any GitHub user can sign in to the public service.
@@ -223,15 +231,41 @@ npm run check
 
 `npm run check` runs locale validation, linting and the production build pipeline.
 
+## Documentation
+
+| Document | Purpose |
+| --- | --- |
+| [`docs/README.md`](docs/README.md) | Documentation index |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Application architecture and trust boundaries |
+| [`SECURITY_MODEL.md`](SECURITY_MODEL.md) | Security properties, credential/network model and limits |
+| [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) | Threats, adversaries, mitigations and invariants |
+| [`DATABASE_SUPPORT.md`](DATABASE_SUPPORT.md) | Engine support and compatibility notes |
+| [`SELF_HOSTING.md`](SELF_HOSTING.md) | Self-hosting with PM2/systemd/Nginx and private DB targets |
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | Production deployment, rollout and rollback |
+| [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) | Common OAuth, TLS, DNS, database and deployment failures |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | Contributor development guide |
+| [`RELEASING.md`](RELEASING.md) | Release/version/tag/deploy process |
+| [`CHANGELOG.md`](CHANGELOG.md) | Notable project changes |
+| [`ROADMAP.md`](ROADMAP.md) | Planned project direction |
+| [`SUPPORT.md`](SUPPORT.md) | Support and issue-reporting guidance |
+| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Community participation rules |
+| [`docs/LICENSE_GUIDE.md`](docs/LICENSE_GUIDE.md) | Plain-language Apache 2.0 guide |
+
 ## Contributing
 
-Issues and pull requests are welcome once the repository is public. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before submitting changes, especially for database-engine behavior or security-sensitive networking changes.
+Issues and pull requests are welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) and [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) before submitting changes, especially for database-engine behavior or security-sensitive networking changes.
 
 ## License
 
-A repository license has not yet been selected. Until a license is added, publishing the source code does **not** automatically grant permission to copy, modify or redistribute it. License selection is tracked as a public-release requirement.
+Coreor Web Database is licensed under the **Apache License, Version 2.0**.
+
+See [`LICENSE`](LICENSE) for the legally controlling license text and [`NOTICE`](NOTICE) for attribution notices. A plain-language overview is available in [`docs/LICENSE_GUIDE.md`](docs/LICENSE_GUIDE.md).
+
+Apache 2.0 generally permits private use, commercial use, modification and redistribution subject to its license and notice requirements. It also includes an explicit patent grant. The license does not grant broad rights to use the Coreor trade name, logos or branding as trademarks.
 
 ## Roadmap
+
+See [`ROADMAP.md`](ROADMAP.md) for the full roadmap. Current focus areas include:
 
 - Cursor/stream-based handling for very large result sets
 - Encrypted vault export/import
