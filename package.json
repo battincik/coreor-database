@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/capture-typecheck.mjs && next build",
+    "build": "node scripts/capture-typecheck.mjs",
     "start": "next start -p 3302",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
