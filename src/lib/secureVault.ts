@@ -5,8 +5,11 @@ const DATABASE_VERSION = 1;
 const KEY_STORE = 'account-keys';
 const VAULT_STORE = 'server-vaults';
 const VAULT_VERSION = 1;
+const PROFILE_CACHE_TTL_MS = 2_500;
 
 const accountKeyPromises = new Map<string, Promise<CryptoKey>>();
+const profileReadPromises = new Map<string, Promise<DatabaseServerConfig[]>>();
+const profileCache = new Map<string, { expiresAt: number; servers: DatabaseServerConfig[] }>();
 
 interface StoredAccountKey {
   accountId: string;
@@ -20,6 +23,28 @@ interface StoredServerVault {
   iv: string;
   ciphertext: string;
   updatedAt: string;
+}
+
+function cloneServerProfiles(servers: DatabaseServerConfig[]) {
+  if (typeof structuredClone === 'function') return structuredClone(servers);
+  return JSON.parse(JSON.stringify(servers)) as DatabaseServerConfig[];
+}
+
+function cachedProfiles(accountId: string) {
+  const cached = profileCache.get(accountId);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    profileCache.delete(accountId);
+    return null;
+  }
+  return cloneServerProfiles(cached.servers);
+}
+
+function storeProfileCache(accountId: string, servers: DatabaseServerConfig[]) {
+  profileCache.set(accountId, {
+    expiresAt: Date.now() + PROFILE_CACHE_TTL_MS,
+    servers: cloneServerProfiles(servers)
+  });
 }
 
 function assertBrowserCrypto() {
@@ -145,11 +170,7 @@ function getOrCreateAccountKey(accountId: string) {
   return keyPromise;
 }
 
-export async function readEncryptedServerProfiles(accountId: string) {
-  if (!accountId) {
-    return [];
-  }
-
+async function readProfilesFromVault(accountId: string) {
   const database = await openVaultDatabase();
 
   try {
@@ -195,6 +216,30 @@ export async function readEncryptedServerProfiles(accountId: string) {
   }
 }
 
+export async function readEncryptedServerProfiles(accountId: string) {
+  if (!accountId) {
+    return [];
+  }
+
+  const cached = cachedProfiles(accountId);
+  if (cached) return cached;
+
+  const inFlight = profileReadPromises.get(accountId);
+  if (inFlight) return cloneServerProfiles(await inFlight);
+
+  const readPromise = readProfilesFromVault(accountId)
+    .then(servers => {
+      storeProfileCache(accountId, servers);
+      return servers;
+    })
+    .finally(() => {
+      if (profileReadPromises.get(accountId) === readPromise) profileReadPromises.delete(accountId);
+    });
+
+  profileReadPromises.set(accountId, readPromise);
+  return cloneServerProfiles(await readPromise);
+}
+
 export async function writeEncryptedServerProfiles(accountId: string, servers: DatabaseServerConfig[]) {
   if (!accountId) {
     throw new Error('Sunucu profili kaydetmek için kullanıcı oturumu gerekli.');
@@ -226,6 +271,7 @@ export async function writeEncryptedServerProfiles(accountId: string, servers: D
       updatedAt: new Date().toISOString()
     } satisfies StoredServerVault);
     await completed;
+    storeProfileCache(accountId, servers);
   } finally {
     database.close();
   }
