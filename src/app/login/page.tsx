@@ -45,7 +45,7 @@ export default function LoginPage() {
             )}
 
             <Button onClick={() => handleLogin('github')} variant="secondary" className="flex w-full items-center justify-center gap-2 bg-white text-black transition hover:bg-zinc-200">
-              <GitBranch className="h-5 w-5" />
+              <Github className="h-5 w-5" />
               GitHub ile Giriş Yap
             </Button>
           </CardContent>

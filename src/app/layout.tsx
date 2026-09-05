@@ -13,5 +13,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="tr" dir="ltr" suppressHydrationWarning><body><Providers><AppPreferenceBridge />{children}</Providers></body></html>;
+  return <html lang="tr" dir="ltr" className="dark" suppressHydrationWarning><body><Providers><AppPreferenceBridge />{children}</Providers></body></html>;
 }
