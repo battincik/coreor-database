@@ -7,7 +7,7 @@ import { AlertTriangle } from 'lucide-react';
 import { IconBrandGithub } from '@tabler/icons-react';
 import { signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { HandleLoginOptions, ProviderType } from 'types';
 
 function LoginContent() {
