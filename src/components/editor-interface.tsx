@@ -98,14 +98,14 @@ function EditorWorkspace() {
               label: 'Yeni sunucu geneli sorgu',
               icon: Code,
               disabled: !activeServer,
-              onSelect: () => openQueryTab({ serverId: activeServerId, databaseName: null, title: 'Genel sorgu' })
+              onSelect: () => { openQueryTab({ serverId: activeServerId, databaseName: null, title: 'Genel sorgu' }); }
             },
             {
               id: 'new-database-query',
               label: selectedDatabase ? `${selectedDatabase} için yeni sorgu` : 'Veritabanı sorgusu',
               icon: Plus,
               disabled: !activeServer || !selectedDatabase,
-              onSelect: () => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase || 'Sorgu' })
+              onSelect: () => { openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase || 'Sorgu' }); }
             },
             { id: 'separator-1', separator: true },
             {
