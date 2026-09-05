@@ -109,7 +109,10 @@ export const migrationDrafts = {
 
 export const backupTasks = {
   list: () => read<BackupTask>(KEYS.backups),
-  save: (task: BackupTask) => write(KEYS.backups, [task, ...read<BackupTask>(KEYS.backups).filter(item => item.id !== task.id)].slice(0, 200)),
+  save: (task: Omit<BackupTask, 'engine'> & { engine?: string }) => {
+    const normalizedTask: BackupTask = { ...task, engine: task.engine || 'mysql' };
+    write(KEYS.backups, [normalizedTask, ...read<BackupTask>(KEYS.backups).filter(item => item.id !== normalizedTask.id)].slice(0, 200));
+  },
   remove: (id: string) => write(KEYS.backups, read<BackupTask>(KEYS.backups).filter(item => item.id !== id))
 };
 
@@ -125,12 +128,13 @@ export const preparedStatementSets = {
   remove: (id: string) => write(KEYS.prepared, read<PreparedStatementSet>(KEYS.prepared).filter(item => item.id !== id))
 };
 
-export function backupCommand(engine: string, host: string, port: number, username: string, databaseName: string | null, destination: string) {
+export function backupCommand(engine: string | undefined, host: string, port: number, username: string, databaseName: string | null, destination: string) {
+  const normalizedEngine = engine || 'mysql';
   const target = databaseName || 'all-databases';
-  if (engine === 'postgresql' || engine === 'cockroachdb') {
+  if (normalizedEngine === 'postgresql' || normalizedEngine === 'cockroachdb') {
     return `pg_dump --host=${host} --port=${port} --username=${username} --format=custom --file="${destination}" ${databaseName || 'DATABASE_NAME'}`;
   }
-  if (engine === 'mssql') {
+  if (normalizedEngine === 'mssql') {
     return `sqlcmd -S ${host},${port} -U ${username} -Q "BACKUP DATABASE [${databaseName || 'DATABASE_NAME'}] TO DISK = N'${destination}' WITH INIT, COMPRESSION"`;
   }
   return `mysqldump --host=${host} --port=${port} --user=${username} --single-transaction --routines --triggers ${databaseName || '--all-databases'} > "${destination || `${target}.sql`}"`;
