@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { DatabaseConnectionPayload, QueryExecutionResult } from 'types';
 import type {
   DatabasePerformanceSchemaSize,
@@ -6,6 +7,11 @@ import type {
   DatabaseWorkbenchRequest
 } from '@/lib/databaseWorkbenchTypes';
 import { DatabaseServiceError, executeDatabaseRequest } from '@/lib/server/database-service';
+
+const PERFORMANCE_CACHE_TTL_MS = 5_000;
+const PERFORMANCE_CACHE_MAX_ENTRIES = 100;
+const performanceSnapshotCache = new Map<string, { expiresAt: number; snapshot: DatabasePerformanceSnapshot }>();
+const performanceSnapshotInFlight = new Map<string, Promise<DatabasePerformanceSnapshot>>();
 
 async function run(connection: DatabaseConnectionPayload, sql: string, database?: string | null) {
   return executeDatabaseRequest({ action: 'query', connection, database, sql }) as Promise<QueryExecutionResult>;
@@ -83,7 +89,49 @@ function replicationStatus(row: Record<string, unknown> | undefined): DatabaseRe
   };
 }
 
-export async function executeDatabasePerformanceRequest(input: DatabaseWorkbenchRequest): Promise<DatabasePerformanceSnapshot> {
+function snapshotKey(input: DatabaseWorkbenchRequest) {
+  const connection = input.connection;
+  if (!connection) return '';
+  return createHash('sha256')
+    .update(JSON.stringify({
+      engine: connection.engine,
+      host: connection.host?.trim().toLowerCase(),
+      port: connection.port,
+      username: connection.username,
+      password: connection.password,
+      database: typeof input.database === 'string' ? input.database : connection.database ?? null,
+      sslMode: connection.sslMode,
+      connectTimeoutMs: connection.connectTimeoutMs,
+      readOnly: connection.readOnly
+    }))
+    .digest('base64url');
+}
+
+function cachedSnapshot(key: string) {
+  const cached = performanceSnapshotCache.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    performanceSnapshotCache.delete(key);
+    return null;
+  }
+  return cached.snapshot;
+}
+
+function storeSnapshot(key: string, snapshot: DatabasePerformanceSnapshot) {
+  if (performanceSnapshotCache.size >= PERFORMANCE_CACHE_MAX_ENTRIES) {
+    const now = Date.now();
+    for (const [cacheKey, entry] of performanceSnapshotCache) {
+      if (entry.expiresAt <= now) performanceSnapshotCache.delete(cacheKey);
+    }
+    if (performanceSnapshotCache.size >= PERFORMANCE_CACHE_MAX_ENTRIES) {
+      const oldestKey = performanceSnapshotCache.keys().next().value as string | undefined;
+      if (oldestKey) performanceSnapshotCache.delete(oldestKey);
+    }
+  }
+  performanceSnapshotCache.set(key, { expiresAt: Date.now() + PERFORMANCE_CACHE_TTL_MS, snapshot });
+}
+
+async function collectDatabasePerformanceSnapshot(input: DatabaseWorkbenchRequest): Promise<DatabasePerformanceSnapshot> {
   if (!input.connection) {
     throw new DatabaseServiceError('Performans snapshot bağlantısı eksik.', 422, 'MISSING_DATABASE_CONNECTION');
   }
@@ -180,4 +228,29 @@ export async function executeDatabasePerformanceRequest(input: DatabaseWorkbench
       topSchemas: topSchemas.slice(0, 12)
     }
   };
+}
+
+export async function executeDatabasePerformanceRequest(input: DatabaseWorkbenchRequest): Promise<DatabasePerformanceSnapshot> {
+  if (!input.connection) {
+    throw new DatabaseServiceError('Performans snapshot bağlantısı eksik.', 422, 'MISSING_DATABASE_CONNECTION');
+  }
+
+  const key = snapshotKey(input);
+  const cached = cachedSnapshot(key);
+  if (cached) return cached;
+
+  const inFlight = performanceSnapshotInFlight.get(key);
+  if (inFlight) return inFlight;
+
+  const request = collectDatabasePerformanceSnapshot(input)
+    .then(snapshot => {
+      storeSnapshot(key, snapshot);
+      return snapshot;
+    })
+    .finally(() => {
+      if (performanceSnapshotInFlight.get(key) === request) performanceSnapshotInFlight.delete(key);
+    });
+
+  performanceSnapshotInFlight.set(key, request);
+  return request;
 }
