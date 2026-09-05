@@ -291,7 +291,7 @@ async function query(input: DatabaseTransactionRequest, ownerId: string) {
     if (Array.isArray(result)) {
       const rows = jsonSafe(result) as Record<string, unknown>[];
       statement.rowCount = rows.length;
-      response = { rows, fields: fields?.map(field => ({ name: field.name, type: field.type })) ?? [], maximumRows, _meta: { statements: [{ sql, label: 'Transaction sorgusu' }] } };
+      response = { rows, fields: fields?.map(field => ({ name: field.name, type: field.type ?? '' })) ?? [], maximumRows, _meta: { statements: [{ sql, label: 'Transaction sorgusu' }] } };
     } else {
       const header = result as unknown as Record<string, unknown>;
       statement.affectedRows = Number(header.affectedRows ?? 0);

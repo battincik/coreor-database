@@ -98,14 +98,14 @@ function EditorWorkspace() {
               label: 'Yeni sunucu geneli sorgu',
               icon: Code,
               disabled: !activeServer,
-              onSelect: () => openQueryTab({ serverId: activeServerId, databaseName: null, title: 'Genel sorgu' })
+              onSelect: () => { openQueryTab({ serverId: activeServerId, databaseName: null, title: 'Genel sorgu' }); }
             },
             {
               id: 'new-database-query',
               label: selectedDatabase ? `${selectedDatabase} için yeni sorgu` : 'Veritabanı sorgusu',
               icon: Plus,
               disabled: !activeServer || !selectedDatabase,
-              onSelect: () => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase || 'Sorgu' })
+              onSelect: () => { openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase || 'Sorgu' }); }
             },
             { id: 'separator-1', separator: true },
             {
@@ -113,13 +113,13 @@ function EditorWorkspace() {
               label: 'Aktif görünümü yenile',
               icon: RefreshCw,
               disabled: !activeServer,
-              onSelect: () => window.dispatchEvent(new Event('coreor:refresh-active-view'))
+              onSelect: () => { window.dispatchEvent(new Event('coreor:refresh-active-view')); }
             },
             {
               id: 'add-server',
               label: 'Yeni sunucu ekle',
               icon: Server,
-              onSelect: () => window.dispatchEvent(new Event('coreor:open-server-modal'))
+              onSelect: () => { window.dispatchEvent(new Event('coreor:open-server-modal')); }
             }
           ],
           activeServer ? `${activeServer.name} çalışma alanı` : 'Coreor Database'

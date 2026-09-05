@@ -239,7 +239,7 @@ export function DatabaseCatalogView({
   if (error) return <ErrorState title="Katalog yüklenemedi" description={error} actionLabel="Tekrar dene" onAction={onRefresh} />;
   if (mode === 'databases' && databases.length === 0) return <EmptyState icon={Database} title="Görüntülenebilir veritabanı yok" description="Bağlantı kullanıcısının yetkilerini kontrol edin veya kataloğu yenileyin." actionLabel="Kataloğu yenile" onAction={onRefresh} />;
   if (mode === 'tables' && !selectedDatabaseItem) return <EmptyState icon={Database} title="Veritabanı seçilmedi" description="Sol ağaçtan veya veritabanı listesinden bir veritabanı seçin." />;
-  if (mode === 'tables' && selectedDatabaseItem.tableDetails.length === 0) return <EmptyState icon={TableIcon} title="Bu veritabanında tablo yok" description="Kullanıcının tablo görüntüleme yetkisini kontrol edin veya kataloğu yenileyin." actionLabel="Yenile" onAction={onRefresh} />;
+  if (mode === 'tables' && selectedDatabaseItem && selectedDatabaseItem.tableDetails.length === 0) return <EmptyState icon={TableIcon} title="Bu veritabanında tablo yok" description="Kullanıcının tablo görüntüleme yetkisini kontrol edin veya kataloğu yenileyin." actionLabel="Yenile" onAction={onRefresh} />;
 
   return (
     <div className="flex h-full min-h-0 flex-col">

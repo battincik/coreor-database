@@ -230,8 +230,8 @@ export function DatabasePanel({
     openContextMenu(event, [
       { id: 'open', label: 'Veritabanını aç', icon: Database, onSelect: () => handleDatabaseSelect(databaseName) },
       { id: 'graph', label: 'Şema grafiğini aç', icon: Network, onSelect: () => { if (selectedDatabase !== databaseName) onDatabaseSelect(databaseName); onTableSelect(null); setActiveTab('schema-graph'); } },
-      { id: 'query', label: 'Yeni sorgu sekmesi', icon: Code, onSelect: () => createQueryTab({ databaseName, title: `${databaseName} sorgu` }) },
-      { id: 'show-tables', label: 'SHOW FULL TABLES', icon: TableIcon, onSelect: () => createQueryTab({ databaseName, title: `${databaseName} tabloları`, sql: 'SHOW FULL TABLES;', runImmediately: true }) },
+      { id: 'query', label: 'Yeni sorgu sekmesi', icon: Code, onSelect: () => { createQueryTab({ databaseName, title: `${databaseName} sorgu` }); } },
+      { id: 'show-tables', label: 'SHOW FULL TABLES', icon: TableIcon, onSelect: () => { createQueryTab({ databaseName, title: `${databaseName} tabloları`, sql: 'SHOW FULL TABLES;', runImmediately: true }); } },
       { id: 'size', label: 'Tablo boyutlarını sorgula', icon: Search, onSelect: () => createQueryTab({
         databaseName,
         title: `${databaseName} boyutları`,
@@ -250,13 +250,13 @@ export function DatabasePanel({
       { id: 'data', label: 'Verileri aç', icon: TableIcon, onSelect: () => handleTableSelect(databaseName, tableName, 'data') },
       { id: 'structure', label: 'Yapıyı aç', icon: Database, onSelect: () => handleTableSelect(databaseName, tableName, 'structure') },
       { id: 'sep-1', separator: true },
-      { id: 'select', label: 'İlk 100 satırı sorgula', icon: Search, onSelect: () => createQueryTab({ databaseName, title: `${tableName} SELECT`, sql: `SELECT * FROM ${table}\nLIMIT 100;`, runImmediately: true }) },
-      { id: 'count', label: 'Satır sayısını sorgula', icon: Search, onSelect: () => createQueryTab({ databaseName, title: `${tableName} COUNT`, sql: `SELECT COUNT(*) AS totalRows FROM ${table};`, runImmediately: true }) },
-      { id: 'describe', label: 'DESCRIBE çalıştır', icon: Code, onSelect: () => createQueryTab({ databaseName, title: `${tableName} DESCRIBE`, sql: `DESCRIBE ${table};`, runImmediately: true }) },
-      { id: 'show-create', label: 'SHOW CREATE TABLE', icon: Code, onSelect: () => createQueryTab({ databaseName, title: `${tableName} CREATE`, sql: `SHOW CREATE TABLE ${table};`, runImmediately: true }) },
+      { id: 'select', label: 'İlk 100 satırı sorgula', icon: Search, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} SELECT`, sql: `SELECT * FROM ${table}\nLIMIT 100;`, runImmediately: true }); } },
+      { id: 'count', label: 'Satır sayısını sorgula', icon: Search, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} COUNT`, sql: `SELECT COUNT(*) AS totalRows FROM ${table};`, runImmediately: true }); } },
+      { id: 'describe', label: 'DESCRIBE çalıştır', icon: Code, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} DESCRIBE`, sql: `DESCRIBE ${table};`, runImmediately: true }); } },
+      { id: 'show-create', label: 'SHOW CREATE TABLE', icon: Code, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} CREATE`, sql: `SHOW CREATE TABLE ${table};`, runImmediately: true }); } },
       { id: 'sep-2', separator: true },
-      { id: 'insert', label: 'INSERT taslağı', icon: Plus, onSelect: () => createQueryTab({ databaseName, title: `${tableName} INSERT`, sql: `INSERT INTO ${table} (\`column\`)\nVALUES ('value');` }) },
-      { id: 'delete', label: 'DELETE taslağı', icon: Trash2, danger: true, onSelect: () => createQueryTab({ databaseName, title: `${tableName} DELETE`, sql: `-- Koşulu doğrulamadan çalıştırmayın.\nDELETE FROM ${table}\nWHERE \`primary_key\` = 0\nLIMIT 1;` }) },
+      { id: 'insert', label: 'INSERT taslağı', icon: Plus, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} INSERT`, sql: `INSERT INTO ${table} (\`column\`)\nVALUES ('value');` }); } },
+      { id: 'delete', label: 'DELETE taslağı', icon: Trash2, danger: true, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} DELETE`, sql: `-- Koşulu doğrulamadan çalıştırmayın.\nDELETE FROM ${table}\nWHERE \`primary_key\` = 0\nLIMIT 1;` }); } },
       { id: 'copy', label: 'Tam tablo adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(table) }
     ], `${databaseName}.${tableName}`);
   };
