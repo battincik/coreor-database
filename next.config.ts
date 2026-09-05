@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   turbopack: {},
   typescript: {
-    ignoreBuildErrors: true
+    ignoreBuildErrors: false
   }
 };
 
