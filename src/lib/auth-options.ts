@@ -12,24 +12,6 @@ function isProductionBuild() {
   return process.env.NEXT_PHASE === NEXT_PRODUCTION_BUILD_PHASE;
 }
 
-function splitEnvironmentList(value: string | undefined) {
-  return (value ?? '')
-    .split(',')
-    .map(item => item.trim())
-    .filter(Boolean);
-}
-
-const allowedGithubIds = new Set(splitEnvironmentList(process.env.AUTH_ALLOWED_GITHUB_IDS));
-const requireGithubAllowlist =
-  process.env.AUTH_REQUIRE_GITHUB_ALLOWLIST?.trim().toLowerCase() !== 'false' && process.env.NODE_ENV === 'production';
-
-export function isGithubUserAuthorized(userId: unknown) {
-  if (!requireGithubAllowlist && allowedGithubIds.size === 0) return true;
-  if (allowedGithubIds.size === 0) return false;
-  const normalizedUserId = typeof userId === 'string' || typeof userId === 'number' ? String(userId).trim() : '';
-  return Boolean(normalizedUserId) && allowedGithubIds.has(normalizedUserId);
-}
-
 function resolveAuthSecret() {
   const explicitSecret = process.env.NEXTAUTH_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
 
@@ -99,10 +81,6 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login'
   },
   callbacks: {
-    async signIn({ profile }) {
-      const githubProfile = profile as { id?: string | number } | undefined;
-      return isGithubUserAuthorized(githubProfile?.id);
-    },
     async session({ session, token }) {
       if (session.user) {
         const user = session.user as typeof session.user & { id?: string };
