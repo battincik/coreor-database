@@ -1,7 +1,6 @@
 'use client';
 
 import { SessionProvider } from 'next-auth/react';
-import { ThemeProvider } from '@/components/theme-provider';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { DatabaseProvider } from '@/context/DatabaseContext';
@@ -14,11 +13,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <LanguageProvider>
         <AuthProvider>
           <DatabaseProvider>
-            <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-              <LegacyTranslationBridge />
-              {children}
-              <LanguageSwitcher />
-            </ThemeProvider>
+            <LegacyTranslationBridge />
+            {children}
+            <LanguageSwitcher />
           </DatabaseProvider>
         </AuthProvider>
       </LanguageProvider>
