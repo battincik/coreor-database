@@ -5,6 +5,7 @@ Tarayıcı üzerinden birden fazla veritabanı sunucusunu yönetmek için geliş
 ## Güncel mimari
 
 - Kullanıcı oturumu NextAuth ve GitHub sağlayıcısı ile yönetilir.
+- Uygulama herkese açıktır; GitHub oturumu erişim kısıtlamak için değil, kullanıcı kimliği ve hesap izolasyonu için kullanılır.
 - Veritabanı sunucu profilleri aktif kullanıcı hesabına göre ayrılır.
 - Host, kullanıcı adı ve parola tarayıcı IndexedDB içinde AES-256-GCM ile şifrelenir.
 - Merkezi `api.coreor.net` servisi ve harici connector kullanılmaz.
@@ -45,17 +46,15 @@ GITHUB_SECRET=
 NEXTAUTH_SECRET=
 NEXTAUTH_URL=https://web.database.coreor.net
 
-# Production'da varsayılan olarak GitHub numeric user ID allowlist zorunludur.
-AUTH_ALLOWED_GITHUB_IDS=51765819
-AUTH_REQUIRE_GITHUB_ALLOWLIST=true
-
 # NEXTAUTH_URL dışında ek güvenilir origin gerekiyorsa virgülle ayırın.
 AUTH_TRUSTED_ORIGINS=
 
-# Production'da açık host allowlist zorunludur.
-DATABASE_ALLOWED_HOSTS=db.internal.example.com
-DATABASE_ALLOWED_PORTS=3306
-DATABASE_REQUIRE_HOST_ALLOWLIST=true
+# Public DB hostları varsayılan olarak kullanılabilir.
+# Yalnızca private/local/reserved hedeflere bilinçli istisna vermek için kullanın.
+DATABASE_ALLOWED_HOSTS=
+
+# Sunucudan açılmasına izin verilen DB portları.
+DATABASE_ALLOWED_PORTS=3306,4000,5432,26257,1433
 
 DATABASE_QUERY_TIMEOUT_MS=30000
 DATABASE_MAX_RESULT_ROWS=5000
@@ -78,7 +77,17 @@ Mevcut kurulumda `JWEDecryptionFailed` veya `decryption operation failed` hatas�
 2. Next.js sunucusunu tamamen yeniden başlatın.
 3. Tarayıcıdaki eski oturumu kapatıp GitHub ile yeniden giriş yapın. Veritabanı API'si okunamayan eski oturum çerezlerini otomatik temizler.
 
-Production'da `DATABASE_REQUIRE_HOST_ALLOWLIST=true` varsayımıyla `DATABASE_ALLOWED_HOSTS=*` ve `DATABASE_ALLOWED_PORTS=*` kabul edilmez. İnternete açık kurulumda bu politikayı kapatmayın; yalnızca gerçekten erişilmesi gereken host ve portları açıkça tanımlayın.
+## Public SaaS ağ güvenliği modeli
+
+Coreor Web Database herkese açık kullanılabildiği için güvenlik modeli kullanıcı allowlist'i yerine hedef ağ sınırlamasına dayanır:
+
+- DNS üzerinden public IP'ye çözümlenen veritabanı hostları kullanılabilir.
+- Loopback, private, link-local ve reserved adresler varsayılan olarak engellenir.
+- `DATABASE_ALLOWED_HOSTS` yalnızca bu engellenen private/local hedeflere bilinçli istisna vermek içindir.
+- Production public SaaS kurulumunda private hedefe ihtiyaç yoksa `DATABASE_ALLOWED_HOSTS` boş bırakılmalıdır.
+- `DATABASE_ALLOWED_PORTS`, uygulama sunucusunun yalnızca beklenen veritabanı portlarına outbound bağlantı açmasını sınırlar.
+
+Bu yaklaşım kullanıcıların kendi public veritabanlarına bağlanabilmesini korurken uygulamanın internal network/metadata servislerine SSRF üzerinden erişmesini zorlaştırır.
 
 ## Geliştirme
 
@@ -100,13 +109,14 @@ Uygulama MySQL/MariaDB yanında PostgreSQL, CockroachDB, TiDB ve Microsoft SQL S
 
 ## Güvenlik notları
 
-- Production erişimini `AUTH_ALLOWED_GITHUB_IDS` ile yalnızca yetkili GitHub hesaplarına daraltın.
+- GitHub OAuth authentication hesap kimliği ve şifreli vault izolasyonu içindir; uygulamaya giriş yapan GitHub kullanıcıları ayrıca kullanıcı allowlist'ine tabi değildir.
 - Veritabanlarında `root`, `postgres`, `sa` gibi tam yetkili hesapları günlük profil olarak kullanmayın; mümkün olan en az yetkili ayrı hesapları oluşturun.
 - Uygulamayı yalnızca HTTPS üzerinden yayınlayın.
 - Mümkünse veritabanı TLS bağlantısını ve sertifika doğrulamasını zorunlu tutun.
 - `NEXTAUTH_SECRET`, OAuth secret veya DB credential değerlerini kaynak koda eklemeyin.
-- `DATABASE_ALLOWED_HOSTS` ve `DATABASE_ALLOWED_PORTS` listelerini dar tutun; bunlar sunucu tarafı ağ erişim sınırıdır.
-- Route Handler oturum, kullanıcı allowlist, trusted-origin, request boyutu, read-only policy ve temel rate-limit kontrolleri uygular.
+- `DATABASE_ALLOWED_HOSTS` listesini yalnızca gerçekten gerekli private/local hedefler için kullanın.
+- `DATABASE_ALLOWED_PORTS` listesini beklenen DB portlarıyla sınırlı tutun.
+- Route Handler oturum, trusted-origin, request boyutu, read-only policy ve kullanıcı başına temel rate-limit kontrolleri uygular.
 - Temel CSP, HSTS, frame/MIME/referrer/permissions güvenlik header'ları production'da uygulanır.
 - Activity Console SQL geçmişinde yaygın parola/token alanları maskelenir; yine de hassas değerleri SQL literal olarak yazmaktan kaçının.
 - IndexedDB aynı cihaz/tarayıcı profiline özeldir; cihazlar arası senkronizasyon sağlamaz.
@@ -117,8 +127,9 @@ Uygulama MySQL/MariaDB yanında PostgreSQL, CockroachDB, TiDB ve Microsoft SQL S
 
 - `NEXTAUTH_SECRET` sabit ve >= 32 karakter
 - `NEXTAUTH_URL` gerçek HTTPS production origin
-- `AUTH_ALLOWED_GITHUB_IDS` yalnızca yetkili kullanıcılar
-- `DATABASE_ALLOWED_HOSTS` / `DATABASE_ALLOWED_PORTS` dar allowlist
+- GitHub OAuth callback URL production domain ile uyumlu
+- `DATABASE_ALLOWED_HOSTS` yalnızca gerekli private/local istisnaları içeriyor veya boş
+- `DATABASE_ALLOWED_PORTS` yalnızca desteklenen DB portlarını içeriyor
 - DB hesapları least-privilege
 - TLS doğrulaması mümkün olduğunca `required`
 - `npm ci` ile deterministik dependency kurulumu
