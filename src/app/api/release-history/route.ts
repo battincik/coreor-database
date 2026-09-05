@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
-import { authOptions, isGithubUserAuthorized } from '@/lib/auth-options';
+import { authOptions } from '@/lib/auth-options';
 import {
   FALLBACK_RELEASE_HISTORY,
   cleanReleaseTitle,
@@ -124,14 +124,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { error: 'UNAUTHORIZED', message: 'Sürüm geçmişi için giriş yapmalısınız.' },
       { status: 401, headers: responseHeaders() }
-    );
-  }
-
-  const user = session.user as typeof session.user & { id?: string };
-  if (!user.id || !isGithubUserAuthorized(user.id)) {
-    return NextResponse.json(
-      { error: 'AUTH_USER_NOT_ALLOWED', message: 'Bu GitHub hesabının sürüm geçmişine erişim izni yok.' },
-      { status: 403, headers: responseHeaders() }
     );
   }
 
