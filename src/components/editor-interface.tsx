@@ -113,13 +113,13 @@ function EditorWorkspace() {
               label: 'Aktif görünümü yenile',
               icon: RefreshCw,
               disabled: !activeServer,
-              onSelect: () => window.dispatchEvent(new Event('coreor:refresh-active-view'))
+              onSelect: () => { window.dispatchEvent(new Event('coreor:refresh-active-view')); }
             },
             {
               id: 'add-server',
               label: 'Yeni sunucu ekle',
               icon: Server,
-              onSelect: () => window.dispatchEvent(new Event('coreor:open-server-modal'))
+              onSelect: () => { window.dispatchEvent(new Event('coreor:open-server-modal')); }
             }
           ],
           activeServer ? `${activeServer.name} çalışma alanı` : 'Coreor Database'
