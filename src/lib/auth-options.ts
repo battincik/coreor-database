@@ -16,35 +16,36 @@ function resolveAuthSecret() {
   const explicitSecret = process.env.NEXTAUTH_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
 
   if (explicitSecret) {
+    if (process.env.NODE_ENV === 'production' && !isProductionBuild() && explicitSecret.length < 32) {
+      throw new Error('NEXTAUTH_SECRET üretimde en az 32 karakter olmalıdır.');
+    }
     return explicitSecret;
   }
 
-  const githubClientSecret = process.env.GITHUB_SECRET?.trim();
+  // Next.js production build, App Router route modüllerini değerlendirebilir.
+  // Runtime secret yalnızca gerçek istek işlenirken zorunlu tutulur.
+  if (isProductionBuild()) {
+    return BUILD_ONLY_AUTH_SECRET;
+  }
 
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Üretimde bağımsız NEXTAUTH_SECRET (veya AUTH_SECRET) tanımlanmalıdır.');
+  }
+
+  const githubClientSecret = process.env.GITHUB_SECRET?.trim();
   if (githubClientSecret) {
-    // Geriye uyumluluk: NEXTAUTH_SECRET henüz tanımlanmamış kurulumlarda
-    // her restartta değişmeyen, uygulamaya özel bir anahtar üretir.
-    // Üretimde yine de bağımsız NEXTAUTH_SECRET kullanılması önerilir.
     if (process.env.NODE_ENV !== 'test') {
       console.warn(
-        '[auth] NEXTAUTH_SECRET tanımlı değil. Oturum anahtarı GITHUB_SECRET üzerinden türetildi. Üretimde bağımsız NEXTAUTH_SECRET tanımlayın.'
+        '[auth] NEXTAUTH_SECRET tanımlı değil. Yalnızca geliştirme ortamında GITHUB_SECRET üzerinden geçici oturum anahtarı türetiliyor.'
       );
     }
-
     return createHash('sha256')
       .update(`coreor-web-database:next-auth:${githubClientSecret}`)
       .digest('base64url');
   }
 
-  // Next.js production build, App Router route modüllerini değerlendirebilir.
-  // Preview ortamında secret production-only scope'taysa salt import nedeniyle
-  // build'in çökmesine izin vermiyoruz. Runtime'da NEXT_PHASE bu değerde değildir.
-  if (isProductionBuild()) {
-    return BUILD_ONLY_AUTH_SECRET;
-  }
-
   throw new Error(
-    'NextAuth yapılandırması eksik: NEXTAUTH_SECRET (veya AUTH_SECRET) tanımlayın. GITHUB_SECRET da bulunamadığı için güvenli oturum anahtarı üretilemedi.'
+    'NextAuth yapılandırması eksik: NEXTAUTH_SECRET (veya AUTH_SECRET) tanımlayın. GITHUB_SECRET da bulunamadığı için geliştirme anahtarı üretilemedi.'
   );
 }
 
