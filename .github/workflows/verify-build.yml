@@ -1,0 +1,31 @@
+name: Verify Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXTAUTH_SECRET: ci-build-secret
+      NEXTAUTH_URL: http://localhost:3000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Production build
+        run: npm run build
