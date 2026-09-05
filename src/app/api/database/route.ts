@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
-import { authOptions, isGithubUserAuthorized } from '@/lib/auth-options';
+import { authOptions } from '@/lib/auth-options';
 import { DatabaseServiceError, executeDatabaseRequest } from '@/lib/server/database-service';
 import { executeExtendedDatabaseRequest, isExtendedDatabaseEngine } from '@/lib/server/extended-database-service';
 import {
@@ -119,49 +119,6 @@ function assertSameOrigin(request: NextRequest) {
   }
 }
 
-function matchesHostPattern(host: string, pattern: string) {
-  if (pattern.startsWith('*.')) {
-    const suffix = pattern.slice(1);
-    return host.endsWith(suffix) && host.length > suffix.length;
-  }
-  return host === pattern;
-}
-
-function assertProductionConnectionPolicy(payload: DatabaseRoutePayload) {
-  const requireAllowlist =
-    process.env.DATABASE_REQUIRE_HOST_ALLOWLIST?.trim().toLowerCase() !== 'false' && process.env.NODE_ENV === 'production';
-  if (!requireAllowlist) return;
-
-  const connection = payload.connection as { host?: unknown } | undefined;
-  const host = typeof connection?.host === 'string' ? connection.host.trim().toLowerCase() : '';
-  if (!host) return;
-
-  const allowedHosts = splitEnvironmentList(process.env.DATABASE_ALLOWED_HOSTS).map(item => item.toLowerCase());
-  if (allowedHosts.length === 0 || allowedHosts.includes('*')) {
-    throw new DatabaseServiceError(
-      'Üretimde DATABASE_ALLOWED_HOSTS açık bir host allowlist içermelidir; * kullanılamaz.',
-      500,
-      'DATABASE_HOST_ALLOWLIST_CONFIGURATION_ERROR'
-    );
-  }
-  if (!allowedHosts.some(pattern => matchesHostPattern(host, pattern))) {
-    throw new DatabaseServiceError(
-      'Bu veritabanı hostu üretim allowlist politikasında izinli değil.',
-      403,
-      'DATABASE_HOST_NOT_ALLOWED'
-    );
-  }
-
-  const allowedPorts = splitEnvironmentList(process.env.DATABASE_ALLOWED_PORTS);
-  if (allowedPorts.includes('*')) {
-    throw new DatabaseServiceError(
-      'Üretimde DATABASE_ALLOWED_PORTS için * kullanılamaz.',
-      500,
-      'DATABASE_PORT_ALLOWLIST_CONFIGURATION_ERROR'
-    );
-  }
-}
-
 function getSessionCookieNames(request: NextRequest) {
   return request.cookies.getAll().map(cookie => cookie.name).filter(name => SESSION_COOKIE_PREFIXES.some(prefix => name === prefix || name.startsWith(`${prefix}.`)));
 }
@@ -193,16 +150,6 @@ function unauthorizedResponse(request: NextRequest) {
     });
   }
   return response;
-}
-
-function forbiddenResponse() {
-  return NextResponse.json(
-    {
-      error: 'AUTH_USER_NOT_ALLOWED',
-      message: 'Bu GitHub hesabının veritabanı çalışma alanına erişim izni yok.'
-    },
-    { status: 403, headers: noStoreHeaders() }
-  );
 }
 
 function applyRateLimit(identity: string) {
@@ -279,9 +226,8 @@ export async function POST(request: NextRequest) {
     if (!session?.user) return unauthorizedResponse(request);
 
     const user = session.user as typeof session.user & { id?: string };
-    const userId = user.id?.trim() || null;
-    if (!userId || !isGithubUserAuthorized(userId)) return forbiddenResponse();
-    applyRateLimit(userId);
+    const stableIdentity = user.id?.trim() || user.email?.trim() || null;
+    applyRateLimit(stableIdentity || 'authenticated-user');
 
     const rawBody = await request.text();
     const actualBytes = Buffer.byteLength(rawBody, 'utf8');
@@ -295,9 +241,8 @@ export async function POST(request: NextRequest) {
     }
     const payload = parsedBody as DatabaseRoutePayload;
     const action = payload.action;
-    assertProductionConnectionPolicy(payload);
     assertReadOnlyPolicy(payload);
-    if (isDatabaseTransactionAction(action) && !userId) {
+    if (isDatabaseTransactionAction(action) && !stableIdentity) {
       throw new DatabaseServiceError('Transaction oturumu için kararlı kullanıcı kimliği bulunamadı. GitHub ile yeniden giriş yapın.', 401, 'TRANSACTION_OWNER_IDENTITY_REQUIRED');
     }
 
@@ -308,7 +253,7 @@ export async function POST(request: NextRequest) {
       : payload;
 
     const result = isDatabaseTransactionAction(action)
-      ? await executeDatabaseTransactionRequest(payload as DatabaseTransactionRequest, userId)
+      ? await executeDatabaseTransactionRequest(payload as DatabaseTransactionRequest, stableIdentity!)
       : action === 'performance-snapshot'
         ? await executeDatabasePerformanceRequest(payload as DatabaseWorkbenchRequest)
         : isDatabaseWorkbenchAction(action)
