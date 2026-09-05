@@ -4,7 +4,7 @@ Use this checklist before changing `battincik/web.database.coreor.net` from priv
 
 ## P0 — Complete before public visibility
 
-- [ ] **Select and add a repository license.** Without a license, source visibility does not grant reuse/modification/distribution rights.
+- [x] **Repository license added:** Apache License 2.0 with `LICENSE`, `NOTICE` and a plain-language `docs/LICENSE_GUIDE.md`.
 - [ ] **Upgrade vulnerable framework/auth dependencies** tracked in Issue #32 and regenerate `package-lock.json` deterministically.
 - [ ] **Resolve GitHub Actions startup failures** tracked in Issue #36 so required checks can actually run.
 - [ ] **Run a full Git-history secret scan**, not only a current-tree search. Recommended local tools include `gitleaks detect --source .` or `trufflehog git file://...` on a fresh full clone.
@@ -68,6 +68,20 @@ Use this checklist before changing `battincik/web.database.coreor.net` from priv
 - [x] README documents multi-instance transaction limitations.
 - [x] `SECURITY.md` added.
 - [x] `CONTRIBUTING.md` added.
+- [x] `CODE_OF_CONDUCT.md` added.
+- [x] `SUPPORT.md` added.
+- [x] `CHANGELOG.md` added.
+- [x] `ROADMAP.md` added.
+- [x] `ARCHITECTURE.md` added.
+- [x] `SECURITY_MODEL.md` added.
+- [x] `DATABASE_SUPPORT.md` added.
+- [x] `SELF_HOSTING.md` added.
+- [x] `DEPLOYMENT.md` added.
+- [x] `TROUBLESHOOTING.md` added.
+- [x] `RELEASING.md` added.
+- [x] `docs/DEVELOPMENT.md` added.
+- [x] `docs/THREAT_MODEL.md` added.
+- [x] `docs/LICENSE_GUIDE.md` and `docs/README.md` added.
 - [ ] Add screenshots/GIFs with sanitized demo data if a visual project showcase is desired.
 - [ ] Set the GitHub repository description, website and topics after changing visibility.
 
