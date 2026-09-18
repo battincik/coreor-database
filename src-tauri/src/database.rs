@@ -185,7 +185,7 @@ pub async fn execute_sql(c: &Connection, sql: &str, database: Option<&str>, limi
     execute_on(&mut conn,sql,limit).await
 }
 
-fn is_mutating(sql:&str)->bool{
+pub fn is_mutating(sql:&str)->bool{
     let keywords=["insert","update","delete","replace","merge","alter","create","drop","truncate","rename","grant","revoke","call","exec ","execute ","kill","begin","start transaction","commit","rollback"];
     sql.split(';').any(|statement|{
         let s=statement.trim_start().to_ascii_lowercase();
