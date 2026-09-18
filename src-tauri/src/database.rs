@@ -687,10 +687,53 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
         ),None)
     };
 
-    let row=rows_of(&execute_sql(c,&sql,target_db,1).await?).into_iter().next()
+    let mut row=rows_of(&execute_sql(c,&sql,target_db,1).await?).into_iter().next()
         .ok_or_else(|| if scope=="table" {"Tablo depolama metadata'sında bulunamadı.".to_string()} else {"Depolama sorgusu sonuç döndürmedi.".to_string()})?;
     if scope=="table" && num(row.get("objectCount"))==0 {
         return Err("Tablo depolama metadata'sında bulunamadı veya bu kullanıcı tarafından görüntülenemiyor.".into());
+    }
+
+    // information_schema.TABLES is useful metadata but can lag behind the actual
+    // allocated InnoDB tablespace. "Recalculate" should prefer the physical
+    // allocation when the engine exposes it, while retaining the metadata
+    // result as a fallback for MyISAM/TiDB/restricted accounts.
+    if !is_pg(&c.engine) && !is_mssql(&c.engine) && c.engine!="tidb" {
+        let tablespace_pattern=match table {
+            Some(table_name)=>format!("{}/{}%",db,table_name),
+            None=>format!("{}/%",db)
+        };
+        let pattern_literal=literal(&json!(tablespace_pattern),&c.engine);
+        let tablespace_queries=[
+            format!("SELECT CAST(COALESCE(SUM(GREATEST(COALESCE(FILE_SIZE,0),COALESCE(ALLOCATED_SIZE,0))),0) AS CHAR) AS physicalBytes FROM information_schema.INNODB_TABLESPACES WHERE NAME LIKE {}",pattern_literal),
+            format!("SELECT CAST(COALESCE(SUM(GREATEST(COALESCE(FILE_SIZE,0),COALESCE(ALLOCATED_SIZE,0))),0) AS CHAR) AS physicalBytes FROM information_schema.INNODB_SYS_TABLESPACES WHERE NAME LIKE {}",pattern_literal)
+        ];
+        let mut physical_bytes=0u64;
+        for physical_sql in tablespace_queries {
+            if let Ok(result)=execute_sql(c,&physical_sql,None,1).await {
+                let candidate=rows_of(&result).into_iter().next()
+                    .map(|value|num(value.get("physicalBytes")))
+                    .unwrap_or(0);
+                if candidate>0 {
+                    physical_bytes=candidate;
+                    break;
+                }
+            }
+        }
+        if physical_bytes>0 {
+            if let Some(object)=row.as_object_mut() {
+                let metadata_total=num(object.get("totalBytes"));
+                object.insert("physicalBytes".into(),json!(physical_bytes));
+                if physical_bytes>metadata_total {
+                    let used=num(object.get("dataBytes")).saturating_add(num(object.get("indexBytes")));
+                    let current_free=num(object.get("freeBytes"));
+                    object.insert("totalBytes".into(),json!(physical_bytes));
+                    object.insert("freeBytes".into(),json!(current_free.max(physical_bytes.saturating_sub(used))));
+                    object.insert("measurementSource".into(),json!("innodb-tablespace"));
+                }else{
+                    object.insert("measurementSource".into(),json!("information-schema"));
+                }
+            }
+        }
     }
     Ok(json!({
         "scope":scope,
@@ -700,6 +743,8 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
         "indexBytes":num(row.get("indexBytes")),
         "freeBytes":num(row.get("freeBytes")),
         "totalBytes":num(row.get("totalBytes")),
+        "physicalBytes":row.get("physicalBytes").map(|value|num(Some(value))),
+        "measurementSource":row.get("measurementSource").and_then(Value::as_str),
         "rows":row.get("rows").and_then(|value|if value.is_null(){None}else{Some(num(Some(value)))}),
         "sampledAt":Utc::now().to_rfc3339()
     }))

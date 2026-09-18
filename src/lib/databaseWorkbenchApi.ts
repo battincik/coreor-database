@@ -14,7 +14,7 @@ import type {
   DatabaseUsersResponse,
   DatabaseWorkbenchAction
 } from '@/lib/databaseWorkbenchTypes';
-import { readLocalServerProfiles, writeLocalServerProfiles } from '@/lib/localProfiles';
+import { mutateLocalServerProfiles, readLocalServerProfiles } from '@/lib/localProfiles';
 import { recordActivity } from '@/lib/activityConsole';
 import { desktopDatabaseRequest } from '@/lib/desktopClient';
 import { normalizeDatabaseClientError } from '@/lib/databaseErrorPresentation';
@@ -140,8 +140,8 @@ function bytesToMb(value: number) {
 }
 
 async function persistStorageRecalculation(serverId: string, result: DatabaseStorageRecalculation) {
-  const servers = await readLocalServerProfiles();
-  const nextServers = servers.map(server => {
+  await mutateLocalServerProfiles(servers => {
+    const nextServers = servers.map(server => {
     if (server.id !== serverId) return server;
     const databases = (server.databases || []).map(database => {
       if (database.name !== result.database) return database;
@@ -174,9 +174,10 @@ async function persistStorageRecalculation(serverId: string, result: DatabaseSto
         totalSizeMB: tableDetails.reduce((sum, table) => sum + Number(table.sizeMB || 0), 0).toFixed(2)
       };
     });
-    return { ...server, databases, updatedAt: new Date().toISOString() };
+      return { ...server, databases, updatedAt: new Date().toISOString() };
+    });
+    return { servers: nextServers, result: undefined };
   });
-  await writeLocalServerProfiles(nextServers);
 }
 
 export async function recalculateDatabaseStorage(serverId: string, database: string, accountId?: string | null) {

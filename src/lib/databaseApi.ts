@@ -23,13 +23,12 @@ import type {
   TableSchemaMutationInput,
   TableSchemaMutationResponse
 } from 'types';
-import { readLocalServerProfiles, writeLocalServerProfiles } from '@/lib/localProfiles';
+import { mutateLocalServerProfiles, readLocalServerProfiles } from '@/lib/localProfiles';
 import { recordActivity } from '@/lib/activityConsole';
 import { databaseEngineDefinition, databaseEngineLabel } from '@/lib/databaseEngines';
 import { desktopDatabaseRequest } from '@/lib/desktopClient';
 import { normalizeDatabaseClientError } from '@/lib/databaseErrorPresentation';
 
-let profileMutationQueue: Promise<void> = Promise.resolve();
 const inFlightControllers = new Map<string, AbortController>();
 const tableInfoCache = new Map<string, { expiresAt: number; value: TableInfo }>();
 const tableInfoRequests = new Map<string, Promise<TableInfo>>();
@@ -230,16 +229,7 @@ async function requireServer(accountId: string | null | undefined, serverId: str
 }
 
 async function mutateServerProfiles<T>(mutation: (servers: DatabaseServerConfig[]) => ProfileMutationResult<T>) {
-  let mutationResult!: T;
-  const currentMutation = profileMutationQueue.catch(() => undefined).then(async () => {
-    const currentServers = await readLocalServerProfiles();
-    const nextState = mutation(currentServers);
-    mutationResult = nextState.result;
-    await writeLocalServerProfiles(nextState.servers);
-  });
-  profileMutationQueue = currentMutation;
-  await currentMutation;
-  return mutationResult;
+  return mutateLocalServerProfiles(mutation);
 }
 
 async function updateCachedDatabases(serverId: string, databases: DatabaseCatalogItem[]) {
