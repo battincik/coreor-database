@@ -165,8 +165,10 @@ export function DatabasePerformancePanelModal({ open, onClose, serverId, account
 
   useEffect(() => {
     if (!open || !autoRefresh) return;
-    const timer = window.setInterval(() => void load(), preferences.performanceRefreshSeconds * 1000);
-    return () => window.clearInterval(timer);
+    const refresh = () => { if (document.visibilityState === 'visible') void load(); };
+    const timer = window.setInterval(refresh, Math.max(3, preferences.performanceRefreshSeconds) * 1000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
   }, [open, autoRefresh, load, preferences.performanceRefreshSeconds]);
 
   const latestPoint = points.at(-1);
