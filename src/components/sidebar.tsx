@@ -54,6 +54,48 @@ function maintenanceSql(engine: DatabaseEngine, database: string, table: string,
   return operation === 'analyze' ? `UPDATE STATISTICS ${target};` : operation === 'check' ? `DBCC CHECKTABLE ('${table}') WITH NO_INFOMSGS;` : `ALTER INDEX ALL ON ${target} REORGANIZE;`;
 }
 
+function objectQualifiedName(engine: DatabaseEngine, databaseName: string, object: DatabaseSchemaObject) {
+  const schema = object.schema || databaseName;
+  return `${quoteDatabaseIdentifier(schema, engine)}.${quoteDatabaseIdentifier(object.name, engine)}`;
+}
+
+function objectDefinitionSql(engine: DatabaseEngine, databaseName: string, object: DatabaseSchemaObject) {
+  const family = databaseEngineFamily(engine);
+  const qualified = objectQualifiedName(engine, databaseName, object);
+  if (family === 'mysql') {
+    const keyword = object.kind === 'procedure' ? 'PROCEDURE' : object.kind === 'function' ? 'FUNCTION' : object.kind === 'trigger' ? 'TRIGGER' : object.kind === 'event' ? 'EVENT' : object.kind === 'view' ? 'VIEW' : 'TABLE';
+    return `SHOW CREATE ${keyword} ${qualified};`;
+  }
+  if (family === 'mssql') return `SELECT OBJECT_DEFINITION(OBJECT_ID(N'${(object.schema || 'dbo').replaceAll("'", "''")}.${object.name.replaceAll("'", "''")}')) AS definition;`;
+  if (object.kind === 'view') return `SELECT pg_get_viewdef('${(object.schema || 'public').replaceAll("'", "''")}.${object.name.replaceAll("'", "''")}'::regclass, true) AS definition;`;
+  if (object.kind === 'trigger' && object.tableName) return `SELECT pg_get_triggerdef(t.oid, true) AS definition\nFROM pg_trigger t\nJOIN pg_class c ON c.oid=t.tgrelid\nJOIN pg_namespace n ON n.oid=c.relnamespace\nWHERE n.nspname=${JSON.stringify(object.schema || 'public')} AND c.relname=${JSON.stringify(object.tableName)} AND t.tgname=${JSON.stringify(object.name)};`;
+  if (object.kind === 'procedure' || object.kind === 'function') return `SELECT pg_get_functiondef(p.oid) AS definition\nFROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace\nWHERE n.nspname=${JSON.stringify(object.schema || 'public')} AND p.proname=${JSON.stringify(object.name)};`;
+  return `-- PostgreSQL tablo DDL'si yapı ekranındaki kolon/index/FK metadata'sından incelenebilir.\nSELECT * FROM information_schema.columns\nWHERE table_schema=${JSON.stringify(object.schema || 'public')} AND table_name=${JSON.stringify(object.name)}\nORDER BY ordinal_position;`;
+}
+
+function objectDependencySql(engine: DatabaseEngine, databaseName: string, object: DatabaseSchemaObject) {
+  const family = databaseEngineFamily(engine);
+  const name = object.name.replaceAll("'", "''");
+  if (family === 'mysql') return `SELECT 'foreign_key' AS dependencyType, TABLE_NAME AS sourceObject, CONSTRAINT_NAME AS detail\nFROM information_schema.KEY_COLUMN_USAGE\nWHERE TABLE_SCHEMA='${databaseName.replaceAll("'", "''")}' AND REFERENCED_TABLE_NAME='${name}'\nUNION ALL\nSELECT 'trigger', TRIGGER_NAME, EVENT_OBJECT_TABLE\nFROM information_schema.TRIGGERS\nWHERE TRIGGER_SCHEMA='${databaseName.replaceAll("'", "''")}' AND ACTION_STATEMENT LIKE '%${name}%'\nUNION ALL\nSELECT 'routine', ROUTINE_NAME, ROUTINE_TYPE\nFROM information_schema.ROUTINES\nWHERE ROUTINE_SCHEMA='${databaseName.replaceAll("'", "''")}' AND ROUTINE_DEFINITION LIKE '%${name}%';`;
+  if (family === 'mssql') return `SELECT OBJECT_SCHEMA_NAME(referencing_id) AS sourceSchema, OBJECT_NAME(referencing_id) AS sourceObject, referenced_entity_name AS targetObject\nFROM sys.sql_expression_dependencies\nWHERE referenced_entity_name=N'${name}' OR referencing_id=OBJECT_ID(N'${(object.schema || 'dbo').replaceAll("'", "''")}.${name}');`;
+  return `SELECT pg_describe_object(classid,objid,objsubid) AS dependentObject, pg_describe_object(refclassid,refobjid,refobjsubid) AS referencedObject, deptype\nFROM pg_depend\nWHERE pg_describe_object(refclassid,refobjid,refobjsubid) ILIKE '%${name}%';`;
+}
+
+function objectRenameTemplate(engine: DatabaseEngine, databaseName: string, object: DatabaseSchemaObject) {
+  const family = databaseEngineFamily(engine);
+  const qualified = objectQualifiedName(engine, databaseName, object);
+  const next = quoteDatabaseIdentifier(`${object.name}_renamed`, engine);
+  if (family === 'mysql' && (object.kind === 'table' || object.kind === 'view')) return `RENAME TABLE ${qualified} TO ${quoteDatabaseIdentifier(databaseName, engine)}.${next};`;
+  if (family === 'mssql') return `EXEC sp_rename N'${(object.schema || 'dbo').replaceAll("'", "''")}.${object.name.replaceAll("'", "''")}', N'${object.name.replaceAll("'", "''")}_renamed';`;
+  if (family === 'postgresql' && (object.kind === 'table' || object.kind === 'view')) return `ALTER ${object.kind === 'view' ? 'VIEW' : 'TABLE'} ${qualified} RENAME TO ${next};`;
+  return `-- Bu nesne türü için güvenli rename sözdizimi motor/sürüme göre değişir.\n-- Yeni ad: ${object.name}_renamed`;
+}
+
+function objectDropSql(engine: DatabaseEngine, databaseName: string, object: DatabaseSchemaObject) {
+  const keyword = object.kind === 'procedure' ? 'PROCEDURE' : object.kind === 'function' ? 'FUNCTION' : object.kind === 'trigger' ? 'TRIGGER' : object.kind === 'event' ? 'EVENT' : object.kind === 'view' ? 'VIEW' : 'TABLE';
+  return `DROP ${keyword} ${objectQualifiedName(engine, databaseName, object)};`;
+}
+
 function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: CreateDatabaseState | null; onChange: (state: CreateDatabaseState) => void; onClose: () => void; onCreate: () => void | Promise<void> }) {
   if (!state || typeof document === 'undefined') return null;
   return createPortal(
