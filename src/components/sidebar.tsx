@@ -3,7 +3,7 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Activity, Braces, ChevronDown, ChevronRight, Circle, Code2, Copy, Database, Download, FileCode2, FunctionSquare, Gauge, HardDrive, KeyRound, LogOut, MoreHorizontal, Network, Plus, RefreshCw, Search, Server, Settings2, ShieldCheck, Sparkles, Table2, Trash2, UserRound, View, Wifi, WifiOff, Wrench, X, Zap } from 'lucide-react';
-import type { DatabaseEngine, DatabaseServerConfig, SidebarProps } from 'types';
+import type { DatabaseEngine, DatabaseSchemaObject, DatabaseServerConfig, SidebarProps } from 'types';
 import { DatabaseContext } from '@/context/DatabaseContext';
 import { useDesktop } from '@/context/DesktopContext';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ServerCreateModal } from '@/components/server-create-modal';
 import { DatabaseActionConfirmModal, type DatabaseActionConfirmation } from '@/components/database-action-confirm-modal';
 import { useAppContextMenu } from '@/components/app-context-menu';
-import { executeDatabaseQuery, fetchServerTables } from '@/lib/databaseApi';
+import { executeDatabaseQuery, fetchDatabaseObjects, fetchServerTables } from '@/lib/databaseApi';
 import { openQueryTab } from '@/lib/queryWorkspaceEvents';
 import { OPEN_IMPORT_EXPORT_EVENT, OPEN_SETTINGS_MODAL_EVENT } from '@/lib/databaseToolEvents';
 import { databaseEngineDefinition, databaseEngineFamily, databaseEngineLabel, quoteDatabaseIdentifier, qualifiedDatabaseTable } from '@/lib/databaseEngines';
@@ -101,6 +101,9 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const [search, setSearch] = useState('');
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
   const [expandedDatabases, setExpandedDatabases] = useState<Set<string>>(new Set());
+  const [expandedObjectGroups, setExpandedObjectGroups] = useState<Set<string>>(new Set());
+  const [databaseObjects, setDatabaseObjects] = useState<Record<string, DatabaseSchemaObject[]>>({});
+  const [objectLoading, setObjectLoading] = useState<Set<string>>(new Set());
   const [profileOpen, setProfileOpen] = useState(false);
   const [serverModalOpen, setServerModalOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<DatabaseServerConfig | null>(null);
@@ -145,15 +148,55 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   }, [servers]);
 
   const normalizedSearch = search.trim().toLocaleLowerCase('tr-TR');
+  const objectKey = (serverId: string, databaseName: string) => `${serverId}:${databaseName}`;
+  const loadObjects = async (server: DatabaseServerConfig, databaseName: string, force = false) => {
+    if (!workspaceKey) return;
+    const key = objectKey(server.id, databaseName);
+    if (!force && (databaseObjects[key] || objectLoading.has(key))) return;
+    setObjectLoading(previous => new Set(previous).add(key));
+    try {
+      const result = await fetchDatabaseObjects(server.id, databaseName, workspaceKey, force);
+      setDatabaseObjects(previous => ({ ...previous, [key]: result.objects }));
+    } catch {
+      setDatabaseObjects(previous => ({ ...previous, [key]: previous[key] || [] }));
+    } finally {
+      setObjectLoading(previous => { const next = new Set(previous); next.delete(key); return next; });
+    }
+  };
+
+  useEffect(() => {
+    if (normalizedSearch.length < 2 || !workspaceKey) return;
+    let cancelled = false;
+    const targets = servers.flatMap(server => (server.databases || []).map(database => ({ server, database: database.name })));
+    let cursor = 0;
+    const worker = async () => {
+      while (!cancelled) {
+        const target = targets[cursor++];
+        if (!target) return;
+        const key = objectKey(target.server.id, target.database);
+        if (databaseObjects[key]) continue;
+        try {
+          const result = await fetchDatabaseObjects(target.server.id, target.database, workspaceKey);
+          if (!cancelled) setDatabaseObjects(previous => ({ ...previous, [key]: result.objects }));
+        } catch { /* search keeps catalog objects available even if advanced metadata is denied */ }
+      }
+    };
+    void Promise.all([worker(), worker(), worker()]);
+    return () => { cancelled = true; };
+  }, [normalizedSearch, workspaceKey, servers]);
+
   const filteredServers = useMemo(
-    () =>
-      servers
-        .map(server => ({
-          ...server,
-          databases: (server.databases || []).map(database => ({ ...database, tables: database.tables.filter(table => !normalizedSearch || `${server.name} ${database.name} ${table}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch)) })).filter(database => !normalizedSearch || database.tables.length || `${server.name} ${database.name}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch))
-        }))
-        .filter(server => !normalizedSearch || server.databases?.length || `${server.name} ${server.host} ${databaseEngineLabel(server.databaseType)}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch)),
-    [servers, normalizedSearch]
+    () => servers.map(server => ({
+      ...server,
+      databases: (server.databases || []).map(database => {
+        const key = objectKey(server.id, database.name);
+        const objects = databaseObjects[key] || [];
+        const objectMatches = objects.filter(object => !normalizedSearch || `${server.name} ${database.name} ${object.kind} ${object.schema || ''} ${object.name} ${object.tableName || ''}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch));
+        const tableMatches = database.tables.filter(table => !normalizedSearch || `${server.name} ${database.name} table ${table}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch));
+        return { ...database, tables: tableMatches, objectMatches };
+      }).filter(database => !normalizedSearch || database.tables.length || database.objectMatches.length || `${server.name} ${database.name}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch))
+    })).filter(server => !normalizedSearch || server.databases?.length || `${server.name} ${server.host} ${databaseEngineLabel(server.databaseType)}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch)),
+    [servers, normalizedSearch, databaseObjects]
   );
 
   const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, value: string, force?: boolean) =>
@@ -172,6 +215,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const collapseAll = () => {
     setExpandedServers(new Set());
     setExpandedDatabases(new Set());
+    setExpandedObjectGroups(new Set());
   };
   const refreshServer = async (server: DatabaseServerConfig) => {
     if (!workspaceKey) return;
