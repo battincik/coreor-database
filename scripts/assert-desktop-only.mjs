@@ -4,6 +4,10 @@ import path from 'node:path';
 const roots = ['src', 'types'];
 const banned = [
   ['next-auth', 'NextAuth'],
+  ['next/server', 'Next.js server runtime'],
+  ['getServerSession', 'server session'],
+  ["fetch('/api", 'local web API fetch'],
+  ['fetch("/api', 'local web API fetch'],
   ['/api/database', 'web database API'],
   ['/api/release-history', 'web release API'],
   ['@/lib/server', 'server backend import'],
@@ -30,6 +34,7 @@ for (const file of files) {
 }
 if (fs.existsSync(path.join('src', 'app', 'api'))) failures.push('src/app/api: desktop client cannot contain Next.js API routes');
 if (fs.existsSync(path.join('src', 'lib', 'server'))) failures.push('src/lib/server: desktop client cannot contain web backend services');
+if (fs.existsSync('.env') || fs.existsSync('.env.local') || fs.existsSync('.env.example')) failures.push('.env*: desktop client configuration belongs in native config.json');
 
 if (failures.length) {
   console.error('Desktop-only validation failed:\n' + failures.map(x => ' - ' + x).join('\n'));
