@@ -17,8 +17,10 @@ use uuid::Uuid;
 
 const VAULT_VERSION: u32 = 1;
 const VAULT_FILE_NAME: &str = "connection-vault.v1.json";
+const WORKSPACE_VAULT_FILE_NAME: &str = "workspace-vault.v1.json";
 const VAULT_ALGORITHM: &str = "AES-256-GCM";
 const VAULT_AAD: &[u8] = b"net.coreor.database/local-vault/v1";
+const WORKSPACE_VAULT_AAD: &[u8] = b"net.coreor.database/workspace-vault/v1";
 const DEVICE_KEY_BYTES: usize = 32;
 const DEVICE_KEY_SERVICE: &str = "net.coreor.database.local-vault";
 const DEVICE_KEY_ACCOUNT: &str = "device-key-v1";
@@ -74,6 +76,26 @@ impl Default for WorkspaceCollection {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceVaultPayload {
+    version: u32,
+    #[serde(default = "new_device_id")]
+    device_id: String,
+    #[serde(default)]
+    workspace: HashMap<String, WorkspaceCollection>,
+}
+
+impl Default for WorkspaceVaultPayload {
+    fn default() -> Self {
+        Self {
+            version: workspace_schema_version(),
+            device_id: new_device_id(),
+            workspace: HashMap::new(),
+        }
+    }
+}
+
 fn workspace_schema_version() -> u32 { 1 }
 fn new_device_id() -> String { Uuid::new_v4().to_string() }
 
@@ -112,6 +134,12 @@ fn vault_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
     fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     Ok(dir.join(VAULT_FILE_NAME))
+}
+
+fn workspace_vault_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    Ok(dir.join(WORKSPACE_VAULT_FILE_NAME))
 }
 
 fn random_bytes<const N: usize>() -> Result<[u8; N], String> {
@@ -160,7 +188,7 @@ fn device_key(create_if_missing: bool) -> Result<[u8; DEVICE_KEY_BYTES], String>
     Ok(key)
 }
 
-fn encrypt_payload(key: &[u8; DEVICE_KEY_BYTES], plaintext: &[u8]) -> Result<VaultEnvelope, String> {
+fn encrypt_payload(key: &[u8; DEVICE_KEY_BYTES], plaintext: &[u8], aad: &'static [u8]) -> Result<VaultEnvelope, String> {
     let unbound = UnboundKey::new(&AES_256_GCM, key)
         .map_err(|_| "Yerel kasa şifreleme anahtarı oluşturulamadı.".to_string())?;
     let key = LessSafeKey::new(unbound);
@@ -168,7 +196,7 @@ fn encrypt_payload(key: &[u8; DEVICE_KEY_BYTES], plaintext: &[u8]) -> Result<Vau
     let mut in_out = plaintext.to_vec();
     key.seal_in_place_append_tag(
         Nonce::assume_unique_for_key(nonce_bytes),
-        Aad::from(VAULT_AAD),
+        Aad::from(aad),
         &mut in_out,
     )
     .map_err(|_| "Yerel kasa şifrelenemedi.".to_string())?;
@@ -181,7 +209,7 @@ fn encrypt_payload(key: &[u8; DEVICE_KEY_BYTES], plaintext: &[u8]) -> Result<Vau
     })
 }
 
-fn decrypt_payload(key: &[u8; DEVICE_KEY_BYTES], envelope: VaultEnvelope) -> Result<Vec<u8>, String> {
+fn decrypt_payload(key: &[u8; DEVICE_KEY_BYTES], envelope: VaultEnvelope, aad: &'static [u8]) -> Result<Vec<u8>, String> {
     if envelope.version != VAULT_VERSION || envelope.algorithm != VAULT_ALGORITHM {
         return Err("Desteklenmeyen yerel kasa biçimi.".to_string());
     }
@@ -198,7 +226,7 @@ fn decrypt_payload(key: &[u8; DEVICE_KEY_BYTES], envelope: VaultEnvelope) -> Res
     let key = LessSafeKey::new(unbound);
     let plaintext = key.open_in_place(
         Nonce::assume_unique_for_key(nonce_bytes),
-        Aad::from(VAULT_AAD),
+        Aad::from(aad),
         &mut in_out,
     )
     .map_err(|_| "Yerel kasa doğrulanamadı veya bu cihaz anahtarıyla açılamadı.".to_string())?;
@@ -233,7 +261,7 @@ fn load_payload_unlocked(app: &tauri::AppHandle) -> Result<VaultPayload, String>
     .map_err(|_| "Şifreli yerel kasa dosyası okunamadı.".to_string())?;
 
     let key = device_key(false)?;
-    let plaintext = decrypt_payload(&key, envelope)?;
+    let plaintext = decrypt_payload(&key, envelope, VAULT_AAD)?;
     let payload: VaultPayload = serde_json::from_slice(&plaintext)
         .map_err(|_| "Yerel kasa içeriği çözüldü ancak veri biçimi geçersiz.".to_string())?;
 
@@ -245,9 +273,54 @@ fn load_payload_unlocked(app: &tauri::AppHandle) -> Result<VaultPayload, String>
 
 fn save_payload_unlocked(app: &tauri::AppHandle, payload: &VaultPayload) -> Result<(), String> {
     let path = vault_file(app)?;
-    let key = device_key(!path.exists())?;
+    let workspace_exists = workspace_vault_file(app)?.exists();
+    let key = device_key(!path.exists() && !workspace_exists)?;
     let plaintext = serde_json::to_vec(payload).map_err(|error| error.to_string())?;
-    let envelope = encrypt_payload(&key, &plaintext)?;
+    let envelope = encrypt_payload(&key, &plaintext, VAULT_AAD)?;
+    let bytes = serde_json::to_vec_pretty(&envelope).map_err(|error| error.to_string())?;
+    write_encrypted_file(&path, &bytes)
+}
+
+fn load_workspace_payload_unlocked(app: &tauri::AppHandle) -> Result<WorkspaceVaultPayload, String> {
+    let path = workspace_vault_file(app)?;
+    if path.exists() {
+        let envelope: VaultEnvelope = serde_json::from_slice(
+            &fs::read(&path).map_err(|error| error.to_string())?,
+        )
+        .map_err(|_| "Şifreli workspace kasa dosyası okunamadı.".to_string())?;
+        let key = device_key(false)?;
+        let plaintext = decrypt_payload(&key, envelope, WORKSPACE_VAULT_AAD)?;
+        let payload: WorkspaceVaultPayload = serde_json::from_slice(&plaintext)
+            .map_err(|_| "Workspace kasa içeriği çözüldü ancak veri biçimi geçersiz.".to_string())?;
+        if payload.version != workspace_schema_version() {
+            return Err("Desteklenmeyen workspace kasa veri sürümü.".to_string());
+        }
+        return Ok(payload);
+    }
+
+    // One-time migration from the earlier combined connection/workspace vault.
+    let connection_path = vault_file(app)?;
+    let mut legacy = load_payload_unlocked(app)?;
+    let had_legacy_workspace = !legacy.workspace.is_empty();
+    let payload = WorkspaceVaultPayload {
+        version: workspace_schema_version(),
+        device_id: if legacy.device_id.trim().is_empty() { new_device_id() } else { legacy.device_id.clone() },
+        workspace: std::mem::take(&mut legacy.workspace),
+    };
+
+    save_workspace_payload_unlocked(app, &payload)?;
+    if had_legacy_workspace && connection_path.exists() {
+        save_payload_unlocked(app, &legacy)?;
+    }
+    Ok(payload)
+}
+
+fn save_workspace_payload_unlocked(app: &tauri::AppHandle, payload: &WorkspaceVaultPayload) -> Result<(), String> {
+    let path = workspace_vault_file(app)?;
+    let connection_exists = vault_file(app)?.exists();
+    let key = device_key(!path.exists() && !connection_exists)?;
+    let plaintext = serde_json::to_vec(payload).map_err(|error| error.to_string())?;
+    let envelope = encrypt_payload(&key, &plaintext, WORKSPACE_VAULT_AAD)?;
     let bytes = serde_json::to_vec_pretty(&envelope).map_err(|error| error.to_string())?;
     write_encrypted_file(&path, &bytes)
 }
@@ -391,7 +464,7 @@ fn active_workspace_values(collection: &WorkspaceCollection) -> Vec<Value> {
     records.into_iter().map(|record| record.payload).collect()
 }
 
-fn merge_workspace_items(payload: &mut VaultPayload, namespace: String, incoming: Vec<Value>, import_only: bool) -> Result<bool, String> {
+fn merge_workspace_items(payload: &mut WorkspaceVaultPayload, namespace: String, incoming: Vec<Value>, import_only: bool) -> Result<bool, String> {
     let device_id = payload.device_id.clone();
     let now = Utc::now().to_rfc3339();
     let collection = payload.workspace.entry(namespace).or_default();
@@ -445,23 +518,23 @@ fn merge_workspace_items(payload: &mut VaultPayload, namespace: String, incoming
 pub fn workspace_read(app: &tauri::AppHandle, collection: &str, scope: &str) -> Result<Vec<Value>, String> {
     let namespace = workspace_namespace(collection, scope)?;
     let _guard = io_lock().lock().map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
-    let payload = load_payload_unlocked(app)?;
+    let payload = load_workspace_payload_unlocked(app)?;
     Ok(payload.workspace.get(&namespace).map(active_workspace_values).unwrap_or_default())
 }
 
 pub fn workspace_write(app: &tauri::AppHandle, collection: &str, scope: &str, items: Vec<Value>) -> Result<Vec<Value>, String> {
     let namespace = workspace_namespace(collection, scope)?;
     let _guard = io_lock().lock().map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
-    let mut payload = load_payload_unlocked(app)?;
-    if merge_workspace_items(&mut payload, namespace.clone(), items, false)? { save_payload_unlocked(app, &payload)?; }
+    let mut payload = load_workspace_payload_unlocked(app)?;
+    if merge_workspace_items(&mut payload, namespace.clone(), items, false)? { save_workspace_payload_unlocked(app, &payload)?; }
     Ok(payload.workspace.get(&namespace).map(active_workspace_values).unwrap_or_default())
 }
 
 pub fn workspace_import_legacy(app: &tauri::AppHandle, collection: &str, scope: &str, items: Vec<Value>) -> Result<Vec<Value>, String> {
     let namespace = workspace_namespace(collection, scope)?;
     let _guard = io_lock().lock().map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
-    let mut payload = load_payload_unlocked(app)?;
-    if merge_workspace_items(&mut payload, namespace.clone(), items, true)? { save_payload_unlocked(app, &payload)?; }
+    let mut payload = load_workspace_payload_unlocked(app)?;
+    if merge_workspace_items(&mut payload, namespace.clone(), items, true)? { save_workspace_payload_unlocked(app, &payload)?; }
     Ok(payload.workspace.get(&namespace).map(active_workspace_values).unwrap_or_default())
 }
 
@@ -473,7 +546,7 @@ fn workspace_sync_namespace_allowed(namespace: &str) -> bool {
 
 pub fn workspace_sync_export(app: &tauri::AppHandle) -> Result<Value, String> {
     let _guard = io_lock().lock().map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
-    let payload = load_payload_unlocked(app)?;
+    let payload = load_workspace_payload_unlocked(app)?;
     let collections = payload.workspace.iter()
         .filter(|(namespace, _)| workspace_sync_namespace_allowed(namespace))
         .map(|(namespace, collection)| json!({
@@ -500,7 +573,7 @@ pub fn workspace_sync_merge(app: &tauri::AppHandle, remote: Value) -> Result<Val
         .ok_or_else(|| "Cloud workspace collections alanı eksik.".to_string())?;
 
     let _guard = io_lock().lock().map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
-    let mut payload = load_payload_unlocked(app)?;
+    let mut payload = load_workspace_payload_unlocked(app)?;
     let mut changed = false;
     let mut merged_records = 0usize;
     let mut conflicts = Vec::new();
@@ -579,7 +652,7 @@ pub fn workspace_sync_merge(app: &tauri::AppHandle, remote: Value) -> Result<Val
     }
 
     if changed {
-        save_payload_unlocked(app, &payload)?;
+        save_workspace_payload_unlocked(app, &payload)?;
     }
 
     Ok(json!({
@@ -593,7 +666,7 @@ pub fn workspace_sync_merge(app: &tauri::AppHandle, remote: Value) -> Result<Val
 
 pub fn workspace_sync_manifest(app: &tauri::AppHandle) -> Result<Value, String> {
     let _guard = io_lock().lock().map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
-    let payload = load_payload_unlocked(app)?;
+    let payload = load_workspace_payload_unlocked(app)?;
     let collections = payload.workspace.iter().map(|(namespace, collection)| {
         let active = collection.records.iter().filter(|record| record.deleted_at.is_none()).count();
         json!({
