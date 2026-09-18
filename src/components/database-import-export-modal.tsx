@@ -289,7 +289,7 @@ function buildImportPreview(
   if (sourceRows.length > 100_000) {
     issues.push({
       severity: 'warning',
-      message: 'Dosya 100.000 satırdan büyük. Aktarım uzun sürebilir ve tarayıcı belleğini artırabilir.'
+      message: 'Dosya 100.000 satırdan büyük. Aktarım uzun sürebilir ve uygulama belleği kullanımını artırabilir.'
     });
   }
 
