@@ -18,7 +18,7 @@ import { formatStorageBytes, formatStorageMb } from '@/lib/formatStorageSize';
 import { requestTableColumnAction } from '@/lib/tableColumnSizing';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-state';
 
@@ -314,7 +314,6 @@ export function DatabaseCatalogView({
             </TableBody>
           </Table>
         </div>
-        <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
       <div className="flex h-9 shrink-0 items-center justify-end gap-2 border-t border-zinc-800 px-2 text-[10px] text-zinc-500">
