@@ -114,6 +114,10 @@ export interface DatabaseSchemaObject {
   createdAt?: string | null;
   updatedAt?: string | null;
   comment?: string | null;
+  rows?: number | null;
+  dataSizeBytes?: number | null;
+  indexSizeBytes?: number | null;
+  sizeBytes?: number | null;
 }
 
 export interface DatabaseObjectsResponse {
