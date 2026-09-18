@@ -18,7 +18,7 @@ import { DatabaseContext } from '@/context/DatabaseContext';
 import { openQueryTab } from '@/lib/queryWorkspaceEvents';
 import { setAppPreferences, useAppPreferences } from '@/lib/appPreferences';
 import { OPEN_SETTINGS_MODAL_EVENT, TOGGLE_COMMAND_PALETTE_EVENT } from '@/lib/databaseToolEvents';
-import { matchesShortcut, shortcutLabel } from '@/lib/shortcuts';
+import { matchesShortcut } from '@/lib/shortcuts';
 
 function EditorWorkspace() {
   const [selectedDatabase, setSelectedDatabase] = useState<string | null>(null);
@@ -151,7 +151,7 @@ function EditorWorkspace() {
               id: 'commands',
               label: 'Komut paletini aç',
               icon: Code,
-              shortcut: shortcutLabel('commandPalette'),
+              shortcut: 'commandPalette',
               onSelect: () => window.dispatchEvent(new Event(TOGGLE_COMMAND_PALETTE_EVENT))
             },
             {
