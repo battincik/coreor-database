@@ -3,7 +3,7 @@
 
 import React, { createContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import type { DatabaseCatalogItem, DatabaseServerConfig, DatabaseTable, TableInfo } from 'types';
-import { useAuth } from '@/context/AuthContext';
+import { useDesktop } from '@/context/DesktopContext';
 import { createDatabaseServer, fetchDatabaseServers, fetchServerTables } from '@/lib/databaseApi';
 import { recordActivity } from '@/lib/activityConsole';
 import { databaseEngineDefinition } from '@/lib/databaseEngines';
@@ -87,7 +87,7 @@ function normalizeServer(server: DatabaseServerConfig): DatabaseServerConfig {
 }
 
 export function DatabaseProvider({ children }: { children: ReactNode }) {
-  const { activeToken, isReady } = useAuth();
+  const { workspaceKey, isReady } = useDesktop();
   const [databases, setDatabases] = useState<DatabaseCatalogItem[]>([]);
   const [tableInfo, setTableInfo] = useState<TableInfo | null>(null);
   const [databaseTables, setDatabaseTables] = useState<DatabaseTable[]>([]);
@@ -100,12 +100,12 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
   const loadServers = useCallback(async () => {
     if (!isReady) { setIsServersLoading(true); return; }
-    if (!activeToken) { setServers([]); setActiveServerId(null); setDatabases([]); setServersError(null); setIsServersLoading(false); return; }
+    if (!workspaceKey) { setServers([]); setActiveServerId(null); setDatabases([]); setServersError(null); setIsServersLoading(false); return; }
     setIsServersLoading(true); setServersError(null);
     try {
-      const storedServers = (await fetchDatabaseServers(activeToken)).map(normalizeServer);
+      const storedServers = (await fetchDatabaseServers(workspaceKey)).map(normalizeServer);
       setServers(storedServers);
-      const storedActiveServerId = localStorage.getItem(getActiveServerStorageKey(activeToken));
+      const storedActiveServerId = localStorage.getItem(getActiveServerStorageKey(workspaceKey));
       setActiveServerId(current => {
         const preferred = current || storedActiveServerId;
         return preferred && storedServers.some(server => server.id === preferred) ? preferred : storedServers[0]?.id || null;
@@ -116,21 +116,21 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       console.error('Yerel bağlantı profilleri yüklenirken bir hata oluştu:', error);
       setServers([]); setActiveServerId(null); setDatabases([]); setServersError(message);
     } finally { setIsServersLoading(false); }
-  }, [activeToken, isReady]);
+  }, [workspaceKey, isReady]);
 
   useEffect(() => {
-    if (!activeToken || !activeServerId) return;
-    try { localStorage.setItem(getActiveServerStorageKey(activeToken), activeServerId); }
+    if (!workspaceKey || !activeServerId) return;
+    try { localStorage.setItem(getActiveServerStorageKey(workspaceKey), activeServerId); }
     catch (error) { console.error('Aktif sunucu kaydedilirken bir hata oluştu:', error); }
-  }, [activeServerId, activeToken]);
+  }, [activeServerId, workspaceKey]);
   useEffect(() => { void loadServers(); }, [loadServers]);
 
   const persistServer = async (server: DatabaseServerConfig, loadInitialCatalog: boolean) => {
-    if (!activeToken) throw new Error('Yerel çalışma alanı hazır değil.');
+    if (!workspaceKey) throw new Error('Yerel çalışma alanı hazır değil.');
     setIsAddingServer(true);
     try {
-      await createDatabaseServer(server, activeToken); setActiveServerId(server.id);
-      if (loadInitialCatalog) try { await fetchServerTables(server.id, activeToken); }
+      await createDatabaseServer(server, workspaceKey); setActiveServerId(server.id);
+      if (loadInitialCatalog) try { await fetchServerTables(server.id, workspaceKey); }
       catch (error) {
         recordActivity({ level: 'warning', category: 'connection', title: 'Sunucu kaydedildi, katalog alınamadı', message: error instanceof Error ? error.message : 'İlk bağlantı kurulamadı.', serverId: server.id, serverName: server.name, host: server.host });
       }
