@@ -433,7 +433,13 @@ async fn database_objects(c:&Connection,p:&Map<String,Value>,max:usize)->Result<
         let table_rows=rows_of(&execute_on(&mut conn,&table_sql,limit).await.unwrap_or(json!({"rows":[]})));
         for row in table_rows {
             let kind=row.get("objectType").and_then(Value::as_str).map(|value|if value.eq_ignore_ascii_case("VIEW"){"view"}else{"table"}).unwrap_or("table");
-            append_object_rows(&mut objects,vec![row],kind);
+            if let Some(mut object)=row.as_object().cloned() {
+                for key in ["rows","dataSizeBytes","indexSizeBytes","sizeBytes"] {
+                    let numeric=num(object.get(key));
+                    object.insert(key.into(),json!(numeric));
+                }
+                append_object_rows(&mut objects,vec![Value::Object(object)],kind);
+            }
         }
         for row in rows_of(&execute_on(&mut conn,&routine_sql,limit).await.unwrap_or(json!({"rows":[]}))) {
             let kind=row.get("routineType").and_then(Value::as_str).map(|value|if value.eq_ignore_ascii_case("FUNCTION"){"function"}else{"procedure"}).unwrap_or("procedure");
