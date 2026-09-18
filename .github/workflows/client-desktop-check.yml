@@ -25,7 +25,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
 
       - name: TypeScript check
         run: npm run typecheck
@@ -34,7 +34,7 @@ jobs:
         run: npm run build:web
 
       - name: Rust check
-        run: cargo check --manifest-path src-tauri/Cargo.toml
+        run: cargo check --locked --manifest-path src-tauri/Cargo.toml
 
       - name: Tauri native compile
-        run: npm run tauri:build -- --no-bundle
+        run: npm run tauri:build -- --no-bundle --locked
