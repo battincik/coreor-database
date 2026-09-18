@@ -245,8 +245,12 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     }
   };
 
+  const searchAll = searchTypes.has('all');
+  const searchTypeEnabled = (type: ObjectSearchType) => searchAll || searchTypes.has(type);
+  const advancedTypeSelected = searchAll || ['view', 'procedure', 'function', 'trigger', 'event'].some(type => searchTypes.has(type as ObjectSearchType));
+
   useEffect(() => {
-    if (normalizedSearch.length < 2 || !workspaceKey) return;
+    if (!workspaceKey || (normalizedSearch.length < 2 && !advancedTypeSelected)) return;
     let cancelled = false;
     const targets = servers.flatMap(server => (server.databases || []).map(database => ({ server, database: database.name })));
     let cursor = 0;
@@ -255,28 +259,40 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         const target = targets[cursor++];
         if (!target) return;
         const key = objectExplorerKey(target.server.id, target.database);
+        if (databaseObjects[key]) continue;
         try {
           const result = await fetchDatabaseObjects(target.server.id, target.database, workspaceKey);
           if (!cancelled) setDatabaseObjects(previous => ({ ...previous, [key]: result.objects }));
-        } catch { /* search keeps catalog objects available even if advanced metadata is denied */ }
+        } catch { /* catalog objects stay usable when advanced metadata is denied */ }
       }
     };
     void Promise.all([worker(), worker(), worker()]);
     return () => { cancelled = true; };
-  }, [normalizedSearch, workspaceKey, servers]);
+  }, [normalizedSearch, workspaceKey, servers, advancedTypeSelected]);
 
   const filteredServers = useMemo(
-    () => servers.map(server => ({
-      ...server,
-      databases: (server.databases || []).map(database => {
+    () => servers.map(server => {
+      const serverOwnMatch = searchTypeEnabled('server') && (!normalizedSearch || `${server.name} ${server.host} ${databaseEngineLabel(server.databaseType)}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch));
+      const databases = (server.databases || []).map(database => {
         const key = objectExplorerKey(server.id, database.name);
-        const objects = databaseObjects[key] || [];
-        const objectMatches = objects.filter(object => !normalizedSearch || `${server.name} ${database.name} ${object.kind} ${object.schema || ''} ${object.name} ${object.tableName || ''}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch));
-        const tableMatches = database.tables.filter(table => !normalizedSearch || `${server.name} ${database.name} table ${table}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch));
-        return { ...database, tables: tableMatches, objectMatches };
-      }).filter(database => !normalizedSearch || database.tables.length || database.objectMatches.length || `${server.name} ${database.name}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch))
-    })).filter(server => !normalizedSearch || server.databases?.length || `${server.name} ${server.host} ${databaseEngineLabel(server.databaseType)}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch)),
-    [servers, normalizedSearch, databaseObjects]
+        const catalogObjects: DatabaseSchemaObject[] = database.tables.map(table => {
+          const detail = database.tableDetails.find(item => item.tableName === table);
+          return { name: table, kind: detail?.tableType?.toUpperCase().includes('VIEW') ? 'view' : 'table' };
+        });
+        const sourceObjects = databaseObjects[key]?.length ? databaseObjects[key] : catalogObjects;
+        const objectMatches = sourceObjects.filter(object =>
+          searchTypeEnabled(object.kind)
+          && (!normalizedSearch || `${server.name} ${database.name} ${object.kind} ${object.schema || ''} ${object.name} ${object.tableName || ''}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch))
+        );
+        const tableMatches = catalogObjects
+          .filter(object => object.kind === 'table' && searchTypeEnabled('table') && (!normalizedSearch || `${server.name} ${database.name} table ${object.name}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch)))
+          .map(object => object.name);
+        const databaseOwnMatch = searchTypeEnabled('database') && (!normalizedSearch || `${server.name} ${database.name}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch));
+        return { ...database, tables: tableMatches, objectMatches, databaseOwnMatch };
+      }).filter(database => database.databaseOwnMatch || database.objectMatches.length > 0);
+      return { ...server, databases, serverOwnMatch };
+    }).filter(server => server.serverOwnMatch || Boolean(server.databases?.length)),
+    [servers, normalizedSearch, databaseObjects, searchTypes]
   );
 
   const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, value: string, force?: boolean) =>
