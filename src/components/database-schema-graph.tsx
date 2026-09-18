@@ -358,7 +358,6 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     persistPositions(serverId, databaseName, next);
     setSelectedEdge(null); setSource(null); setTarget(null);
     setZoom(0.9); updatePan({ x: 32, y: 32 });
-    window.setTimeout(fit, 0);
   };
 
   const chooseColumn = (table: string, column: string) => {
@@ -433,12 +432,18 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
             const sourcePosition = positions[edge.source.table];
             const targetPosition = positions[edge.target.table];
             if (!sourcePosition || !targetPosition || !tableInfo[edge.target.table]) return null;
-            const sourceX = sourcePosition.x + CARD_WIDTH;
+            const sourceOnLeft = sourcePosition.x <= targetPosition.x;
+            const sourceX = sourceOnLeft ? sourcePosition.x + CARD_WIDTH : sourcePosition.x;
             const sourceY = sourcePosition.y + endpointY(tableInfo[edge.source.table], edge.source.column);
-            const targetX = targetPosition.x;
+            const targetX = sourceOnLeft ? targetPosition.x : targetPosition.x + CARD_WIDTH;
             const targetY = targetPosition.y + endpointY(tableInfo[edge.target.table], edge.target.column);
-            const bend = Math.max(90, Math.abs(targetX - sourceX) * 0.44);
-            const path = `M ${sourceX} ${sourceY} C ${sourceX + bend} ${sourceY}, ${targetX - bend} ${targetY}, ${targetX} ${targetY}`;
+            const horizontalDistance = Math.abs(targetX - sourceX);
+            const midpointX = sourceX + (targetX - sourceX) / 2;
+            const laneOffset = ((edge.id.split('').reduce((sum, character) => sum + character.charCodeAt(0), 0) % 5) - 2) * 7;
+            const routeX = midpointX + laneOffset;
+            const path = horizontalDistance > 70
+              ? `M ${sourceX} ${sourceY} H ${routeX} V ${targetY} H ${targetX}`
+              : `M ${sourceX} ${sourceY} C ${sourceX + (sourceOnLeft ? 72 : -72)} ${sourceY}, ${targetX + (sourceOnLeft ? -72 : 72)} ${targetY}, ${targetX} ${targetY}`;
             const active = selectedEdge?.id === edge.id;
             return <path data-schema-edge="true" key={edge.id} d={path} fill="none" stroke={active ? 'rgba(250,204,21,.95)' : 'rgba(34,211,238,.48)'} strokeWidth={active ? 3 : 1.6} markerEnd="url(#coreor-schema-arrow)" className="pointer-events-auto cursor-pointer" onPointerDown={event => event.stopPropagation()} onClick={() => { setSelectedEdge(edge); setSource(null); setTarget(null); }} />;
           })}
