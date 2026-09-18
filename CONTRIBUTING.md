@@ -1,13 +1,13 @@
-# Contributing to Coreor Web Database
+# Contributing to Coreor Database
 
-Thanks for considering a contribution.
+Coreor Database is being prepared as an open-source cross-platform desktop project.
 
 ## Before you start
 
-- Search existing issues and pull requests before opening a duplicate.
-- Keep changes focused. Security, performance, UX and deployment changes should preferably be isolated when they can be reviewed independently.
-- Never commit real database credentials, OAuth secrets, access tokens, private keys, production `.env` files or user data.
-- Security vulnerabilities must be reported according to [`SECURITY.md`](SECURITY.md), not through a public issue.
+- Search existing issues and pull requests.
+- Keep changes focused and reviewable.
+- Never commit real credentials, private keys, tokens, connection strings with passwords or production data.
+- Report security vulnerabilities through the private process in [SECURITY.md](SECURITY.md).
 
 ## Development setup
 
@@ -15,77 +15,71 @@ Thanks for considering a contribution.
 git clone https://github.com/battincik/web.database.coreor.net.git
 cd web.database.coreor.net
 npm ci
-cp .env.example .env.local
-npm run dev
+npm run architecture:check
+npm run typecheck
+npm run native:check
+npm run tauri:dev
 ```
 
-Use your own GitHub OAuth application and test database credentials. Do not use production credentials in development fixtures, screenshots, logs or pull requests.
+There is no required `.env` file and no hosted database backend.
+
+Platform prerequisites are documented in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Required checks
 
-Before submitting a pull request, run:
+Before opening a pull request:
 
 ```bash
 npm run check
 ```
 
-You can also run the steps separately:
+For native changes also verify the affected operating system and database engine.
 
-```bash
-npm run i18n:check
-npm run lint
-npm run typecheck
-npm run build
-```
+## Engineering rules
 
-## Pull request guidelines
-
-A good pull request should:
-
-- Explain the problem and the intended behavior.
-- Describe security or compatibility implications where relevant.
-- Mention which database engines were tested.
-- Avoid unrelated formatting/refactoring changes.
-- Update documentation and locale keys when user-visible behavior changes.
-- Include screenshots for significant visual changes, with all sensitive data removed.
+- TypeScript strictness must be preserved.
+- Do not introduce `@ts-ignore`, `@ts-nocheck` or broad `any` as a shortcut.
+- Prefer existing UI primitives and context-menu infrastructure.
+- Preserve keyboard accessibility.
+- Avoid browser-native alert/confirm/prompt dialogs.
+- Keep expensive metadata queries lazy, bounded and deduplicated.
+- Read-only enforcement belongs in Rust/native code as well as UI.
+- Engine-specific SQL must use explicit engine branches.
+- Destructive operations require clear confirmation.
+- Do not log database passwords or authentication tokens.
 
 ## Database-engine changes
 
-Changes in `src/lib/server/` can affect real databases. When modifying SQL generation, metadata queries, user/privilege operations, imports, transactions or destructive actions:
+Test against disposable databases and include the exact engine/version in the PR.
 
-- Test with a disposable database.
-- Prefer least-privilege test accounts.
-- Consider differences between MySQL, MariaDB, PostgreSQL, CockroachDB, TiDB and Microsoft SQL Server.
-- Do not weaken query limits, host validation, TLS behavior or read-only checks simply to make one server configuration work.
-- Preserve parameterization and identifier validation where provided by the adapter.
+At minimum consider:
 
-## Security-sensitive networking changes
+1. connection behavior,
+2. TLS,
+3. object discovery,
+4. identifier quoting,
+5. table metadata,
+6. pagination/result limits,
+7. insert/update/delete,
+8. transactions,
+9. native read-only enforcement,
+10. error handling.
 
-Changes involving outbound database connections, DNS, private/reserved address detection, ports, origin validation, authentication, cookies, request size, rate limiting or error serialization require extra review.
+## Cross-platform changes
 
-The hosted service is intentionally available to all GitHub users, so network controls are a primary boundary against SSRF and outbound abuse. Public database hosts may be used, but private/local/reserved targets must remain blocked by default unless explicitly allowed by the operator.
+A desktop change should not silently assume Windows paths, PowerShell, WebView2 or Windows-only keyboard conventions.
 
-## Internationalization
+CI compiles Windows, macOS and Linux. Platform-specific code should use Tauri APIs or a documented platform adapter.
 
-UI translation files live under `src/locales/`. If you add or remove translation keys, keep the locale schema valid and run:
+## Pull request checklist
 
-```bash
-npm run i18n:check
-```
+- Explain the problem and intended behavior.
+- Mention affected database engines and platforms.
+- Include sanitized screenshots for meaningful UI changes.
+- Update docs/locale files for user-visible behavior.
+- Note performance/security implications.
+- Confirm no secrets are included.
 
-The repository README is maintained in English and Turkish:
+## License
 
-- `README.md` — English/default
-- `README.tr.md` — Turkish
-
-When changing documented behavior, update both README files where applicable.
-
-## Commit and branch hygiene
-
-Use descriptive commit messages and avoid committing generated build output. The repository already ignores `.env*` except `.env.example`, `.next`, `node_modules`, `.vercel`, PEM files and common debug logs.
-
-If a secret is accidentally committed, do not merely delete it in a later commit. Rotate/revoke it first and then assess Git-history cleanup.
-
-## License notice
-
-A project license has not yet been selected. Until a license is added, contribution and redistribution terms are not fully defined. This is tracked as a public-release requirement and should be resolved before broad external contribution is encouraged.
+The project uses Apache-2.0. Contributions intentionally submitted for inclusion are expected to be compatible with that license unless explicitly agreed otherwise.
