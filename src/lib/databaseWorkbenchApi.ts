@@ -141,60 +141,123 @@ function bytesToMb(value: number) {
   return (Math.max(0, Number(value) || 0) / 1048576).toFixed(2);
 }
 
-async function persistStorageRecalculation(serverId: string, result: DatabaseStorageRecalculation) {
+async function persistStorageRecalculations(serverId: string, results: DatabaseStorageRecalculation[]) {
+  if (!results.length) return;
+  const databaseResult = results.find(result => result.scope === 'database');
+  const tableResults = new Map(
+    results
+      .filter(result => result.scope === 'table' && result.table)
+      .map(result => [result.table as string, result])
+  );
+
   await mutateLocalServerProfiles(servers => {
     const nextServers = servers.map(server => {
-    if (server.id !== serverId) return server;
-    const databases = (server.databases || []).map(database => {
-      if (database.name !== result.database) return database;
+      if (server.id !== serverId) return server;
+      const databases = (server.databases || []).map(database => {
+        const belongs = results.some(result => result.database === database.name);
+        if (!belongs) return database;
 
-      if (result.scope === 'database') {
+        const tableDetails = (database.tableDetails || []).map(table => {
+          const result = tableResults.get(table.tableName);
+          if (!result) return table;
+          return {
+            ...table,
+            rows: result.rows ?? table.rows,
+            dataSizeMB: bytesToMb(result.dataBytes),
+            indexSizeMB: bytesToMb(result.indexBytes),
+            freeSizeMB: bytesToMb(result.freeBytes),
+            sizeMB: bytesToMb(result.totalBytes),
+            storageMeasuredAt: result.sampledAt,
+            storageMeasurementSource: result.measurementSource ?? null,
+            storagePhysicalBytes: result.physicalBytes ?? null
+          };
+        });
+
+        if (databaseResult?.database === database.name) {
+          return {
+            ...database,
+            tableDetails,
+            totalRows: databaseResult.rows ?? tableDetails.reduce((sum, table) => sum + Number(table.rows || 0), 0),
+            dataSizeMB: bytesToMb(databaseResult.dataBytes),
+            indexSizeMB: bytesToMb(databaseResult.indexBytes),
+            totalSizeMB: bytesToMb(databaseResult.totalBytes),
+            storageMeasuredAt: databaseResult.sampledAt,
+            storageMeasurementSource: databaseResult.measurementSource ?? null,
+            storagePhysicalBytes: databaseResult.physicalBytes ?? null
+          };
+        }
+
         return {
           ...database,
-          totalRows: result.rows ?? database.totalRows,
-          dataSizeMB: bytesToMb(result.dataBytes),
-          indexSizeMB: bytesToMb(result.indexBytes),
-          totalSizeMB: bytesToMb(result.totalBytes)
+          tableDetails,
+          totalRows: tableDetails.reduce((sum, table) => sum + Number(table.rows || 0), 0),
+          dataSizeMB: tableDetails.reduce((sum, table) => sum + Number(table.dataSizeMB || 0), 0).toFixed(2),
+          indexSizeMB: tableDetails.reduce((sum, table) => sum + Number(table.indexSizeMB || 0), 0).toFixed(2),
+          totalSizeMB: tableDetails.reduce((sum, table) => sum + Number(table.sizeMB || 0), 0).toFixed(2)
         };
-      }
-
-      const tableDetails = (database.tableDetails || []).map(table => table.tableName === result.table ? {
-        ...table,
-        rows: result.rows ?? table.rows,
-        dataSizeMB: bytesToMb(result.dataBytes),
-        indexSizeMB: bytesToMb(result.indexBytes),
-        freeSizeMB: bytesToMb(result.freeBytes),
-        sizeMB: bytesToMb(result.totalBytes)
-      } : table);
-
-      return {
-        ...database,
-        tableDetails,
-        totalRows: tableDetails.reduce((sum, table) => sum + Number(table.rows || 0), 0),
-        dataSizeMB: tableDetails.reduce((sum, table) => sum + Number(table.dataSizeMB || 0), 0).toFixed(2),
-        indexSizeMB: tableDetails.reduce((sum, table) => sum + Number(table.indexSizeMB || 0), 0).toFixed(2),
-        totalSizeMB: tableDetails.reduce((sum, table) => sum + Number(table.sizeMB || 0), 0).toFixed(2)
-      };
-    });
+      });
       return { ...server, databases, updatedAt: new Date().toISOString() };
     });
     return { servers: nextServers, result: undefined };
   });
 }
 
-export async function recalculateDatabaseStorage(serverId: string, database: string, accountId?: string | null) {
-  const result = await workbenchRequest<DatabaseStorageRecalculation>(
-    serverId, accountId, 'storage-recalculate', { scope: 'database', database }, database, false
+async function measureTableStorage(
+  serverId: string,
+  database: string,
+  table: string,
+  accountId?: string | null
+) {
+  return workbenchRequest<DatabaseStorageRecalculation>(
+    serverId,
+    accountId,
+    'storage-recalculate',
+    { scope: 'table', database, table },
+    database,
+    false
   );
-  await persistStorageRecalculation(serverId, result);
-  return result;
+}
+
+export async function recalculateDatabaseStorage(serverId: string, database: string, accountId?: string | null) {
+  const server = await requireServer(accountId, serverId);
+  const catalogDatabase = (server.databases || []).find(item => item.name === database);
+  const tables = Array.from(new Set([
+    ...(catalogDatabase?.tables || []),
+    ...(catalogDatabase?.tableDetails || []).map(table => table.tableName)
+  ])).filter(Boolean);
+
+  const tableResults: DatabaseStorageRecalculation[] = [];
+  const failedTables: Array<{ table: string; message: string }> = [];
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < tables.length) {
+      const index = cursor++;
+      const table = tables[index];
+      try {
+        tableResults.push(await measureTableStorage(serverId, database, table, accountId));
+      } catch (error) {
+        failedTables.push({ table, message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, Math.max(1, tables.length)) }, () => worker()));
+
+  const databaseResult = await workbenchRequest<DatabaseStorageRecalculation>(
+    serverId,
+    accountId,
+    'storage-recalculate',
+    { scope: 'database', database },
+    database,
+    false
+  );
+
+  await persistStorageRecalculations(serverId, [databaseResult, ...tableResults]);
+  return { ...databaseResult, tableResults, failedTables };
 }
 
 export async function recalculateTableStorage(serverId: string, database: string, table: string, accountId?: string | null) {
-  const result = await workbenchRequest<DatabaseStorageRecalculation>(
-    serverId, accountId, 'storage-recalculate', { scope: 'table', database, table }, database, false
-  );
-  await persistStorageRecalculation(serverId, result);
+  const result = await measureTableStorage(serverId, database, table, accountId);
+  await persistStorageRecalculations(serverId, [result]);
   return result;
 }
 

@@ -67,8 +67,9 @@ function compactSize(megabytes: string | number | null | undefined) {
 
 function objectMetadataText(object: DatabaseSchemaObject, detail?: DatabaseTable) {
   if (object.kind === 'table') {
-    const rows = object.rows ?? detail?.rows;
-    const size = compactBytes(object.sizeBytes) || compactSize(detail?.sizeMB);
+    const measured = Boolean(detail?.storageMeasuredAt);
+    const rows = measured ? detail?.rows : object.rows ?? detail?.rows;
+    const size = measured ? compactSize(detail?.sizeMB) : compactBytes(object.sizeBytes) || compactSize(detail?.sizeMB);
     if (rows === undefined && !size) return null;
     return [rows === undefined ? null : `${compactCount(rows)} satır`, size].filter(Boolean).join(' • ');
   }
@@ -505,8 +506,8 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         persistent: false,
         variant: 'success',
         title: 'Veritabanı boyutu güncellendi',
-        description: `${database} • ${compactBytes(result.totalBytes) || '0 B'}${result.measurementSource === 'innodb-tablespace' ? ' • fiziksel InnoDB' : ''}`,
-        duration: 3500
+        description: `${database} • ${compactBytes(result.totalBytes) || '0 B'} • ${result.tableResults?.length || 0} tablo güncellendi${result.failedTables?.length ? ` • ${result.failedTables.length} tablo ölçülemedi` : ''}${result.measurementSource === 'innodb-tablespace' ? ' • fiziksel InnoDB' : ''}`,
+        duration: result.failedTables?.length ? 5000 : 3500
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

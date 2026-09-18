@@ -169,6 +169,8 @@ export interface DatabaseStorageRecalculation {
   measurementSource?: 'innodb-tablespace' | 'information-schema' | null;
   rows: number | null;
   sampledAt: string;
+  tableResults?: DatabaseStorageRecalculation[];
+  failedTables?: Array<{ table: string; message: string }>;
 }
 
 export type DatabaseMaintenanceOperation =

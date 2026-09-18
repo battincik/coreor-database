@@ -91,6 +91,10 @@ export interface DatabaseTable {
   autoIncrement: string | number | null;
   indexCount: number;
   foreignKeyCount: number;
+  /** Last explicit storage recalculation. Preserved across normal catalog refreshes. */
+  storageMeasuredAt?: string | null;
+  storageMeasurementSource?: 'innodb-tablespace' | 'information-schema' | null;
+  storagePhysicalBytes?: number | null;
 }
 
 export interface DatabaseCatalogItem {
@@ -104,6 +108,10 @@ export interface DatabaseCatalogItem {
   totalSizeMB: string;
   tables: string[];
   tableDetails: DatabaseTable[];
+  /** Last explicit database-wide storage recalculation. */
+  storageMeasuredAt?: string | null;
+  storageMeasurementSource?: 'innodb-tablespace' | 'information-schema' | null;
+  storagePhysicalBytes?: number | null;
 }
 
 export type DatabaseObjectKind = 'table' | 'view' | 'procedure' | 'function' | 'trigger' | 'event';

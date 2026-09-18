@@ -232,11 +232,50 @@ async function mutateServerProfiles<T>(mutation: (servers: DatabaseServerConfig[
   return mutateLocalServerProfiles(mutation);
 }
 
+function mergeMeasuredStorage(previous: DatabaseCatalogItem | undefined, incoming: DatabaseCatalogItem): DatabaseCatalogItem {
+  if (!previous) return incoming;
+
+  const previousTables = new Map((previous.tableDetails || []).map(table => [table.tableName, table]));
+  const tableDetails = (incoming.tableDetails || []).map(table => {
+    const measured = previousTables.get(table.tableName);
+    if (!measured?.storageMeasuredAt) return table;
+    return {
+      ...table,
+      rows: measured.rows,
+      sizeMB: measured.sizeMB,
+      dataSizeMB: measured.dataSizeMB,
+      indexSizeMB: measured.indexSizeMB,
+      freeSizeMB: measured.freeSizeMB,
+      storageMeasuredAt: measured.storageMeasuredAt,
+      storageMeasurementSource: measured.storageMeasurementSource,
+      storagePhysicalBytes: measured.storagePhysicalBytes
+    };
+  });
+
+  const merged: DatabaseCatalogItem = { ...incoming, tableDetails };
+  if (previous.storageMeasuredAt) {
+    merged.totalRows = previous.totalRows;
+    merged.dataSizeMB = previous.dataSizeMB;
+    merged.indexSizeMB = previous.indexSizeMB;
+    merged.totalSizeMB = previous.totalSizeMB;
+    merged.storageMeasuredAt = previous.storageMeasuredAt;
+    merged.storageMeasurementSource = previous.storageMeasurementSource;
+    merged.storagePhysicalBytes = previous.storagePhysicalBytes;
+  }
+  return merged;
+}
+
 async function updateCachedDatabases(serverId: string, databases: DatabaseCatalogItem[]) {
-  await mutateServerProfiles(servers => ({
-    servers: servers.map(server => server.id === serverId ? { ...server, databases, updatedAt: new Date().toISOString() } : server),
-    result: undefined
-  }));
+  return mutateServerProfiles(servers => {
+    let mergedDatabases = databases;
+    const nextServers = servers.map(server => {
+      if (server.id !== serverId) return server;
+      const previous = new Map((server.databases || []).map(database => [database.name, database]));
+      mergedDatabases = databases.map(database => mergeMeasuredStorage(previous.get(database.name), database));
+      return { ...server, databases: mergedDatabases, updatedAt: new Date().toISOString() };
+    });
+    return { servers: nextServers, result: mergedDatabases };
+  });
 }
 
 export async function fetchDatabaseServers(accountId?: string | null) {
@@ -296,8 +335,8 @@ export async function fetchServerTables(serverId: string, accountId?: string | n
   const response = await requestDatabaseApi<{ databases: DatabaseCatalogItem[]; _meta?: DatabaseQueryMeta }>(server, 'catalog', {}, { requestKey: `catalog:${serverId}` });
   if (!Array.isArray(response?.databases)) throw new Error('Yerel veritabanı köprüsü katalog yanıtı geçersiz.');
   for (const key of databaseObjectsCache.keys()) if (key.startsWith(`${serverId}:`)) databaseObjectsCache.delete(key);
-  await updateCachedDatabases(serverId, response.databases);
-  return { serverId, databases: response.databases };
+  const databases = await updateCachedDatabases(serverId, response.databases);
+  return { serverId, databases };
 }
 
 export async function fetchTableInfo(serverId: string, databaseName: string, tableName: string, accountId?: string | null) {
