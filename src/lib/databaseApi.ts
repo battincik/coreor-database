@@ -24,7 +24,7 @@ import { recordActivity } from '@/lib/activityConsole';
 import { databaseEngineDefinition, databaseEngineLabel } from '@/lib/databaseEngines';
 import { desktopDatabaseRequest } from '@/lib/desktopClient';
 
-const profileMutationQueues = new Map<string, Promise<void>>();
+let profileMutationQueue: Promise<void> = Promise.resolve();
 const inFlightControllers = new Map<string, AbortController>();
 
 export interface DatabaseServerCatalogItem extends DatabaseServerConfig {
@@ -207,22 +207,21 @@ async function requireServer(accountId: string | null | undefined, serverId: str
   return server;
 }
 
-async function mutateServerProfiles<T>(accountId: string, mutation: (servers: DatabaseServerConfig[]) => ProfileMutationResult<T>) {
-  const previousMutation = profileMutationQueues.get(accountId) ?? Promise.resolve();
+async function mutateServerProfiles<T>(mutation: (servers: DatabaseServerConfig[]) => ProfileMutationResult<T>) {
   let mutationResult!: T;
-  const currentMutation = previousMutation.catch(() => undefined).then(async () => {
+  const currentMutation = profileMutationQueue.catch(() => undefined).then(async () => {
     const currentServers = await readLocalServerProfiles();
     const nextState = mutation(currentServers);
     mutationResult = nextState.result;
     await writeLocalServerProfiles(nextState.servers);
   });
-  profileMutationQueues.set(accountId, currentMutation);
-  try { await currentMutation; return mutationResult; }
-  finally { if (profileMutationQueues.get(accountId) === currentMutation) profileMutationQueues.delete(accountId); }
+  profileMutationQueue = currentMutation;
+  await currentMutation;
+  return mutationResult;
 }
 
-async function updateCachedDatabases(accountId: string, serverId: string, databases: DatabaseCatalogItem[]) {
-  await mutateServerProfiles(accountId, servers => ({
+async function updateCachedDatabases(serverId: string, databases: DatabaseCatalogItem[]) {
+  await mutateServerProfiles(servers => ({
     servers: servers.map(server => server.id === serverId ? { ...server, databases, updatedAt: new Date().toISOString() } : server),
     result: undefined
   }));
@@ -255,7 +254,7 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
     createdAt: server.createdAt ?? now,
     updatedAt: now
   };
-  return mutateServerProfiles(accountId, servers => {
+  return mutateServerProfiles(servers => {
     const existingIndex = servers.findIndex(item => item.id === nextServer.id);
     const nextServers = [...servers];
     if (existingIndex >= 0) nextServers[existingIndex] = nextServer; else nextServers.push(nextServer);
@@ -276,7 +275,7 @@ export async function fetchServerTables(serverId: string, accountId?: string | n
   const server = await requireServer(accountId, serverId);
   const response = await requestDatabaseApi<{ databases: DatabaseCatalogItem[]; _meta?: DatabaseQueryMeta }>(server, 'catalog', {}, { requestKey: `catalog:${serverId}` });
   if (!Array.isArray(response?.databases)) throw new Error('Yerel veritabanı köprüsü katalog yanıtı geçersiz.');
-  await updateCachedDatabases(accountId!, serverId, response.databases);
+  await updateCachedDatabases(serverId, response.databases);
   return { serverId, databases: response.databases };
 }
 
