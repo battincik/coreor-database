@@ -19,7 +19,7 @@ import type {
   TableSchemaMutationInput,
   TableSchemaMutationResponse
 } from 'types';
-import { readEncryptedServerProfiles, writeEncryptedServerProfiles } from '@/lib/secureVault';
+import { readLocalServerProfiles, writeLocalServerProfiles } from '@/lib/localProfiles';
 import { recordActivity } from '@/lib/activityConsole';
 import { databaseEngineDefinition, databaseEngineLabel } from '@/lib/databaseEngines';
 import { desktopDatabaseRequest } from '@/lib/desktopClient';
@@ -201,7 +201,7 @@ async function requestDatabaseApi<T>(
 }
 
 async function requireServer(accountId: string | null | undefined, serverId: string) {
-  const servers = await readEncryptedServerProfiles(accountId);
+  const servers = await readLocalServerProfiles();
   const server = servers.find(item => item.id === serverId);
   if (!server) throw new Error('Sunucu profili yerel config içinde bulunamadı.');
   return server;
@@ -211,10 +211,10 @@ async function mutateServerProfiles<T>(accountId: string, mutation: (servers: Da
   const previousMutation = profileMutationQueues.get(accountId) ?? Promise.resolve();
   let mutationResult!: T;
   const currentMutation = previousMutation.catch(() => undefined).then(async () => {
-    const currentServers = await readEncryptedServerProfiles(accountId);
+    const currentServers = await readLocalServerProfiles();
     const nextState = mutation(currentServers);
     mutationResult = nextState.result;
-    await writeEncryptedServerProfiles(accountId, nextState.servers);
+    await writeLocalServerProfiles(nextState.servers);
   });
   profileMutationQueues.set(accountId, currentMutation);
   try { await currentMutation; return mutationResult; }
@@ -229,7 +229,7 @@ async function updateCachedDatabases(accountId: string, serverId: string, databa
 }
 
 export async function fetchDatabaseServers(accountId?: string | null) {
-  return await readEncryptedServerProfiles(accountId || 'local') as DatabaseServerCatalogItem[];
+  return await readLocalServerProfiles() as DatabaseServerCatalogItem[];
 }
 
 export async function createDatabaseServer(server: DatabaseServerConfig, accountId?: string | null) {
