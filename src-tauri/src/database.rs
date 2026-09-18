@@ -327,6 +327,7 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
                 }
             };
 
+            let primary_metadata=tables.clone();
             let suspicious_zero_stats=!tables.is_empty() && tables.iter().all(|row|{
                 let Some(object)=row.as_object() else{return true};
                 num(object.get("tableRows").or_else(||object.get("TABLE_ROWS")))==0
@@ -337,13 +338,17 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
                 let status_sql=format!("SHOW TABLE STATUS FROM {}",ident(&name,&c.engine)?);
                 if let Ok(status_result)=execute_sql(c,&status_sql,Some(&name),max).await {
                     let status_rows=rows_of(&status_result);
-                    if status_rows.iter().any(|row|row.get("Data_length").or_else(||row.get("Data_length")).map(|value|num(Some(value))>0).unwrap_or(false)) {
+                    if status_rows.iter().any(|row|row.get("Data_length").map(|value|num(Some(value))>0).unwrap_or(false)) {
                         tables=status_rows.into_iter().filter_map(|row|{
                             let object=row.as_object()?;
                             let table_name=object.get("Name").and_then(text_value)?;
                             let engine=object.get("Engine").cloned().unwrap_or(Value::Null);
                             let comment=object.get("Comment").cloned().unwrap_or(json!(""));
                             let is_view=engine.is_null() || comment.as_str().map(|value|value.eq_ignore_ascii_case("VIEW")).unwrap_or(false);
+                            let primary=primary_metadata.iter().find(|item|item.get("tableName").and_then(text_value).as_deref()==Some(table_name.as_str()));
+                            let column_count=primary.and_then(|item|item.get("columnCount")).map(|value|num(Some(value))).unwrap_or(0);
+                            let index_count=primary.and_then(|item|item.get("indexCount")).map(|value|num(Some(value))).unwrap_or(0);
+                            let foreign_key_count=primary.and_then(|item|item.get("foreignKeyCount")).map(|value|num(Some(value))).unwrap_or(0);
                             Some(json!({
                                 "tableName":table_name,
                                 "tableType":if is_view{"VIEW"}else{"BASE TABLE"},
@@ -358,7 +363,10 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
                                 "createTime":object.get("Create_time").cloned().unwrap_or(Value::Null),
                                 "updateTime":object.get("Update_time").cloned().unwrap_or(Value::Null),
                                 "tableCollation":object.get("Collation").cloned().unwrap_or(Value::Null),
-                                "tableComment":comment
+                                "tableComment":comment,
+                                "columnCount":column_count,
+                                "indexCount":index_count,
+                                "foreignKeyCount":foreign_key_count
                             }))
                         }).collect();
                     }
