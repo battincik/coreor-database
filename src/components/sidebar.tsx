@@ -712,7 +712,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           >
             <Plus className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => void loadServers()} title="Kasa ve katalogları yenile">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { const active=servers.find(server=>server.id===activeServerId); if(active) void refreshServer(active); else void loadServers(); }} title="Aktif sunucu kataloğunu yenile">
             <RefreshCw className={`h-3.5 w-3.5 ${isServersLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
