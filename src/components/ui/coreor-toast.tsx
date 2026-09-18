@@ -143,18 +143,19 @@ function ToastCard({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: s
 
   return (
     <article
-      className={`pointer-events-auto relative w-[min(350px,calc(100vw-16px))] overflow-hidden rounded-xl border shadow-2xl backdrop-blur-xl ${tone.border} ${tone.background} ${toast.onOpen ? 'cursor-pointer' : ''}`}
+      className={`pointer-events-auto relative w-[min(320px,calc(100vw-16px))] overflow-hidden rounded-lg border shadow-xl backdrop-blur-xl ${tone.border} ${tone.background} ${toast.onOpen ? 'cursor-pointer' : ''}`}
       onClick={() => toast.onOpen?.()}
     >
       <div className={`absolute inset-y-0 left-0 w-1 ${tone.accent}`} />
-      <div className="p-3 pl-4">
-        <div className="flex items-start gap-2.5">
-          <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-black/20 ${tone.icon}`}>
+      <div className="p-2.5 pl-3.5">
+        <div className="flex items-start gap-2">
+          <span className={`mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-white/10 bg-black/20 ${tone.icon}`}>
             <VariantIcon variant={variant} loading={toast.loading || submitting} />
           </span>
           <div className="min-w-0 flex-1">
-            <h3 className="text-[12px] font-semibold text-zinc-100">{toast.title}</h3>
-            {toast.description && <p className="mt-0.5 line-clamp-2 text-[9px] leading-4 text-zinc-500">{toast.description}</p>}
+            <h3 className="text-[10px] font-semibold leading-4 text-zinc-100">{toast.title}</h3>
+            {toast.description && <p className="line-clamp-1 text-[8px] leading-3.5 text-zinc-500">{toast.description}</p>}
+            {toast.onOpen && !actionable && <span className="mt-1 inline-flex text-[8px] text-zinc-600">Ayrıntılar için aç</span>}
           </div>
           {!actionable && toast.metadata?.length ? <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-600" title={metadataTooltip}><Info className="h-3.5 w-3.5" /></span> : null}
           <button type="button" className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-600 transition hover:bg-white/[0.06] hover:text-zinc-200" onClick={event => { event.stopPropagation(); cancel(); }} aria-label="Bildirimi kapat">
@@ -273,7 +274,7 @@ export function CoreorToastProvider({ children }: { children: React.ReactNode })
     <ToastContext.Provider value={value}>
       {children}
       {mounted && createPortal(
-        <div className="pointer-events-none fixed right-3 top-10 z-[1000] flex max-h-[calc(100dvh-48px)] flex-col gap-1.5 overflow-hidden">
+        <div className="pointer-events-none fixed right-2.5 top-9 z-[1000] flex max-h-[calc(100dvh-44px)] flex-col gap-1 overflow-hidden">
           {toasts.map(toast => <ToastCard key={toast.id} toast={toast} onDismiss={dismiss} />)}
         </div>,
         document.body
