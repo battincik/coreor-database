@@ -2,7 +2,9 @@
   "name": "coreor-database-desktop",
   "version": "3.1.0",
   "private": true,
-  "engines": { "node": ">=20.9.0" },
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "npm run tauri:dev",
     "dev:web": "next dev",
@@ -14,18 +16,41 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "i18n:check": "node scripts/validate-locales.mjs",
-    "check": "npm run i18n:check && npm run lint && npm run build:web"
+    "check": "npm run desktop:check && npm run i18n:check && npm run lint && npm run build:web",
+    "desktop:check": "node scripts/assert-desktop-only.mjs"
   },
   "dependencies": {
-    "@radix-ui/react-avatar": "^1.1.3", "@radix-ui/react-dialog": "^1.1.7", "@radix-ui/react-dropdown-menu": "^2.1.6",
-    "@radix-ui/react-label": "^2.1.15", "@radix-ui/react-scroll-area": "^1.2.18", "@radix-ui/react-slot": "^1.3.3",
-    "@radix-ui/react-tabs": "^1.1.3", "@tabler/icons-react": "^3.45.0", "@tanstack/react-table": "^8.21.2",
-    "@tauri-apps/api": "^2.8.0", "class-variance-authority": "^0.7.1", "clsx": "^2.1.1", "lucide-react": "^1.26.0",
-    "motion": "^12.6.3", "next": "16.2.11", "next-themes": "^0.4.6", "react": "^19.2.0", "react-dom": "^19.2.0",
-    "react-resizable-panels": "^2.1.7", "tailwind-merge": "^3.0.2", "tailwindcss-animate": "^1.0.7"
+    "@radix-ui/react-avatar": "^1.1.3",
+    "@radix-ui/react-dialog": "^1.1.7",
+    "@radix-ui/react-dropdown-menu": "^2.1.6",
+    "@radix-ui/react-label": "^2.1.15",
+    "@radix-ui/react-scroll-area": "^1.2.18",
+    "@radix-ui/react-slot": "^1.3.3",
+    "@radix-ui/react-tabs": "^1.1.3",
+    "@tabler/icons-react": "^3.45.0",
+    "@tanstack/react-table": "^8.21.2",
+    "@tauri-apps/api": "^2.8.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.26.0",
+    "motion": "^12.6.3",
+    "next": "16.2.11",
+    "next-themes": "^0.4.6",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-resizable-panels": "^2.1.7",
+    "tailwind-merge": "^3.0.2",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.8.0", "@types/node": "^20", "@types/react": "^19.2.0", "@types/react-dom": "^19.2.0",
-    "eslint": "^9", "eslint-config-next": "16.2.11", "postcss": "^8", "tailwindcss": "^3.4.1", "typescript": "^5.7.0"
+    "@tauri-apps/cli": "^2.8.0",
+    "@types/node": "^20",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.11",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.7.0"
   }
 }
