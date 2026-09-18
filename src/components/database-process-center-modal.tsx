@@ -1,7 +1,7 @@
 'use client';
 
 import { useModalEscape } from '@/lib/useModalEscape';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Clock3, Copy, Loader2, Lock, RefreshCw, Skull, StopCircle, X } from 'lucide-react';
 import type { DatabaseProcessCenterResponse } from '@/lib/databaseWorkbenchTypes';
@@ -41,25 +41,34 @@ export function DatabaseProcessCenterModal({ open, onClose, serverId, accountId 
   const [minimumSeconds, setMinimumSeconds] = useState(0);
   const [killingId, setKillingId] = useState<number | null>(null);
   const [confirmation, setConfirmation] = useState<CoreorConfirmation | null>(null);
+  const lastArchivedErrorRef = useRef<string | null>(null);
   useModalEscape(open, onClose, killingId !== null);
 
   const load = async () => {
     if (!serverId || !accountId) return;
     setLoading(true); setError(null);
-    try { setData(await fetchDatabaseProcessCenter(serverId, accountId)); }
+    try {
+      setData(await fetchDatabaseProcessCenter(serverId, accountId));
+      lastArchivedErrorRef.current = null;
+    }
     catch (failure) {
       const message = failure instanceof Error ? failure.message : 'Process merkezi yüklenemedi.';
       setError(message);
-      publishCoreorNotification({
-        id: `process-center-${serverId}`,
-        severity: 'error',
-        source: 'system',
-        title: 'Process merkezi okunamadı',
-        description: message,
-        serverId,
-        code: (failure as Error & { code?: string })?.code || 'PROCESS_CENTER_FAILED',
-        metadata: [{ label: 'Kapsam', value: 'Process / lock görünümü' }]
-      });
+      const code = (failure as Error & { code?: string })?.code || 'PROCESS_CENTER_FAILED';
+      const signature = `${serverId}:${code}:${message}`;
+      if (lastArchivedErrorRef.current !== signature) {
+        lastArchivedErrorRef.current = signature;
+        publishCoreorNotification({
+          id: `process-center-${serverId}`,
+          severity: 'error',
+          source: 'system',
+          title: 'Process merkezi okunamadı',
+          description: message,
+          serverId,
+          code,
+          metadata: [{ label: 'Kapsam', value: 'Process / lock görünümü' }]
+        });
+      }
     }
     finally { setLoading(false); }
   };
