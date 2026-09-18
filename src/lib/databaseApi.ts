@@ -10,6 +10,8 @@ import type {
   QueryExecutionResult,
   TableCellUpdateInput,
   TableCellUpdateResponse,
+  TableRowInsertInput,
+  TableRowInsertResponse,
   TableDataFilter,
   TableDataResponse,
   TableDataSort,
@@ -67,6 +69,7 @@ const ACTION_TITLES: Record<DatabaseApiAction, string> = {
   'table-info': 'Tablo yapısı',
   'table-data': 'Tablo verileri',
   'update-cell': 'Hücre güncelleme',
+  'insert-row': 'Satır ekleme',
   'delete-rows': 'Satır silme',
   'alter-table': 'Tablo yapısını değiştirme',
   query: 'SQL sorgusu'
@@ -105,6 +108,7 @@ function fallbackStatements(action: DatabaseApiAction, payload: Record<string, u
   if (action === 'table-info') return [{ label: 'Tablo yapısı', sql: `/* ${engine} */ DESCRIBE ${database}.${table}` }];
   if (action === 'table-data') return [{ label: 'Tablo satırları', sql: `SELECT * FROM ${database}.${table}` }];
   if (action === 'update-cell') return [{ label: 'Hücre güncelleme', sql: `UPDATE ${database}.${table} SET ${String(payload.column || 'column')} = ? WHERE <primary-key>` }];
+  if (action === 'insert-row') return [{ label: 'Satır ekleme', sql: `INSERT INTO ${database}.${table} (...) VALUES (...)` }];
   if (action === 'delete-rows') return [{ label: 'Seçili satırları sil', sql: `DELETE FROM ${database}.${table} WHERE <primary-key>` }];
   if (action === 'alter-table') return [{ label: 'Tablo yapısını değiştir', sql: `ALTER TABLE ${database}.${table} <validated-operation>` }];
   return [{ label: 'SQL editörü sorgusu', sql: String(payload.sql || '') }];
@@ -117,7 +121,7 @@ function resultMetrics(action: DatabaseApiAction, result: unknown) {
   if (action === 'table-info') return { rowCount: payload.columns?.length };
   if (action === 'table-data') return { rowCount: payload.data?.length };
   if (action === 'alter-table') return { rowCount: payload.tableInfo?.columns?.length };
-  if (action === 'update-cell' || action === 'delete-rows') return { affectedRows: payload.affectedRows };
+  if (action === 'update-cell' || action === 'insert-row' || action === 'delete-rows') return { affectedRows: payload.affectedRows };
   if (action === 'query') return { rowCount: payload.rows?.length, affectedRows: payload.affectedRows };
   return {};
 }
@@ -303,6 +307,10 @@ export async function fetchTableData(serverId: string, databaseName: string, tab
 
 export async function updateTableCell(serverId: string, input: TableCellUpdateInput, accountId?: string | null) {
   return requestDatabaseApi<TableCellUpdateResponse>(await requireServer(accountId, serverId), 'update-cell', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
+}
+
+export async function insertTableRow(serverId: string, input: TableRowInsertInput, accountId?: string | null) {
+  return requestDatabaseApi<TableRowInsertResponse>(await requireServer(accountId, serverId), 'insert-row', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
 }
 
 export async function deleteTableRows(serverId: string, input: TableRowsDeleteInput, accountId?: string | null) {
