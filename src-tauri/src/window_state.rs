@@ -35,6 +35,27 @@ fn normalize(mut state: PersistedWindowState) -> PersistedWindowState {
     state
 }
 
+fn clamp_to_current_monitor<R: Runtime>(
+    window: &tauri::WebviewWindow<R>,
+    mut state: PersistedWindowState,
+) -> PersistedWindowState {
+    let monitor = window.current_monitor().ok().flatten()
+        .or_else(|| window.primary_monitor().ok().flatten());
+
+    if let Some(monitor) = monitor {
+        let scale = monitor.scale_factor().max(0.1);
+        let work_area = monitor.work_area();
+        // Leave a small logical margin so native resize borders/title hit targets
+        // never land flush against the taskbar or desktop work-area boundary.
+        let max_width = (work_area.size.width as f64 / scale - 32.0).max(MIN_WIDTH);
+        let max_height = (work_area.size.height as f64 / scale - 32.0).max(MIN_HEIGHT);
+        state.width = state.width.min(max_width);
+        state.height = state.height.min(max_height);
+    }
+
+    normalize(state)
+}
+
 fn read_state<R: Runtime>(app: &AppHandle<R>) -> PersistedWindowState {
     let Ok(path) = state_file(app) else { return PersistedWindowState::default(); };
     let Ok(bytes) = fs::read(path) else { return PersistedWindowState::default(); };
@@ -54,7 +75,7 @@ fn write_state<R: Runtime>(app: &AppHandle<R>, state: &PersistedWindowState) -> 
 
 pub fn restore_and_track<R: Runtime>(app: &App<R>) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or_else(|| "Ana uygulama penceresi bulunamadı.".to_string())?;
-    let saved = read_state(app.handle());
+    let saved = clamp_to_current_monitor(&window, read_state(app.handle()));
 
     window.set_size(LogicalSize::new(saved.width, saved.height)).map_err(|error| error.to_string())?;
     if saved.maximized {
