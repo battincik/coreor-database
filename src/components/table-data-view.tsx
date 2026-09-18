@@ -108,7 +108,7 @@ export function TableDataView({serverId,databaseName,tableName,accountId,info,on
       {id:'open-url',label:'URL aç',icon:ExternalLink,disabled:!isUrl,onSelect:()=>window.open(String(value),'_blank','noopener,noreferrer')},
       {id:'follow-fk',label:'Foreign key’i takip et',icon:Link,disabled:!foreignKey||value===null,onSelect:()=>foreignKey&&onFollowForeignKey(foreignKey,value)},
       {id:'sep-row',separator:true},
-      {id:'insert-row',label:'Yeni satır ekle',icon:Plus,disabled:readOnly,onSelect:insertTemplate},
+      {id:'insert-row',label:'Yeni satır ekle',icon:Plus,shortcut:'insertRow',disabled:readOnly,disabledReason:readOnly?'Bağlantı salt-okunur.':undefined,onSelect:insertTemplate},
       {id:'duplicate',label:'Satırı yinele',icon:Copy,disabled:readOnly,children:[
         {id:'duplicate-no-keys',label:'Anahtarlar olmadan INSERT',icon:Copy,onSelect:()=>onOpenQuery(`${tableName} satır kopyası`,duplicateSql(row,false))},
         {id:'duplicate-keys',label:'Anahtarları koruyarak INSERT',icon:Key,onSelect:()=>onOpenQuery(`${tableName} tam satır kopyası`,duplicateSql(row,true))}
@@ -148,7 +148,7 @@ export function TableDataView({serverId,databaseName,tableName,accountId,info,on
       {id:'export-page-csv',label:'CSV',icon:FileDown,onSelect:()=>exportRows('csv',rows)},
       {id:'export-page-json',label:'JSON',icon:FileDown,onSelect:()=>exportRows('json',rows)}
     ]},
-    {id:'refresh',label:'Yenile',icon:RefreshCw,onSelect:refresh}
+    {id:'refresh',label:'Yenile',icon:RefreshCw,shortcut:'refresh',onSelect:refresh}
   ],`${databaseName}.${tableName}`);
   const openColumnMenu=(event:React.MouseEvent,column:TableColumnInfo)=>openContextMenu(event,[
     {id:'sort-asc',label:'Artan sırala',icon:ArrowUp,onSelect:()=>sortColumn(column.Field,'asc')},
