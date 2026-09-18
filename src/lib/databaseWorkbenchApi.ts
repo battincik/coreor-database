@@ -125,7 +125,9 @@ export function assignDatabaseRole(
 }
 
 export function fetchDatabaseProcessCenter(serverId: string, accountId?: string | null) {
-  return workbenchRequest<DatabaseProcessCenterResponse>(serverId, accountId, 'process-list');
+  // Polling/refresh reads must not create activity errors and duplicate toast notifications.
+  // The process center renders its own inline error state.
+  return workbenchRequest<DatabaseProcessCenterResponse>(serverId, accountId, 'process-list', {}, undefined, false);
 }
 
 export function killDatabaseProcess(serverId: string, processId: number, killType: 'query' | 'connection', accountId?: string | null) {

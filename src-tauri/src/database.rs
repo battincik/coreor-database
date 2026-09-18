@@ -682,7 +682,7 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
         let db_literal=literal(&json!(db),&c.engine);
         let table_clause=table.map(|table|format!(" AND TABLE_NAME={}",literal(&json!(table),&c.engine))).unwrap_or_default();
         (format!(
-            "SELECT COALESCE(SUM(DATA_LENGTH),0) AS dataBytes,COALESCE(SUM(INDEX_LENGTH),0) AS indexBytes,COALESCE(SUM(DATA_FREE),0) AS freeBytes,COALESCE(SUM(DATA_LENGTH),0)+COALESCE(SUM(INDEX_LENGTH),0) AS totalBytes,COALESCE(SUM(TABLE_ROWS),0) AS `rows` FROM information_schema.TABLES WHERE TABLE_SCHEMA={}{}",
+            "SELECT CAST(COALESCE(SUM(DATA_LENGTH),0) AS CHAR) AS dataBytes,CAST(COALESCE(SUM(INDEX_LENGTH),0) AS CHAR) AS indexBytes,CAST(COALESCE(SUM(DATA_FREE),0) AS CHAR) AS freeBytes,CAST(COALESCE(SUM(DATA_LENGTH),0)+COALESCE(SUM(INDEX_LENGTH),0) AS CHAR) AS totalBytes,CAST(COALESCE(SUM(TABLE_ROWS),0) AS CHAR) AS `rows` FROM information_schema.TABLES WHERE TABLE_SCHEMA={}{}",
             db_literal,table_clause
         ),None)
     };
@@ -704,8 +704,27 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
 async fn workbench(c:&Connection,action:&str,p:&Map<String,Value>,max:usize)->Result<Value,String>{
  match action{
  "process-list"=>{
-   let sql=if is_pg(&c.engine){"SELECT pid AS id,usename AS \"user\",COALESCE(client_addr::text,'') AS host,datname AS \"database\",state AS \"command\",EXTRACT(EPOCH FROM(now()-query_start))::bigint AS seconds,wait_event AS \"state\",query AS info FROM pg_stat_activity ORDER BY query_start NULLS LAST"}else if is_mssql(&c.engine){"SELECT r.session_id AS id,s.login_name AS [user],s.host_name AS host,DB_NAME(r.database_id) AS [database],r.command,DATEDIFF(SECOND,r.start_time,SYSDATETIME()) AS seconds,r.status AS state,t.text AS info FROM sys.dm_exec_requests r JOIN sys.dm_exec_sessions s ON s.session_id=r.session_id CROSS APPLY sys.dm_exec_sql_text(r.sql_handle)t"}else{"SELECT ID AS id,USER AS `user`,HOST AS host,DB AS `database`,COMMAND AS command,TIME AS seconds,STATE AS state,INFO AS info FROM information_schema.PROCESSLIST ORDER BY TIME DESC"};
-   let processes=rows_of(&execute_sql(c,sql,None,max).await?);
+   let processes=if is_pg(&c.engine){
+     rows_of(&execute_sql(c,"SELECT pid AS id,usename AS \"user\",COALESCE(client_addr::text,'') AS host,datname AS \"database\",state AS \"command\",EXTRACT(EPOCH FROM(now()-query_start))::bigint AS seconds,wait_event AS \"state\",query AS info FROM pg_stat_activity ORDER BY query_start NULLS LAST",None,max).await?)
+   }else if is_mssql(&c.engine){
+     rows_of(&execute_sql(c,"SELECT r.session_id AS id,s.login_name AS [user],s.host_name AS host,DB_NAME(r.database_id) AS [database],r.command,DATEDIFF(SECOND,r.start_time,SYSDATETIME()) AS seconds,r.status AS state,t.text AS info FROM sys.dm_exec_requests r JOIN sys.dm_exec_sessions s ON s.session_id=r.session_id CROSS APPLY sys.dm_exec_sql_text(r.sql_handle)t",None,max).await?)
+   }else{
+     // SHOW FULL PROCESSLIST works for restricted MySQL/MariaDB accounts too:
+     // without PROCESS privilege the server simply limits rows to the current account.
+     let raw=rows_of(&execute_sql(c,"SHOW FULL PROCESSLIST",None,max).await?);
+     raw.into_iter().map(|row|{
+       let Some(o)=row.as_object() else{return json!({})};
+       let id=num(o.get("Id").or_else(||o.get("ID")).or_else(||o.get("id")));
+       let user=o.get("User").or_else(||o.get("USER")).or_else(||o.get("user")).and_then(text_value).unwrap_or_default();
+       let host=o.get("Host").or_else(||o.get("HOST")).or_else(||o.get("host")).and_then(text_value).unwrap_or_default();
+       let database=o.get("db").or_else(||o.get("DB")).or_else(||o.get("database")).cloned().unwrap_or(Value::Null);
+       let command=o.get("Command").or_else(||o.get("COMMAND")).or_else(||o.get("command")).and_then(text_value).unwrap_or_default();
+       let seconds=num(o.get("Time").or_else(||o.get("TIME")).or_else(||o.get("seconds")));
+       let state=o.get("State").or_else(||o.get("STATE")).or_else(||o.get("state")).cloned().unwrap_or(Value::Null);
+       let info=o.get("Info").or_else(||o.get("INFO")).or_else(||o.get("info")).cloned().unwrap_or(Value::Null);
+       json!({"id":id,"user":user,"host":host,"database":database,"command":command,"seconds":seconds,"state":state,"info":info})
+     }).collect::<Vec<_>>()
+   };
    if !is_pg(&c.engine)&&!is_mssql(&c.engine){
      let current=rows_of(&execute_sql(c,"SELECT CONNECTION_ID() AS currentConnectionId",None,1).await.unwrap_or(json!({"rows":[]}))).first().and_then(|x|x.get("currentConnectionId")).map(|x|num(Some(x)));
      let lock_sql="SELECT ml.OBJECT_TYPE AS objectType,ml.OBJECT_SCHEMA AS schema,ml.OBJECT_NAME AS objectName,ml.LOCK_TYPE AS lockType,ml.LOCK_DURATION AS lockDuration,ml.LOCK_STATUS AS lockStatus,ml.OWNER_THREAD_ID AS ownerThreadId,th.PROCESSLIST_ID AS processId FROM performance_schema.metadata_locks ml LEFT JOIN performance_schema.threads th ON th.THREAD_ID=ml.OWNER_THREAD_ID ORDER BY ml.LOCK_STATUS DESC,ml.OBJECT_SCHEMA,ml.OBJECT_NAME";
