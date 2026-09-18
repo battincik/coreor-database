@@ -95,6 +95,8 @@ export interface DatabaseTable {
   storageMeasuredAt?: string | null;
   storageMeasurementSource?: 'innodb-tablespace' | 'information-schema' | null;
   storagePhysicalBytes?: number | null;
+  rowCountMeasuredAt?: string | null;
+  rowCountMeasurementSource?: 'exact-count' | 'metadata-estimate' | null;
 }
 
 export interface DatabaseCatalogItem {
@@ -112,6 +114,8 @@ export interface DatabaseCatalogItem {
   storageMeasuredAt?: string | null;
   storageMeasurementSource?: 'innodb-tablespace' | 'information-schema' | null;
   storagePhysicalBytes?: number | null;
+  rowCountMeasuredAt?: string | null;
+  rowCountMeasurementSource?: 'exact-count' | 'metadata-estimate' | null;
 }
 
 export type DatabaseObjectKind = 'table' | 'view' | 'procedure' | 'function' | 'trigger' | 'event';

@@ -248,7 +248,9 @@ function mergeMeasuredStorage(previous: DatabaseCatalogItem | undefined, incomin
       freeSizeMB: measured.freeSizeMB,
       storageMeasuredAt: measured.storageMeasuredAt,
       storageMeasurementSource: measured.storageMeasurementSource,
-      storagePhysicalBytes: measured.storagePhysicalBytes
+      storagePhysicalBytes: measured.storagePhysicalBytes,
+      rowCountMeasuredAt: measured.rowCountMeasuredAt,
+      rowCountMeasurementSource: measured.rowCountMeasurementSource
     };
   });
 
@@ -261,6 +263,8 @@ function mergeMeasuredStorage(previous: DatabaseCatalogItem | undefined, incomin
     merged.storageMeasuredAt = previous.storageMeasuredAt;
     merged.storageMeasurementSource = previous.storageMeasurementSource;
     merged.storagePhysicalBytes = previous.storagePhysicalBytes;
+    merged.rowCountMeasuredAt = previous.rowCountMeasuredAt;
+    merged.rowCountMeasurementSource = previous.rowCountMeasurementSource;
   }
   return merged;
 }

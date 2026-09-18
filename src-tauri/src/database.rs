@@ -662,7 +662,7 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
         if let Some(table)=table {
             let table_literal=literal(&json!(table),&c.engine);
             (format!(
-                "SELECT COALESCE(pg_relation_size(c.oid),0)::bigint AS \"dataBytes\",COALESCE(GREATEST(pg_total_relation_size(c.oid)-pg_relation_size(c.oid),0),0)::bigint AS \"indexBytes\",0::bigint AS \"freeBytes\",COALESCE(pg_total_relation_size(c.oid),0)::bigint AS \"totalBytes\",GREATEST(c.reltuples,0)::bigint AS \"rows\",1::bigint AS \"objectCount\" FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relname={} AND c.relkind IN ('r','p','m') AND n.nspname NOT IN ('pg_catalog','information_schema') ORDER BY CASE WHEN n.nspname=ANY(current_schemas(false)) THEN 0 ELSE 1 END,n.nspname LIMIT 1",
+                "SELECT n.nspname AS \"schemaName\",COALESCE(pg_relation_size(c.oid),0)::bigint AS \"dataBytes\",COALESCE(GREATEST(pg_total_relation_size(c.oid)-pg_relation_size(c.oid),0),0)::bigint AS \"indexBytes\",0::bigint AS \"freeBytes\",COALESCE(pg_total_relation_size(c.oid),0)::bigint AS \"totalBytes\",GREATEST(c.reltuples,0)::bigint AS \"rows\",1::bigint AS \"objectCount\" FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relname={} AND c.relkind IN ('r','p','m') AND n.nspname NOT IN ('pg_catalog','information_schema') ORDER BY CASE WHEN n.nspname=ANY(current_schemas(false)) THEN 0 ELSE 1 END,n.nspname LIMIT 1",
                 table_literal
             ),Some(db))
         }else{
@@ -672,7 +672,7 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
         if let Some(table)=table {
             let table_literal=literal(&json!(table),&c.engine);
             (format!(
-                "WITH target AS (SELECT TOP (1) t.object_id FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE t.name={} ORDER BY CASE WHEN s.name='dbo' THEN 0 ELSE 1 END,s.name) SELECT COALESCE(SUM(ps.in_row_data_page_count+ps.lob_used_page_count+ps.row_overflow_used_page_count),0)*8192 AS dataBytes,(COALESCE(SUM(ps.reserved_page_count),0)-COALESCE(SUM(ps.in_row_data_page_count+ps.lob_used_page_count+ps.row_overflow_used_page_count),0))*8192 AS indexBytes,0 AS freeBytes,COALESCE(SUM(ps.reserved_page_count),0)*8192 AS totalBytes,COALESCE(SUM(CASE WHEN ps.index_id IN (0,1) THEN ps.row_count ELSE 0 END),0) AS [rows],CASE WHEN EXISTS(SELECT 1 FROM target) THEN 1 ELSE 0 END AS objectCount FROM sys.dm_db_partition_stats ps WHERE ps.object_id=(SELECT object_id FROM target)",
+                "WITH target AS (SELECT TOP (1) t.object_id,s.name AS schemaName FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE t.name={} ORDER BY CASE WHEN s.name='dbo' THEN 0 ELSE 1 END,s.name) SELECT t.schemaName AS schemaName,COALESCE(SUM(ps.in_row_data_page_count+ps.lob_used_page_count+ps.row_overflow_used_page_count),0)*8192 AS dataBytes,(COALESCE(SUM(ps.reserved_page_count),0)-COALESCE(SUM(ps.in_row_data_page_count+ps.lob_used_page_count+ps.row_overflow_used_page_count),0))*8192 AS indexBytes,0 AS freeBytes,COALESCE(SUM(ps.reserved_page_count),0)*8192 AS totalBytes,COALESCE(SUM(CASE WHEN ps.index_id IN (0,1) THEN ps.row_count ELSE 0 END),0) AS [rows],1 AS objectCount FROM target t LEFT JOIN sys.dm_db_partition_stats ps ON ps.object_id=t.object_id GROUP BY t.schemaName",
                 table_literal
             ),Some(db))
         }else{
@@ -740,6 +740,31 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
             }
         }
     }
+    if scope=="table" {
+        let table_name=table.ok_or_else(||"Tablo adı eksik.".to_string())?;
+        let exact_sql=if is_pg(&c.engine){
+            let schema=row.get("schemaName").and_then(text_value)
+                .ok_or_else(||"PostgreSQL tablo şeması çözümlenemedi.".to_string())?;
+            format!("SELECT COUNT(*)::bigint AS \"exactRows\" FROM {}.{}",ident(&schema,&c.engine)?,ident(table_name,&c.engine)?)
+        }else if is_mssql(&c.engine){
+            let schema=row.get("schemaName").and_then(text_value)
+                .ok_or_else(||"MSSQL tablo şeması çözümlenemedi.".to_string())?;
+            format!("SELECT COUNT_BIG(*) AS exactRows FROM {}.{}",ident(&schema,&c.engine)?,ident(table_name,&c.engine)?)
+        }else{
+            format!("SELECT CAST(COUNT(*) AS CHAR) AS exactRows FROM {}",qualified(db,table_name,&c.engine)?)
+        };
+        let exact_target=if is_pg(&c.engine)||is_mssql(&c.engine){Some(db)}else{None};
+        let exact_result=execute_sql(c,&exact_sql,exact_target,1).await
+            .map_err(|error|format!("Tablo satır sayısı kesin olarak hesaplanamadı: {}",error))?;
+        let exact_rows=rows_of(&exact_result).into_iter().next()
+            .map(|value|num(value.get("exactRows")))
+            .ok_or_else(||"COUNT(*) satır sayısı sonucu dönmedi.".to_string())?;
+        if let Some(object)=row.as_object_mut(){
+            object.insert("rows".into(),json!(exact_rows));
+            object.insert("rowCountSource".into(),json!("exact-count"));
+        }
+    }
+
     Ok(json!({
         "scope":scope,
         "database":db,
@@ -750,6 +775,7 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
         "totalBytes":num(row.get("totalBytes")),
         "physicalBytes":row.get("physicalBytes").map(|value|num(Some(value))),
         "measurementSource":row.get("measurementSource").and_then(Value::as_str),
+        "rowCountSource":row.get("rowCountSource").and_then(Value::as_str),
         "rows":row.get("rows").and_then(|value|if value.is_null(){None}else{Some(num(Some(value)))}),
         "sampledAt":Utc::now().to_rfc3339()
     }))

@@ -169,7 +169,9 @@ async function persistStorageRecalculations(serverId: string, results: DatabaseS
             sizeMB: bytesToMb(result.totalBytes),
             storageMeasuredAt: result.sampledAt,
             storageMeasurementSource: result.measurementSource ?? null,
-            storagePhysicalBytes: result.physicalBytes ?? null
+            storagePhysicalBytes: result.physicalBytes ?? null,
+            rowCountMeasuredAt: result.sampledAt,
+            rowCountMeasurementSource: result.rowCountSource ?? 'metadata-estimate'
           };
         });
 
@@ -183,7 +185,9 @@ async function persistStorageRecalculations(serverId: string, results: DatabaseS
             totalSizeMB: bytesToMb(databaseResult.totalBytes),
             storageMeasuredAt: databaseResult.sampledAt,
             storageMeasurementSource: databaseResult.measurementSource ?? null,
-            storagePhysicalBytes: databaseResult.physicalBytes ?? null
+            storagePhysicalBytes: databaseResult.physicalBytes ?? null,
+            rowCountMeasuredAt: databaseResult.sampledAt,
+            rowCountMeasurementSource: databaseResult.rowCountSource ?? 'metadata-estimate'
           };
         }
 
@@ -251,8 +255,21 @@ export async function recalculateDatabaseStorage(serverId: string, database: str
     false
   );
 
-  await persistStorageRecalculations(serverId, [databaseResult, ...tableResults]);
-  return { ...databaseResult, tableResults, failedTables };
+  const hasCompleteExactCounts =
+    failedTables.length === 0 &&
+    tables.length === tableResults.length &&
+    tableResults.every(result => result.rowCountSource === 'exact-count' && result.rows !== null);
+  const exactTotalRows = hasCompleteExactCounts
+    ? tableResults.reduce((sum, result) => sum + Number(result.rows || 0), 0)
+    : databaseResult.rows;
+  const normalizedDatabaseResult: DatabaseStorageRecalculation = {
+    ...databaseResult,
+    rows: exactTotalRows,
+    rowCountSource: hasCompleteExactCounts ? 'exact-count' : 'metadata-estimate'
+  };
+
+  await persistStorageRecalculations(serverId, [normalizedDatabaseResult, ...tableResults]);
+  return { ...normalizedDatabaseResult, tableResults, failedTables };
 }
 
 export async function recalculateTableStorage(serverId: string, database: string, table: string, accountId?: string | null) {

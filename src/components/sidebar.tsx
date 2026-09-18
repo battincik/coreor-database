@@ -506,7 +506,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         persistent: false,
         variant: 'success',
         title: 'Veritabanı boyutu güncellendi',
-        description: `${database} • ${compactBytes(result.totalBytes) || '0 B'} • ${result.tableResults?.length || 0} tablo güncellendi${result.failedTables?.length ? ` • ${result.failedTables.length} tablo ölçülemedi` : ''}${result.measurementSource === 'innodb-tablespace' ? ' • fiziksel InnoDB' : ''}`,
+        description: `${database} • ${compactBytes(result.totalBytes) || '0 B'} • ${result.tableResults?.length || 0} tablo • ${result.rowCountSource === 'exact-count' ? 'satırlar kesin sayıldı' : 'satırlar metadata tahmini'}${result.failedTables?.length ? ` • ${result.failedTables.length} tablo ölçülemedi` : ''}${result.measurementSource === 'innodb-tablespace' ? ' • fiziksel InnoDB' : ''}`,
         duration: result.failedTables?.length ? 5000 : 3500
       });
     } catch (error) {
@@ -550,7 +550,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         persistent: false,
         variant: 'success',
         title: 'Tablo boyutu güncellendi',
-        description: `${table} • ${compactBytes(result.totalBytes) || '0 B'}${result.measurementSource === 'innodb-tablespace' ? ' • fiziksel InnoDB' : ''}`,
+        description: `${table} • ${compactBytes(result.totalBytes) || '0 B'} • ${Number(result.rows || 0).toLocaleString('tr-TR')} satır${result.rowCountSource === 'exact-count' ? ' • kesin' : ''}${result.measurementSource === 'innodb-tablespace' ? ' • fiziksel InnoDB' : ''}`,
         duration: 3500
       });
     } catch (error) {
