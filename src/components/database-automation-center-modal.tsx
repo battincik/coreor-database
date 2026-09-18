@@ -32,6 +32,7 @@ import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-se
 import { CoreorSwitch } from '@/components/ui/coreor-switch';
 import { SqlCode } from '@/components/ui/sql-syntax';
 import { executeDatabaseQuery } from '@/lib/databaseApi';
+import { detectPlatform, shortcutLabel, type ShortcutId } from '@/lib/shortcuts';
 import {
   approvalRequests,
   automationId,
@@ -73,35 +74,21 @@ const TABS: Array<{ id: AutomationCenterTab; label: string; icon: React.Componen
   { id: 'shortcuts', label: 'Kısayollar', icon: KeyRound }
 ];
 
-const SHORTCUT_DEFAULTS = [
-  ['commandPalette', 'Komut paleti', 'Ctrl+K'],
-  ['runQuery', 'Sorguyu çalıştır', 'Ctrl+Enter'],
-  ['formatSql', 'SQL biçimlendir', 'Shift+Alt+F'],
-  ['newQuery', 'Yeni sorgu sekmesi', 'Ctrl+N'],
-  ['refreshCatalog', 'Kataloğu yenile', 'Ctrl+R'],
-  ['openBackups', 'Yedekleme merkezi', 'Ctrl+Shift+B'],
-  ['openAutomation', 'Operasyon merkezi', 'Ctrl+Shift+O']
-] as const;
-
-function readShortcuts() {
-  if (typeof window === 'undefined') return Object.fromEntries(SHORTCUT_DEFAULTS.map(([id, , value]) => [id, value]));
-  try { return { ...Object.fromEntries(SHORTCUT_DEFAULTS.map(([id, , value]) => [id, value])), ...JSON.parse(localStorage.getItem('coreor:keyboard-shortcuts:v1') || '{}') }; }
-  catch { return Object.fromEntries(SHORTCUT_DEFAULTS.map(([id, , value]) => [id, value])); }
-}
-
-function saveShortcuts(value: Record<string, string>) {
-  localStorage.setItem('coreor:keyboard-shortcuts:v1', JSON.stringify(value));
-  window.dispatchEvent(new CustomEvent('coreor:keyboard-shortcuts-changed', { detail: value }));
-}
-
-function downloadText(filename: string, content: string) {
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url);
-}
-
-function splitCsv(value: string) { return value.split(',').map(item => item.trim()).filter(Boolean); }
-function resultColumns(result: QueryExecutionResult | null) { return result?.fields?.map(field => field.name) || Object.keys(result?.rows?.[0] || {}); }
+const SHORTCUT_REFERENCE: Array<[ShortcutId, string]> = [
+  ['commandPalette', 'Komut paleti'],
+  ['runQuery', 'Sorguyu çalıştır'],
+  ['formatSql', 'SQL biçimlendir'],
+  ['newQuery', 'Yeni sorgu sekmesi'],
+  ['refresh', 'Aktif görünümü yenile'],
+  ['insertRow', 'Satır ekle'],
+  ['settings', 'Ayarlar'],
+  ['find', 'Object Explorer ara'],
+  ['closeTab', 'Sorgu sekmesini kapat'],
+  ['duplicateTab', 'Sorgu sekmesini çoğalt'],
+  ['language', 'Dil seçici'],
+  ['backupCenter', 'Yedekleme merkezi'],
+  ['automationCenter', 'Operasyon merkezi']
+];
 
 export function DatabaseAutomationCenterModal({ open, onClose, initialTab = 'history', servers, activeServerId, accountId, selectedDatabase, selectedTable }: DatabaseAutomationCenterModalProps) {
   const [tab, setTab] = useState<AutomationCenterTab>(initialTab);
@@ -131,9 +118,7 @@ export function DatabaseAutomationCenterModal({ open, onClose, initialTab = 'his
   const [comparison, setComparison] = useState<{ onlyLeft: number; onlyRight: number; changed: number; sample: unknown[] } | null>(null);
   const [maskColumns, setMaskColumns] = useState('email:email,phone:phone,tc:tc,address:address');
   const [maskPreview, setMaskPreview] = useState<Record<string, unknown>[]>([]);
-  const [shortcuts, setShortcuts] = useState<Record<string, string>>({});
-
-  useEffect(() => { if (open) { setTab(initialTab); setServerId(activeServerId || ''); setDatabaseName(selectedDatabase || ''); setTableName(selectedTable || ''); setShortcuts(readShortcuts()); } }, [open, initialTab, activeServerId, selectedDatabase, selectedTable]);
+  useEffect(() => { if (open) { setTab(initialTab); setServerId(activeServerId || ''); setDatabaseName(selectedDatabase || ''); setTableName(selectedTable || ''); } }, [open, initialTab, activeServerId, selectedDatabase, selectedTable]);
   useEffect(() => { if (!open) return; const handler = () => setRevision(value => value + 1); window.addEventListener('coreor:automation-store-changed', handler); return () => window.removeEventListener('coreor:automation-store-changed', handler); }, [open]);
 
   const server = servers.find(item => item.id === serverId) || null;
@@ -229,7 +214,7 @@ export function DatabaseAutomationCenterModal({ open, onClose, initialTab = 'his
 
     if (tab === 'masking') return <div className="space-y-4">{commonTarget}<div className="rounded-xl border border-zinc-800 p-4"><div className="mb-2 text-xs font-semibold">Kolon:maske kuralları</div><Input value={maskColumns} onChange={event=>setMaskColumns(event.target.value)} placeholder="email:email,phone:phone"/><Button className="mt-3" onClick={()=>void previewMasking()} disabled={busy||!tableName}><Wand2 className="mr-2 h-4 w-4"/>Ön izleme</Button></div>{maskPreview.length>0&&<div className="overflow-auto rounded-xl border border-zinc-800"><pre className="p-4 font-mono text-[9px]">{JSON.stringify(maskPreview,null,2)}</pre></div>}</div>;
 
-    return <div className="space-y-4"><div className="rounded-xl border border-zinc-800 p-4 text-[11px] leading-5 text-zinc-400">Kısayollar tarayıcıda yerel olarak saklanır. Aynı kombinasyon iki işleme atanırsa son eşleşen işlem çalışır.</div><div className="space-y-2">{SHORTCUT_DEFAULTS.map(([id,label])=><div key={id} className="flex items-center gap-4 rounded-xl border border-zinc-800 p-3"><div className="min-w-0 flex-1 text-xs font-medium">{label}</div><Input value={shortcuts[id]||''} onChange={event=>setShortcuts(previous=>({...previous,[id]:event.target.value}))} className="w-44 font-mono"/></div>)}</div><div className="flex gap-2"><Button onClick={()=>{saveShortcuts(shortcuts);setMessage('Kısayollar kaydedildi.');}}><Save className="mr-2 h-4 w-4"/>Kaydet</Button><Button variant="outline" onClick={()=>{const defaults=Object.fromEntries(SHORTCUT_DEFAULTS.map(([id,,value])=>[id,value]));setShortcuts(defaults);saveShortcuts(defaults);}}>Varsayılanlara dön</Button></div></div>;
+    return <div className="space-y-4"><div className="rounded-xl border border-cyan-500/15 bg-cyan-500/[0.04] p-4 text-[11px] leading-5 text-zinc-400">Kısayollar tek merkezi registry’den gelir ve platform otomatik algılanır. Aktif platform: <b className="text-cyan-300">{detectPlatform() === 'mac' ? 'macOS' : detectPlatform() === 'windows' ? 'Windows' : 'Linux'}</b>. Windows/Linux için Ctrl, macOS için ⌘ kullanılır.</div><div className="grid gap-2 md:grid-cols-2">{SHORTCUT_REFERENCE.map(([id,label])=><div key={id} className="flex items-center gap-4 rounded-xl border border-zinc-800 p-3"><div className="min-w-0 flex-1 text-xs font-medium">{label}</div><kbd className="rounded-lg border border-zinc-700 bg-black/30 px-2 py-1 font-mono text-[10px] text-cyan-300">{shortcutLabel(id)}</kbd></div>)}</div></div>;
   };
 
   return createPortal(<div className="fixed inset-0 z-[345] flex items-center justify-center p-4"><button className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}/><div className="relative z-10 flex h-[min(900px,95vh)] w-[min(1460px,98vw)] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl"><aside className="w-64 shrink-0 border-r border-zinc-800 bg-black/20 p-2"><div className="p-3"><div className="text-sm font-semibold">Operasyon Merkezi</div><div className="mt-1 text-[9px] text-zinc-600">Coreor Database 2.1.1</div></div>{TABS.map(item=>{const Icon=item.icon;return <button key={item.id} onClick={()=>{setTab(item.id);setMessage(null);setError(null);}} className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[11px] ${tab===item.id?'bg-cyan-500/10 text-cyan-100':'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200'}`}><Icon className="h-4 w-4"/>{item.label}</button>})}</aside><main className="flex min-w-0 flex-1 flex-col"><header className="flex h-12 shrink-0 items-center border-b border-zinc-800 px-4"><div className="text-sm font-semibold">{TABS.find(item=>item.id===tab)?.label}</div><Button variant="ghost" size="icon" className="ml-auto" onClick={onClose}><X className="h-4 w-4"/></Button></header>{message&&<div className="border-b border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-2 text-[10px] text-emerald-300"><CheckCircle2 className="mr-2 inline h-3.5 w-3.5"/>{message}</div>}{error&&<div className="border-b border-red-500/20 bg-red-500/[0.06] px-4 py-2 text-[10px] text-red-300">{error}</div>}<div className="min-h-0 flex-1 overflow-y-auto p-5">{renderTab()}</div></main></div></div>,document.body);
