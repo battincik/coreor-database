@@ -313,7 +313,7 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
                 let data=num(table_object.get("dataLength").or_else(||table_object.get("DATA_LENGTH")));
                 let index=num(table_object.get("indexLength").or_else(||table_object.get("INDEX_LENGTH")));
                 total_rows+=rows; data_bytes+=data; index_bytes+=index;
-                names.push(json!(table_name));
+                names.push(json!(table_name.clone()));
                 details.push(json!({
                     "tableName":table_name,
                     "tableType":table_object.get("tableType").or_else(||table_object.get("TABLE_TYPE")).cloned().unwrap_or(json!("BASE TABLE")),
