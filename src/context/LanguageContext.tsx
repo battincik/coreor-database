@@ -122,7 +122,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
 
   const currentLanguage = useMemo(
-    () => SUPPORTED_LANGUAGES.find(item => item.code === language) ?? SUPPORTED_LANGUAGES[0],
+    () => SUPPORTED_LANGUAGES.find(item => item.code === language) ?? SUPPORTED_LANGUAGES.find(item => item.code === DEFAULT_LOCALE) ?? SUPPORTED_LANGUAGES[0],
     [language]
   );
   const translations = useMemo<TranslationDictionary>(() => LANGUAGE_DICTIONARIES[language], [language]);

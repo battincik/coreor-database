@@ -15,18 +15,18 @@ import tr from '@/locales/tr.json';
 import zhCN from '@/locales/zh-CN.json';
 
 export const LOCALE_MODULES = {
-  ar,
-  de,
-  en,
-  es,
-  fr,
-  hi,
-  ja,
-  ko,
-  'pt-BR': ptBR,
-  ru,
-  tr,
-  'zh-CN': zhCN
+  "ar": ar,
+  "de": de,
+  "en": en,
+  "es": es,
+  "fr": fr,
+  "hi": hi,
+  "ja": ja,
+  "ko": ko,
+  "pt-BR": ptBR,
+  "ru": ru,
+  "tr": tr,
+  "zh-CN": zhCN
 } as const;
 
 export type LocaleCode = keyof typeof LOCALE_MODULES;
