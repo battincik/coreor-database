@@ -30,7 +30,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Account identity is intentionally independent from the local database workspace.
-  // A future OAuth/Coreor-account adapter only needs to call applySession().
+  // The Coreor Account API adapter only needs to call applySession(); local DB access remains independent.
   const [session, setSession] = useState<CoreorAuthSession | null>(null);
   const value = useMemo<AuthContextValue>(() => ({
     status: session ? 'authenticated' : 'guest',
