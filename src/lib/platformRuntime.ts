@@ -31,7 +31,7 @@ function normalizeOs(value: string): DesktopPlatform {
   return 'unknown';
 }
 
-function browserFallback(): NativePlatformInfo {
+function webviewFallback(): NativePlatformInfo {
   if (typeof navigator === 'undefined') {
     return { os: 'unknown', arch: 'unknown', family: 'unknown', appVersion: '—', configDir: '', dataDir: '', cacheDir: '', logDir: '' };
   }
@@ -41,7 +41,8 @@ function browserFallback(): NativePlatformInfo {
 }
 
 export function getNativePlatformSnapshot() {
-  return snapshot || browserFallback();
+  if (!snapshot) snapshot = webviewFallback();
+  return snapshot;
 }
 
 export function subscribeNativePlatform(listener: () => void) {
@@ -60,7 +61,7 @@ export async function loadNativePlatformInfo() {
       return snapshot;
     })
     .catch(() => {
-      snapshot = browserFallback();
+      snapshot = webviewFallback();
       if (typeof document !== 'undefined') document.documentElement.dataset.coreorPlatform = String(snapshot.os);
       emit();
       return snapshot;
