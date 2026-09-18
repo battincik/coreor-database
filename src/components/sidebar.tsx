@@ -247,7 +247,8 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
 
   const searchAll = searchTypes.has('all');
   const searchTypeEnabled = (type: ObjectSearchType) => searchAll || searchTypes.has(type);
-  const advancedTypeSelected = searchAll || ['view', 'procedure', 'function', 'trigger', 'event'].some(type => searchTypes.has(type as ObjectSearchType));
+  const advancedTypeSelected = !searchAll && ['view', 'procedure', 'function', 'trigger', 'event'].some(type => searchTypes.has(type as ObjectSearchType));
+  const objectFilterActive = Boolean(normalizedSearch) || !searchAll;
 
   useEffect(() => {
     if (!workspaceKey || (normalizedSearch.length < 2 && !advancedTypeSelected)) return;
@@ -632,6 +633,24 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     ], `${database} • ${label}`);
   };
 
+  const toggleSearchType = (type: ObjectSearchType) => {
+    setSearchTypes(previous => {
+      if (type === 'all') return new Set<ObjectSearchType>(['all']);
+      const next = new Set<ObjectSearchType>(previous);
+      next.delete('all');
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      if (!next.size) next.add('all');
+      return next;
+    });
+  };
+
+  const activeSearchTypeLabel = searchAll
+    ? 'Hepsi'
+    : searchTypes.size === 1
+      ? OBJECT_SEARCH_TYPES.find(item => searchTypes.has(item.value))?.label || 'Filtre'
+      : `${searchTypes.size} tür`;
+
   return (
     <aside className="flex h-full min-h-0 w-full flex-col border-r border-zinc-800 bg-zinc-950/96">
       <header className="shrink-0 border-b border-zinc-800 p-2">
@@ -659,18 +678,36 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
             <RefreshCw className={`h-3.5 w-3.5 ${isServersLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
-        <div className="relative mt-2">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" />
-          <Input ref={searchRef} value={search} onChange={event => setSearch(event.target.value)} className="h-8 rounded-xl border-zinc-800 bg-black/30 pl-8 pr-8 text-[10px]" placeholder="Sunucu, DB, tablo, view, routine, trigger ara…" />
-          {search && (
-            <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600" onClick={() => setSearch('')}>
-              <X className="h-3.5 w-3.5" />
+        <div ref={searchFilterRef} className="relative mt-2">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" />
+          <Input ref={searchRef} value={search} onChange={event => setSearch(event.target.value)} className="h-8 rounded-xl border-zinc-800 bg-black/30 pl-8 pr-[7.3rem] text-[10px]" placeholder="Nesne ara…" />
+          <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+            {search && <button type="button" className="flex h-6 w-6 items-center justify-center rounded-md text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" title="Aramayı temizle" onClick={() => setSearch('')}><X className="h-3 w-3" /></button>}
+            <button type="button" aria-expanded={searchFilterOpen} className={`flex h-6 max-w-24 items-center gap-1.5 rounded-lg border px-2 text-[8px] font-medium transition ${searchAll ? 'border-zinc-800 bg-zinc-900/80 text-zinc-500 hover:text-zinc-300' : 'border-cyan-500/25 bg-cyan-500/10 text-cyan-300'}`} onClick={() => setSearchFilterOpen(previous => !previous)} title="Arama türlerini filtrele">
+              <ListFilter className="h-3 w-3 shrink-0" />
+              <span className="truncate">{activeSearchTypeLabel}</span>
+              <ChevronDown className={`h-2.5 w-2.5 shrink-0 transition-transform ${searchFilterOpen ? 'rotate-180' : ''}`} />
             </button>
+          </div>
+          {searchFilterOpen && (
+            <div className="absolute right-0 top-[calc(100%+6px)] z-[350] w-56 overflow-hidden rounded-xl border border-zinc-700/90 bg-zinc-950/98 p-1.5 shadow-[0_18px_55px_rgba(0,0,0,.68)] backdrop-blur-xl">
+              <div className="mb-1 px-2 py-1 text-[8px] font-medium uppercase tracking-wider text-zinc-600">Arama kapsamı</div>
+              {OBJECT_SEARCH_TYPES.map(option => {
+                const Icon = option.icon;
+                const checked = searchAll || searchTypes.has(option.value);
+                return <button key={option.value} type="button" className={`flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[9px] transition ${checked ? 'bg-white/[0.045] text-zinc-200' : 'text-zinc-500 hover:bg-white/[0.025] hover:text-zinc-300'}`} onClick={() => toggleSearchType(option.value)}>
+                  <span className={`flex h-5 w-5 items-center justify-center rounded-md bg-white/[0.025] ${option.color}`}><Icon className="h-3 w-3" /></span>
+                  <span className="min-w-0 flex-1">{option.label}</span>
+                  <span className={`flex h-4 w-4 items-center justify-center rounded border ${checked ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300' : 'border-zinc-800 text-transparent'}`}><Check className="h-2.5 w-2.5" /></span>
+                </button>;
+              })}
+              <div className="mt-1 border-t border-zinc-800 px-2 pt-1.5 text-[7px] leading-4 text-zinc-700">Hepsi seçiliyken tüm nesne türleri aranır. Tür seçerek tekli veya çoklu filtre oluşturabilirsiniz.</div>
+            </div>
           )}
         </div>
       </header>
 
-      <div className="coreor-scroll-frame min-h-0 flex-1 overflow-auto p-1.5">
+      <div className="coreor-sidebar-scroll min-h-0 flex-1 overflow-auto p-1.5">
         {isServersLoading && !servers.length ? (
           <div className="flex h-32 items-center justify-center gap-2 text-[10px] text-zinc-600">
             <Activity className="h-3.5 w-3.5 animate-spin" />
@@ -679,11 +716,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         ) : !filteredServers.length ? (
           <div className="p-6 text-center">
             <Server className="mx-auto h-7 w-7 text-zinc-700" />
-            <div className="mt-3 text-[10px] text-zinc-500">{search ? 'Aramayla eşleşen kayıt yok.' : 'Henüz sunucu eklenmedi.'}</div>
+            <div className="mt-3 text-[10px] text-zinc-500">{objectFilterActive ? 'Arama veya tür filtresiyle eşleşen kayıt yok.' : 'Henüz sunucu eklenmedi.'}</div>
           </div>
         ) : (
           filteredServers.map(server => {
-            const serverOpen = expandedServers.has(server.id) || Boolean(search);
+            const serverOpen = expandedServers.has(server.id) || objectFilterActive;
             const active = activeServerId === server.id;
             return (
               <section key={server.id} className="mb-1 overflow-hidden rounded-xl border border-transparent hover:border-zinc-800/70">
@@ -704,7 +741,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                   <div className="ml-4 border-l border-zinc-800 pl-1.5">
                     {(server.databases || []).map(database => {
                       const databaseKey = `${server.id}:${database.name}`;
-                      const databaseOpen = expandedDatabases.has(databaseKey) || Boolean(search);
+                      const databaseOpen = expandedDatabases.has(databaseKey) || objectFilterActive;
                       const selected = active && selectedDatabase === database.name;
                       return (
                         <div key={database.name}>
@@ -743,7 +780,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                                   const GroupIcon = group.icon;
                                   const items = visibleObjects.filter(object => object.kind === group.kind);
                                   const groupKey = `${key}:${group.kind}`;
-                                  const groupOpen = expandedObjectGroups.has(groupKey) || Boolean(search);
+                                  const groupOpen = expandedObjectGroups.has(groupKey) || objectFilterActive;
                                   return (
                                     <div key={group.kind}>
                                       <div className="group flex h-7 items-center gap-1 rounded hover:bg-white/[0.02]" onContextMenu={event => objectGroupMenu(event, server, database.name, group.kind)}>
