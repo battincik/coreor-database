@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { KeyRound, Loader2, Plus, RefreshCw, Save, Shield, Trash2, UserCog, Users, X } from 'lucide-react';
+import { Copy, KeyRound, Loader2, Plus, RefreshCw, Save, Shield, Trash2, UserCog, Users, X } from 'lucide-react';
 import type { DatabaseCatalogItem } from 'types';
 import type { DatabaseAccountInfo, DatabasePrivilegeScope } from '@/lib/databaseWorkbenchTypes';
 import { DATABASE_PRIVILEGES } from '@/lib/databaseWorkbenchTypes';
@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CoreorConfirmModal, type CoreorConfirmation } from '@/components/ui/coreor-confirm-modal';
+import { useAppContextMenu } from '@/components/app-context-menu';
 
 const controlClass = 'h-8 rounded border border-zinc-800 bg-zinc-950 px-2 text-xs text-zinc-200 outline-none focus:border-cyan-500/60';
 
@@ -35,6 +36,7 @@ function accountKey(account: Pick<DatabaseAccountInfo, 'user' | 'host'>) {
 }
 
 export function DatabaseUserManagerModal({ open, onClose, serverId, accountId, databases }: DatabaseUserManagerModalProps) {
+  const { openContextMenu } = useAppContextMenu();
   const [users, setUsers] = useState<DatabaseAccountInfo[]>([]);
   const [roles, setRoles] = useState<DatabaseAccountInfo[]>([]);
   const [assignments, setAssignments] = useState<Array<{ roleUser: string; roleHost: string; user: string; host: string; isDefault: boolean }>>([]);
@@ -103,9 +105,8 @@ export function DatabaseUserManagerModal({ open, onClose, serverId, accountId, d
     }, accountId), selected ? 'Kullanıcı güncellendi.' : 'Kullanıcı oluşturuldu.');
   };
 
-  const removeUser = () => {
-    if (!selected || !serverId || !accountId) return;
-    const target = selected;
+  const requestRemoveUser = (target: DatabaseAccountInfo) => {
+    if (!serverId || !accountId) return;
     setConfirmation({
       title: 'Veritabanı kullanıcısını sil',
       description: `${target.user}@${target.host} hesabı veritabanı sunucusundan kalıcı olarak kaldırılacak. Bu işlem oturum ve yetkileri etkileyebilir.`,
@@ -113,10 +114,19 @@ export function DatabaseUserManagerModal({ open, onClose, serverId, accountId, d
       tone: 'danger',
       onConfirm: async () => {
         await run(() => dropDatabaseUser(serverId, target.user, target.host, accountId), 'Kullanıcı silindi.');
-        setSelected(null);
+        if (selected && accountKey(selected) === accountKey(target)) setSelected(null);
       }
     });
   };
+  const removeUser = () => { if (selected) requestRemoveUser(selected); };
+  const openUserMenu = (event: React.MouseEvent, user: DatabaseAccountInfo) => openContextMenu(event, [
+    { id: 'select', label: 'Kullanıcıyı aç', icon: UserCog, onSelect: () => setSelected(user) },
+    { id: 'copy-account', label: 'user@host kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(accountKey(user)) },
+    { id: 'copy-user', label: 'Kullanıcı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(user.user) },
+    { id: 'copy-host', label: 'Host’u kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(user.host) },
+    { id: 'sep-danger', separator: true },
+    { id: 'delete', label: 'Kullanıcıyı sil', icon: Trash2, danger: true, disabled: busy, onSelect: () => requestRemoveUser(user) }
+  ], accountKey(user));
 
   const changePrivilege = (mode: 'grant' | 'revoke') => {
     if (!selected || !serverId || !accountId || privilegeDraft.privileges.length === 0) return;
@@ -150,7 +160,7 @@ export function DatabaseUserManagerModal({ open, onClose, serverId, accountId, d
         <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)]">
           <aside className="flex min-h-0 flex-col border-r border-zinc-800">
             <div className="space-y-2 border-b border-zinc-800 p-2"><div className="flex gap-1"><Input value={search} onChange={event => setSearch(event.target.value)} placeholder="Kullanıcı ara" className="h-8 text-xs" /><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => void load()}><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></Button></div><Button size="sm" variant="outline" className="h-8 w-full text-xs" onClick={newUser}><Plus className="mr-1.5 h-3.5 w-3.5" /> Yeni kullanıcı</Button></div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-1">{loading ? <div className="flex items-center gap-2 p-3 text-xs text-zinc-500"><Loader2 className="h-4 w-4 animate-spin" /> Yükleniyor</div> : filteredUsers.map(user => <button key={accountKey(user)} type="button" onClick={() => setSelected(user)} className={`mb-0.5 flex w-full items-center gap-2 rounded p-2 text-left ${selected && accountKey(selected) === accountKey(user) ? 'bg-cyan-500/10 text-cyan-200' : 'hover:bg-zinc-900'}`}><UserCog className="h-4 w-4 shrink-0 text-zinc-500" /><span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium">{user.user}</span><span className="block truncate text-[10px] text-zinc-600">@{user.host} • {user.plugin || 'varsayılan'}</span></span>{user.accountLocked && <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-300">kilitli</span>}</button>)}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-1">{loading ? <div className="flex items-center gap-2 p-3 text-xs text-zinc-500"><Loader2 className="h-4 w-4 animate-spin" /> Yükleniyor</div> : filteredUsers.map(user => <button key={accountKey(user)} type="button" onClick={() => setSelected(user)} onContextMenu={event => openUserMenu(event, user)} className={`mb-0.5 flex w-full items-center gap-2 rounded p-2 text-left ${selected && accountKey(selected) === accountKey(user) ? 'bg-cyan-500/10 text-cyan-200' : 'hover:bg-zinc-900'}`}><UserCog className="h-4 w-4 shrink-0 text-zinc-500" /><span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium">{user.user}</span><span className="block truncate text-[10px] text-zinc-600">@{user.host} • {user.plugin || 'varsayılan'}</span></span>{user.accountLocked && <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-300">kilitli</span>}</button>)}</div>
           </aside>
           <main className="min-h-0 overflow-hidden">
             <Tabs defaultValue="account" className="flex h-full min-h-0 flex-col">
