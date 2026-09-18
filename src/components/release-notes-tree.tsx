@@ -207,7 +207,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void load(false);
@@ -266,7 +266,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
     return (
       <div className={`flex min-h-72 items-center justify-center gap-2 rounded-2xl border border-zinc-800 bg-black/20 text-xs text-zinc-500 ${className}`}>
         <Loader2 className="h-4 w-4 animate-spin" />
-        Bütün pull requestler okunuyor…
+        Yerel sürüm geçmişi yükleniyor…
       </div>
     );
   if (error && !data)
@@ -295,7 +295,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
             <p className="mt-2 max-w-3xl text-[11px] leading-6 text-zinc-400">Her sürüm tek pull request ile ilerler. Bu nedenle sürüm ve PR artık aynı ağaç satırında gösterilir; satırı açtığınızda doğrudan o sürümün tüm ayrıntılarına ulaşırsınız.</p>
           </div>
           <Button variant="outline" size="sm" className="h-8 text-[10px]" disabled={loading} onClick={() => void load(true)}>
-            {loading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1.5 h-3.5 w-3.5" />}GitHub’dan yenile
+            {loading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1.5 h-3.5 w-3.5" />}Yenile
           </Button>
         </div>
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
