@@ -1,5 +1,11 @@
-import { redirect } from 'next/navigation';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { CoreorLoadingScreen } from '@/components/coreor-loading-screen';
 
 export default function HomePage() {
-  redirect('/editor');
+  const router = useRouter();
+  useEffect(() => { router.replace('/editor'); }, [router]);
+  return <CoreorLoadingScreen />;
 }
