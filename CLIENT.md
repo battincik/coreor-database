@@ -1,45 +1,38 @@
-# Coreor Database Desktop Client
+# Coreor Database Desktop
 
-Bu branch web/SaaS sürümünden ayrılan Tauri 2 masaüstü istemcisidir.
+Bu branch web servisi değil, Tauri 2 tabanlı yerel masaüstü istemcisidir.
 
 ## Mimari
 
-- Arayüz: mevcut Next.js/React arayüzü, static export.
-- Native katman: Tauri 2 + Rust.
-- Veritabanı trafiği: kullanıcının bilgisayarından doğrudan DB sunucusuna.
-- Uzak Coreor API gereksinimi yoktur.
-- GitHub OAuth / NextAuth desktop sürümünün çalışma koşulu değildir.
-- Ortam değişkenleri yerine yerel config kullanılır.
-- Config Windows'ta Tauri app config dizinindeki `config.json` dosyasındadır.
-- MySQL/MariaDB/TiDB ve PostgreSQL/CockroachDB native bridge'in ilk hedefidir. MSSQL adapter'ı Tauri katmanında ayrı sürücü üzerinden tamamlanacaktır.
+`Next.js static UI -> Tauri IPC -> Rust -> Database`
+
+OAuth, NextAuth, merkezi Coreor API'si ve uygulama sunucusu yoktur. Bağlantı profilleri ve uygulama ayarları işletim sisteminin uygulama config dizinindeki `config.json` dosyasında tutulur. DB bağlantıları kullanıcının bilgisayarından doğrudan açılır.
+
+## Motorlar
+
+- MySQL / MariaDB / TiDB: native sqlx
+- PostgreSQL / CockroachDB: native sqlx
+- MSSQL: Tiberius bağımlılığı hazır; native adapter feature-parity çalışması devam ediyor
+
+## Native action durumu
+
+Çalışan native omurga: connection test, query, catalog, table data, table info, row update/delete, process list/kill, user list, performance snapshot temel modeli ve export.
+
+Tam feature parity için halen transaction connection state, schema mutation builder, import batching, MySQL role/grant mutationları, ayrıntılı performance metrikleri, filtre/sort/count pagination ve MSSQL adapter tamamlanmalıdır.
 
 ## Geliştirme
 
-Gerekenler: Node.js 20+, Rust stable, Windows WebView2 ve Visual Studio C++ Build Tools.
-
-```bash
+```powershell
 npm install
 npm run tauri:dev
 ```
 
-Windows installer:
+## Windows build
 
-```bash
+```powershell
 npm run tauri:build
 ```
 
-## Local config
+Tauri `src-tauri/tauri.conf.json` üzerinden MSI ve NSIS hedefleri üretir.
 
-Config uygulama ilk açıldığında otomatik oluşturulur. Örnek:
-
-```json
-{
-  "version": 1,
-  "queryTimeoutMs": 30000,
-  "maxResultRows": 5000,
-  "maxPageSize": 500,
-  "connections": []
-}
-```
-
-Bu dosya kullanıcıya aittir ve Git repository'sine commit edilmez.
+> `package-lock.json` masaüstü bağımlılık dönüşümü nedeniyle branch üzerinde kaldırılmıştır. İlk `npm install` güncel lockfile oluşturur.
