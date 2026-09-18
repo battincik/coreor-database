@@ -23,6 +23,7 @@ import {
   ShieldAlert,
   Sparkles,
   UserCog,
+  Wrench,
   XCircle
 } from 'lucide-react';
 import { DatabaseContext } from '@/context/DatabaseContext';
@@ -31,6 +32,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { fetchServerTables, testStoredDatabaseConnection } from '@/lib/databaseApi';
 import {
   OPEN_IMPORT_EXPORT_EVENT,
+  OPEN_MAINTENANCE_CENTER_EVENT,
   OPEN_PERFORMANCE_PANEL_EVENT,
   OPEN_PROCESS_CENTER_EVENT,
   OPEN_SETTINGS_MODAL_EVENT,
@@ -39,6 +41,7 @@ import {
   OPEN_USER_MANAGER_EVENT,
   TOGGLE_COMMAND_PALETTE_EVENT,
   dispatchDatabaseTool,
+  type OpenMaintenanceCenterDetail,
   type OpenSettingsModalDetail
 } from '@/lib/databaseToolEvents';
 import { databaseEngineFamily, databaseEngineLabel } from '@/lib/databaseEngines';
@@ -55,6 +58,7 @@ const DatabaseSettingsModal = dynamic(() => import('@/components/database-settin
 const DatabaseTransactionWorkspaceModal = dynamic(() => import('@/components/database-transaction-workspace-modal').then(module => module.DatabaseTransactionWorkspaceModal), { ssr: false });
 const DatabaseAutomationCenterModal = dynamic(() => import('@/components/database-automation-center-modal').then(module => module.DatabaseAutomationCenterModal), { ssr: false });
 const DatabaseIntelligenceCenterModal = dynamic(() => import('@/components/database-intelligence-center-modal').then(module => module.DatabaseIntelligenceCenterModal), { ssr: false });
+const DatabaseMaintenanceModal = dynamic(() => import('@/components/database-maintenance-modal').then(module => module.DatabaseMaintenanceModal), { ssr: false });
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 import { shortcutLabel } from '@/lib/shortcuts';
 import { useNativePlatform } from '@/lib/platformRuntime';
@@ -83,6 +87,8 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
   const [automationTab, setAutomationTab] = useState<AutomationCenterTab>('history');
   const [intelligenceOpen, setIntelligenceOpen] = useState(false);
   const [intelligenceTab, setIntelligenceTab] = useState<IntelligenceCenterTab>('profiler');
+  const [maintenanceOpen, setMaintenanceOpen] = useState(false);
+  const [maintenanceContext, setMaintenanceContext] = useState<OpenMaintenanceCenterDetail>({});
 
   const serverOptions = useMemo<SearchSelectOption[]>(() => servers.map(server => ({
     value: server.id, label: server.name, description: `${server.host}:${server.port || 3306}`,
@@ -96,17 +102,23 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
     const openSettings = (event: Event) => { const detail = (event as CustomEvent<OpenSettingsModalDetail>).detail; setSettingsTab(detail?.tab || 'account'); setSettingsOpen(true); };
     const openAutomation = (event: Event) => { const detail = (event as CustomEvent<{ tab?: AutomationCenterTab }>).detail; setAutomationTab(detail?.tab || 'history'); setAutomationOpen(true); };
     const openIntelligence = (event: Event) => { const detail = (event as CustomEvent<{ tab?: IntelligenceCenterTab }>).detail; setIntelligenceTab(detail?.tab || 'profiler'); setIntelligenceOpen(true); };
+    const openMaintenance = (event: Event) => {
+      const detail = (event as CustomEvent<OpenMaintenanceCenterDetail>).detail || {};
+      if (detail.serverId) setActiveServerId(detail.serverId);
+      setMaintenanceContext(detail);
+      setMaintenanceOpen(true);
+    };
     window.addEventListener(OPEN_USER_MANAGER_EVENT, openUsers); window.addEventListener(OPEN_PROCESS_CENTER_EVENT, openProcesses);
     window.addEventListener(OPEN_IMPORT_EXPORT_EVENT, openTransfer); window.addEventListener(OPEN_PERFORMANCE_PANEL_EVENT, openPerformance);
     window.addEventListener(OPEN_SQL_NOTEBOOK_EVENT, openNotebook); window.addEventListener(OPEN_TRANSACTION_WORKSPACE_EVENT, openTransaction);
     window.addEventListener(OPEN_SETTINGS_MODAL_EVENT, openSettings); window.addEventListener('coreor:open-automation-center', openAutomation);
-    window.addEventListener('coreor:open-intelligence-center', openIntelligence);
+    window.addEventListener('coreor:open-intelligence-center', openIntelligence); window.addEventListener(OPEN_MAINTENANCE_CENTER_EVENT, openMaintenance);
     return () => {
       window.removeEventListener(OPEN_USER_MANAGER_EVENT, openUsers); window.removeEventListener(OPEN_PROCESS_CENTER_EVENT, openProcesses);
       window.removeEventListener(OPEN_IMPORT_EXPORT_EVENT, openTransfer); window.removeEventListener(OPEN_PERFORMANCE_PANEL_EVENT, openPerformance);
       window.removeEventListener(OPEN_SQL_NOTEBOOK_EVENT, openNotebook); window.removeEventListener(OPEN_TRANSACTION_WORKSPACE_EVENT, openTransaction);
       window.removeEventListener(OPEN_SETTINGS_MODAL_EVENT, openSettings); window.removeEventListener('coreor:open-automation-center', openAutomation);
-      window.removeEventListener('coreor:open-intelligence-center', openIntelligence);
+      window.removeEventListener('coreor:open-intelligence-center', openIntelligence); window.removeEventListener(OPEN_MAINTENANCE_CENTER_EVENT, openMaintenance);
     };
   }, []);
 
@@ -163,6 +175,7 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
       <button className={toolButton} disabled={!activeServer} onClick={() => openIntelligence('profiler')} title={t('tooltip.dataIntelligence')}><BrainCircuit className="h-3.5 w-3.5 text-fuchsia-400" />{t('topbar.dataIntelligence')}</button>
       <button className={toolButton} disabled={!activeServer} onClick={() => openAutomation('backups')} title={t('tooltip.backup')}><Archive className="h-3.5 w-3.5 text-emerald-400" />{t('topbar.backup')}</button>
       <button className={toolButton} disabled={!activeServer} onClick={() => openAutomation('history')} title={t('tooltip.operations')}><Sparkles className="h-3.5 w-3.5 text-cyan-400" />{t('topbar.operations')}</button>
+      <button className={toolButton} disabled={!activeServer} onClick={() => { setMaintenanceContext({ serverId: activeServerId, databaseName: selectedDatabase, tableName: selectedTable }); setMaintenanceOpen(true); }} title="Tablo ve veritabanı bakım merkezi"><Wrench className="h-3.5 w-3.5 text-sky-400" />Bakım</button>
       <button className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setTransactionOpen(true)}><ShieldAlert className="h-3.5 w-3.5 text-amber-400" />{t('topbar.transaction')}</button>
       <button className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setUsersOpen(true)}><UserCog className="h-3.5 w-3.5 text-purple-400" />{t('topbar.users')}</button>
       <button className={toolButton} disabled={!activeServer || !mysqlWorkbench} onClick={() => setProcessOpen(true)}><Activity className="h-3.5 w-3.5 text-amber-400" />{t('topbar.processes')}</button>
@@ -191,5 +204,13 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
     {transactionOpen && <DatabaseTransactionWorkspaceModal open={transactionOpen} onClose={() => setTransactionOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} selectedDatabase={selectedDatabase} />}
     {automationOpen && <DatabaseAutomationCenterModal open={automationOpen} onClose={() => setAutomationOpen(false)} initialTab={automationTab} servers={servers} activeServerId={activeServerId} accountId={workspaceKey} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />}
     {intelligenceOpen && <DatabaseIntelligenceCenterModal open={intelligenceOpen} onClose={() => setIntelligenceOpen(false)} initialTab={intelligenceTab} servers={servers} activeServerId={activeServerId} accountId={workspaceKey} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />}
+    {maintenanceOpen && <DatabaseMaintenanceModal
+      open={maintenanceOpen}
+      onClose={() => setMaintenanceOpen(false)}
+      server={servers.find(server => server.id === (maintenanceContext.serverId || activeServerId)) || activeServer}
+      accountId={workspaceKey}
+      initialDatabase={maintenanceContext.databaseName ?? selectedDatabase}
+      initialTable={maintenanceContext.tableName ?? selectedTable}
+    />}
   </>;
 }

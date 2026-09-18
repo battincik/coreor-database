@@ -8,6 +8,13 @@ export const OPEN_IMPORT_EXPORT_EVENT = 'coreor:open-import-export';
 export const OPEN_SQL_NOTEBOOK_EVENT = 'coreor:open-sql-notebook';
 export const OPEN_SETTINGS_MODAL_EVENT = 'coreor:open-settings-modal';
 export const OPEN_TRANSACTION_WORKSPACE_EVENT = 'coreor:open-transaction-workspace';
+export const OPEN_MAINTENANCE_CENTER_EVENT = 'coreor:open-maintenance-center';
+
+export interface OpenMaintenanceCenterDetail {
+  serverId?: string | null;
+  databaseName?: string | null;
+  tableName?: string | null;
+}
 
 export interface OpenSettingsModalDetail {
   tab?: 'account' | 'servers' | 'appearance' | 'accessibility' | 'query' | 'security' | 'advanced' | 'whats-new';

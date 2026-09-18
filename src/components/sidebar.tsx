@@ -16,7 +16,7 @@ import { DatabaseActionConfirmModal, type DatabaseActionConfirmation } from '@/c
 import { useAppContextMenu } from '@/components/app-context-menu';
 import { executeDatabaseQuery, fetchDatabaseObjects, fetchServerTables } from '@/lib/databaseApi';
 import { openQueryTab } from '@/lib/queryWorkspaceEvents';
-import { OPEN_IMPORT_EXPORT_EVENT, OPEN_SETTINGS_MODAL_EVENT } from '@/lib/databaseToolEvents';
+import { OPEN_IMPORT_EXPORT_EVENT, OPEN_MAINTENANCE_CENTER_EVENT, OPEN_SETTINGS_MODAL_EVENT } from '@/lib/databaseToolEvents';
 import { databaseEngineDefinition, databaseEngineFamily, databaseEngineLabel, quoteDatabaseIdentifier, qualifiedDatabaseTable } from '@/lib/databaseEngines';
 import { useAppPreferences } from '@/lib/appPreferences';
 import { recalculateDatabaseStorage, recalculateTableStorage } from '@/lib/databaseWorkbenchApi';
@@ -113,14 +113,6 @@ function objectTemplate(engine: DatabaseEngine, databaseName: string, type: stri
   if (type === 'trigger') return `CREATE TRIGGER ${object}\n${family === 'mssql' ? 'ON' : 'BEFORE INSERT ON'} ${qualifiedDatabaseTable(databaseName, 'target_table', engine)}\n${family === 'mssql' ? 'AFTER INSERT\nAS\nBEGIN\n  SET NOCOUNT ON;\nEND;' : 'FOR EACH ROW\nBEGIN\n  -- trigger body\nEND;'}`;
   if (type === 'event') return family === 'mysql' ? `CREATE EVENT ${object}\nON SCHEDULE EVERY 1 DAY\nDO\n  SELECT CURRENT_TIMESTAMP;` : `-- ${databaseEngineLabel(engine)} zamanlanmış görevleri için sunucu scheduler/agent kullanın.`;
   return `CREATE INDEX ${object}\nON ${qualifiedDatabaseTable(databaseName, 'target_table', engine)} (${quoteDatabaseIdentifier('column_name', engine)});`;
-}
-
-function maintenanceSql(engine: DatabaseEngine, database: string, table: string, operation: 'analyze' | 'check' | 'optimize' | 'repair') {
-  const family = databaseEngineFamily(engine);
-  const target = qualifiedDatabaseTable(database, table, engine);
-  if (family === 'mysql') return `${operation.toUpperCase()} TABLE ${target};`;
-  if (family === 'postgresql') return operation === 'analyze' ? `ANALYZE ${target};` : operation === 'optimize' ? `VACUUM (ANALYZE) ${target};` : `-- ${operation} işlemi için PostgreSQL katalog ve loglarını inceleyin.\nANALYZE ${target};`;
-  return operation === 'analyze' ? `UPDATE STATISTICS ${target};` : operation === 'check' ? `DBCC CHECKTABLE ('${table}') WITH NO_INFOMSGS;` : `ALTER INDEX ALL ON ${target} REORGANIZE;`;
 }
 
 function sqlText(value: string) { return `'${value.replaceAll("'", "''")}'`; }
@@ -746,6 +738,12 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         { id: 'copy-db', label: 'Veritabanı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(database) },
         { id: 'copy-db-quoted', label: 'Quoted veritabanı adını kopyala', icon: Code2, onSelect: () => navigator.clipboard.writeText(quoteDatabaseIdentifier(database, server.databaseType || 'mysql')) },
         { id: 'recalculate-size', label: 'Boyutu yeniden hesapla', icon: HardDrive, onSelect: () => void recalculateDatabaseSize(server, database) },
+        { id: 'maintenance-center', label: 'Bakım merkezi…', icon: Wrench, onSelect: () => {
+          setActiveServerId(server.id);
+          onDatabaseSelect(database);
+          onTableSelect(null);
+          window.dispatchEvent(new CustomEvent(OPEN_MAINTENANCE_CENTER_EVENT, { detail: { serverId: server.id, databaseName: database, tableName: null } }));
+        } },
         { id: 'refresh', label: 'Yenile', icon: RefreshCw, shortcut: 'refresh', onSelect: () => void refreshServer(server) },
         { id: 'sep-danger', separator: true },
         {
@@ -835,14 +833,14 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         },
         {
           id: 'maintenance',
-          label: 'Bakım',
+          label: 'Bakım merkezi…',
           icon: Wrench,
-          children: [
-            ['analyze', 'İstatistikleri analiz et'],
-            ['check', 'Bütünlüğü kontrol et'],
-            ['optimize', 'Optimize / vacuum'],
-            ['repair', 'Onarım taslağı']
-          ].map(([operation, label]) => ({ id: `maintenance-${operation}`, label, icon: Gauge, onSelect: () => openSql(server, database, `${table} bakım`, maintenanceSql(engine, database, table, operation as 'analyze' | 'check' | 'optimize' | 'repair')) }))
+          onSelect: () => {
+            setActiveServerId(server.id);
+            onDatabaseSelect(database);
+            onTableSelect(table);
+            window.dispatchEvent(new CustomEvent(OPEN_MAINTENANCE_CENTER_EVENT, { detail: { serverId: server.id, databaseName: database, tableName: table } }));
+          }
         },
         { id: 'copy-table', label: 'Kopyala', icon: Copy, children: [
           { id: 'copy-table-name', label: 'Tablo adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(table) },
