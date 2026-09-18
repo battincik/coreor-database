@@ -139,7 +139,7 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
   };
 
   return <>
-    <div className="flex h-8 shrink-0 items-stretch border-b border-zinc-800 bg-zinc-950/95 text-[11px] text-zinc-400 shadow-sm backdrop-blur">
+    <div className="flex h-8 shrink-0 select-none items-stretch border-b border-zinc-800 bg-zinc-950/95 text-[11px] text-zinc-400 shadow-sm backdrop-blur">
       <div className="coreor-hide-scrollbar flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto pl-2">
       <div className="mr-1 flex min-w-44 max-w-64 shrink-0 items-center gap-2"><Database className="h-3.5 w-3.5 shrink-0 text-emerald-400" /><SearchSelect value={activeServerId || ''} options={serverOptions} onValueChange={serverId => setActiveServerId(serverId || null)} placeholder={t('topbar.connectionSelect')} searchPlaceholder={t('topbar.connectionSearch')} emptyText={t('topbar.noSavedServer')} className="min-w-0 flex-1" triggerClassName="min-h-7 h-7 rounded-lg border-zinc-800/80 bg-black/20 px-2 [&>span]:py-0" dropdownMinWidth={390} showDescriptionInTrigger={false} /></div>
       <button className={toolButton} disabled={!activeServer || busy} onClick={() => void connect()}>{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400" /> : <Server className="h-3.5 w-3.5 text-emerald-400" />}{t('topbar.connect')}</button>
@@ -159,7 +159,7 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
       <button className={toolButton} onClick={() => openSettings('account')}><Settings2 className="h-3.5 w-3.5" />{t('topbar.settings')}</button>
       {status && <button className={`ml-2 inline-flex min-w-0 shrink-0 items-center gap-1.5 truncate text-[10px] ${status.tone === 'success' ? 'text-emerald-400' : 'text-red-400'}`} onClick={() => setStatus(null)}>{status.tone === 'success' ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}<span className="max-w-64 truncate">{status.text}</span></button>}
       {activeServer?.readOnly && <span className="ml-1 shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[8px] text-amber-300">{t('topbar.readOnly')}</span>}
-      <div className="min-w-8 flex-1 self-stretch" data-tauri-drag-region title="Pencereyi taşımak için sürükleyin" />
+      <div className="min-w-8 flex-1 self-stretch" data-tauri-drag-region title="Pencereyi taşımak için sürükleyin" onDoubleClick={() => void windowAction('maximize')} />
       </div>
       <div className="flex shrink-0 items-center border-l border-zinc-800 bg-black/15">
         <button type="button" className={windowButton} onClick={() => void windowAction('minimize')} title="Simge durumuna küçült" aria-label="Simge durumuna küçült"><Minus className="h-3.5 w-3.5" strokeWidth={1.7} /></button>
