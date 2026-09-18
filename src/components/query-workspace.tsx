@@ -39,6 +39,7 @@ import { SqlEditor } from '@/components/ui/sql-syntax';
 import { DatabaseActionConfirmModal, type DatabaseActionConfirmation } from '@/components/database-action-confirm-modal';
 import { useAppPreferences } from '@/lib/appPreferences';
 import { toSqlLiteral } from '@/lib/queryWorkspaceEvents';
+import { matchesShortcut } from '@/lib/shortcuts';
 import { approvalRequests, automationId, migrationDrafts, schemaSnapshots } from '@/lib/databaseAutomation';
 import { analyzeSqlDocument, type SqlDiagnostic } from '@/lib/sqlLanguageServer';
 import { useCoreorToast } from '@/components/ui/coreor-toast';
@@ -295,8 +296,8 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   const insertSuggestion = (suggestion: Suggestion) => { const next = `${tab.sql.slice(0, token.start)}${suggestion.insertText}${tab.sql.slice(cursor)}`; onChange({ sql: next }); setCursor(token.start + suggestion.insertText.length); setSuggestionsOpen(false); };
   const libraryItems = library === 'history' ? history : favorites;
   const editorContextMenu = (event: React.MouseEvent) => openContextMenu(event, [
-    { id: 'run', label: 'Sorguyu çalıştır', icon: Play, shortcut: 'Ctrl+Enter', disabled: !tab.sql.trim() || Boolean(selectedServer?.readOnly && splitStatements(tab.sql).some(isWriteStatement)), onSelect: runQuery },
-    { id: 'format', label: 'SQL biçimlendir', icon: Wand2, disabled: !tab.sql.trim(), onSelect: () => onChange({ sql: formatSql(tab.sql) }) },
+    { id: 'run', label: 'Sorguyu çalıştır', icon: Play, shortcut: 'runQuery', disabled: !tab.sql.trim() || Boolean(selectedServer?.readOnly && splitStatements(tab.sql).some(isWriteStatement)), onSelect: runQuery },
+    { id: 'format', label: 'SQL biçimlendir', icon: Wand2, shortcut: 'formatSql', disabled: !tab.sql.trim(), onSelect: () => onChange({ sql: formatSql(tab.sql) }) },
     { id: 'explain', label: 'EXPLAIN olarak hazırla', icon: Search, disabled: !tab.sql.trim() || /^\s*EXPLAIN\b/i.test(tab.sql), onSelect: () => onChange({ sql: `EXPLAIN ${tab.sql.trim()}` }) },
     { id: 'sep-library', separator: true },
     { id: 'favorite', label: isFavorite ? 'Favorilerden kaldır' : 'Favorilere ekle', icon: isFavorite ? StarOff : Star, disabled: !tab.sql.trim(), onSelect: toggleFavorite },
@@ -363,7 +364,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
 
     <div className={`grid min-h-0 flex-1 ${library ? 'grid-cols-[minmax(0,1fr)_300px]' : 'grid-cols-1'}`}>
       <div ref={splitRef} className="flex min-h-0 flex-col">
-        <div className="relative min-h-[160px] flex-1"><SqlEditor value={tab.sql} onChange={(sql, position) => { onChange({ sql }); setCursor(position); setSuggestionsOpen(preferences.autocomplete); setSuggestionIndex(0); }} onCursorChange={setCursor} onContextMenu={editorContextMenu} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); runQuery(); } else if (suggestionsOpen && suggestions.length && (event.key === 'Enter' || event.key === 'Tab')) { event.preventDefault(); insertSuggestion(suggestions[suggestionIndex] || suggestions[0]); } else if (suggestionsOpen && event.key === 'ArrowDown') { event.preventDefault(); setSuggestionIndex(value => (value + 1) % suggestions.length); } else if (suggestionsOpen && event.key === 'ArrowUp') { event.preventDefault(); setSuggestionIndex(value => (value - 1 + suggestions.length) % suggestions.length); } else if (event.key === 'Escape') setSuggestionsOpen(false); }}/>
+        <div className="relative min-h-[160px] flex-1"><SqlEditor value={tab.sql} onChange={(sql, position) => { onChange({ sql }); setCursor(position); setSuggestionsOpen(preferences.autocomplete); setSuggestionIndex(0); }} onCursorChange={setCursor} onContextMenu={editorContextMenu} onKeyDown={event => { if (matchesShortcut(event, 'runQuery')) { event.preventDefault(); runQuery(); } else if (matchesShortcut(event, 'formatSql')) { event.preventDefault(); onChange({ sql: formatSql(tab.sql) }); } else if (suggestionsOpen && suggestions.length && (event.key === 'Enter' || event.key === 'Tab')) { event.preventDefault(); insertSuggestion(suggestions[suggestionIndex] || suggestions[0]); } else if (suggestionsOpen && event.key === 'ArrowDown') { event.preventDefault(); setSuggestionIndex(value => (value + 1) % suggestions.length); } else if (suggestionsOpen && event.key === 'ArrowUp') { event.preventDefault(); setSuggestionIndex(value => (value - 1 + suggestions.length) % suggestions.length); } else if (event.key === 'Escape') setSuggestionsOpen(false); }}/>
           {suggestionsOpen && suggestions.length > 0 && <div className="absolute bottom-3 left-3 z-30 max-h-80 w-[500px] overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-950 p-1 shadow-2xl">{suggestions.map((suggestion, index) => <button key={suggestion.id} onMouseDown={event => { event.preventDefault(); insertSuggestion(suggestion); }} className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left ${index === suggestionIndex ? 'bg-cyan-500/15' : 'hover:bg-zinc-900'}`}>{suggestionIcon(suggestion.kind)}<span className="min-w-0 flex-1 truncate font-mono text-[10px]">{suggestion.label}</span><span className="text-[9px] text-zinc-600">{suggestion.detail}</span></button>)}</div>}
         </div>
         <div className="flex min-h-0 shrink-0 flex-col border-t border-zinc-800 bg-black/20" style={{ height: resultCollapsed ? 36 : resultHeight }}>
