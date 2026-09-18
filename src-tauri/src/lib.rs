@@ -226,7 +226,8 @@ async fn execute_action(request: DatabaseRequest, config: DesktopConfig) -> Resu
             let result=if matches!(c.engine.as_str(),"postgresql"|"cockroachdb"){pg_query(&c,&sql,Some(database),limit as usize).await?}else{mysql_query(&c,&sql,Some(database),limit as usize).await?};
             let rows=result["rows"].as_array().cloned().unwrap_or_default();
             let columns=rows.first().and_then(Value::as_object).map(|o|o.keys().cloned().collect::<Vec<_>>()).unwrap_or_default();
-            Ok(json!({"rows":rows,"columns":columns,"rowCount":rows.len()}))
+            let row_count = rows.len();
+            Ok(json!({"rows":rows,"columns":columns,"rowCount":row_count}))
         }
         "table-info" => {
             let database = request.payload.get("database").and_then(Value::as_str).ok_or_else(|| "Veritabanı eksik.".to_string())?;
