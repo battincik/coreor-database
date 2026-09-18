@@ -8,7 +8,6 @@ import { DatabasePanel } from '@/components/database-panel';
 import { DatabaseMenuBar } from '@/components/database-menu-bar';
 import { DatabaseCommandPalette } from '@/components/database-command-palette';
 import { EditorPanelErrorBoundary } from '@/components/editor-panel-error-boundary';
-import { BottomBarGuide } from '@/components/bottom-bar-guide';
 import { CoreorToastProvider } from '@/components/ui/coreor-toast';
 import { DatabaseNotificationMonitor } from '@/components/database-notification-monitor';
 import { RuntimeCompatibility } from '@/components/runtime-compatibility';
@@ -208,7 +207,6 @@ function EditorWorkspace() {
         </ResizablePanelGroup>
         <div data-coreor-app-chrome="bottom" className="relative z-[2147483000] shrink-0">
           <BottomBar selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
-          <BottomBarGuide selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
         </div>
       </div>
     </div>

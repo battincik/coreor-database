@@ -44,16 +44,18 @@ export function BottomBarGuide({ selectedDatabase, selectedTable }: BottomBarGui
   const errorCount = useMemo(() => activities.filter(entry => entry.level === 'error').length, [activities]);
 
   return (
-    <div className="group absolute bottom-1 right-1 z-[170]">
+    <div className="group relative z-[170] flex h-full shrink-0 items-stretch">
       <button
         type="button"
         aria-label="BottomBar ayrıntı rehberi"
-        className="flex h-5 w-5 items-center justify-center rounded-md border border-zinc-700 bg-zinc-950 text-zinc-500 shadow-lg transition hover:border-cyan-500/40 hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/30"
+        className="flex h-full items-center gap-1.5 px-2.5 text-[9px] text-zinc-500 transition hover:bg-white/[0.04] hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-500/30"
+        title="BottomBar durum rehberi"
       >
         <Info className="h-3 w-3" />
+        <span className="hidden xl:inline">Durum rehberi</span>
       </button>
 
-      <div className="pointer-events-none absolute bottom-[calc(100%+8px)] right-0 hidden w-[min(680px,82vw)] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/98 shadow-2xl backdrop-blur-xl group-hover:block group-focus-within:block">
+      <div className="pointer-events-none absolute bottom-[calc(100%+6px)] right-0 hidden w-[min(680px,82vw)] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/98 shadow-2xl backdrop-blur-xl group-hover:block group-focus-within:block">
         <div className="border-b border-zinc-800 bg-gradient-to-r from-cyan-500/[0.08] via-transparent to-purple-500/[0.08] p-4">
           <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-300"><Info className="h-4 w-4" /></div>

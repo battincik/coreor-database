@@ -16,6 +16,7 @@ import { databaseEngineDefinition, databaseEngineLabel } from '@/lib/databaseEng
 import { fetchDatabasePerformanceSnapshot } from '@/lib/databaseWorkbenchApi';
 import { clearActivities, exportActivities, getActivitiesServerSnapshot, getActivitiesSnapshot, subscribeActivities, type ActivityEntry } from '@/lib/activityConsole';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { BottomBarGuide } from '@/components/bottom-bar-guide';
 import { useAppContextMenu } from '@/components/app-context-menu';
 import { openQueryTab } from '@/lib/queryWorkspaceEvents';
 
@@ -113,6 +114,9 @@ export default function BottomBar({selectedDatabase,selectedTable}:BottomBarProp
       <Metric title="SQL istatistikleri" description="Bu uygulama oturumundaki kullanıcı sorgularının başarı ve süre özeti." rows={[{label:'Toplam',value:entries.length},{label:'Başarılı',value:stats.successful,tone:'success'},{label:'Hata',value:stats.errors,tone:stats.errors?'danger':'normal'},{label:'Başarı oranı',value:`%${stats.rate}`},{label:'Ortalama süre',value:`${stats.average} ms`},{label:'Son sorgu',value:stats.last?.durationMs==null?'—':`${stats.last.durationMs} ms`}]} onTooltip={setTooltip}><Terminal className="h-3 w-3"/> {entries.length} SQL • %{stats.rate}</Metric>
       <Metric title="Filtre ve sıralama" description="Aktif veri gridindeki koşul ve sıralama sayısı." rows={[{label:'Filtre',value:grid.filters},{label:'Sıralama',value:grid.sorts},{label:'Yükleme',value:grid.isLoading?'Devam ediyor':'Beklemede'}]} onTooltip={setTooltip}><Filter className="h-3 w-3"/> {grid.filters}<ArrowUpDown className="h-3 w-3"/> {grid.sorts}</Metric>
       <Metric title="Son sorgu" description="En son çalıştırılan kullanıcı SQL işlemi." rows={[{label:'Zaman',value:stats.last?formatDate(stats.last.timestamp):'—'},{label:'Sunucu',value:stats.last?.serverName||'—'},{label:'Hedef',value:stats.last?.databaseName||'sunucu geneli'},{label:'Süre',value:stats.last?.durationMs==null?'—':`${stats.last.durationMs} ms`},{label:'Satır',value:stats.last?.rowCount??stats.last?.affectedRows??'—'}]} onTooltip={setTooltip}><Clock className="h-3 w-3"/> {stats.last?.durationMs==null?'Son sorgu —':`${stats.last.durationMs} ms`}</Metric>
-    </div></div><div className="shrink-0 border-l border-zinc-800"><LanguageSwitcher placement="inline" /></div></div><MetricTooltip state={tooltip}/>
+    </div></div><div className="flex h-full shrink-0 items-stretch border-l border-zinc-800 bg-zinc-950">
+      <div className="flex items-center border-r border-zinc-800"><LanguageSwitcher placement="inline" /></div>
+      <BottomBarGuide selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
+    </div></div><MetricTooltip state={tooltip}/>
   </div>;
 }

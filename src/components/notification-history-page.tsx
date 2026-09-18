@@ -2,6 +2,12 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
+import { DatabaseMenuBar } from '@/components/database-menu-bar';
+import BottomBar from '@/components/BottomBar';
+import { AppContextMenuProvider } from '@/components/app-context-menu';
+import { CoreorToastProvider } from '@/components/ui/coreor-toast';
+import { DatabaseNotificationMonitor } from '@/components/database-notification-monitor';
+import { RuntimeCompatibility } from '@/components/runtime-compatibility';
 import { ArrowLeft, Bell, CheckCheck, CircleAlert, Search, Trash2, XCircle } from 'lucide-react';
 import {
   clearNotifications,
@@ -120,7 +126,7 @@ function Detail({ notification }: { notification: CoreorNotification | null }) {
   );
 }
 
-export function NotificationHistoryPage() {
+function NotificationHistoryContent() {
   const router = useRouter();
   const notifications = useSyncExternalStore(subscribeNotifications, getNotificationsSnapshot, getNotificationsServerSnapshot);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -151,7 +157,7 @@ export function NotificationHistoryPage() {
   const unread = notifications.filter(item => !item.readAt).length;
 
   return (
-    <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-zinc-950 text-zinc-100">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-zinc-950 text-zinc-100">
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-zinc-800 px-3">
         <Button variant="ghost" size="sm" className="h-8 px-2 text-[10px]" onClick={() => router.push('/editor/')}><ArrowLeft className="mr-1.5 h-3.5 w-3.5" />Editöre dön</Button>
         <Bell className="h-4 w-4 text-cyan-400" />
@@ -178,5 +184,24 @@ export function NotificationHistoryPage() {
         <main className="min-w-0 flex-1"><Detail notification={selected} /></main>
       </div>
     </div>
+  );
+}
+
+
+export function NotificationHistoryPage() {
+  return (
+    <CoreorToastProvider>
+      <AppContextMenuProvider>
+        <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-zinc-950">
+          <RuntimeCompatibility />
+          <DatabaseNotificationMonitor />
+          <DatabaseMenuBar selectedDatabase={null} selectedTable={null} />
+          <NotificationHistoryContent />
+          <div data-coreor-app-chrome="bottom" className="relative z-[2147483000] shrink-0">
+            <BottomBar selectedDatabase={null} selectedTable={null} />
+          </div>
+        </div>
+      </AppContextMenuProvider>
+    </CoreorToastProvider>
   );
 }
