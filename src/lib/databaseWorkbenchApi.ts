@@ -15,6 +15,7 @@ import type {
 } from '@/lib/databaseWorkbenchTypes';
 import { readEncryptedServerProfiles } from '@/lib/secureVault';
 import { recordActivity } from '@/lib/activityConsole';
+import { desktopDatabaseRequest } from '@/lib/desktopClient';
 import { normalizeDatabaseClientError, readDatabaseApiResponse } from '@/lib/databaseErrorPresentation';
 
 async function requireServer(accountId: string | null | undefined, serverId: string) {
@@ -52,15 +53,7 @@ async function workbenchRequest<T>(
   const server = await requireServer(accountId, serverId);
   const startedAt = performance.now();
   try {
-    const response = await fetch('/api/database', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      credentials: 'same-origin',
-      cache: 'no-store',
-      referrerPolicy: 'same-origin',
-      body: JSON.stringify({ action, connection: connectionPayload(server, database), database, ...payload })
-    });
-    const body = await readDatabaseApiResponse<T>(response);
+    const body = await desktopDatabaseRequest<T>({ action, connection: connectionPayload(server, database), database, ...payload });
     if (recordInActivityLog) {
       recordActivity({
         level: 'success',
