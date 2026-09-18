@@ -255,10 +255,88 @@ fn build_sorts(payload:&Map<String,Value>,engine:&str)->Result<(String,Vec<Value
 
 async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
     if !is_pg(&c.engine)&&!is_mssql(&c.engine){
-        let sql="SELECT s.SCHEMA_NAME AS databaseName,s.DEFAULT_CHARACTER_SET_NAME AS defaultCharset,s.DEFAULT_COLLATION_NAME AS defaultCollation,t.TABLE_NAME AS tableName,t.TABLE_TYPE AS tableType,t.ENGINE AS engine,t.ROW_FORMAT AS rowFormat,t.TABLE_ROWS AS tableRows,t.AVG_ROW_LENGTH AS avgRowLength,t.DATA_LENGTH AS dataLength,t.INDEX_LENGTH AS indexLength,t.DATA_FREE AS dataFree,t.AUTO_INCREMENT AS autoIncrement,t.CREATE_TIME AS createTime,t.UPDATE_TIME AS updateTime,t.TABLE_COLLATION AS tableCollation,t.TABLE_COMMENT AS tableComment,(SELECT COUNT(*) FROM information_schema.COLUMNS c WHERE c.TABLE_SCHEMA=t.TABLE_SCHEMA AND c.TABLE_NAME=t.TABLE_NAME) AS columnCount,(SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS i WHERE i.TABLE_SCHEMA=t.TABLE_SCHEMA AND i.TABLE_NAME=t.TABLE_NAME) AS indexCount,(SELECT COUNT(DISTINCT CONSTRAINT_NAME) FROM information_schema.KEY_COLUMN_USAGE k WHERE k.TABLE_SCHEMA=t.TABLE_SCHEMA AND k.TABLE_NAME=t.TABLE_NAME AND k.REFERENCED_TABLE_NAME IS NOT NULL) AS foreignKeyCount FROM information_schema.SCHEMATA s LEFT JOIN information_schema.TABLES t ON t.TABLE_SCHEMA=s.SCHEMA_NAME ORDER BY s.SCHEMA_NAME,t.TABLE_NAME";
-        let r=execute_sql(c,sql,None,max).await?; let mut map=std::collections::BTreeMap::<String,Value>::new();
-        for row in rows_of(&r){let Some(o)=row.as_object()else{continue};let name=o.get("databaseName").and_then(Value::as_str).unwrap_or("").to_string();if ["information_schema","performance_schema","mysql","sys"].contains(&name.as_str())||name.is_empty(){continue}let db=map.entry(name.clone()).or_insert_with(||json!({"name":name,"defaultCharset":o.get("defaultCharset"),"defaultCollation":o.get("defaultCollation"),"tableCount":0,"totalRows":0,"dataSizeMB":"0.00","indexSizeMB":"0.00","totalSizeMB":"0.00","tables":[],"tableDetails":[]}));if o.get("tableName").and_then(Value::as_str).is_none(){continue}let detail=json!({"tableName":o.get("tableName"),"tableType":o.get("tableType"),"comment":o.get("tableComment"),"rows":num(o.get("tableRows")),"columns":num(o.get("columnCount")),"sizeMB":format!("{:.2}",(num(o.get("dataLength"))+num(o.get("indexLength")))as f64/1048576.0),"dataSizeMB":format!("{:.2}",num(o.get("dataLength"))as f64/1048576.0),"indexSizeMB":format!("{:.2}",num(o.get("indexLength"))as f64/1048576.0),"freeSizeMB":format!("{:.2}",num(o.get("dataFree"))as f64/1048576.0),"avgRowLength":num(o.get("avgRowLength")),"createdAt":o.get("createTime"),"updatedAt":o.get("updateTime"),"engine":o.get("engine"),"rowFormat":o.get("rowFormat"),"collation":o.get("tableCollation"),"autoIncrement":o.get("autoIncrement"),"indexCount":num(o.get("indexCount")),"foreignKeyCount":num(o.get("foreignKeyCount"))});let d=db.as_object_mut().unwrap();d.get_mut("tables").unwrap().as_array_mut().unwrap().push(o.get("tableName").cloned().unwrap_or(Value::Null));d.get_mut("tableDetails").unwrap().as_array_mut().unwrap().push(detail);let table_count=d.get("tableCount").and_then(Value::as_u64).unwrap_or(0)+1;let total_rows=d.get("totalRows").and_then(Value::as_u64).unwrap_or(0)+num(o.get("tableRows"));*d.get_mut("tableCount").unwrap()=json!(table_count);*d.get_mut("totalRows").unwrap()=json!(total_rows);}
-        return Ok(json!({"databases":map.into_values().collect::<Vec<_>>(),"_meta":{"statements":[{"label":"Ayrıntılı katalog","sql":sql}]}}))
+        // SHOW DATABASES follows the server's real visibility rules and works with restricted users.
+        // Metadata is then loaded per visible schema so one denied information_schema field cannot blank the whole catalog.
+        let db_sql="SHOW DATABASES";
+        let db_rows=rows_of(&execute_sql(c,db_sql,None,max).await?);
+        let mut out=Vec::new();
+
+        for row in db_rows {
+            let Some(object)=row.as_object() else { continue };
+            let Some(name)=object.get("Database").or_else(||object.get("database")).or_else(||object.values().next()).and_then(Value::as_str) else { continue };
+            if ["information_schema","performance_schema","mysql","sys"].contains(&name) { continue; }
+
+            let escaped=name.replace("'","''");
+            let table_sql=format!(
+                "SELECT TABLE_NAME AS tableName,TABLE_TYPE AS tableType,ENGINE AS engine,ROW_FORMAT AS rowFormat,COALESCE(TABLE_ROWS,0) AS tableRows,COALESCE(AVG_ROW_LENGTH,0) AS avgRowLength,COALESCE(DATA_LENGTH,0) AS dataLength,COALESCE(INDEX_LENGTH,0) AS indexLength,COALESCE(DATA_FREE,0) AS dataFree,AUTO_INCREMENT AS autoIncrement,CREATE_TIME AS createTime,UPDATE_TIME AS updateTime,TABLE_COLLATION AS tableCollation,TABLE_COMMENT AS tableComment FROM information_schema.TABLES WHERE TABLE_SCHEMA='{}' ORDER BY TABLE_NAME",
+                escaped
+            );
+
+            let tables=match execute_sql(c,&table_sql,Some(name),max).await {
+                Ok(result)=>rows_of(&result),
+                Err(_)=>{
+                    let fallback=format!("SHOW FULL TABLES FROM {}",ident(name,&c.engine)?);
+                    rows_of(&execute_sql(c,&fallback,Some(name),max).await?)
+                }
+            };
+
+            let mut names=Vec::new();
+            let mut details=Vec::new();
+            let mut total_rows=0u64;
+            let mut data_bytes=0u64;
+            let mut index_bytes=0u64;
+
+            for table_row in tables {
+                let Some(table_object)=table_row.as_object() else { continue };
+                let table_name=table_object.get("tableName")
+                    .or_else(||table_object.get("TABLE_NAME"))
+                    .or_else(||table_object.values().next())
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                if table_name.is_empty(){continue}
+
+                let rows=num(table_object.get("tableRows").or_else(||table_object.get("TABLE_ROWS")));
+                let data=num(table_object.get("dataLength").or_else(||table_object.get("DATA_LENGTH")));
+                let index=num(table_object.get("indexLength").or_else(||table_object.get("INDEX_LENGTH")));
+                total_rows+=rows; data_bytes+=data; index_bytes+=index;
+                names.push(json!(table_name));
+                details.push(json!({
+                    "tableName":table_name,
+                    "tableType":table_object.get("tableType").or_else(||table_object.get("TABLE_TYPE")).cloned().unwrap_or(json!("BASE TABLE")),
+                    "comment":table_object.get("tableComment").cloned().unwrap_or(json!("")),
+                    "rows":rows,
+                    "columns":0,
+                    "sizeMB":format!("{:.2}",(data+index) as f64/1048576.0),
+                    "dataSizeMB":format!("{:.2}",data as f64/1048576.0),
+                    "indexSizeMB":format!("{:.2}",index as f64/1048576.0),
+                    "freeSizeMB":format!("{:.2}",num(table_object.get("dataFree")) as f64/1048576.0),
+                    "avgRowLength":num(table_object.get("avgRowLength")),
+                    "createdAt":table_object.get("createTime").cloned().unwrap_or(Value::Null),
+                    "updatedAt":table_object.get("updateTime").cloned().unwrap_or(Value::Null),
+                    "engine":table_object.get("engine").cloned().unwrap_or(json!(c.engine)),
+                    "rowFormat":table_object.get("rowFormat").cloned().unwrap_or(Value::Null),
+                    "collation":table_object.get("tableCollation").cloned().unwrap_or(Value::Null),
+                    "autoIncrement":table_object.get("autoIncrement").cloned().unwrap_or(Value::Null),
+                    "indexCount":0,
+                    "foreignKeyCount":0
+                }));
+            }
+
+            out.push(json!({
+                "name":name,
+                "defaultCharset":null,
+                "defaultCollation":null,
+                "tableCount":names.len(),
+                "totalRows":total_rows,
+                "dataSizeMB":format!("{:.2}",data_bytes as f64/1048576.0),
+                "indexSizeMB":format!("{:.2}",index_bytes as f64/1048576.0),
+                "totalSizeMB":format!("{:.2}",(data_bytes+index_bytes) as f64/1048576.0),
+                "tables":names,
+                "tableDetails":details
+            }));
+        }
+
+        return Ok(json!({"databases":out,"_meta":{"statements":[{"label":"Görünür veritabanları","sql":db_sql}]}}))
     }
     let db_sql=if is_pg(&c.engine){"SELECT datname AS name FROM pg_database WHERE datistemplate=false AND datallowconn=true ORDER BY datname"}else{"SELECT name FROM sys.databases WHERE state_desc='ONLINE' AND database_id>4 ORDER BY name"};
     let dbs=rows_of(&execute_sql(c,db_sql,None,max).await?);let mut out=Vec::new();
