@@ -1,13 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { SignInOptions } from 'next-auth/react';
-
-export interface HandleLoginOptions extends SignInOptions {
-  callbackUrl: string;
-}
-
-export type ProviderType = 'github' | 'google' | 'twitter' | 'facebook' | 'apple';
-
 export interface DatabasePanelProps {
   selectedDatabase: string | null;
   selectedTable: string | null;
