@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Activity, Braces, Check, ChevronDown, ChevronRight, Circle, Code2, Copy, Database, Download, FileCode2, FunctionSquare, Gauge, HardDrive, KeyRound, ListFilter, LogOut, MoreHorizontal, Network, Plus, RefreshCw, Search, Server, Settings2, ShieldCheck, Sparkles, Table2, Trash2, UserRound, View, Wifi, WifiOff, Wrench, X, Zap } from 'lucide-react';
 import type { DatabaseEngine, DatabaseSchemaObject, DatabaseServerConfig, DatabaseTable, SidebarProps } from 'types';
@@ -46,16 +46,19 @@ function compactCount(value: number) {
 }
 
 function compactBytes(bytes: number | null | undefined) {
+  if (bytes === null || bytes === undefined) return null;
   const value = Number(bytes);
-  if (!Number.isFinite(value) || value <= 0) return null;
+  if (!Number.isFinite(value) || value < 0) return null;
+  if (value === 0) return '0 B';
   if (value >= 1024 ** 3) return `${(value / 1024 ** 3).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} GB`;
   if (value >= 1024 ** 2) return `${(value / 1024 ** 2).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} MB`;
   return `${Math.max(1, Math.round(value / 1024)).toLocaleString('tr-TR')} KB`;
 }
 
 function compactSize(megabytes: string | number | null | undefined) {
+  if (megabytes === null || megabytes === undefined) return null;
   const mb = Number(megabytes);
-  return Number.isFinite(mb) && mb > 0 ? compactBytes(mb * 1024 * 1024) : null;
+  return Number.isFinite(mb) && mb >= 0 ? compactBytes(mb * 1024 * 1024) : null;
 }
 
 function objectMetadataText(object: DatabaseSchemaObject, detail?: DatabaseTable) {
@@ -284,7 +287,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   };
 
   const searchAll = searchTypes.has('all');
-  const searchTypeEnabled = (type: ObjectSearchType) => searchAll || searchTypes.has(type);
+  const searchTypeEnabled = useCallback((type: ObjectSearchType) => searchAll || searchTypes.has(type), [searchAll, searchTypes]);
   const searchObjectKindsEnabled = searchAll || ['table', 'view', 'procedure', 'function', 'trigger', 'event'].some(type => searchTypes.has(type as ObjectSearchType));
   const advancedTypeSelected = !searchAll && ['view', 'procedure', 'function', 'trigger', 'event'].some(type => searchTypes.has(type as ObjectSearchType));
   const objectFilterActive = Boolean(normalizedSearch) || !searchAll;
@@ -299,7 +302,6 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         const target = targets[cursor++];
         if (!target) return;
         const key = objectExplorerKey(target.server.id, target.database);
-        if (databaseObjects[key]) continue;
         try {
           const result = await fetchDatabaseObjects(target.server.id, target.database, workspaceKey);
           if (!cancelled) setDatabaseObjects(previous => ({ ...previous, [key]: result.objects }));
@@ -332,7 +334,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       }).filter(database => database.databaseOwnMatch || database.objectMatches.length > 0);
       return { ...server, databases, serverOwnMatch };
     }).filter(server => server.serverOwnMatch || Boolean(server.databases?.length)),
-    [servers, normalizedSearch, databaseObjects, searchTypes]
+    [servers, normalizedSearch, databaseObjects, searchTypeEnabled]
   );
 
   const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, value: string, force?: boolean) =>
