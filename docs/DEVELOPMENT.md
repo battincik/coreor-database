@@ -12,7 +12,7 @@ npm run native:check
 npm run tauri:dev
 ```
 
-See [TROUBLESHOOTING.md](../TROUBLESHOOTING.md) for OS prerequisites.
+See [TROUBLESHOOTING.md](../TROUBLESHOOTING.md) for OS prerequisites. Linux release builders also need RPM tooling because the supported bundle set is DEB + RPM + AppImage.
 
 ## Repository structure
 
