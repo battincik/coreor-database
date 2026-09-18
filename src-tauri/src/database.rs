@@ -121,6 +121,10 @@ fn mssql_row(row: &tiberius::Row) -> Value {
         else if let Ok(v) = row.try_get::<f64, _>(i) { v.map(|x| json!(x)).unwrap_or(Value::Null) }
         else if let Ok(v) = row.try_get::<f32, _>(i) { v.map(|x| json!(x)).unwrap_or(Value::Null) }
         else if let Ok(v) = row.try_get::<bool, _>(i) { v.map(|x| json!(x)).unwrap_or(Value::Null) }
+        else if let Ok(v) = row.try_get::<NaiveDateTime, _>(i) { v.map(|x| json!(x.to_string())).unwrap_or(Value::Null) }
+        else if let Ok(v) = row.try_get::<NaiveDate, _>(i) { v.map(|x| json!(x.to_string())).unwrap_or(Value::Null) }
+        else if let Ok(v) = row.try_get::<NaiveTime, _>(i) { v.map(|x| json!(x.to_string())).unwrap_or(Value::Null) }
+        else if let Ok(v) = row.try_get::<&[u8], _>(i) { v.map(|x| json!({"type":"binary","base64":base64::Engine::encode(&base64::engine::general_purpose::STANDARD,x)})).unwrap_or(Value::Null) }
         else { Value::Null };
         obj.insert(col.name().to_string(), value);
     }
