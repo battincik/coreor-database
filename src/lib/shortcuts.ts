@@ -1,5 +1,7 @@
 'use client';
 
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+
 export type CoreorPlatform = 'mac' | 'windows' | 'linux';
 
 export type ShortcutId =
@@ -42,7 +44,7 @@ export function detectPlatform(): CoreorPlatform {
   return 'linux';
 }
 
-export function primaryModifier(event: KeyboardEvent | React.KeyboardEvent) {
+export function primaryModifier(event: KeyboardEvent | ReactKeyboardEvent) {
   return detectPlatform() === 'mac' ? event.metaKey : event.ctrlKey;
 }
 
