@@ -34,7 +34,7 @@ const items = [
   { icon: HardDrive, title: 'Depolama', text: 'Veri, indeks, boş alan, toplam mantıksal boyut ve seçili veritabanının yaklaşık boyutu gösterilir.' },
   { icon: Network, title: 'Ağ trafiği', text: 'Sunucu açılışından beri alınan ve gönderilen toplam byte sayaçlarıdır; anlık bant genişliği değildir.' },
   { icon: Table, title: 'Grid durumu', text: 'Aktif tablo sayfası, sayfa boyutu, toplam satır, filtre ve sıralama durumunu gösterir.' },
-  { icon: TerminalSquare, title: 'SQL özeti', text: 'Bu tarayıcı oturumundaki kullanıcı işlemleri üzerinden başarı oranı, hata, uyarı ve sorgu süreleri hesaplanır.' }
+  { icon: TerminalSquare, title: 'SQL özeti', text: 'Bu uygulama oturumundaki kullanıcı işlemleri üzerinden başarı oranı, hata, uyarı ve sorgu süreleri hesaplanır.' }
 ];
 
 export function BottomBarGuide({ selectedDatabase, selectedTable }: BottomBarGuideProps) {
