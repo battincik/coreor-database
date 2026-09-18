@@ -14,7 +14,10 @@ export type ShortcutId =
   | 'settings'
   | 'find'
   | 'closeTab'
-  | 'duplicateTab';
+  | 'duplicateTab'
+  | 'language'
+  | 'backupCenter'
+  | 'automationCenter';
 
 interface ShortcutDefinition {
   key: string;
@@ -33,7 +36,10 @@ export const SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
   settings: { key: ',', primary: true },
   find: { key: 'F', primary: true },
   closeTab: { key: 'W', primary: true },
-  duplicateTab: { key: 'D', primary: true, shift: true }
+  duplicateTab: { key: 'D', primary: true, shift: true },
+  language: { key: 'L', primary: true, shift: true },
+  backupCenter: { key: 'B', primary: true, shift: true },
+  automationCenter: { key: 'O', primary: true, shift: true }
 };
 
 export function detectPlatform(): CoreorPlatform {
