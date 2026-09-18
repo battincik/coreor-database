@@ -10,7 +10,8 @@ import type {
 } from '@/lib/databaseTransactionTypes';
 import { readEncryptedServerProfiles } from '@/lib/secureVault';
 import { recordActivity } from '@/lib/activityConsole';
-import { normalizeDatabaseClientError, readDatabaseApiResponse } from '@/lib/databaseErrorPresentation';
+import { normalizeDatabaseClientError } from '@/lib/databaseErrorPresentation';
+import { desktopDatabaseRequest } from '@/lib/desktopClient';
 
 async function requireServer(accountId: string | null | undefined, serverId: string) {
   if (!accountId) throw new Error('Transaction çalışma alanı için kullanıcı oturumu gerekli.');
@@ -38,15 +39,7 @@ function connectionPayload(server: DatabaseServerConfig, database?: string | nul
 
 async function requestTransaction<T>(payload: DatabaseTransactionRequest) {
   try {
-    const response = await fetch('/api/database', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      credentials: 'same-origin',
-      cache: 'no-store',
-      referrerPolicy: 'same-origin',
-      body: JSON.stringify(payload)
-    });
-    return await readDatabaseApiResponse<T>(response);
+    return await desktopDatabaseRequest<T>(payload as unknown as Record<string, unknown>);
   } catch (error) {
     throw normalizeDatabaseClientError(error);
   }
