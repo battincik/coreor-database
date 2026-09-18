@@ -182,6 +182,7 @@ export function DatabasePanel({
         const serializable = queryTabs.map(tab => ({ ...tab, isRunning: false, runImmediately: false }));
         window.localStorage.setItem(QUERY_TABS_STORAGE_KEY, JSON.stringify(serializable));
         if (activeTab.startsWith('query:')) window.localStorage.setItem(QUERY_ACTIVE_TAB_STORAGE_KEY, activeTab);
+        else window.localStorage.removeItem(QUERY_ACTIVE_TAB_STORAGE_KEY);
       } catch { /* local persistence must not stop editor */ }
     }, 250);
     return () => window.clearTimeout(timer);
