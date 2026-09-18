@@ -117,6 +117,7 @@ Useful project documents:
 - [Architecture](ARCHITECTURE.md)
 - [Database support](DATABASE_SUPPORT.md)
 - [Contributing](CONTRIBUTING.md)
+- [Governance](GOVERNANCE.md)
 - [Security policy](SECURITY.md)
 - [Security model](SECURITY_MODEL.md)
 - [Roadmap](ROADMAP.md)
