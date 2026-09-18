@@ -178,12 +178,28 @@ export function DatabasePanel({
       return;
     }
     const timer = window.setTimeout(() => {
+      const serializable = queryTabs.map(tab => ({ ...tab, isRunning: false, runImmediately: false }));
       try {
-        const serializable = queryTabs.map(tab => ({ ...tab, isRunning: false, runImmediately: false }));
         window.localStorage.setItem(QUERY_TABS_STORAGE_KEY, JSON.stringify(serializable));
+      } catch {
+        // Large result sets can exceed WebView localStorage quota. Keep the tab, SQL and
+        // a useful result snapshot instead of silently losing the whole workspace state.
+        try {
+          const compact = serializable.map(tab => ({
+            ...tab,
+            result: tab.result ? {
+              ...tab.result,
+              rows: tab.result.rows.slice(0, 250),
+              maximumRows: tab.result.maximumRows ?? tab.result.rows.length
+            } : null
+          }));
+          window.localStorage.setItem(QUERY_TABS_STORAGE_KEY, JSON.stringify(compact));
+        } catch { /* local persistence must not stop editor */ }
+      }
+      try {
         if (activeTab.startsWith('query:')) window.localStorage.setItem(QUERY_ACTIVE_TAB_STORAGE_KEY, activeTab);
         else window.localStorage.removeItem(QUERY_ACTIVE_TAB_STORAGE_KEY);
-      } catch { /* local persistence must not stop editor */ }
+      } catch { /* active tab persistence is optional */ }
     }, 250);
     return () => window.clearTimeout(timer);
   }, [queryTabs, activeTab, preferences.rememberQueryWorkspace]);
