@@ -1,7 +1,8 @@
 'use client';
 
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { initializeDatabaseAutomationStore } from '@/lib/databaseAutomation';
 
 export interface DesktopUser {
   id: string;
@@ -21,12 +22,22 @@ const DesktopContext = createContext<DesktopContextType | null>(null);
 
 export function DesktopProvider({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
+  const [nativeWorkspaceReady, setNativeWorkspaceReady] = useState(false);
   // workspaceKey deliberately stays local even when an account is present:
   // database profiles, SQL history and credentials are never moved to account storage implicitly.
   const user: DesktopUser = auth.user || LOCAL_USER;
+
+  useEffect(() => {
+    let active = true;
+    void initializeDatabaseAutomationStore()
+      .catch(error => console.error('Native automation store hazırlanamadı:', error))
+      .finally(() => { if (active) setNativeWorkspaceReady(true); });
+    return () => { active = false; };
+  }, []);
+
   return (
-    <DesktopContext.Provider value={{ user, workspaceKey: 'local', isReady: true }}>
-      {children}
+    <DesktopContext.Provider value={{ user, workspaceKey: 'local', isReady: nativeWorkspaceReady }}>
+      {nativeWorkspaceReady ? children : null}
     </DesktopContext.Provider>
   );
 }

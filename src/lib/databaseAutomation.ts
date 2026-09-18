@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  migrateLegacyWorkspaceCollection,
+  readWorkspaceCollection,
+  writeWorkspaceCollection
+} from '@/lib/nativeWorkspaceStore';
+
 export interface SchemaSnapshot {
   id: string;
   serverId: string;
@@ -72,7 +78,19 @@ const KEYS = {
   prepared: 'coreor:prepared-statements:v1'
 } as const;
 
-function read<T>(key: string): T[] {
+let snapshotsState: SchemaSnapshot[] = [];
+let migrationsState: MigrationDraft[] = [];
+let approvalsState: ApprovalRequest[] = [];
+let preparedState: PreparedStatementSet[] = [];
+let automationStoreReady = false;
+let automationStoreInit: Promise<void> | null = null;
+
+function emit(key: string) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('coreor:automation-store-changed', { detail: { key } }));
+}
+
+function readLocal<T>(key: string): T[] {
   if (typeof window === 'undefined') return [];
   try {
     const value = JSON.parse(window.localStorage.getItem(key) || '[]');
@@ -82,10 +100,58 @@ function read<T>(key: string): T[] {
   }
 }
 
-function write<T>(key: string, values: T[]) {
+function writeLocal<T>(key: string, values: T[]) {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(key, JSON.stringify(values));
-  window.dispatchEvent(new CustomEvent('coreor:automation-store-changed', { detail: { key } }));
+  emit(key);
+}
+
+function persistNative<T>(
+  collection: 'schema-snapshots' | 'migration-drafts' | 'approval-requests' | 'prepared-statements',
+  key: string,
+  values: T[]
+) {
+  void writeWorkspaceCollection(collection, 'global', values).catch(error => {
+    console.error(`Native automation store yazılamadı (${collection}):`, error);
+  });
+  emit(key);
+}
+
+export async function initializeDatabaseAutomationStore() {
+  if (automationStoreReady) return;
+  if (automationStoreInit) return automationStoreInit;
+  if (typeof window === 'undefined') return;
+
+  automationStoreInit = (async () => {
+    await Promise.all([
+      migrateLegacyWorkspaceCollection<SchemaSnapshot>('schema-snapshots', 'global', KEYS.snapshots, 'local'),
+      migrateLegacyWorkspaceCollection<MigrationDraft>('migration-drafts', 'global', KEYS.migrations, 'local'),
+      migrateLegacyWorkspaceCollection<ApprovalRequest>('approval-requests', 'global', KEYS.approvals, 'local'),
+      migrateLegacyWorkspaceCollection<PreparedStatementSet>('prepared-statements', 'global', KEYS.prepared, 'local')
+    ]);
+
+    const [snapshots, migrations, approvals, prepared] = await Promise.all([
+      readWorkspaceCollection<SchemaSnapshot>('schema-snapshots', 'global'),
+      readWorkspaceCollection<MigrationDraft>('migration-drafts', 'global'),
+      readWorkspaceCollection<ApprovalRequest>('approval-requests', 'global'),
+      readWorkspaceCollection<PreparedStatementSet>('prepared-statements', 'global')
+    ]);
+
+    snapshotsState = snapshots.slice(0, 500);
+    migrationsState = migrations.slice(0, 300);
+    approvalsState = approvals.slice(0, 300);
+    preparedState = prepared.slice(0, 200);
+    automationStoreReady = true;
+
+    emit(KEYS.snapshots);
+    emit(KEYS.migrations);
+    emit(KEYS.approvals);
+    emit(KEYS.prepared);
+  })().finally(() => {
+    automationStoreInit = null;
+  });
+
+  return automationStoreInit;
 }
 
 export function automationId(prefix: string) {
@@ -95,37 +161,64 @@ export function automationId(prefix: string) {
 }
 
 export const schemaSnapshots = {
-  list: () => read<SchemaSnapshot>(KEYS.snapshots),
-  add: (snapshot: SchemaSnapshot) => write(KEYS.snapshots, [snapshot, ...read<SchemaSnapshot>(KEYS.snapshots)].slice(0, 500)),
-  remove: (id: string) => write(KEYS.snapshots, read<SchemaSnapshot>(KEYS.snapshots).filter(item => item.id !== id)),
-  clear: () => write<SchemaSnapshot>(KEYS.snapshots, [])
+  list: () => snapshotsState,
+  add: (snapshot: SchemaSnapshot) => {
+    snapshotsState = [snapshot, ...snapshotsState.filter(item => item.id !== snapshot.id)].slice(0, 500);
+    persistNative('schema-snapshots', KEYS.snapshots, snapshotsState);
+  },
+  remove: (id: string) => {
+    snapshotsState = snapshotsState.filter(item => item.id !== id);
+    persistNative('schema-snapshots', KEYS.snapshots, snapshotsState);
+  },
+  clear: () => {
+    snapshotsState = [];
+    persistNative<SchemaSnapshot>('schema-snapshots', KEYS.snapshots, snapshotsState);
+  }
 };
 
 export const migrationDrafts = {
-  list: () => read<MigrationDraft>(KEYS.migrations),
-  save: (draft: MigrationDraft) => write(KEYS.migrations, [draft, ...read<MigrationDraft>(KEYS.migrations).filter(item => item.id !== draft.id)].slice(0, 300)),
-  remove: (id: string) => write(KEYS.migrations, read<MigrationDraft>(KEYS.migrations).filter(item => item.id !== id))
+  list: () => migrationsState,
+  save: (draft: MigrationDraft) => {
+    migrationsState = [draft, ...migrationsState.filter(item => item.id !== draft.id)].slice(0, 300);
+    persistNative('migration-drafts', KEYS.migrations, migrationsState);
+  },
+  remove: (id: string) => {
+    migrationsState = migrationsState.filter(item => item.id !== id);
+    persistNative('migration-drafts', KEYS.migrations, migrationsState);
+  }
 };
 
 export const backupTasks = {
-  list: () => read<BackupTask>(KEYS.backups),
+  list: () => readLocal<BackupTask>(KEYS.backups),
   save: (task: Omit<BackupTask, 'engine'> & { engine?: string }) => {
     const normalizedTask: BackupTask = { ...task, engine: task.engine || 'mysql' };
-    write(KEYS.backups, [normalizedTask, ...read<BackupTask>(KEYS.backups).filter(item => item.id !== normalizedTask.id)].slice(0, 200));
+    writeLocal(KEYS.backups, [normalizedTask, ...readLocal<BackupTask>(KEYS.backups).filter(item => item.id !== normalizedTask.id)].slice(0, 200));
   },
-  remove: (id: string) => write(KEYS.backups, read<BackupTask>(KEYS.backups).filter(item => item.id !== id))
+  remove: (id: string) => writeLocal(KEYS.backups, readLocal<BackupTask>(KEYS.backups).filter(item => item.id !== id))
 };
 
 export const approvalRequests = {
-  list: () => read<ApprovalRequest>(KEYS.approvals),
-  save: (request: ApprovalRequest) => write(KEYS.approvals, [request, ...read<ApprovalRequest>(KEYS.approvals).filter(item => item.id !== request.id)].slice(0, 300)),
-  remove: (id: string) => write(KEYS.approvals, read<ApprovalRequest>(KEYS.approvals).filter(item => item.id !== id))
+  list: () => approvalsState,
+  save: (request: ApprovalRequest) => {
+    approvalsState = [request, ...approvalsState.filter(item => item.id !== request.id)].slice(0, 300);
+    persistNative('approval-requests', KEYS.approvals, approvalsState);
+  },
+  remove: (id: string) => {
+    approvalsState = approvalsState.filter(item => item.id !== id);
+    persistNative('approval-requests', KEYS.approvals, approvalsState);
+  }
 };
 
 export const preparedStatementSets = {
-  list: () => read<PreparedStatementSet>(KEYS.prepared),
-  save: (item: PreparedStatementSet) => write(KEYS.prepared, [item, ...read<PreparedStatementSet>(KEYS.prepared).filter(entry => entry.id !== item.id)].slice(0, 200)),
-  remove: (id: string) => write(KEYS.prepared, read<PreparedStatementSet>(KEYS.prepared).filter(item => item.id !== id))
+  list: () => preparedState,
+  save: (item: PreparedStatementSet) => {
+    preparedState = [item, ...preparedState.filter(entry => entry.id !== item.id)].slice(0, 200);
+    persistNative('prepared-statements', KEYS.prepared, preparedState);
+  },
+  remove: (id: string) => {
+    preparedState = preparedState.filter(item => item.id !== id);
+    persistNative('prepared-statements', KEYS.prepared, preparedState);
+  }
 };
 
 export function backupCommand(engine: string | undefined, host: string, port: number, username: string, databaseName: string | null, destination: string) {
