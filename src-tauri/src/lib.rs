@@ -154,6 +154,31 @@ async fn execute_action(request: DatabaseRequest, config: DesktopConfig) -> Resu
             let result = if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") { pg_query(&c, test_sql, database, 1).await? } else { mysql_query(&c, test_sql, database, 1).await? };
             Ok(json!({ "connection": { "version": result["rows"].get(0).and_then(|r| r.get("version")).cloned().unwrap_or(Value::Null), "databaseName": database }, "_meta": { "statements": [{ "label": "Bağlantı testi", "sql": test_sql }] } }))
         }
+        "catalog" => {
+            let sql = if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") {
+                "SELECT datname AS name FROM pg_database WHERE datistemplate = false ORDER BY datname"
+            } else {
+                "SELECT SCHEMA_NAME AS name FROM information_schema.SCHEMATA ORDER BY SCHEMA_NAME"
+            };
+            let result = if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") { pg_query(&c, sql, None, config.max_result_rows).await? } else { mysql_query(&c, sql, None, config.max_result_rows).await? };
+            let databases = result["rows"].as_array().cloned().unwrap_or_default().into_iter().filter_map(|row| row.get("name").and_then(Value::as_str).map(|name| json!({
+                "name": name, "defaultCharset": null, "defaultCollation": null, "tableCount": 0, "totalRows": 0,
+                "dataSizeMB": "0.00", "indexSizeMB": "0.00", "totalSizeMB": "0.00", "tables": [], "tableDetails": []
+            }))).collect::<Vec<_>>();
+            Ok(json!({ "databases": databases, "_meta": { "statements": [{ "label": "Katalog", "sql": sql }] } }))
+        }
+        "table-data" => {
+            let database = request.payload.get("database").and_then(Value::as_str).ok_or_else(|| "Veritabanı eksik.".to_string())?;
+            let table = request.payload.get("table").and_then(Value::as_str).ok_or_else(|| "Tablo eksik.".to_string())?;
+            let page = request.payload.get("page").and_then(Value::as_u64).unwrap_or(1).max(1);
+            let page_size = request.payload.get("pageSize").and_then(Value::as_u64).unwrap_or(50).min(config.max_page_size as u64);
+            let offset = (page - 1) * page_size;
+            let quote = if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") { "\"" } else { "`" };
+            let sql = format!("SELECT * FROM {q}{db}{q}.{q}{table}{q} LIMIT {limit} OFFSET {offset}", q=quote, db=database.replace(quote, ""), table=table.replace(quote, ""), limit=page_size, offset=offset);
+            let result = if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") { pg_query(&c, &sql, Some(database), page_size as usize).await? } else { mysql_query(&c, &sql, Some(database), page_size as usize).await? };
+            let data = result["rows"].as_array().cloned().unwrap_or_default();
+            Ok(json!({ "data": data, "pagination": { "page": page, "pageSize": page_size, "totalRows": data.len(), "totalPages": 1, "hasPreviousPage": page > 1, "hasNextPage": data.len() == page_size as usize }, "sorts": [], "filters": [], "_meta": { "statements": [{ "label": "Tablo verileri", "sql": sql }] } }))
+        }
         "query" => {
             let sql = sql.ok_or_else(|| "SQL sorgusu eksik.".to_string())?;
             if c.read_only {
