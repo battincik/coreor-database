@@ -190,12 +190,37 @@ pub async fn execute_sql(c: &Connection, sql: &str, database: Option<&str>, limi
     execute_on(&mut conn,sql,limit).await
 }
 
+fn strip_leading_sql_comments(mut sql: &str) -> &str {
+    loop {
+        sql = sql.trim_start();
+        if sql.starts_with("/*!") {
+            // MySQL versioned comments are executable SQL, so never treat them as harmless comments.
+            return sql;
+        }
+        if sql.starts_with("/*") {
+            if let Some(end) = sql.find("*/") { sql = &sql[end + 2..]; continue; }
+            return sql;
+        }
+        if sql.starts_with("--") || sql.starts_with('#') {
+            if let Some(end) = sql.find('\n') { sql = &sql[end + 1..]; continue; }
+            return "";
+        }
+        return sql;
+    }
+}
+
 pub fn is_mutating(sql:&str)->bool{
-    let keywords=["insert","update","delete","replace","merge","alter","create","drop","truncate","rename","grant","revoke","call","exec ","execute ","kill","begin","start transaction","commit","rollback"];
+    let keywords=[
+        "insert","update","delete","replace","merge","alter","create","drop","truncate","rename",
+        "grant","revoke","call","exec ","execute ","kill","begin","start transaction","commit","rollback",
+        "set ","load data","lock tables","unlock tables","handler ","do "
+    ];
     sql.split(';').any(|statement|{
-        let s=statement.trim_start().to_ascii_lowercase();
-        if keywords.iter().any(|x|s.starts_with(x)){return true}
-        s.starts_with("with ") && [" insert "," update "," delete "," merge "].iter().any(|x|s.contains(x))
+        let normalized=strip_leading_sql_comments(statement).to_ascii_lowercase();
+        let s=normalized.trim_start();
+        if s.starts_with("/*!"){return true}
+        if keywords.iter().any(|keyword|s.starts_with(keyword)){return true}
+        s.starts_with("with ") && [" insert "," update "," delete "," merge "," replace "].iter().any(|keyword|s.contains(keyword))
     })
 }
 
