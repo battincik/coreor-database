@@ -92,7 +92,12 @@ fn mysql_cell(row: &sqlx::mysql::MySqlRow, i: usize) -> Value {
     if let Ok(v) = row.try_get::<Option<NaiveDateTime>, _>(i) { return v.map(|x| json!(x.to_string())).unwrap_or(Value::Null); }
     if let Ok(v) = row.try_get::<Option<NaiveDate>, _>(i) { return v.map(|x| json!(x.to_string())).unwrap_or(Value::Null); }
     if let Ok(v) = row.try_get::<Option<NaiveTime>, _>(i) { return v.map(|x| json!(x.to_string())).unwrap_or(Value::Null); }
-    if let Ok(v) = row.try_get::<Option<Vec<u8>>, _>(i) { return v.map(|x| json!({"type":"binary","base64":base64::Engine::encode(&base64::engine::general_purpose::STANDARD,x)})).unwrap_or(Value::Null); }
+    if let Ok(v) = row.try_get::<Option<Vec<u8>>, _>(i) {
+        return v.map(|bytes| match String::from_utf8(bytes.clone()) {
+            Ok(text) => Value::String(text),
+            Err(_) => json!({"type":"binary","base64":base64::Engine::encode(&base64::engine::general_purpose::STANDARD,bytes)})
+        }).unwrap_or(Value::Null);
+    }
     Value::Null
 }
 
