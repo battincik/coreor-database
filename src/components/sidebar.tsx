@@ -7,6 +7,7 @@ import type { DatabaseEngine, DatabaseServerConfig, SidebarProps } from 'types';
 import { DatabaseContext } from '@/context/DatabaseContext';
 import { useDesktop } from '@/context/DesktopContext';
 import { Button } from '@/components/ui/button';
+import { CoreorConfirmModal, type CoreorConfirmation } from '@/components/ui/coreor-confirm-modal';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ServerCreateModal } from '@/components/server-create-modal';
@@ -104,6 +105,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const [serverModalOpen, setServerModalOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<DatabaseServerConfig | null>(null);
   const [confirmation, setConfirmation] = useState<DatabaseActionConfirmation | null>(null);
+  const [profileConfirmation, setProfileConfirmation] = useState<CoreorConfirmation | null>(null);
   const [createDatabase, setCreateDatabase] = useState<CreateDatabaseState | null>(null);
   const [online, setOnline] = useState(true);
 
@@ -217,9 +219,13 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           label: 'Bağlantı profilini kaldır',
           icon: Trash2,
           danger: true,
-          onSelect: () => {
-            if (window.confirm(`"${server.name}" bağlantı profili bu bilgisayardan kaldırılsın mı? Veritabanı sunucusundaki veriler silinmez.`)) void removeServer(server.id);
-          }
+          onSelect: () => setProfileConfirmation({
+            title: 'Bağlantı profilini kaldır',
+            description: `"${server.name}" profili yalnızca bu bilgisayardaki Coreor bağlantı kasasından kaldırılacak. MySQL sunucusu, veritabanları ve tablolar silinmez.`,
+            confirmLabel: 'Profili kaldır',
+            tone: 'danger',
+            onConfirm: () => removeServer(server.id)
+          })
         }
       ],
       `${server.name} • ${databaseEngineLabel(server.databaseType)}`
@@ -595,6 +601,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         onUpdate={updateServer}
       />
       <DatabaseActionConfirmModal action={confirmation} onClose={() => setConfirmation(null)} />
+      <CoreorConfirmModal action={profileConfirmation} onClose={() => setProfileConfirmation(null)} />
       <CreateDatabaseModal
         state={createDatabase}
         onChange={setCreateDatabase}
