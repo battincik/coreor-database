@@ -368,7 +368,6 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     );
   };
 
-  const user = session?.user;
   return (
     <aside className="flex h-full min-h-0 w-full flex-col border-r border-zinc-800 bg-zinc-950/96">
       <header className="shrink-0 border-b border-zinc-800 p-2">
