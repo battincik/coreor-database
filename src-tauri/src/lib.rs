@@ -28,7 +28,7 @@ impl Default for DesktopConfig {
 fn config_version()->u32{1}
 fn default_query_timeout()->u64{120_000}
 fn default_max_rows()->usize{50_000}
-fn default_page_size()->usize{5_000}
+fn default_page_size()->usize{10_000}
 
 fn config_file(app:&tauri::AppHandle)->Result<PathBuf,String>{
     let dir=app.path().app_config_dir().map_err(|e|e.to_string())?;
@@ -63,7 +63,7 @@ async fn database_request(app:tauri::AppHandle,state:State<'_,TransactionStore>,
             }
         }
     }
-    let max_page_size=config.max_page_size.max(5_000);
+    let max_page_size=config.max_page_size.max(10_000);
     tokio::time::timeout(Duration::from_millis(config.query_timeout_ms),database::execute_action(request,config.max_result_rows,max_page_size))
         .await.map_err(|_|"Veritabanı işlemi zaman aşımına uğradı.".to_string())?
 }
