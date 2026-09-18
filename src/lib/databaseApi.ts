@@ -262,6 +262,14 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
   });
 }
 
+export async function deleteDatabaseServer(serverId: string, accountId?: string | null) {
+  return mutateServerProfiles(servers => {
+    const existing = servers.find(server => server.id === serverId);
+    if (!existing) throw new Error('Silinecek bağlantı profili bulunamadı.');
+    return { servers: servers.filter(server => server.id !== serverId), result: existing };
+  });
+}
+
 export async function testDatabaseConnection(server: DatabaseServerConfig) {
   const port = server.port ?? databaseEngineDefinition(server.databaseType).defaultPort;
   return requestDatabaseApi<{ connection: { version?: string; databaseName?: string | null; currentUser?: string }; _meta?: DatabaseQueryMeta }>(server, 'test', {}, { requestKey: `connection-test:${server.host}:${port}` });
