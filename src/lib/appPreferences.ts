@@ -17,6 +17,7 @@ export interface AppPreferences {
   lineHeight: number;
   compactMode: boolean;
   sidebarSize: number;
+  objectExplorerGrouped: boolean;
   reducedMotion: boolean;
   strongFocusRing: boolean;
   highContrastBorders: boolean;
@@ -38,13 +39,13 @@ export interface AppPreferences {
   performanceRefreshSeconds: PerformanceRefreshSeconds;
 }
 
-const STORAGE_KEY = 'coreor:app-preferences:v5';
-const LEGACY_STORAGE_KEYS = ['coreor:app-preferences:v4', 'coreor:app-preferences:v3'];
+const STORAGE_KEY = 'coreor:app-preferences:v6';
+const LEGACY_STORAGE_KEYS = ['coreor:app-preferences:v5', 'coreor:app-preferences:v4', 'coreor:app-preferences:v3'];
 const listeners = new Set<() => void>();
 const DEFAULTS: AppPreferences = {
   theme: 'amoled', syntaxTheme: 'coreor', fontFamily: 'system', uiFontSize: 12,
   editorFontSize: 13, consoleFontSize: 9, lineHeight: 1.55, compactMode: true,
-  sidebarSize: 20, reducedMotion: false, strongFocusRing: true, highContrastBorders: false,
+  sidebarSize: 20, objectExplorerGrouped: true, reducedMotion: false, strongFocusRing: true, highContrastBorders: false,
   dyslexiaSpacing: false, colorBlindMode: 'none', autocomplete: true,
   autoRefreshProcesses: false, confirmDangerousQueries: true, dryRunMutations: true,
   requireSecondApproval: true, productionAlterApproval: true, autoSchemaSnapshots: true,
