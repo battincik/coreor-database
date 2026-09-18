@@ -183,6 +183,7 @@ async function persistStorageRecalculations(serverId: string, results: DatabaseS
             dataSizeMB: bytesToMb(databaseResult.dataBytes),
             indexSizeMB: bytesToMb(databaseResult.indexBytes),
             totalSizeMB: bytesToMb(databaseResult.totalBytes),
+            freeSizeMB: bytesToMb(databaseResult.freeBytes),
             storageMeasuredAt: databaseResult.sampledAt,
             storageMeasurementSource: databaseResult.measurementSource ?? null,
             storagePhysicalBytes: databaseResult.physicalBytes ?? null,
@@ -255,16 +256,31 @@ export async function recalculateDatabaseStorage(serverId: string, database: str
     false
   );
 
-  const hasCompleteExactCounts =
+  const hasCompleteTableMeasurements =
     failedTables.length === 0 &&
-    tables.length === tableResults.length &&
+    tables.length === tableResults.length;
+  const hasCompleteExactCounts =
+    hasCompleteTableMeasurements &&
     tableResults.every(result => result.rowCountSource === 'exact-count' && result.rows !== null);
-  const exactTotalRows = hasCompleteExactCounts
-    ? tableResults.reduce((sum, result) => sum + Number(result.rows || 0), 0)
-    : databaseResult.rows;
+
+  const aggregate = hasCompleteTableMeasurements
+    ? tableResults.reduce((totals, result) => ({
+        dataBytes: totals.dataBytes + Number(result.dataBytes || 0),
+        indexBytes: totals.indexBytes + Number(result.indexBytes || 0),
+        freeBytes: totals.freeBytes + Number(result.freeBytes || 0),
+        totalBytes: totals.totalBytes + Number(result.totalBytes || 0),
+        rows: totals.rows + Number(result.rows || 0)
+      }), { dataBytes: 0, indexBytes: 0, freeBytes: 0, totalBytes: 0, rows: 0 })
+    : null;
+
   const normalizedDatabaseResult: DatabaseStorageRecalculation = {
     ...databaseResult,
-    rows: exactTotalRows,
+    dataBytes: aggregate?.dataBytes ?? databaseResult.dataBytes,
+    indexBytes: aggregate?.indexBytes ?? databaseResult.indexBytes,
+    freeBytes: aggregate?.freeBytes ?? databaseResult.freeBytes,
+    totalBytes: aggregate?.totalBytes ?? databaseResult.totalBytes,
+    rows: hasCompleteExactCounts ? aggregate?.rows ?? 0 : databaseResult.rows,
+    measurementSource: aggregate ? 'table-aggregate' : databaseResult.measurementSource,
     rowCountSource: hasCompleteExactCounts ? 'exact-count' : 'metadata-estimate'
   };
 

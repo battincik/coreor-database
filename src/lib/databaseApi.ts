@@ -260,6 +260,7 @@ function mergeMeasuredStorage(previous: DatabaseCatalogItem | undefined, incomin
     merged.dataSizeMB = previous.dataSizeMB;
     merged.indexSizeMB = previous.indexSizeMB;
     merged.totalSizeMB = previous.totalSizeMB;
+    merged.freeSizeMB = previous.freeSizeMB;
     merged.storageMeasuredAt = previous.storageMeasuredAt;
     merged.storageMeasurementSource = previous.storageMeasurementSource;
     merged.storagePhysicalBytes = previous.storagePhysicalBytes;

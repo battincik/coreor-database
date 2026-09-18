@@ -166,7 +166,7 @@ export interface DatabaseStorageRecalculation {
   freeBytes: number;
   totalBytes: number;
   physicalBytes?: number | null;
-  measurementSource?: 'innodb-tablespace' | 'information-schema' | null;
+  measurementSource?: 'innodb-tablespace' | 'information-schema' | 'table-aggregate' | null;
   rowCountSource?: 'exact-count' | 'metadata-estimate' | null;
   rows: number | null;
   sampledAt: string;

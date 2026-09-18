@@ -93,7 +93,7 @@ export interface DatabaseTable {
   foreignKeyCount: number;
   /** Last explicit storage recalculation. Preserved across normal catalog refreshes. */
   storageMeasuredAt?: string | null;
-  storageMeasurementSource?: 'innodb-tablespace' | 'information-schema' | null;
+  storageMeasurementSource?: 'innodb-tablespace' | 'information-schema' | 'table-aggregate' | null;
   storagePhysicalBytes?: number | null;
   rowCountMeasuredAt?: string | null;
   rowCountMeasurementSource?: 'exact-count' | 'metadata-estimate' | null;
@@ -108,11 +108,12 @@ export interface DatabaseCatalogItem {
   dataSizeMB: string;
   indexSizeMB: string;
   totalSizeMB: string;
+  freeSizeMB?: string;
   tables: string[];
   tableDetails: DatabaseTable[];
   /** Last explicit database-wide storage recalculation. */
   storageMeasuredAt?: string | null;
-  storageMeasurementSource?: 'innodb-tablespace' | 'information-schema' | null;
+  storageMeasurementSource?: 'innodb-tablespace' | 'information-schema' | 'table-aggregate' | null;
   storagePhysicalBytes?: number | null;
   rowCountMeasuredAt?: string | null;
   rowCountMeasurementSource?: 'exact-count' | 'metadata-estimate' | null;
