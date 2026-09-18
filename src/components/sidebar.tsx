@@ -534,6 +534,12 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       },
       { id: 'new-query', label: 'Yeni sorgu', icon: Code2, shortcut: 'newQuery', onSelect: () => openSql(server, database, `${object.name} sorgu`, '') },
       { id: 'definition', label: 'DDL / tanımı göster', icon: FileCode2, onSelect: () => openSql(server, database, `${object.name} DDL`, objectDefinitionSql(engine, database, object), true) },
+      { id: 'copy-definition', label: 'CREATE / DDL kopyala', icon: Copy, disabled: databaseEngineFamily(engine) !== 'mysql' && object.kind === 'table', disabledReason: 'Bu motor tablo CREATE DDL’sini doğrudan katalog fonksiyonuyla vermiyor.', onSelect: async () => {
+        if (!workspaceKey) return;
+        const result = await executeDatabaseQuery(server.id, objectDefinitionSql(engine, database, object), workspaceKey, database);
+        const text = result.rows.flatMap(row => Object.values(row)).filter(value => typeof value === 'string').map(String).at(-1) || object.definition || '';
+        if (text) await navigator.clipboard.writeText(text);
+      } },
       { id: 'dependencies', label: 'Bağımlılıkları sorgula', icon: Network, onSelect: () => openSql(server, database, `${object.name} bağımlılıklar`, objectDependencySql(engine, database, object), true) },
       { id: 'sep-edit', separator: true },
       { id: 'rename', label: 'Rename taslağı', icon: Wrench, disabled: Boolean(server.readOnly) || !canRename, disabledReason: server.readOnly ? 'Bağlantı salt-okunur.' : 'Bu nesne türünde güvenli rename motor/sürüme göre değişiyor.', onSelect: () => openSql(server, database, `${object.name} rename`, objectRenameTemplate(engine, database, object)) },
