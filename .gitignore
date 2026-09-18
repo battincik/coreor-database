@@ -30,9 +30,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
-.env*
-!.env.example
+# local desktop configuration
+config.json
+*.local.json
+
+# tauri
+/src-tauri/target/
 
 # vercel
 .vercel
