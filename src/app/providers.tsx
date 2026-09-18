@@ -3,7 +3,6 @@
 import { LanguageProvider } from '@/context/LanguageContext';
 import { DesktopProvider } from '@/context/DesktopContext';
 import { DatabaseProvider } from '@/context/DatabaseContext';
-import { LanguageSwitcher } from '@/components/language-switcher';
 import { LegacyTranslationBridge } from '@/components/legacy-translation-bridge';
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -13,7 +12,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <DatabaseProvider>
           <LegacyTranslationBridge />
           {children}
-          <LanguageSwitcher />
         </DatabaseProvider>
       </DesktopProvider>
     </LanguageProvider>
