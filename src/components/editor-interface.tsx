@@ -18,6 +18,7 @@ import { DatabaseContext } from '@/context/DatabaseContext';
 import { openQueryTab } from '@/lib/queryWorkspaceEvents';
 import { setAppPreferences, useAppPreferences } from '@/lib/appPreferences';
 import { OPEN_SETTINGS_MODAL_EVENT, TOGGLE_COMMAND_PALETTE_EVENT } from '@/lib/databaseToolEvents';
+import { matchesShortcut, shortcutLabel } from '@/lib/shortcuts';
 
 function EditorWorkspace() {
   const [selectedDatabase, setSelectedDatabase] = useState<string | null>(null);
@@ -40,6 +41,32 @@ function EditorWorkspace() {
   useEffect(() => {
     if (activeTab === 'table' || activeTab === 'table-data') lastTableView.current = activeTab;
   }, [activeTab]);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (matchesShortcut(event, 'newQuery')) {
+        event.preventDefault();
+        if (activeServer) openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase ? `${selectedDatabase} sorgu` : 'Genel sorgu' });
+      } else if (matchesShortcut(event, 'settings')) {
+        event.preventDefault();
+        window.dispatchEvent(new Event(OPEN_SETTINGS_MODAL_EVENT));
+      } else if (matchesShortcut(event, 'refresh')) {
+        event.preventDefault();
+        window.dispatchEvent(new Event('coreor:refresh-active-view'));
+      } else if (matchesShortcut(event, 'insertRow') && selectedDatabase && selectedTable && !activeServer?.readOnly) {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent('coreor:request-insert-table-row', { detail: { databaseName: selectedDatabase, tableName: selectedTable } }));
+      } else if (matchesShortcut(event, 'closeTab') && activeTab.startsWith('query:')) {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent('coreor:close-query-tab', { detail: { id: activeTab.slice(6) } }));
+      } else if (matchesShortcut(event, 'duplicateTab') && activeTab.startsWith('query:')) {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent('coreor:duplicate-query-tab', { detail: { id: activeTab.slice(6) } }));
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [activeServer, activeServerId, selectedDatabase, selectedTable, activeTab]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -124,7 +151,7 @@ function EditorWorkspace() {
               id: 'commands',
               label: 'Komut paletini aç',
               icon: Code,
-              shortcut: 'Ctrl+K',
+              shortcut: shortcutLabel('commandPalette'),
               onSelect: () => window.dispatchEvent(new Event(TOGGLE_COMMAND_PALETTE_EVENT))
             },
             {
