@@ -55,7 +55,13 @@ function EditorWorkspace() {
         window.dispatchEvent(new Event('coreor:refresh-active-view'));
       } else if (matchesShortcut(event, 'insertRow') && selectedDatabase && selectedTable && !activeServer?.readOnly) {
         event.preventDefault();
-        window.dispatchEvent(new CustomEvent('coreor:request-insert-table-row', { detail: { databaseName: selectedDatabase, tableName: selectedTable } }));
+        setActiveTab('table-data');
+        window.requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('coreor:request-insert-table-row', { detail: { databaseName: selectedDatabase, tableName: selectedTable } })));
+      } else if (matchesShortcut(event, 'find')) {
+        const target = event.target as HTMLElement | null;
+        if (target?.closest('.coreor-sql-editor-stack')) return;
+        event.preventDefault();
+        window.dispatchEvent(new Event('coreor:focus-object-search'));
       } else if (matchesShortcut(event, 'closeTab') && activeTab.startsWith('query:')) {
         event.preventDefault();
         window.dispatchEvent(new CustomEvent('coreor:close-query-tab', { detail: { id: activeTab.slice(6) } }));
