@@ -53,8 +53,8 @@ interface ServerCreateModalProps {
 }
 
 const TLS_OPTIONS: SearchSelectOption<DatabaseSslMode>[] = [
-  { value: 'required', label: 'TLS zorunlu', description: 'Şifreli bağlantı ve sertifika doğrulaması.', badge: 'Önerilen', keywords: ['güvenli', 'ssl', 'sertifika'] },
-  { value: 'preferred', label: 'TLS tercih et', description: 'Mümkünse TLS; uyumsuz sunucuda bağlantıyı sürdürür.', badge: 'Esnek', keywords: ['preferred', 'uyumluluk'] },
+  { value: 'required', label: 'TLS zorunlu', description: 'Şifreli bağlantı ve sertifika doğrulaması.', badge: 'Sıkı', keywords: ['güvenli', 'ssl', 'sertifika'] },
+  { value: 'preferred', label: 'TLS tercih et', description: 'Mümkünse TLS; uyumsuz sunucuda bağlantıyı sürdürür.', badge: 'Önerilen', keywords: ['preferred', 'uyumluluk'] },
   { value: 'disabled', label: 'TLS kapalı', description: 'Yalnızca güvenilir özel ağlarda kullanın.', badge: 'Riskli', keywords: ['kapalı', 'plain'] }
 ];
 
@@ -70,7 +70,7 @@ const DEFAULT_ENGINE = databaseEngineDefinition('mysql');
 const DEFAULT_VALUES: ServerCreateModalValues = {
   name: '', databaseType: 'mysql', version: DEFAULT_ENGINE.defaultVersion, host: '',
   port: String(DEFAULT_ENGINE.defaultPort), username: '', password: '', databaseName: '',
-  sslMode: 'required', connectionTimeoutMs: '20000', organizationId: '', readOnly: false
+  sslMode: 'preferred', connectionTimeoutMs: '20000', organizationId: '', readOnly: false
 };
 
 const INPUT_CLASS = 'h-10 rounded-xl border-white/10 bg-zinc-950/70 px-3 text-xs text-white placeholder:text-zinc-700 focus-visible:ring-cyan-500/25';
@@ -84,7 +84,7 @@ function valuesFromServer(server?: DatabaseServerConfig | null): ServerCreateMod
     version: server.version || definition.defaultVersion, host: server.host || '',
     port: String(server.port || definition.defaultPort), username: server.username || '',
     password: server.password || '', databaseName: server.databaseName || '',
-    sslMode: server.sslMode || 'required', connectionTimeoutMs: String(server.connectionTimeoutMs || 20000),
+    sslMode: server.sslMode || 'preferred', connectionTimeoutMs: String(server.connectionTimeoutMs || 20000),
     organizationId: server.organizationId || '', readOnly: Boolean(server.readOnly)
   };
 }
