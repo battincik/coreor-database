@@ -2,7 +2,6 @@
 
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { signOut, useSession } from 'next-auth/react';
 import { Activity, Braces, ChevronDown, ChevronRight, Circle, Code2, Database, Download, FileCode2, FunctionSquare, Gauge, HardDrive, KeyRound, LogOut, MoreHorizontal, Network, Plus, RefreshCw, Search, Server, Settings2, ShieldCheck, Sparkles, Table2, Trash2, UserRound, View, Wifi, WifiOff, Wrench, X, Zap } from 'lucide-react';
 import type { DatabaseEngine, DatabaseServerConfig, SidebarProps } from 'types';
 import { DatabaseContext } from '@/context/DatabaseContext';
@@ -94,8 +93,7 @@ function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: Cr
 }
 
 export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatabase, selectedTable }: SidebarProps) {
-  const { data: session } = useSession();
-  const { activeToken } = useAuth();
+  const { activeToken, user } = useAuth();
   const context = useContext(DatabaseContext)!;
   const { openContextMenu } = useAppContextMenu();
   const { servers, activeServerId, setActiveServerId, addServer, updateServer, loadServers, isAddingServer, isServersLoading } = context;
@@ -550,7 +548,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
               <Plus className="h-3.5 w-3.5" />
               Yeni sunucu ekle
             </button>
-            <button type="button" className="flex h-9 w-full items-center gap-2 border-t border-zinc-800 px-3 text-[10px] text-red-400 hover:bg-red-500/[0.06]" onClick={() => void signOut({ callbackUrl: '/login' })}>
+            <button type="button" className="flex h-9 w-full items-center gap-2 border-t border-zinc-800 px-3 text-[10px] text-red-400 hover:bg-red-500/[0.06]" onClick={() => setProfileOpen(false)}>
               <LogOut className="h-3.5 w-3.5" />
               Çıkış yap
             </button>
