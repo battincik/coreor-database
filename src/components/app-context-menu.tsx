@@ -56,13 +56,14 @@ function MenuItems({ items, closeMenu, onBack, autoFocus = false }: { items: App
   }, [autoFocus]);
 
   const openSubmenu = (item: AppContextMenuItem, focus: boolean) => {
-    if (!item.children?.length || !rootRef.current) return;
+    if (item.disabled || !item.children?.length || !rootRef.current) return;
     const anchor = rootRef.current.querySelector<HTMLElement>(`[data-menu-id="${CSS.escape(item.id)}"]`);
     if (!anchor) return;
     const rect = anchor.getBoundingClientRect();
     const width = 270;
     const x = rect.right + width > window.innerWidth - 8 ? Math.max(8, rect.left - width + 4) : rect.right - 4;
-    const y = Math.max(8, Math.min(rect.top, window.innerHeight - 420));
+    const submenuHeight = Math.min(520, Math.max(180, window.innerHeight * 0.7));
+    const y = Math.max(8, Math.min(rect.top, window.innerHeight - submenuHeight - 8));
     setSubmenu({ id: item.id, x, y, focus });
   };
   const move = (direction: 1 | -1) => {
@@ -115,7 +116,7 @@ function MenuItems({ items, closeMenu, onBack, autoFocus = false }: { items: App
         {menuItems.map(item => {
           if (item.separator) return <div key={item.id} role="separator" className="my-1 h-px bg-zinc-800" />;
           const Icon = item.icon;
-          const hasChildren = visibleItems(item.children || []).length > 0;
+          const hasChildren = !item.disabled && visibleItems(item.children || []).length > 0;
           const active = activeId === item.id;
           return (
             <div key={item.id} className="px-1" onMouseEnter={() => { setActiveId(item.id); if (hasChildren) openSubmenu(item, false); else setSubmenu(null); }}>
