@@ -18,10 +18,20 @@ jobs:
         include:
           - os: windows-latest
             artifact: coreor-database-windows
+            target: ''
+            args: ''
           - os: ubuntu-22.04
             artifact: coreor-database-linux
+            target: ''
+            args: ''
           - os: macos-latest
-            artifact: coreor-database-macos
+            artifact: coreor-database-macos-arm64
+            target: aarch64-apple-darwin
+            args: --target aarch64-apple-darwin
+          - os: macos-latest
+            artifact: coreor-database-macos-x64
+            target: x86_64-apple-darwin
+            args: --target x86_64-apple-darwin
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -30,18 +40,21 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils rpm
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
+      - name: Add explicit Rust target
+        if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
       - run: npm ci
       - run: npm run check
-      - run: npm run tauri:build
+      - run: npm run tauri:build -- ${{ matrix.args }}
       - name: Upload Windows bundles
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
@@ -68,5 +81,5 @@ jobs:
           name: ${{ matrix.artifact }}
           if-no-files-found: error
           path: |
-            src-tauri/target/release/bundle/app/*.app
-            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/app/*.app
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
