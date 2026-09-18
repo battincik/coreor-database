@@ -85,6 +85,9 @@ function objectMetadataText(object: DatabaseSchemaObject, detail?: DatabaseTable
 interface CreateDatabaseState {
   server: DatabaseServerConfig;
   name: string;
+  charset: string;
+  collation: string;
+  owner: string;
   busy: boolean;
   error: string | null;
 }
@@ -164,10 +167,18 @@ function objectDropSql(engine: DatabaseEngine, databaseName: string, object: Dat
 
 function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: CreateDatabaseState | null; onChange: (state: CreateDatabaseState) => void; onClose: () => void; onCreate: () => void | Promise<void> }) {
   if (!state || typeof document === 'undefined') return null;
+  const family = databaseEngineFamily(state.server.databaseType);
+  const supportsCharset = family === 'mysql';
+  const supportsOwner = family === 'postgresql' && state.server.databaseType !== 'cockroachdb';
+  const supportsCollation = family === 'mysql' || family === 'mssql';
+  const validName = /^[A-Za-z0-9_$-]+$/.test(state.name);
+  const safeOption = (value: string) => !value || /^[A-Za-z0-9_.-]+$/.test(value);
+  const optionsValid = safeOption(state.charset) && safeOption(state.collation) && (!state.owner || state.owner.length <= 128);
+
   return createPortal(
-    <div className="fixed inset-0 z-[610] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[610] flex items-center justify-center p-2 sm:p-4">
       <button type="button" className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={state.busy ? undefined : onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+      <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl">
         <header className="flex items-center gap-3 border-b border-zinc-800 px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10">
             <Database className="h-4 w-4 text-cyan-300" />
@@ -178,20 +189,48 @@ function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: Cr
               {state.server.name} • {databaseEngineLabel(state.server.databaseType)}
             </p>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" disabled={state.busy} onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </header>
-        <div className="p-5">
-          <label className="mb-2 block text-[10px] text-zinc-400">Veritabanı adı</label>
-          <Input autoFocus value={state.name} onChange={event => onChange({ ...state, name: event.target.value, error: null })} className="h-10 bg-black/25 font-mono" placeholder="coreor_app" />
-          {state.error && <div className="mt-3 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[10px] text-red-300">{state.error}</div>}
+
+        <div className="space-y-4 p-5">
+          <label className="block text-[10px] text-zinc-400">
+            Veritabanı adı
+            <Input autoFocus value={state.name} onChange={event => onChange({ ...state, name: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono" placeholder="coreor_app" />
+            <span className="mt-1 block text-[8px] text-zinc-700">Harf, sayı, alt çizgi, tire ve $ kullanılabilir.</span>
+          </label>
+
+          {(supportsCharset || supportsCollation || supportsOwner) && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {supportsCharset && <label className="text-[10px] text-zinc-400">
+                Character set
+                <Input value={state.charset} onChange={event => onChange({ ...state, charset: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono text-[10px]" placeholder="utf8mb4" />
+              </label>}
+              {supportsCollation && <label className="text-[10px] text-zinc-400">
+                Collation <span className="text-zinc-700">(opsiyonel)</span>
+                <Input value={state.collation} onChange={event => onChange({ ...state, collation: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono text-[10px]" placeholder={family === 'mysql' ? 'utf8mb4_unicode_ci' : 'sunucu varsayılanı'} />
+              </label>}
+              {supportsOwner && <label className="text-[10px] text-zinc-400 sm:col-span-2">
+                Owner <span className="text-zinc-700">(opsiyonel)</span>
+                <Input value={state.owner} onChange={event => onChange({ ...state, owner: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono text-[10px]" placeholder="Mevcut kullanıcı" />
+              </label>}
+            </div>
+          )}
+
+          <div className="rounded-xl border border-zinc-800 bg-black/20 px-3 py-2 text-[9px] leading-4 text-zinc-600">
+            {family === 'mysql' && 'UTF-8 tabanlı uygulamalar için utf8mb4 önerilir. Collation boş bırakılırsa sunucunun/charset’in varsayılanı kullanılır.'}
+            {family === 'postgresql' && state.server.databaseType !== 'cockroachdb' && 'Yeni PostgreSQL veritabanı UTF8 encoding ile oluşturulur. Owner boşsa mevcut bağlantı kullanıcısı sahip olur.'}
+            {state.server.databaseType === 'cockroachdb' && 'CockroachDB için taşınabilirlik amacıyla yalnız veritabanı adı kullanılır.'}
+            {family === 'mssql' && 'Collation boş bırakılırsa SQL Server örneğinin varsayılan collation değeri kullanılır.'}
+          </div>
+
+          {state.error && <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[10px] text-red-300">{state.error}</div>}
         </div>
+
         <footer className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3">
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            İptal
-          </Button>
-          <Button size="sm" disabled={!/^[A-Za-z0-9_$-]+$/.test(state.name) || state.busy} onClick={() => void onCreate()}>
+          <Button variant="ghost" size="sm" disabled={state.busy} onClick={onClose}>İptal</Button>
+          <Button size="sm" disabled={!validName || !optionsValid || state.busy} onClick={() => void onCreate()}>
             {state.busy && <Activity className="mr-1.5 h-3.5 w-3.5 animate-spin" />}Oluştur
           </Button>
         </footer>
@@ -359,17 +398,46 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       else next.delete(value);
       return next;
     });
-  const expandAll = (server?: DatabaseServerConfig) => {
-    const targets = server ? [server] : servers;
-    setExpandedServers(new Set(targets.map(item => item.id)));
-    setExpandedDatabases(new Set(targets.flatMap(item => (item.databases || []).map(database => `${item.id}:${database.name}`))));
-    setExpandedObjectGroups(new Set(targets.flatMap(item => (item.databases || []).flatMap(database => objectGroupDefinitions.map(group => `${item.id}:${database.name}:${group.kind}`)))));
-    for (const target of targets) for (const database of target.databases || []) void loadObjects(target, database.name);
+  const expandServer = (server: DatabaseServerConfig) => {
+    setExpandedServers(previous => new Set(previous).add(server.id));
+    setExpandedDatabases(previous => {
+      const next = new Set(previous);
+      for (const database of server.databases || []) next.add(`${server.id}:${database.name}`);
+      return next;
+    });
+    setExpandedObjectGroups(previous => {
+      const next = new Set(previous);
+      for (const database of server.databases || []) {
+        for (const group of objectGroupDefinitions) next.add(`${server.id}:${database.name}:${group.kind}`);
+      }
+      return next;
+    });
+    for (const database of server.databases || []) void loadObjects(server, database.name);
   };
-  const collapseAll = () => {
-    setExpandedServers(new Set());
-    setExpandedDatabases(new Set());
-    setExpandedObjectGroups(new Set());
+
+  const collapseServer = (server: DatabaseServerConfig) => {
+    const prefix = `${server.id}:`;
+    setExpandedServers(previous => { const next = new Set(previous); next.delete(server.id); return next; });
+    setExpandedDatabases(previous => new Set([...previous].filter(key => !key.startsWith(prefix))));
+    setExpandedObjectGroups(previous => new Set([...previous].filter(key => !key.startsWith(prefix))));
+  };
+
+  const expandDatabase = (server: DatabaseServerConfig, databaseName: string) => {
+    const databaseKey = `${server.id}:${databaseName}`;
+    setExpandedServers(previous => new Set(previous).add(server.id));
+    setExpandedDatabases(previous => new Set(previous).add(databaseKey));
+    setExpandedObjectGroups(previous => {
+      const next = new Set(previous);
+      for (const group of objectGroupDefinitions) next.add(`${databaseKey}:${group.kind}`);
+      return next;
+    });
+    void loadObjects(server, databaseName);
+  };
+
+  const collapseDatabase = (server: DatabaseServerConfig, databaseName: string) => {
+    const databaseKey = `${server.id}:${databaseName}`;
+    setExpandedDatabases(previous => { const next = new Set(previous); next.delete(databaseKey); return next; });
+    setExpandedObjectGroups(previous => new Set([...previous].filter(key => !key.startsWith(`${databaseKey}:`))));
   };
   const preloadServerObjects = useCallback(async (server: DatabaseServerConfig, databases: DatabaseServerConfig['databases']) => {
     if (!workspaceKey || !databases?.length) return;
@@ -517,13 +585,13 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       event,
       [
         { id: 'activate', label: 'Sunucuyu etkinleştir', icon: Server, onSelect: () => setActiveServerId(server.id) },
-        { id: 'create-db', label: 'Yeni veritabanı oluştur', icon: Plus, onSelect: () => setCreateDatabase({ server, name: '', busy: false, error: null }) },
+        { id: 'create-db', label: 'Yeni veritabanı oluştur', icon: Plus, onSelect: () => setCreateDatabase({ server, name: '', charset: databaseEngineFamily(server.databaseType) === 'mysql' ? 'utf8mb4' : 'UTF8', collation: '', owner: '', busy: false, error: null }) },
         { id: 'query', label: 'Sunucu geneli sorgu', icon: Code2, onSelect: () => openSql(server, null, `${server.name} sorgu`, '') },
         { id: 'refresh', label: 'Bütün kataloğu yenile', icon: RefreshCw, onSelect: () => void refreshServer(server) },
         { id: 'recalculate-sizes', label: 'Tüm boyutları yeniden hesapla', icon: HardDrive, onSelect: () => void recalculateServerSizes(server) },
         { id: 'sep1', separator: true },
-        { id: 'expand', label: 'Hepsini genişlet', icon: ChevronDown, onSelect: () => expandAll(server) },
-        { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: collapseAll },
+        { id: 'expand', label: 'Hepsini genişlet', icon: ChevronDown, onSelect: () => expandServer(server) },
+        { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: () => collapseServer(server) },
         { id: 'copy-connection', label: 'Bağlantı bilgisini kopyala', icon: Copy, children: [
           { id: 'copy-host', label: 'Host', icon: Copy, onSelect: () => navigator.clipboard.writeText(server.host || '') },
           { id: 'copy-host-port', label: 'Host:port', icon: Copy, onSelect: () => navigator.clipboard.writeText(`${server.host}:${server.port}`) },
@@ -616,16 +684,8 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           }
         },
         { id: 'sep2', separator: true },
-        {
-          id: 'expand',
-          label: 'Hepsini genişlet',
-          icon: ChevronDown,
-          onSelect: () => {
-            toggle(setExpandedServers, server.id, true);
-            toggle(setExpandedDatabases, `${server.id}:${database}`, true);
-          }
-        },
-        { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: () => toggle(setExpandedDatabases, `${server.id}:${database}`, false) },
+        { id: 'expand', label: 'Bütün nesne gruplarını genişlet', icon: ChevronDown, onSelect: () => expandDatabase(server, database) },
+        { id: 'collapse', label: 'Bütün nesne gruplarını daralt', icon: ChevronRight, onSelect: () => collapseDatabase(server, database) },
         { id: 'copy-db', label: 'Veritabanı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(database) },
         { id: 'copy-db-quoted', label: 'Quoted veritabanı adını kopyala', icon: Code2, onSelect: () => navigator.clipboard.writeText(quoteDatabaseIdentifier(database, server.databaseType || 'mysql')) },
         { id: 'recalculate-size', label: 'Boyutu yeniden hesapla', icon: HardDrive, onSelect: () => void recalculateDatabaseSize(server, database) },
@@ -1120,9 +1180,34 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           if (!createDatabase || !workspaceKey) return;
           const name = createDatabase.name.trim();
           const engine = createDatabase.server.databaseType || 'mysql';
+          const family = databaseEngineFamily(engine);
+          const charset = createDatabase.charset.trim();
+          const collation = createDatabase.collation.trim();
+          const owner = createDatabase.owner.trim();
+          if (charset && !/^[A-Za-z0-9_.-]+$/.test(charset)) {
+            setCreateDatabase({ ...createDatabase, error: 'Character set geçersiz karakter içeriyor.' });
+            return;
+          }
+          if (collation && !/^[A-Za-z0-9_.-]+$/.test(collation)) {
+            setCreateDatabase({ ...createDatabase, error: 'Collation geçersiz karakter içeriyor.' });
+            return;
+          }
+
+          let createSql = `CREATE DATABASE ${quoteDatabaseIdentifier(name, engine)}`;
+          if (family === 'mysql') {
+            if (charset) createSql += ` CHARACTER SET ${charset}`;
+            if (collation) createSql += ` COLLATE ${collation}`;
+          } else if (family === 'postgresql' && engine !== 'cockroachdb') {
+            if (owner) createSql += ` OWNER ${quoteDatabaseIdentifier(owner, engine)}`;
+            createSql += " ENCODING 'UTF8'";
+          } else if (family === 'mssql' && collation) {
+            createSql += ` COLLATE ${collation}`;
+          }
+          createSql += ';';
+
           setCreateDatabase({ ...createDatabase, busy: true, error: null });
           try {
-            await executeDatabaseQuery(createDatabase.server.id, `CREATE DATABASE ${quoteDatabaseIdentifier(name, engine)};`, workspaceKey, null);
+            await executeDatabaseQuery(createDatabase.server.id, createSql, workspaceKey, null);
             await refreshServer(createDatabase.server);
             setCreateDatabase(null);
           } catch (error) {
