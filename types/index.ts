@@ -305,6 +305,15 @@ export interface TableInfo {
   _meta?: DatabaseQueryMeta;
 }
 
+export interface SchemaOverviewResponse {
+  supported: boolean;
+  tables: Array<Record<string, unknown>>;
+  columns: Array<Record<string, unknown>>;
+  indexes: Array<Record<string, unknown>>;
+  foreignKeys: Array<Record<string, unknown>>;
+  _meta?: DatabaseQueryMeta;
+}
+
 export type ColumnDefaultKind = 'none' | 'null' | 'literal' | 'expression';
 
 export interface TableColumnDefinition {
