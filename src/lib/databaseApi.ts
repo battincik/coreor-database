@@ -96,25 +96,6 @@ function createConnectionPayload(server: DatabaseServerConfig, databaseOverride?
   };
 }
 
-async function readApiResponse<T>(response: Response) {
-  const rawBody = await response.text();
-  let body: T | DatabaseErrorPayload | null = null;
-  if (rawBody) {
-    try { body = JSON.parse(rawBody) as T | DatabaseErrorPayload; }
-    catch {
-      throw new Error(response.ok ? 'Next.js veritabanı API geçerli JSON döndürmedi.' : `Veritabanı isteği başarısız oldu (${response.status}).`);
-    }
-  }
-  if (!response.ok) {
-    const errorBody = body as DatabaseErrorPayload | null;
-    const error = new Error(errorBody?.message || errorBody?.error || `Veritabanı isteği başarısız oldu (${response.status}).`) as DatabaseRequestError;
-    error.code = errorBody?.error;
-    error.queryMeta = errorBody?._meta;
-    throw error;
-  }
-  return body as T;
-}
-
 function fallbackStatements(action: DatabaseApiAction, payload: Record<string, unknown>, server: DatabaseServerConfig): DatabaseQueryStatement[] {
   const engine = databaseEngineLabel(server.databaseType);
   const database = String(payload.database || 'sunucu geneli');
@@ -205,7 +186,7 @@ async function requestDatabaseApi<T>(
       throw aborted;
     }
     const normalizedError = error instanceof TypeError
-      ? Object.assign(new Error('Next.js veritabanı API erişilemedi. Uygulama sunucusunu ve ağ erişimini kontrol edin.'), { code: 'DATABASE_API_UNREACHABLE' }) as DatabaseRequestError
+      ? Object.assign(new Error('Yerel veritabanı köprüsü erişilemedi. Uygulama sunucusunu ve ağ erişimini kontrol edin.'), { code: 'DATABASE_API_UNREACHABLE' }) as DatabaseRequestError
       : error instanceof Error ? error as DatabaseRequestError : new Error('Bilinmeyen veritabanı hatası.') as DatabaseRequestError;
     recordStatements({
       statements: normalizedError.queryMeta?.statements?.length ? normalizedError.queryMeta.statements : fallbackStatements(action, payload, server),
@@ -220,10 +201,9 @@ async function requestDatabaseApi<T>(
 }
 
 async function requireServer(accountId: string | null | undefined, serverId: string) {
-  if (!accountId) throw new Error('Sunucu kasasına erişmek için kullanıcı oturumu gerekli.');
   const servers = await readEncryptedServerProfiles(accountId);
   const server = servers.find(item => item.id === serverId);
-  if (!server) throw new Error('Sunucu profili şifreli kasada bulunamadı.');
+  if (!server) throw new Error('Sunucu profili yerel config içinde bulunamadı.');
   return server;
 }
 
@@ -249,12 +229,10 @@ async function updateCachedDatabases(accountId: string, serverId: string, databa
 }
 
 export async function fetchDatabaseServers(accountId?: string | null) {
-  if (!accountId) return [];
-  return await readEncryptedServerProfiles(accountId) as DatabaseServerCatalogItem[];
+  return await readEncryptedServerProfiles(accountId || 'local') as DatabaseServerCatalogItem[];
 }
 
 export async function createDatabaseServer(server: DatabaseServerConfig, accountId?: string | null) {
-  if (!accountId) throw new Error('Sunucu kaydetmek için kullanıcı oturumu gerekli.');
   const now = new Date().toISOString();
   const engine = server.databaseType ?? 'mysql';
   const definition = databaseEngineDefinition(engine);
@@ -297,7 +275,7 @@ export async function testStoredDatabaseConnection(serverId: string, accountId?:
 export async function fetchServerTables(serverId: string, accountId?: string | null) {
   const server = await requireServer(accountId, serverId);
   const response = await requestDatabaseApi<{ databases: DatabaseCatalogItem[]; _meta?: DatabaseQueryMeta }>(server, 'catalog', {}, { requestKey: `catalog:${serverId}` });
-  if (!Array.isArray(response?.databases)) throw new Error('Next.js veritabanı API katalog yanıtı geçersiz.');
+  if (!Array.isArray(response?.databases)) throw new Error('Yerel veritabanı köprüsü katalog yanıtı geçersiz.');
   await updateCachedDatabases(accountId!, serverId, response.databases);
   return { serverId, databases: response.databases };
 }
