@@ -4,7 +4,7 @@
 import React, { createContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import type { DatabaseCatalogItem, DatabaseServerConfig, DatabaseTable, TableInfo } from 'types';
 import { useDesktop } from '@/context/DesktopContext';
-import { createDatabaseServer, fetchDatabaseServers, fetchServerTables } from '@/lib/databaseApi';
+import { createDatabaseServer, deleteDatabaseServer, fetchDatabaseServers, fetchServerTables } from '@/lib/databaseApi';
 import { recordActivity } from '@/lib/activityConsole';
 import { databaseEngineDefinition } from '@/lib/databaseEngines';
 
@@ -27,6 +27,7 @@ interface DatabaseContextType {
   loadServers: () => Promise<void>;
   addServer: (server: Omit<DatabaseServerConfig, 'id'>) => Promise<void>;
   updateServer: (server: DatabaseServerConfig) => Promise<void>;
+  removeServer: (serverId: string) => Promise<void>;
 }
 
 export const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined);
@@ -176,5 +177,16 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     await persistServer(nextServer, false);
   };
 
-  return <DatabaseContext.Provider value={{ databases, setDatabases, tableInfo, setTableInfo, databaseTables, setDatabaseTables, tableData, setTableData, servers, setServers, activeServerId, setActiveServerId, isServersLoading, isAddingServer, serversError, loadServers, addServer, updateServer }}>{children}</DatabaseContext.Provider>;
+  const removeServer = async (serverId: string) => {
+    await deleteDatabaseServer(serverId, workspaceKey);
+    if (activeServerId === serverId) {
+      setActiveServerId(null);
+      setDatabases([]);
+      setTableInfo(null);
+      setTableData([]);
+    }
+    await loadServers();
+  };
+
+  return <DatabaseContext.Provider value={{ databases, setDatabases, tableInfo, setTableInfo, databaseTables, setDatabaseTables, tableData, setTableData, servers, setServers, activeServerId, setActiveServerId, isServersLoading, isAddingServer, serversError, loadServers, addServer, updateServer, removeServer }}>{children}</DatabaseContext.Provider>;
 }
