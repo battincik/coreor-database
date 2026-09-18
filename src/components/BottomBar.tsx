@@ -4,7 +4,7 @@ import React, { useContext, useEffect, useMemo, useRef, useState, useSyncExterna
 import { createPortal } from 'react-dom';
 import {
   Activity, AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, ChevronDown,
-  ChevronUp, Clock, Database, Download, Filter, Gauge, HardDrive, Info, Loader2,
+  ChevronUp, Clock, Copy, Database, Download, Filter, Gauge, HardDrive, Info, Loader2,
   Network, PlugZap, Server, Table, Terminal, Timer, Trash2, Wifi, XCircle
 } from 'lucide-react';
 import type { GridRuntimeStatus } from 'types';
@@ -16,6 +16,8 @@ import { databaseEngineDefinition, databaseEngineLabel } from '@/lib/databaseEng
 import { fetchDatabasePerformanceSnapshot } from '@/lib/databaseWorkbenchApi';
 import { clearActivities, exportActivities, getActivitiesServerSnapshot, getActivitiesSnapshot, subscribeActivities, type ActivityEntry } from '@/lib/activityConsole';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { useAppContextMenu } from '@/components/app-context-menu';
+import { openQueryTab } from '@/lib/queryWorkspaceEvents';
 
 interface BottomBarProps { selectedDatabase?: string | null; selectedTable?: string | null }
 type ConsoleFilter = 'all' | 'success' | 'errors';
@@ -44,6 +46,7 @@ function Metric({ children, title, description, rows, onTooltip }: { children: R
 }
 
 export default function BottomBar({selectedDatabase,selectedTable}:BottomBarProps){
+  const{openContextMenu}=useAppContextMenu();
   const{workspaceKey}=useDesktop();const{servers,activeServerId,isServersLoading}=useContext(DatabaseContext)!;const activeServer=servers.find(server=>server.id===activeServerId)||null;const definition=databaseEngineDefinition(activeServer?.databaseType);const supportsMetrics=activeServer?.databaseType==='mysql'||activeServer?.databaseType==='mariadb';
   const[consoleOpen,setConsoleOpen]=useState(false);const[expandedActivityId,setExpandedActivityId]=useState<string|null>(null);const[filter,setFilter]=useState<ConsoleFilter>('all');const[grid,setGrid]=useState<GridRuntimeStatus>(EMPTY_GRID_STATUS);const[snapshot,setSnapshot]=useState<DatabasePerformanceSnapshot|null>(null);const[snapshotError,setSnapshotError]=useState<string|null>(null);const[loading,setLoading]=useState(false);const[startedAt,setStartedAt]=useState<number|null>(null);const[now,setNow]=useState(Date.now());const[tooltip,setTooltip]=useState<TooltipState|null>(null);const entries=useSyncExternalStore(subscribeActivities,getActivitiesSnapshot,getActivitiesServerSnapshot);const endRef=useRef<HTMLDivElement|null>(null);
   useEffect(()=>{const handler=(event:Event)=>setGrid((event as CustomEvent<GridRuntimeStatus>).detail||EMPTY_GRID_STATUS);window.addEventListener('coreor:grid-status',handler);return()=>window.removeEventListener('coreor:grid-status',handler);},[]);
@@ -51,6 +54,15 @@ export default function BottomBar({selectedDatabase,selectedTable}:BottomBarProp
   useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[]);
   useEffect(()=>{if(!activeServerId||!workspaceKey||!supportsMetrics){setSnapshot(null);setSnapshotError(activeServer&&!supportsMetrics?`${databaseEngineLabel(activeServer.databaseType)} için gelişmiş motor metrikleri henüz sınırlı.`:null);return;}let disposed=false;const refresh=async()=>{if(disposed||document.visibilityState!=='visible')return;setLoading(true);try{const value=await fetchDatabasePerformanceSnapshot(activeServerId,workspaceKey,selectedDatabase||null);if(!disposed){setSnapshot(value);setSnapshotError(null);}}catch(error){if(!disposed)setSnapshotError(error instanceof Error?error.message:'Metrikler alınamadı.');}finally{if(!disposed)setLoading(false);}};const onVisibility=()=>{if(document.visibilityState==='visible')void refresh();};void refresh();const timer=setInterval(()=>void refresh(),30000);document.addEventListener('visibilitychange',onVisibility);return()=>{disposed=true;clearInterval(timer);document.removeEventListener('visibilitychange',onVisibility);};},[activeServerId,workspaceKey,selectedDatabase,supportsMetrics,activeServer?.databaseType]);
   const filtered=useMemo(()=>filter==='success'?entries.filter(item=>item.level==='success'):filter==='errors'?entries.filter(item=>item.level==='error'||item.level==='warning'):entries,[entries,filter]);
+  const openActivityMenu=(event:React.MouseEvent,item:ActivityEntry)=>openContextMenu(event,[
+    {id:'open-query',label:'SQL editöründe aç',icon:Terminal,disabled:!item.sql.trim(),onSelect:()=>openQueryTab({serverId:item.serverId,databaseName:item.databaseName||null,title:item.title||'SQL günlüğü',sql:item.sql})},
+    {id:'copy-sql',label:'SQL’i kopyala',icon:Copy,disabled:!item.sql.trim(),onSelect:()=>navigator.clipboard.writeText(item.sql)},
+    {id:'copy-info',label:'Kayıt özetini kopyala',icon:Copy,onSelect:()=>navigator.clipboard.writeText(`${item.serverName} • ${item.databaseName||'sunucu geneli'} • ${item.durationMs??'—'} ms\n${item.sql}`)},
+    {id:'sep-filter',separator:true},
+    {id:'filter-success',label:'Yalnız başarılıları göster',icon:CheckCircle2,onSelect:()=>setFilter('success')},
+    {id:'filter-errors',label:'Yalnız hata/uyarıları göster',icon:XCircle,onSelect:()=>setFilter('errors')},
+    {id:'filter-all',label:'Tüm kayıtları göster',icon:Terminal,onSelect:()=>setFilter('all')}
+  ],item.title||'SQL işlemi');
   const stats=useMemo(()=>{const successful=entries.filter(item=>item.level==='success').length;const errors=entries.filter(item=>item.level==='error').length;const durations=entries.map(item=>item.durationMs).filter((value):value is number=>typeof value==='number');return{successful,errors,rate:successful+errors?Math.round(successful/(successful+errors)*100):100,average:durations.length?Math.round(durations.reduce((sum,value)=>sum+value,0)/durations.length):0,last:entries.at(-1)};},[entries]);
   useEffect(()=>{if(consoleOpen)endRef.current?.scrollIntoView({block:'end'});},[consoleOpen,filtered.length]);
   const connectionSeconds=startedAt?Math.floor((now-startedAt)/1000):0;const target=selectedDatabase||activeServer?.databaseName||'Sunucu geneli';
@@ -58,17 +70,17 @@ export default function BottomBar({selectedDatabase,selectedTable}:BottomBarProp
   return <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 text-xs">
     <div className={`flex flex-col transition-[height] ${consoleOpen?'h-[212px]':'h-8'}`}><div className="flex h-8 shrink-0 items-center border-b border-zinc-800 px-2"><button className="flex items-center gap-2 text-zinc-300" onClick={()=>setConsoleOpen(value=>!value)}><Terminal className="h-3.5 w-3.5"/>SQL günlüğü <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px]">{entries.length}</span>{consoleOpen?<ChevronDown className="h-3 w-3"/>:<ChevronUp className="h-3 w-3"/>}</button>{consoleOpen&&<div className="ml-auto flex items-center gap-1">{(['all','success','errors']as ConsoleFilter[]).map(item=><button key={item} className={`rounded px-2 py-1 text-[9px] ${filter===item?'bg-zinc-800':'text-zinc-600'}`} onClick={()=>setFilter(item)}>{item==='all'?'Tümü':item==='success'?'Başarılı':'Hatalar'}</button>)}<Button variant="ghost" size="icon" className="h-6 w-6" onClick={downloadLog}><Download className="h-3.5 w-3.5"/></Button><Button variant="ghost" size="icon" className="h-6 w-6 text-red-400" onClick={clearActivities}><Trash2 className="h-3.5 w-3.5"/></Button></div>}</div>{consoleOpen&&<div className="min-h-0 flex-1 overflow-auto font-mono text-[9px]">{filtered.map(item=>{const expanded=expandedActivityId===item.id;return expanded
           ? <div key={item.id} className="border-b border-cyan-500/20 bg-cyan-500/[0.025]">
-              <button type="button" onClick={()=>setExpandedActivityId(null)} className="grid h-7 w-full grid-cols-[18px_80px_minmax(160px,1fr)_80px] items-center gap-1 px-1 text-left transition hover:bg-white/[0.025]" title="Tek satıra daralt">
+              <button type="button" onClick={()=>setExpandedActivityId(null)} onContextMenu={event=>openActivityMenu(event,item)} className="grid h-7 w-full grid-cols-[18px_80px_minmax(160px,1fr)_80px] items-center gap-1 px-1 text-left transition hover:bg-white/[0.025]" title="Tek satıra daralt">
                 <span>{statusIcon(item.level)}</span>
                 <span className="text-zinc-600">{new Date(item.timestamp).toLocaleTimeString('tr-TR')}</span>
                 <span className="truncate text-zinc-400">{item.serverName} • {item.databaseName||'genel'}{item.tableName? ` • ${item.tableName}` : ''}</span>
                 <span className="text-right text-zinc-600">{item.durationMs??'—'} ms</span>
               </button>
-              <button type="button" onClick={()=>setExpandedActivityId(null)} className="block w-full border-t border-zinc-900/80 bg-black/25 px-6 py-2 text-left hover:bg-black/35" title="Tek satıra daralt">
+              <button type="button" onClick={()=>setExpandedActivityId(null)} onContextMenu={event=>openActivityMenu(event,item)} className="block w-full border-t border-zinc-900/80 bg-black/25 px-6 py-2 text-left hover:bg-black/35" title="Tek satıra daralt">
                 <code className="block whitespace-pre-wrap break-words font-mono text-[9px] leading-4 text-cyan-300">{item.sql}</code>
               </button>
             </div>
-          : <button type="button" key={item.id} onClick={()=>setExpandedActivityId(item.id)} className="grid min-h-5 w-full grid-cols-[18px_80px_190px_minmax(300px,1fr)_80px] items-center border-b border-zinc-900 px-1 text-left transition hover:bg-white/[0.025]" title="Sorgunun tamamını göster">
+          : <button type="button" key={item.id} onClick={()=>setExpandedActivityId(item.id)} onContextMenu={event=>openActivityMenu(event,item)} className="grid min-h-5 w-full grid-cols-[18px_80px_190px_minmax(300px,1fr)_80px] items-center border-b border-zinc-900 px-1 text-left transition hover:bg-white/[0.025]" title="Sorgunun tamamını göster">
               <span>{statusIcon(item.level)}</span>
               <span className="text-zinc-600">{new Date(item.timestamp).toLocaleTimeString('tr-TR')}</span>
               <span className="truncate text-zinc-500">{item.serverName} • {item.databaseName||'genel'}</span>
