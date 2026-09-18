@@ -1,4 +1,7 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{App, AppHandle, Manager, Runtime};
+
+static DEVELOPER_TOOLS_ALLOWED: AtomicBool = AtomicBool::new(false);
 
 #[cfg(target_os = "windows")]
 fn configure_windows_devtools<R: Runtime>(window: &tauri::WebviewWindow<R>, enabled: bool) -> Result<(), String> {
@@ -23,8 +26,9 @@ pub fn initialize<R: Runtime>(app: &App<R>) -> Result<(), String> {
         .get_webview_window("main")
         .ok_or_else(|| "Ana uygulama penceresi bulunamadı.".to_string())?;
 
-    // Windows WebView2 otherwise lets F12 / browser shortcuts bypass a UI-only gate.
-    // Start denied; the persisted app preference explicitly enables it after React hydrates.
+    // Always start denied. React must explicitly re-enable the persisted preference,
+    // and the native command gate remains authoritative for direct IPC calls.
+    DEVELOPER_TOOLS_ALLOWED.store(false, Ordering::SeqCst);
     configure_windows_devtools(&window, false)
 }
 
@@ -35,6 +39,7 @@ pub fn set_developer_tools_enabled(app: AppHandle, enabled: bool) -> Result<(), 
         .ok_or_else(|| "Ana uygulama penceresi bulunamadı.".to_string())?;
 
     configure_windows_devtools(&window, enabled)?;
+    DEVELOPER_TOOLS_ALLOWED.store(enabled, Ordering::SeqCst);
 
     #[cfg(not(target_os = "windows"))]
     if !enabled {
@@ -50,8 +55,10 @@ pub fn open_developer_tools(app: AppHandle) -> Result<(), String> {
         .get_webview_window("main")
         .ok_or_else(|| "Ana uygulama penceresi bulunamadı.".to_string())?;
 
-    // On Windows this also ensures the WebView2 setting was enabled before opening.
-    configure_windows_devtools(&window, true)?;
+    if !DEVELOPER_TOOLS_ALLOWED.load(Ordering::SeqCst) {
+        return Err("Geliştirici araçları Ayarlar > Gelişmiş bölümünden açıkça etkinleştirilmelidir.".to_string());
+    }
+
     window.open_devtools();
     Ok(())
 }
