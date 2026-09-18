@@ -8,13 +8,13 @@ import type {
   DatabaseTransactionRequest,
   DatabaseTransactionStatusResponse
 } from '@/lib/databaseTransactionTypes';
-import { readEncryptedServerProfiles } from '@/lib/secureVault';
+import { readLocalServerProfiles } from '@/lib/localProfiles';
 import { recordActivity } from '@/lib/activityConsole';
 import { normalizeDatabaseClientError } from '@/lib/databaseErrorPresentation';
 import { desktopDatabaseRequest } from '@/lib/desktopClient';
 
 async function requireServer(accountId: string | null | undefined, serverId: string) {
-  const servers = await readEncryptedServerProfiles(accountId);
+  const servers = await readLocalServerProfiles();
   const server = servers.find(item => item.id === serverId);
   if (!server) throw new Error('Sunucu profili yerel config içinde bulunamadı.');
   return server;
