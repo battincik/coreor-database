@@ -18,6 +18,8 @@ import { openQueryTab } from '@/lib/queryWorkspaceEvents';
 import { OPEN_IMPORT_EXPORT_EVENT, OPEN_SETTINGS_MODAL_EVENT } from '@/lib/databaseToolEvents';
 import { databaseEngineDefinition, databaseEngineFamily, databaseEngineLabel, quoteDatabaseIdentifier, qualifiedDatabaseTable } from '@/lib/databaseEngines';
 import { useAppPreferences } from '@/lib/appPreferences';
+import { recalculateDatabaseStorage, recalculateTableStorage } from '@/lib/databaseWorkbenchApi';
+import { useCoreorToast } from '@/components/ui/coreor-toast';
 
 const objectExplorerKey = (serverId: string, databaseName: string) => `${serverId}:${databaseName}`;
 
@@ -203,6 +205,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const { workspaceKey, user } = useDesktop();
   const context = useContext(DatabaseContext)!;
   const { openContextMenu } = useAppContextMenu();
+  const toast = useCoreorToast();
   const { preferences } = useAppPreferences();
   const { servers, setServers, activeServerId, setActiveServerId, addServer, updateServer, removeServer, loadServers, isAddingServer, isServersLoading } = context;
   const [search, setSearch] = useState('');
@@ -427,6 +430,88 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     });
   const openSql = (server: DatabaseServerConfig, database: string | null, title: string, sql: string, runImmediately = false) => openQueryTab({ serverId: server.id, databaseName: database, title, sql, runImmediately });
 
+
+  const recalculateDatabaseSize = useCallback(async (server: DatabaseServerConfig, database: string) => {
+    if (!workspaceKey) return;
+    const toastId = toast.show({ title: 'Veritabanı boyutu hesaplanıyor', description: database, loading: true, persistent: true });
+    try {
+      const result = await recalculateDatabaseStorage(server.id, database, workspaceKey);
+      await loadServers();
+      toast.update(toastId, {
+        loading: false,
+        persistent: false,
+        variant: 'success',
+        title: 'Veritabanı boyutu güncellendi',
+        description: `${database} • ${compactBytes(result.totalBytes) || '0 B'}`,
+        duration: 3500
+      });
+    } catch (error) {
+      toast.update(toastId, {
+        loading: false,
+        persistent: false,
+        variant: 'error',
+        title: 'Boyut hesaplanamadı',
+        description: error instanceof Error ? error.message : String(error),
+        duration: 5000
+      });
+    }
+  }, [workspaceKey, loadServers, toast]);
+
+  const recalculateTableSize = useCallback(async (server: DatabaseServerConfig, database: string, table: string) => {
+    if (!workspaceKey) return;
+    const toastId = toast.show({ title: 'Tablo boyutu hesaplanıyor', description: `${database}.${table}`, loading: true, persistent: true });
+    try {
+      const result = await recalculateTableStorage(server.id, database, table, workspaceKey);
+      await loadServers();
+      toast.update(toastId, {
+        loading: false,
+        persistent: false,
+        variant: 'success',
+        title: 'Tablo boyutu güncellendi',
+        description: `${table} • ${compactBytes(result.totalBytes) || '0 B'}`,
+        duration: 3500
+      });
+    } catch (error) {
+      toast.update(toastId, {
+        loading: false,
+        persistent: false,
+        variant: 'error',
+        title: 'Boyut hesaplanamadı',
+        description: error instanceof Error ? error.message : String(error),
+        duration: 5000
+      });
+    }
+  }, [workspaceKey, loadServers, toast]);
+
+  const recalculateServerSizes = useCallback(async (server: DatabaseServerConfig) => {
+    if (!workspaceKey) return;
+    const databases = server.databases || [];
+    const toastId = toast.show({ title: 'Sunucu boyutları hesaplanıyor', description: `${databases.length} veritabanı sırayla güncelleniyor.`, loading: true, persistent: true });
+    try {
+      for (const database of databases) {
+        await recalculateDatabaseStorage(server.id, database.name, workspaceKey);
+      }
+      await loadServers();
+      toast.update(toastId, {
+        loading: false,
+        persistent: false,
+        variant: 'success',
+        title: 'Sunucu boyutları güncellendi',
+        description: `${server.name} • ${databases.length} veritabanı`,
+        duration: 3500
+      });
+    } catch (error) {
+      toast.update(toastId, {
+        loading: false,
+        persistent: false,
+        variant: 'error',
+        title: 'Boyut hesaplama tamamlanamadı',
+        description: error instanceof Error ? error.message : String(error),
+        duration: 5000
+      });
+    }
+  }, [workspaceKey, loadServers, toast]);
+
   const serverMenu = (event: React.MouseEvent, server: DatabaseServerConfig) =>
     openContextMenu(
       event,
@@ -435,6 +520,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         { id: 'create-db', label: 'Yeni veritabanı oluştur', icon: Plus, onSelect: () => setCreateDatabase({ server, name: '', busy: false, error: null }) },
         { id: 'query', label: 'Sunucu geneli sorgu', icon: Code2, onSelect: () => openSql(server, null, `${server.name} sorgu`, '') },
         { id: 'refresh', label: 'Bütün kataloğu yenile', icon: RefreshCw, onSelect: () => void refreshServer(server) },
+        { id: 'recalculate-sizes', label: 'Tüm boyutları yeniden hesapla', icon: HardDrive, onSelect: () => void recalculateServerSizes(server) },
         { id: 'sep1', separator: true },
         { id: 'expand', label: 'Hepsini genişlet', icon: ChevronDown, onSelect: () => expandAll(server) },
         { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: collapseAll },
@@ -542,6 +628,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: () => toggle(setExpandedDatabases, `${server.id}:${database}`, false) },
         { id: 'copy-db', label: 'Veritabanı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(database) },
         { id: 'copy-db-quoted', label: 'Quoted veritabanı adını kopyala', icon: Code2, onSelect: () => navigator.clipboard.writeText(quoteDatabaseIdentifier(database, server.databaseType || 'mysql')) },
+        { id: 'recalculate-size', label: 'Boyutu yeniden hesapla', icon: HardDrive, onSelect: () => void recalculateDatabaseSize(server, database) },
         { id: 'refresh', label: 'Yenile', icon: RefreshCw, shortcut: 'refresh', onSelect: () => void refreshServer(server) },
         { id: 'sep-danger', separator: true },
         {
@@ -648,6 +735,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         { id: 'sep3', separator: true },
         { id: 'expand', label: 'Hepsini genişlet', icon: ChevronDown, onSelect: () => expandAll(server) },
         { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: collapseAll },
+        { id: 'recalculate-size', label: 'Boyutu yeniden hesapla', icon: HardDrive, onSelect: () => void recalculateTableSize(server, database, table) },
         { id: 'refresh', label: 'Yenile', icon: RefreshCw, onSelect: () => void refreshServer(server) }
       ],
       `${database}.${table}`

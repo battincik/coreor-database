@@ -9,11 +9,12 @@ import type {
   DatabasePerformanceSnapshot,
   DatabasePrivilegeChangeInput,
   DatabaseProcessCenterResponse,
+  DatabaseStorageRecalculation,
   DatabaseUserSaveInput,
   DatabaseUsersResponse,
   DatabaseWorkbenchAction
 } from '@/lib/databaseWorkbenchTypes';
-import { readLocalServerProfiles } from '@/lib/localProfiles';
+import { readLocalServerProfiles, writeLocalServerProfiles } from '@/lib/localProfiles';
 import { recordActivity } from '@/lib/activityConsole';
 import { desktopDatabaseRequest } from '@/lib/desktopClient';
 import { normalizeDatabaseClientError } from '@/lib/databaseErrorPresentation';
@@ -129,6 +130,67 @@ export function fetchDatabaseProcessCenter(serverId: string, accountId?: string 
 
 export function killDatabaseProcess(serverId: string, processId: number, killType: 'query' | 'connection', accountId?: string | null) {
   return workbenchRequest<{ killed: boolean; processId: number }>(serverId, accountId, 'process-kill', { processId, killType });
+}
+
+
+function bytesToMb(value: number) {
+  return (Math.max(0, Number(value) || 0) / 1048576).toFixed(2);
+}
+
+async function persistStorageRecalculation(serverId: string, result: DatabaseStorageRecalculation) {
+  const servers = await readLocalServerProfiles();
+  const nextServers = servers.map(server => {
+    if (server.id !== serverId) return server;
+    const databases = (server.databases || []).map(database => {
+      if (database.name !== result.database) return database;
+
+      if (result.scope === 'database') {
+        return {
+          ...database,
+          totalRows: result.rows ?? database.totalRows,
+          dataSizeMB: bytesToMb(result.dataBytes),
+          indexSizeMB: bytesToMb(result.indexBytes),
+          totalSizeMB: bytesToMb(result.totalBytes)
+        };
+      }
+
+      const tableDetails = (database.tableDetails || []).map(table => table.tableName === result.table ? {
+        ...table,
+        rows: result.rows ?? table.rows,
+        dataSizeMB: bytesToMb(result.dataBytes),
+        indexSizeMB: bytesToMb(result.indexBytes),
+        freeSizeMB: bytesToMb(result.freeBytes),
+        sizeMB: bytesToMb(result.totalBytes)
+      } : table);
+
+      return {
+        ...database,
+        tableDetails,
+        totalRows: tableDetails.reduce((sum, table) => sum + Number(table.rows || 0), 0),
+        dataSizeMB: tableDetails.reduce((sum, table) => sum + Number(table.dataSizeMB || 0), 0).toFixed(2),
+        indexSizeMB: tableDetails.reduce((sum, table) => sum + Number(table.indexSizeMB || 0), 0).toFixed(2),
+        totalSizeMB: tableDetails.reduce((sum, table) => sum + Number(table.sizeMB || 0), 0).toFixed(2)
+      };
+    });
+    return { ...server, databases, updatedAt: new Date().toISOString() };
+  });
+  await writeLocalServerProfiles(nextServers);
+}
+
+export async function recalculateDatabaseStorage(serverId: string, database: string, accountId?: string | null) {
+  const result = await workbenchRequest<DatabaseStorageRecalculation>(
+    serverId, accountId, 'storage-recalculate', { scope: 'database', database }, database, false
+  );
+  await persistStorageRecalculation(serverId, result);
+  return result;
+}
+
+export async function recalculateTableStorage(serverId: string, database: string, table: string, accountId?: string | null) {
+  const result = await workbenchRequest<DatabaseStorageRecalculation>(
+    serverId, accountId, 'storage-recalculate', { scope: 'table', database, table }, database, false
+  );
+  await persistStorageRecalculation(serverId, result);
+  return result;
 }
 
 export function fetchDatabasePerformanceSnapshot(serverId: string, accountId?: string | null, database?: string | null) {

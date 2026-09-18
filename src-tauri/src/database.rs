@@ -649,6 +649,58 @@ async fn alter_table(c:&Connection,p:&Map<String,Value>,max:usize)->Result<Value
     };if !sql.is_empty(){execute_sql(c,&sql,Some(db),1).await?;}let mut np=p.clone();np.insert("table".into(),json!(table));let info=table_info(c,&np,max).await?;Ok(json!({"tableName":table,"tableInfo":info,"_meta":{"statements":[{"label":"Şema değişikliği","sql":sql}]}}))
 }
 
+
+async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,String>{
+    let scope=payload_str(p,"scope")?;
+    let db=payload_str(p,"database")?;
+    let table=p.get("table").and_then(Value::as_str).filter(|value|!value.is_empty());
+
+    if scope!="database" && scope!="table" { return Err("Geçersiz storage hesaplama kapsamı.".into()); }
+    if scope=="table" && table.is_none() { return Err("Tablo adı eksik.".into()); }
+
+    let (sql,target_db)=if is_pg(&c.engine){
+        if let Some(table)=table {
+            let table_literal=literal(&json!(table),&c.engine);
+            (format!(
+                "SELECT COALESCE(pg_relation_size(c.oid),0)::bigint AS \"dataBytes\",COALESCE(GREATEST(pg_total_relation_size(c.oid)-pg_relation_size(c.oid),0),0)::bigint AS \"indexBytes\",0::bigint AS \"freeBytes\",COALESCE(pg_total_relation_size(c.oid),0)::bigint AS \"totalBytes\",GREATEST(c.reltuples,0)::bigint AS rows FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname={} AND c.relkind IN ('r','p','m') LIMIT 1",
+                table_literal
+            ),Some(db))
+        }else{
+            ("SELECT pg_database_size(current_database())::bigint AS \"dataBytes\",0::bigint AS \"indexBytes\",0::bigint AS \"freeBytes\",pg_database_size(current_database())::bigint AS \"totalBytes\",NULL::bigint AS rows".into(),Some(db))
+        }
+    }else if is_mssql(&c.engine){
+        if let Some(table)=table {
+            let object_name=literal(&json!(format!("dbo.{}",table)),&c.engine);
+            (format!(
+                "SELECT COALESCE(SUM(ps.in_row_data_page_count+ps.lob_used_page_count+ps.row_overflow_used_page_count),0)*8192 AS dataBytes,(COALESCE(SUM(ps.reserved_page_count),0)-COALESCE(SUM(ps.in_row_data_page_count+ps.lob_used_page_count+ps.row_overflow_used_page_count),0))*8192 AS indexBytes,0 AS freeBytes,COALESCE(SUM(ps.reserved_page_count),0)*8192 AS totalBytes,COALESCE(SUM(CASE WHEN ps.index_id IN (0,1) THEN ps.row_count ELSE 0 END),0) AS rows FROM sys.dm_db_partition_stats ps WHERE ps.object_id=OBJECT_ID({})",
+                object_name
+            ),Some(db))
+        }else{
+            ("SELECT COALESCE(SUM(size),0)*8192 AS dataBytes,0 AS indexBytes,0 AS freeBytes,COALESCE(SUM(size),0)*8192 AS totalBytes,NULL AS rows FROM sys.database_files".into(),Some(db))
+        }
+    }else{
+        let db_literal=literal(&json!(db),&c.engine);
+        let table_clause=table.map(|table|format!(" AND TABLE_NAME={}",literal(&json!(table),&c.engine))).unwrap_or_default();
+        (format!(
+            "SELECT COALESCE(SUM(DATA_LENGTH),0) AS dataBytes,COALESCE(SUM(INDEX_LENGTH),0) AS indexBytes,COALESCE(SUM(DATA_FREE),0) AS freeBytes,COALESCE(SUM(DATA_LENGTH),0)+COALESCE(SUM(INDEX_LENGTH),0) AS totalBytes,COALESCE(SUM(TABLE_ROWS),0) AS rows FROM information_schema.TABLES WHERE TABLE_SCHEMA={}{}",
+            db_literal,table_clause
+        ),None)
+    };
+
+    let row=rows_of(&execute_sql(c,&sql,target_db,1).await?).into_iter().next().unwrap_or(json!({}));
+    Ok(json!({
+        "scope":scope,
+        "database":db,
+        "table":table,
+        "dataBytes":num(row.get("dataBytes")),
+        "indexBytes":num(row.get("indexBytes")),
+        "freeBytes":num(row.get("freeBytes")),
+        "totalBytes":num(row.get("totalBytes")),
+        "rows":row.get("rows").and_then(|value|if value.is_null(){None}else{Some(num(Some(value)))}),
+        "sampledAt":Utc::now().to_rfc3339()
+    }))
+}
+
 async fn workbench(c:&Connection,action:&str,p:&Map<String,Value>,max:usize)->Result<Value,String>{
  match action{
  "process-list"=>{
@@ -681,6 +733,7 @@ async fn workbench(c:&Connection,action:&str,p:&Map<String,Value>,max:usize)->Re
  "import-data"=>{if c.read_only{return Err("Salt okunur.".into())}let inp=p.get("importInput").and_then(Value::as_object).ok_or("Import bilgisi eksik.")?;let db=payload_str(inp,"database")?;let table=payload_str(inp,"table")?;let cols=inp.get("columns").and_then(Value::as_array).ok_or("Kolonlar eksik.")?;let rows=inp.get("rows").and_then(Value::as_array).ok_or("Satırlar eksik.")?;if cols.is_empty()||rows.is_empty(){return Err("Import verisi boş.".into())}let cs=cols.iter().filter_map(Value::as_str).map(|x|ident(x,&c.engine)).collect::<Result<Vec<_>,_>>()?.join(",");let mut affected=0u64;for batch in rows.chunks(250){let vals=batch.iter().map(|r|{let a=r.as_array().cloned().unwrap_or_default();format!("({})",a.iter().map(|v|literal(v,&c.engine)).collect::<Vec<_>>().join(","))}).collect::<Vec<_>>().join(",");let mode=inp.get("mode").and_then(Value::as_str).unwrap_or("insert");let verb=if !is_pg(&c.engine)&&!is_mssql(&c.engine)&&mode=="replace"{"REPLACE"}else if !is_pg(&c.engine)&&!is_mssql(&c.engine)&&mode=="ignore"{"INSERT IGNORE"}else{"INSERT"};let suffix=if is_pg(&c.engine)&&mode=="ignore"{" ON CONFLICT DO NOTHING"}else{""};if is_mssql(&c.engine)&&mode=="ignore"{return Err("MSSQL import ignore modu desteklenmiyor; insert modunu kullanın.".into())}if is_mssql(&c.engine)&&mode=="replace"{return Err("MSSQL replace modu desteklenmiyor; upsert sorgusunu SQL editöründen çalıştırın.".into())}let sql=format!("{} INTO {} ({}) VALUES {}{}",verb,qualified(db,table,&c.engine)?,cs,vals,suffix);let rr=execute_sql(c,&sql,Some(db),1).await?;affected+=num(rr.get("affectedRows"));}Ok(json!({"affectedRows":affected,"rowCount":rows.len()}))},
  "export-data"=>{let inp=p.get("exportInput").and_then(Value::as_object).ok_or("Export bilgisi eksik.")?;let db=payload_str(inp,"database")?;let table=payload_str(inp,"table")?;let limit=inp.get("limit").and_then(Value::as_u64).unwrap_or(5000).min(50000);let offset=inp.get("offset").and_then(Value::as_u64).unwrap_or(0);let cols=inp.get("columns").and_then(Value::as_array).filter(|x|!x.is_empty()).map(|x|x.iter().filter_map(Value::as_str).map(|v|ident(v,&c.engine)).collect::<Result<Vec<_>,_>>()).transpose()?.map(|x|x.join(",")).unwrap_or("*".into());let order=if let Some(o)=inp.get("orderBy").and_then(Value::as_str){format!(" ORDER BY {} {}",ident(o,&c.engine)?,if inp.get("orderDirection").and_then(Value::as_str)==Some("desc"){"DESC"}else{"ASC"})}else{String::new()};let sql=if is_mssql(&c.engine){format!("SELECT {} FROM {}{}{} OFFSET {} ROWS FETCH NEXT {} ROWS ONLY",cols,qualified(db,table,&c.engine)?,if order.is_empty(){" ORDER BY (SELECT NULL)"}else{&order},"",offset,limit)}else{format!("SELECT {} FROM {}{} LIMIT {} OFFSET {}",cols,qualified(db,table,&c.engine)?,order,limit,offset)};let rows=rows_of(&execute_sql(c,&sql,Some(db),limit as usize).await?);let columns=rows.first().and_then(Value::as_object).map(|x|x.keys().cloned().collect::<Vec<_>>()).unwrap_or_default();Ok(json!({"rowCount":rows.len(),"columns":columns,"rows":rows}))},
  "performance-snapshot"=>performance(c,p,max).await,
+ "storage-recalculate"=>storage_recalculate(c,p).await,
  "user-save"=>{
    if c.read_only{return Err("Salt okunur.".into())}
    let input=p.get("userInput").and_then(Value::as_object).ok_or("Kullanıcı bilgisi eksik.")?;

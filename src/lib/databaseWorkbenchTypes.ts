@@ -11,6 +11,7 @@ export type DatabaseWorkbenchAction =
   | 'process-list'
   | 'process-kill'
   | 'performance-snapshot'
+  | 'storage-recalculate'
   | 'import-data'
   | 'export-data';
 
@@ -153,6 +154,18 @@ export interface DatabasePerformanceSnapshot {
     selectedDatabaseBytes: number | null;
     topSchemas: DatabasePerformanceSchemaSize[];
   };
+}
+
+export interface DatabaseStorageRecalculation {
+  scope: 'database' | 'table';
+  database: string;
+  table: string | null;
+  dataBytes: number;
+  indexBytes: number;
+  freeBytes: number;
+  totalBytes: number;
+  rows: number | null;
+  sampledAt: string;
 }
 
 export interface DatabaseImportDataInput {
