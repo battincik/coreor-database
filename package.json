@@ -19,7 +19,8 @@
     "check": "npm run locks:check && npm run desktop:check && npm run i18n:check && npm run lint && npm run build:web",
     "desktop:check": "node scripts/assert-desktop-only.mjs",
     "locks:generate": "node scripts/prepare-lockfiles.mjs",
-    "locks:check": "node scripts/assert-lockfiles.mjs"
+    "locks:check": "node scripts/assert-lockfiles.mjs",
+    "profile:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/profile-desktop.ps1"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.3",
