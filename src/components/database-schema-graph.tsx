@@ -6,7 +6,7 @@ import {
   Move, RefreshCw, RotateCcw, Table2, Unlink, ZoomIn, ZoomOut
 } from 'lucide-react';
 import type { DatabaseCatalogItem, TableForeignKeyDefinition, TableInfo } from 'types';
-import { fetchTableInfo, mutateTableSchema } from '@/lib/databaseApi';
+import { fetchSchemaOverview, fetchTableInfo, mutateTableSchema } from '@/lib/databaseApi';
 import { Button } from '@/components/ui/button';
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-state';
@@ -258,15 +258,59 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     setPositions(loadPositions(serverId, databaseName, tableNames));
     const nextInfo: Record<string, TableInfo> = {};
     try {
-      const results = await loadWithConcurrency(tableNames, 5, async tableName => {
-        const info = await fetchTableInfo(serverId, databaseName, tableName, accountId);
-        setLoadedCount(previous => previous + 1);
-        return info;
-      });
-      const failures: string[] = [];
-      for (const entry of results) entry.result ? nextInfo[String(entry.item)] = entry.result : failures.push(String(entry.item));
-      setTableInfo(nextInfo);
-      if (failures.length) setMessage(`${Object.keys(nextInfo).length} tablo yüklendi; ${failures.length} tablo için yapı bilgisi alınamadı.`);
+      const overview = await fetchSchemaOverview(serverId, databaseName, accountId);
+      if (overview.supported) {
+        const group = (rows: Array<Record<string, unknown>>) => {
+          const grouped = new Map<string, Array<Record<string, unknown>>>();
+          for (const row of rows) {
+            const tableName = String(row.tableName || '');
+            if (!tableName) continue;
+            const { tableName: _tableName, ...metadata } = row;
+            grouped.set(tableName, [...(grouped.get(tableName) || []), metadata]);
+          }
+          return grouped;
+        };
+        const columns = group(overview.columns);
+        const indexes = group(overview.indexes);
+        const foreignKeys = group(overview.foreignKeys);
+        const tableOptions = new Map(overview.tables.map(row => [String(row.tableName || ''), row] as const));
+        for (const tableName of tableNames) {
+          const options = tableOptions.get(tableName) || {};
+          const collation = typeof options.tableCollation === 'string' ? options.tableCollation : null;
+          nextInfo[tableName] = {
+            table: {
+              name: tableName,
+              comment: String(options.tableComment || ''),
+              engine: String(options.engine || 'mysql'),
+              collation,
+              charset: collation?.split('_')[0] || null,
+              autoIncrement: (options.autoIncrement as string | number | null | undefined) ?? null,
+              rowFormat: typeof options.rowFormat === 'string' ? options.rowFormat : null,
+              tableType: String(options.tableType || 'BASE TABLE'),
+              createTime: typeof options.createTime === 'string' ? options.createTime : null,
+              updateTime: typeof options.updateTime === 'string' ? options.updateTime : null
+            },
+            columns: (columns.get(tableName) || []) as unknown as TableInfo['columns'],
+            indexes: (indexes.get(tableName) || []) as unknown as TableInfo['indexes'],
+            foreignKeys: (foreignKeys.get(tableName) || []) as unknown as TableInfo['foreignKeys'],
+            checkConstraints: [],
+            partitions: [],
+            createSQL: ''
+          };
+        }
+        setLoadedCount(Object.keys(nextInfo).length);
+        setTableInfo(nextInfo);
+      } else {
+        const results = await loadWithConcurrency(tableNames, 4, async tableName => {
+          const info = await fetchTableInfo(serverId, databaseName, tableName, accountId);
+          setLoadedCount(previous => previous + 1);
+          return info;
+        });
+        const failures: string[] = [];
+        for (const entry of results) entry.result ? nextInfo[String(entry.item)] = entry.result : failures.push(String(entry.item));
+        setTableInfo(nextInfo);
+        if (failures.length) setMessage(`${Object.keys(nextInfo).length} tablo yüklendi; ${failures.length} tablo için yapı bilgisi alınamadı.`);
+      }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Şema grafiği yüklenemedi.');
     } finally { setLoading(false); }
