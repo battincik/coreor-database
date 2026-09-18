@@ -2,8 +2,8 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertTriangle, Columns3, Database, Focus, KeyRound, Link2, Loader2, Maximize2,
-  Move, RefreshCw, RotateCcw, Table2, Unlink, ZoomIn, ZoomOut
+  AlertTriangle, Code, Columns3, Copy, Database, Focus, KeyRound, Link2, Loader2, Maximize2,
+  Move, Plus, RefreshCw, RotateCcw, Table2, Unlink, ZoomIn, ZoomOut
 } from 'lucide-react';
 import type { DatabaseCatalogItem, TableForeignKeyDefinition, TableInfo } from 'types';
 import { fetchSchemaOverview, fetchTableInfo, mutateTableSchema } from '@/lib/databaseApi';
@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-state';
 import { CoreorConfirmModal, type CoreorConfirmation } from '@/components/ui/coreor-confirm-modal';
+import { useAppContextMenu } from '@/components/app-context-menu';
+import { openQueryTab, qualifiedSqlName, quoteSqlIdentifier } from '@/lib/queryWorkspaceEvents';
 
 interface DatabaseSchemaGraphProps {
   serverId: string;
@@ -213,6 +215,7 @@ async function loadWithConcurrency<T, R>(items: T[], concurrency: number, worker
 }
 
 export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog, onOpenTable, onCatalogRefresh }: DatabaseSchemaGraphProps) {
+  const { openContextMenu } = useAppContextMenu();
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const panRef = useRef<Point>({ x: 32, y: 32 });
   const nodeDragRef = useRef<NodeDrag | null>(null);
@@ -428,6 +431,78 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     }
   };
 
+  const openCanvasMenu = (event: React.MouseEvent) => openContextMenu(event, [
+    { id: 'auto-layout', label: 'Otomatik yerleşim', icon: Move, onSelect: resetLayout },
+    { id: 'fit', label: 'Tüm şemayı ekrana sığdır', icon: Maximize2, onSelect: fit },
+    { id: 'zoom-100', label: 'Yakınlaştırmayı %100 yap', icon: RotateCcw, onSelect: () => zoomAt(1) },
+    { id: 'center', label: 'Seçili nesneyi ortala', icon: Focus, onSelect: centerSelected },
+    { id: 'sep', separator: true },
+    { id: 'refresh', label: 'Şema metadata’sını yenile', icon: RefreshCw, onSelect: () => void load() },
+    { id: 'copy-db', label: 'Veritabanı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(databaseName) }
+  ], `Şema • ${databaseName}`);
+
+  const openNodeMenu = (event: React.MouseEvent, tableName: string) => {
+    const table = qualifiedSqlName(databaseName, tableName);
+    openContextMenu(event, [
+      { id: 'data', label: 'Verileri aç', icon: Table2, onSelect: () => { onOpenTable?.(tableName); window.dispatchEvent(new CustomEvent('coreor:open-table-view', { detail: { view: 'data' } })); } },
+      { id: 'structure', label: 'Yapıyı aç', icon: Columns3, onSelect: () => onOpenTable?.(tableName) },
+      { id: 'insert', label: 'Yeni satır ekle', icon: Plus, onSelect: () => { onOpenTable?.(tableName); window.dispatchEvent(new CustomEvent('coreor:request-insert-table-row', { detail: { databaseName, tableName } })); } },
+      { id: 'sep-query', separator: true },
+      { id: 'select', label: 'İlk 100 satırı sorgula', icon: Code, onSelect: () => openQueryTab({ serverId, databaseName, title: `${tableName} SELECT`, sql: `SELECT * FROM ${table}\nLIMIT 100;`, runImmediately: true }) },
+      { id: 'count', label: 'Satır sayısını sorgula', icon: Code, onSelect: () => openQueryTab({ serverId, databaseName, title: `${tableName} COUNT`, sql: `SELECT COUNT(*) AS totalRows FROM ${table};`, runImmediately: true }) },
+      { id: 'create', label: 'SHOW CREATE TABLE', icon: Code, onSelect: () => openQueryTab({ serverId, databaseName, title: `${tableName} CREATE`, sql: `SHOW CREATE TABLE ${table};`, runImmediately: true }) },
+      { id: 'sep-view', separator: true },
+      { id: 'center-node', label: 'Tabloyu ekranda ortala', icon: Focus, onSelect: () => { const point=positions[tableName];const viewport=viewportRef.current;if(point&&viewport)updatePan({x:viewport.clientWidth/2-(point.x+CARD_WIDTH/2)*zoom,y:viewport.clientHeight/2-(point.y+nodeHeight(tableInfo[tableName])/2)*zoom}); } },
+      { id: 'copy', label: 'Kopyala', icon: Copy, children: [
+        { id: 'copy-name', label: 'Tablo adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(tableName) },
+        { id: 'copy-qualified', label: 'Tam tablo adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(table) }
+      ] }
+    ], tableName);
+  };
+
+  const openGraphColumnMenu = (event: React.MouseEvent, tableName: string, columnName: string) => {
+    const table = qualifiedSqlName(databaseName, tableName);
+    openContextMenu(event, [
+      { id: 'relation-source', label: 'İlişki başlangıcı olarak seç', icon: Link2, onSelect: () => { setSource({ table: tableName, column: columnName }); setTarget(null); setSelectedEdge(null); } },
+      { id: 'open-table', label: 'Tablo yapısını aç', icon: Table2, onSelect: () => onOpenTable?.(tableName) },
+      { id: 'sep-query', separator: true },
+      { id: 'distinct', label: 'DISTINCT değerleri sorgula', icon: Code, onSelect: () => openQueryTab({ serverId, databaseName, title: `${columnName} DISTINCT`, sql: `SELECT ${quoteSqlIdentifier(columnName)}, COUNT(*) AS occurrences\nFROM ${table}\nGROUP BY ${quoteSqlIdentifier(columnName)}\nORDER BY occurrences DESC\nLIMIT 250;`, runImmediately: true }) },
+      { id: 'copy-name', label: 'Kolon adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(columnName) },
+      { id: 'copy-qualified', label: 'Tam kolon yolunu kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(`${table}.${quoteSqlIdentifier(columnName)}`) }
+    ], `${tableName}.${columnName}`);
+  };
+
+  const requestRemoveEdge = (edge: GraphEdge) => {
+    if (!accountId) return;
+    setConfirmation({
+      title: 'Foreign key bağlantısını kaldır',
+      description: `${edge.name} constraint'i ${edge.source.table} tablosundan kaldırılacak. İlişkisel kural sunucuda kalıcı olarak değişir.`,
+      confirmLabel: 'Bağlantıyı kaldır',
+      tone: 'danger',
+      onConfirm: async () => {
+        setSavingLink(true); setError(null);
+        try {
+          await mutateTableSchema(serverId, { database: databaseName, table: edge.source.table, mutation: { kind: 'drop-foreign-key', constraintName: edge.name } }, accountId);
+          const refreshed = await fetchTableInfo(serverId, databaseName, edge.source.table, accountId);
+          setTableInfo(previous => ({ ...previous, [edge.source.table]: refreshed }));
+          setSelectedEdge(null); setMessage('Foreign key bağlantısı kaldırıldı.'); await onCatalogRefresh?.();
+        } catch (failure) { setError(failure instanceof Error ? failure.message : 'Foreign key kaldırılamadı.'); throw failure; }
+        finally { setSavingLink(false); }
+      }
+    });
+  };
+
+  const openEdgeMenu = (event: React.MouseEvent, edge: GraphEdge) => openContextMenu(event, [
+    { id: 'select', label: 'İlişkiyi seç', icon: Link2, onSelect: () => { setSelectedEdge(edge); setSource(null); setTarget(null); } },
+    { id: 'source', label: 'Kaynak tabloyu aç', icon: Table2, onSelect: () => onOpenTable?.(edge.source.table) },
+    { id: 'target', label: 'Hedef tabloyu aç', icon: Table2, onSelect: () => onOpenTable?.(edge.target.table) },
+    { id: 'sep-copy', separator: true },
+    { id: 'copy-name', label: 'Constraint adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(edge.name) },
+    { id: 'copy-relation', label: 'İlişki yolunu kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(`${edge.source.table}.${edge.source.column} -> ${edge.target.table}.${edge.target.column}`) },
+    { id: 'sep-danger', separator: true },
+    { id: 'remove', label: 'Foreign key’i kaldır', icon: Unlink, danger: true, disabled: savingLink, onSelect: () => requestRemoveEdge(edge) }
+  ], edge.name);
+
   const chooseColumn = (table: string, column: string) => {
     if (!source || (source.table === table && source.column === column)) {
       setSource(source ? null : { table, column }); setTarget(null); setSelectedEdge(null); return;
@@ -450,26 +525,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     finally { setSavingLink(false); }
   };
 
-  const removeSelectedEdge = () => {
-    if (!selectedEdge || !accountId) return;
-    const edge = selectedEdge;
-    setConfirmation({
-      title: 'Foreign key bağlantısını kaldır',
-      description: `${edge.name} constraint'i ${edge.source.table} tablosundan kaldırılacak. İlişkisel kural sunucuda kalıcı olarak değişir.`,
-      confirmLabel: 'Bağlantıyı kaldır',
-      tone: 'danger',
-      onConfirm: async () => {
-        setSavingLink(true); setError(null);
-        try {
-          await mutateTableSchema(serverId, { database: databaseName, table: edge.source.table, mutation: { kind: 'drop-foreign-key', constraintName: edge.name } }, accountId);
-          const refreshed = await fetchTableInfo(serverId, databaseName, edge.source.table, accountId);
-          setTableInfo(previous => ({ ...previous, [edge.source.table]: refreshed }));
-          setSelectedEdge(null); setMessage('Foreign key bağlantısı kaldırıldı.'); await onCatalogRefresh?.();
-        } catch (failure) { setError(failure instanceof Error ? failure.message : 'Foreign key kaldırılamadı.'); throw failure; }
-        finally { setSavingLink(false); }
-      }
-    });
-  };
+  const removeSelectedEdge = () => { if (selectedEdge) requestRemoveEdge(selectedEdge); };
 
   if (!database) return <EmptyState icon={Database} title="Veritabanı seçilmedi" description="ER diyagramını görmek için bir veritabanı seçin." />;
   if (!tableNames.length) return <EmptyState icon={Table2} title="Tablo bulunamadı" description="Bu veritabanında şemaya eklenecek tablo yok." />;
@@ -501,6 +557,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
       onPointerUp={finishPointer}
       onPointerCancel={finishPointer}
       onWheel={handleWheel}
+      onContextMenu={openCanvasMenu}
     >
       <div className="absolute left-0 top-0 origin-top-left will-change-transform" style={{ width: canvasSize.width, height: canvasSize.height, transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})` }}>
         <svg className="pointer-events-none absolute inset-0 z-0 overflow-visible" width={canvasSize.width} height={canvasSize.height}>
@@ -528,7 +585,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
             }
             const path = `M ${sourceX} ${sourceY} H ${routeX} V ${targetY} H ${targetX}`;
             const active = selectedEdge?.id === edge.id;
-            return <path data-schema-edge="true" key={edge.id} d={path} fill="none" stroke={active ? 'rgba(250,204,21,.95)' : 'rgba(34,211,238,.48)'} strokeWidth={active ? 3 : 1.6} markerEnd="url(#coreor-schema-arrow)" className="pointer-events-auto cursor-pointer" onPointerDown={event => event.stopPropagation()} onClick={() => { setSelectedEdge(edge); setSource(null); setTarget(null); }} />;
+            return <path data-schema-edge="true" key={edge.id} d={path} fill="none" stroke={active ? 'rgba(250,204,21,.95)' : 'rgba(34,211,238,.48)'} strokeWidth={active ? 3 : 1.6} markerEnd="url(#coreor-schema-arrow)" className="pointer-events-auto cursor-pointer" onPointerDown={event => event.stopPropagation()} onClick={() => { setSelectedEdge(edge); setSource(null); setTarget(null); }} onContextMenu={event => openEdgeMenu(event, edge)} />;
           })}
         </svg>
 
@@ -537,13 +594,13 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
           const primaryColumns = new Set(info.indexes.filter(index => index.Key_name === 'PRIMARY').map(index => index.Column_name));
           const uniqueColumns = new Set(info.indexes.filter(index => index.Non_unique === '0' && index.Key_name !== 'PRIMARY').map(index => index.Column_name));
           const foreignColumns = new Set(info.foreignKeys.map(item => item.COLUMN_NAME));
-          return <section data-schema-node="true" key={tableName} className={`absolute z-10 overflow-hidden rounded-xl border bg-zinc-950/96 shadow-xl backdrop-blur ${draggingTable === tableName ? 'cursor-grabbing border-cyan-400 shadow-cyan-950/50' : 'border-zinc-700/90'}`} style={{ left: position.x, top: position.y, width: CARD_WIDTH }} onPointerDown={event => beginNodeDrag(event, tableName)} onDoubleClick={() => onOpenTable?.(tableName)}>
+          return <section data-schema-node="true" key={tableName} className={`absolute z-10 overflow-hidden rounded-xl border bg-zinc-950/96 shadow-xl backdrop-blur ${draggingTable === tableName ? 'cursor-grabbing border-cyan-400 shadow-cyan-950/50' : 'border-zinc-700/90'}`} style={{ left: position.x, top: position.y, width: CARD_WIDTH }} onPointerDown={event => beginNodeDrag(event, tableName)} onDoubleClick={() => onOpenTable?.(tableName)} onContextMenu={event => openNodeMenu(event, tableName)}>
             <header className="flex h-10 cursor-grab items-center gap-2 border-b border-zinc-800 bg-zinc-900/95 px-2 active:cursor-grabbing"><Table2 className="h-3.5 w-3.5 text-cyan-400" /><span className="min-w-0 flex-1 truncate text-[11px] font-semibold">{tableName}</span><span className="rounded bg-black/30 px-1.5 py-0.5 text-[8px] uppercase text-zinc-500">{info.table.engine || 'table'}</span></header>
             <div>{info.columns.map(column => {
               const isSource = source?.table === tableName && source.column === column.Field;
               const isTarget = target?.table === tableName && target.column === column.Field;
               const isKey = primaryColumns.has(column.Field);
-              return <button data-column-button="true" key={column.Field} type="button" onPointerDown={event => event.stopPropagation()} onClick={() => chooseColumn(tableName, column.Field)} className={`flex h-[26px] w-full items-center gap-1.5 border-b border-zinc-900 px-2 text-left text-[9px] hover:bg-cyan-500/[0.08] ${isSource ? 'bg-cyan-500/15' : isTarget ? 'bg-emerald-500/15' : ''}`} title={`${column.Field} • ${column.Type}`}>
+              return <button data-column-button="true" key={column.Field} type="button" onPointerDown={event => event.stopPropagation()} onClick={() => chooseColumn(tableName, column.Field)} onContextMenu={event => openGraphColumnMenu(event, tableName, column.Field)} className={`flex h-[26px] w-full items-center gap-1.5 border-b border-zinc-900 px-2 text-left text-[9px] hover:bg-cyan-500/[0.08] ${isSource ? 'bg-cyan-500/15' : isTarget ? 'bg-emerald-500/15' : ''}`} title={`${column.Field} • ${column.Type}`}>
                 {isKey ? <KeyRound className="h-3 w-3 shrink-0 text-amber-400" /> : foreignColumns.has(column.Field) ? <Link2 className="h-3 w-3 shrink-0 text-cyan-400" /> : uniqueColumns.has(column.Field) ? <Columns3 className="h-3 w-3 shrink-0 text-red-300" /> : <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-700" />}
                 <span className={`min-w-0 flex-1 truncate ${isKey ? 'font-semibold text-amber-100' : 'text-zinc-300'}`}>{column.Field}</span><span className={`max-w-[112px] truncate font-mono text-[8px] ${typeTone(column.Type)}`}>{column.Type.toUpperCase()}</span>{column.Null === 'YES' && <span className="text-[7px] text-zinc-700">N</span>}
               </button>;
