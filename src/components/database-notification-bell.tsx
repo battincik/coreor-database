@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bell, CheckCheck, ChevronRight, CircleAlert, Clock3, XCircle } from 'lucide-react';
 import {
@@ -40,11 +40,11 @@ export function DatabaseNotificationBell() {
     [notifications, unreadOnly]
   );
 
-  const openNotification = (id: string) => {
+  const openNotification = useCallback((id: string) => {
     markNotificationRead(id);
     setOpen(false);
     router.push(`/editor/notifications/?id=${encodeURIComponent(id)}`);
-  };
+  }, [openNotification]);
 
   useEffect(() => {
     const externalOpen = (event: Event) => {

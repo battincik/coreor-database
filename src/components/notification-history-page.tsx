@@ -118,7 +118,7 @@ export function NotificationHistoryPage() {
             {visible.map(item => (
               <button key={item.id} type="button" onClick={() => { setSelectedId(item.id); markNotificationRead(item.id); }} className={`flex w-full gap-2 border-b border-zinc-900 px-3 py-3 text-left hover:bg-white/[0.025] ${selectedId === item.id ? 'bg-cyan-500/[0.05]' : !item.readAt ? 'bg-cyan-500/[0.02]' : ''}`}>
                 <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${severityClass(item.severity)}`}>{item.severity === 'error' || item.severity === 'danger' ? <XCircle className="h-3.5 w-3.5" /> : <CircleAlert className="h-3.5 w-3.5" />}</span>
-                <span className="min-w-0 flex-1"><span className={`block truncate text-[10px] font-medium ${item.readAt ? 'text-zinc-400' : 'text-zinc-100'}`}>{item.title}</span><span className="mt-0.5 block truncate text-[8px] text-zinc-650">{item.description || item.source}</span><span className="mt-1 block text-[8px] text-zinc-700">{new Date(item.createdAt).toLocaleString('tr-TR')}</span></span>
+                <span className="min-w-0 flex-1"><span className={`block truncate text-[10px] font-medium ${item.readAt ? 'text-zinc-400' : 'text-zinc-100'}`}>{item.title}</span><span className="mt-0.5 block truncate text-[8px] text-zinc-600">{item.description || item.source}</span><span className="mt-1 block text-[8px] text-zinc-700">{new Date(item.createdAt).toLocaleString('tr-TR')}</span></span>
               </button>
             ))}
           </div>
