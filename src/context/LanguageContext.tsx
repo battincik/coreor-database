@@ -83,6 +83,10 @@ export const LANGUAGE_DICTIONARIES = Object.fromEntries(
 ) as Record<LocaleCode, TranslationDictionary>;
 
 export const SOURCE_TRANSLATIONS: TranslationDictionary = LANGUAGE_DICTIONARIES.tr;
+export const SOURCE_TRANSLATION_DICTIONARIES: TranslationDictionary[] = [
+  flattenLocaleTree(RAW_LANGUAGE_DICTIONARIES.tr),
+  flattenLocaleTree(RAW_LANGUAGE_DICTIONARIES.en)
+];
 const DEFAULT_LOCALE: LocaleCode = 'tr';
 const FALLBACK_LOCALE: LocaleCode = 'en';
 const STORAGE_KEY = 'coreor:language:v1';
