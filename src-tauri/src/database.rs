@@ -315,7 +315,7 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
 
             let escaped=name.replace("'","''");
             let table_sql=format!(
-                "SELECT TABLE_NAME AS tableName,TABLE_TYPE AS tableType,ENGINE AS engine,ROW_FORMAT AS rowFormat,COALESCE(TABLE_ROWS,0) AS tableRows,COALESCE(AVG_ROW_LENGTH,0) AS avgRowLength,COALESCE(DATA_LENGTH,0) AS dataLength,COALESCE(INDEX_LENGTH,0) AS indexLength,COALESCE(DATA_FREE,0) AS dataFree,AUTO_INCREMENT AS autoIncrement,CREATE_TIME AS createTime,UPDATE_TIME AS updateTime,TABLE_COLLATION AS tableCollation,TABLE_COMMENT AS tableComment FROM information_schema.TABLES WHERE TABLE_SCHEMA='{}' ORDER BY TABLE_NAME",
+                "SELECT TABLE_NAME AS tableName,TABLE_TYPE AS tableType,ENGINE AS engine,ROW_FORMAT AS rowFormat,CAST(COALESCE(TABLE_ROWS,0) AS CHAR) AS tableRows,CAST(COALESCE(AVG_ROW_LENGTH,0) AS CHAR) AS avgRowLength,CAST(COALESCE(DATA_LENGTH,0) AS CHAR) AS dataLength,CAST(COALESCE(INDEX_LENGTH,0) AS CHAR) AS indexLength,CAST(COALESCE(DATA_FREE,0) AS CHAR) AS dataFree,AUTO_INCREMENT AS autoIncrement,CREATE_TIME AS createTime,UPDATE_TIME AS updateTime,TABLE_COLLATION AS tableCollation,TABLE_COMMENT AS tableComment FROM information_schema.TABLES WHERE TABLE_SCHEMA='{}' ORDER BY TABLE_NAME",
                 escaped
             );
 
@@ -426,7 +426,7 @@ async fn database_objects(c:&Connection,p:&Map<String,Value>,max:usize)->Result<
 
     if !is_pg(&c.engine)&&!is_mssql(&c.engine){
         let esc=db.replace("'","''");
-        let table_sql=format!("SELECT TABLE_NAME AS name,TABLE_TYPE AS objectType,TABLE_COMMENT AS comment,CREATE_TIME AS createdAt,UPDATE_TIME AS updatedAt,COALESCE(TABLE_ROWS,0) AS rows,COALESCE(DATA_LENGTH,0) AS dataSizeBytes,COALESCE(INDEX_LENGTH,0) AS indexSizeBytes,COALESCE(DATA_LENGTH,0)+COALESCE(INDEX_LENGTH,0) AS sizeBytes FROM information_schema.TABLES WHERE TABLE_SCHEMA='{}' ORDER BY TABLE_NAME",esc);
+        let table_sql=format!("SELECT TABLE_NAME AS name,TABLE_TYPE AS objectType,TABLE_COMMENT AS comment,CREATE_TIME AS createdAt,UPDATE_TIME AS updatedAt,CAST(COALESCE(TABLE_ROWS,0) AS CHAR) AS rows,CAST(COALESCE(DATA_LENGTH,0) AS CHAR) AS dataSizeBytes,CAST(COALESCE(INDEX_LENGTH,0) AS CHAR) AS indexSizeBytes,CAST(COALESCE(DATA_LENGTH,0)+COALESCE(INDEX_LENGTH,0) AS CHAR) AS sizeBytes FROM information_schema.TABLES WHERE TABLE_SCHEMA='{}' ORDER BY TABLE_NAME",esc);
         let routine_sql=format!("SELECT ROUTINE_NAME AS name,ROUTINE_TYPE AS routineType,ROUTINE_DEFINITION AS definition,CREATED AS createdAt,LAST_ALTERED AS updatedAt,ROUTINE_COMMENT AS comment FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA='{}' ORDER BY ROUTINE_TYPE,ROUTINE_NAME",esc);
         let trigger_sql=format!("SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS tableName,ACTION_STATEMENT AS definition,CREATED AS createdAt FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA='{}' ORDER BY TRIGGER_NAME",esc);
         let event_sql=format!("SELECT EVENT_NAME AS name,EVENT_DEFINITION AS definition,CREATED AS createdAt,LAST_ALTERED AS updatedAt,EVENT_COMMENT AS comment FROM information_schema.EVENTS WHERE EVENT_SCHEMA='{}' ORDER BY EVENT_NAME",esc);
