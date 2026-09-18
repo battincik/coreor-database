@@ -315,8 +315,8 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
 
             let escaped=name.replace("'","''");
             let table_sql=format!(
-                "SELECT TABLE_NAME AS tableName,TABLE_TYPE AS tableType,ENGINE AS engine,ROW_FORMAT AS rowFormat,CAST(COALESCE(TABLE_ROWS,0) AS CHAR) AS tableRows,CAST(COALESCE(AVG_ROW_LENGTH,0) AS CHAR) AS avgRowLength,CAST(COALESCE(DATA_LENGTH,0) AS CHAR) AS dataLength,CAST(COALESCE(INDEX_LENGTH,0) AS CHAR) AS indexLength,CAST(COALESCE(DATA_FREE,0) AS CHAR) AS dataFree,AUTO_INCREMENT AS autoIncrement,CREATE_TIME AS createTime,UPDATE_TIME AS updateTime,TABLE_COLLATION AS tableCollation,TABLE_COMMENT AS tableComment FROM information_schema.TABLES WHERE TABLE_SCHEMA='{}' ORDER BY TABLE_NAME",
-                escaped
+                "SELECT t.TABLE_NAME AS tableName,t.TABLE_TYPE AS tableType,t.ENGINE AS engine,t.ROW_FORMAT AS rowFormat,CAST(COALESCE(t.TABLE_ROWS,0) AS CHAR) AS tableRows,CAST(COALESCE(t.AVG_ROW_LENGTH,0) AS CHAR) AS avgRowLength,CAST(COALESCE(t.DATA_LENGTH,0) AS CHAR) AS dataLength,CAST(COALESCE(t.INDEX_LENGTH,0) AS CHAR) AS indexLength,CAST(COALESCE(t.DATA_FREE,0) AS CHAR) AS dataFree,t.AUTO_INCREMENT AS autoIncrement,t.CREATE_TIME AS createTime,t.UPDATE_TIME AS updateTime,t.TABLE_COLLATION AS tableCollation,t.TABLE_COMMENT AS tableComment,CAST(COALESCE(cols.columnCount,0) AS CHAR) AS columnCount,CAST(COALESCE(idxs.indexCount,0) AS CHAR) AS indexCount,CAST(COALESCE(fks.foreignKeyCount,0) AS CHAR) AS foreignKeyCount FROM information_schema.TABLES t LEFT JOIN (SELECT TABLE_NAME,COUNT(*) AS columnCount FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='{}' GROUP BY TABLE_NAME) cols ON cols.TABLE_NAME=t.TABLE_NAME LEFT JOIN (SELECT TABLE_NAME,COUNT(DISTINCT INDEX_NAME) AS indexCount FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='{}' GROUP BY TABLE_NAME) idxs ON idxs.TABLE_NAME=t.TABLE_NAME LEFT JOIN (SELECT TABLE_NAME,COUNT(DISTINCT CONSTRAINT_NAME) AS foreignKeyCount FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA='{}' AND REFERENCED_TABLE_NAME IS NOT NULL GROUP BY TABLE_NAME) fks ON fks.TABLE_NAME=t.TABLE_NAME WHERE t.TABLE_SCHEMA='{}' ORDER BY t.TABLE_NAME",
+                escaped,escaped,escaped,escaped
             );
 
             let mut tables=match execute_sql(c,&table_sql,Some(&name),max).await {
@@ -390,7 +390,7 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
                     "tableType":table_object.get("tableType").or_else(||table_object.get("TABLE_TYPE")).cloned().unwrap_or(json!("BASE TABLE")),
                     "comment":table_object.get("tableComment").cloned().unwrap_or(json!("")),
                     "rows":rows,
-                    "columns":0,
+                    "columns":num(table_object.get("columnCount")),
                     "sizeMB":format!("{:.2}",(data+index) as f64/1048576.0),
                     "dataSizeMB":format!("{:.2}",data as f64/1048576.0),
                     "indexSizeMB":format!("{:.2}",index as f64/1048576.0),
@@ -402,8 +402,8 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
                     "rowFormat":table_object.get("rowFormat").cloned().unwrap_or(Value::Null),
                     "collation":table_object.get("tableCollation").cloned().unwrap_or(Value::Null),
                     "autoIncrement":table_object.get("autoIncrement").cloned().unwrap_or(Value::Null),
-                    "indexCount":0,
-                    "foreignKeyCount":0
+                    "indexCount":num(table_object.get("indexCount")),
+                    "foreignKeyCount":num(table_object.get("foreignKeyCount"))
                 }));
             }
 
