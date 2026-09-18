@@ -1,38 +1,26 @@
-# Coreor Database Desktop
+# Client branch
 
-Bu branch web servisi değil, Tauri 2 tabanlı yerel masaüstü istemcisidir.
+This branch is the standalone desktop edition of Coreor Database.
 
-## Mimari
+- No web database backend
+- No auth/login/session dependency
+- No required `.env`
+- No Next.js API routes
+- No Node database drivers
+- Local Tauri config
+- Native Rust database networking
+- Persistent native transaction state
+- MySQL/MariaDB/TiDB/PostgreSQL/CockroachDB/MSSQL adapters
+- NSIS + MSI Windows bundle targets
 
-`Next.js static UI -> Tauri IPC -> Rust -> Database`
-
-OAuth, NextAuth, merkezi Coreor API'si ve uygulama sunucusu yoktur. Bağlantı profilleri ve uygulama ayarları işletim sisteminin uygulama config dizinindeki `config.json` dosyasında tutulur. DB bağlantıları kullanıcının bilgisayarından doğrudan açılır.
-
-## Motorlar
-
-- MySQL / MariaDB / TiDB: native sqlx
-- PostgreSQL / CockroachDB: native sqlx
-- MSSQL: Tiberius bağımlılığı hazır; native adapter feature-parity çalışması devam ediyor
-
-## Native action durumu
-
-Çalışan native omurga: connection test, query, catalog, table data, table info, row update/delete, process list/kill, user list, performance snapshot temel modeli ve export.
-
-Tam feature parity için halen transaction connection state, schema mutation builder, import batching, MySQL role/grant mutationları, ayrıntılı performance metrikleri, filtre/sort/count pagination ve MSSQL adapter tamamlanmalıdır.
-
-## Geliştirme
+Run:
 
 ```powershell
 npm install
+npm run desktop:check
+npm run typecheck
+cargo check --manifest-path src-tauri/Cargo.toml
 npm run tauri:dev
 ```
 
-## Windows build
-
-```powershell
-npm run tauri:build
-```
-
-Tauri `src-tauri/tauri.conf.json` üzerinden MSI ve NSIS hedefleri üretir.
-
-> `package-lock.json` masaüstü bağımlılık dönüşümü nedeniyle branch üzerinde kaldırılmıştır. İlk `npm install` güncel lockfile oluşturur.
+Build installers with `npm run tauri:build`.
