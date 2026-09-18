@@ -1,37 +1,39 @@
 # Desktop Architecture
 
-## Runtime boundary
+The client branch is desktop-only.
 
-Coreor Database Desktop has one trusted native boundary: Tauri IPC.
+## Runtime
 
 ```text
-WebView UI -> invoke("database_request") -> Rust -> database TCP protocol
+React / Next.js static export
+          |
+          | invoke()
+          v
+Tauri command layer
+          |
+          +-- config.rs behavior in lib.rs
+          +-- database.rs
+          +-- transactions.rs
+          |
+          v
+Remote database server
 ```
 
-The WebView never receives a Coreor API endpoint because no Coreor database backend exists in this branch.
+## Rules
 
-## Frontend
+1. No `src/app/api`.
+2. No `src/lib/server`.
+3. No NextAuth or server session.
+4. No Node.js database driver.
+5. No `.env` requirement.
+6. Database credentials never pass through a Coreor-hosted backend.
+7. Database operations use Tauri IPC and Rust native drivers.
+8. Transaction connections remain native and stateful inside the Tauri process.
+9. Desktop configuration is persisted to the Tauri application config directory.
+10. `npm run desktop:check` fails when a web-backend dependency is reintroduced.
 
-Next.js is used only to build static UI assets. `output: "export"` produces the files loaded by Tauri. No route handler or server component is required for database operations.
+## Native modules
 
-## Native layer
-
-`src-tauri/src/database.rs` owns database connections and implements:
-- MySQL, MariaDB and TiDB through SQLx
-- PostgreSQL and CockroachDB through SQLx
-- Microsoft SQL Server through Tiberius
-- catalog/schema/data/query/workbench operations
-- local read-only enforcement
-- import/export and diagnostics
-
-`src-tauri/src/transactions.rs` owns persistent transaction connections, transaction IDs, expiry and commit/rollback state.
-
-`src-tauri/src/lib.rs` exposes Tauri commands and local config persistence.
-
-## Persistence
-
-`config.json` is created in Tauri's application config directory. Writes are performed through a temporary file and rename. No environment configuration is required.
-
-## Validation
-
-`npm run desktop:check` fails when desktop TypeScript source contains NextAuth, Next.js database API paths, server backend imports or Node database drivers.
+- `src-tauri/src/database.rs`: engine adapters, catalog, data grid, metadata, schema mutation, process/user/role/privilege, import/export and performance operations.
+- `src-tauri/src/transactions.rs`: persistent transaction sessions, query execution, commit, rollback, TTL cleanup and read-only enforcement.
+- `src-tauri/src/lib.rs`: config persistence, Tauri commands, timeout handling and state registration.
