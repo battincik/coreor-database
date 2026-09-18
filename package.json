@@ -7,9 +7,9 @@
   },
   "scripts": {
     "dev": "npm run tauri:dev",
-    "dev:web": "node scripts/clean-next-cache.mjs && next dev --webpack",
+    "dev:web": "node scripts/clean-next-cache.mjs && next dev --turbopack",
     "build": "npm run tauri:build",
-    "build:web": "node scripts/clean-next-cache.mjs && tsc --noEmit && next build --webpack",
+    "build:web": "node scripts/clean-next-cache.mjs && tsc --noEmit && next build --turbopack",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
