@@ -92,6 +92,7 @@ function MenuItems({ items, closeMenu, onBack, autoFocus = false }: { items: App
         tabIndex={0}
         className="max-h-[min(70vh,520px)] min-w-60 overflow-y-auto py-1 outline-none"
         onKeyDown={event => {
+          event.stopPropagation();
           if (event.key === 'ArrowDown') { event.preventDefault(); move(1); }
           else if (event.key === 'ArrowUp') { event.preventDefault(); move(-1); }
           else if (event.key === 'ArrowRight') {
