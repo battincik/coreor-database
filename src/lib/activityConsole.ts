@@ -1,5 +1,7 @@
 'use client';
 
+import { migrateLegacyWorkspaceCollection, readWorkspaceCollection, writeWorkspaceCollection } from '@/lib/nativeWorkspaceStore';
+
 export type ActivityLevel = 'info' | 'success' | 'warning' | 'error' | 'sql';
 export type ActivityCategory = 'system' | 'vault' | 'connection' | 'catalog' | 'schema' | 'data' | 'query' | 'navigation';
 
@@ -37,6 +39,7 @@ const SENSITIVE_KEY_PATTERN = /^(?:password|passwd|pwd|secret|token|access[_-]?t
 const SENSITIVE_SQL_PATTERN = /\b(?:password|passwd|pwd|secret|token|access[_-]?token|refresh[_-]?token|api[_-]?key|authorization|identified\s+by|private[_-]?key)\b/i;
 let entries: ActivityEntry[] = [];
 let hydrated = false;
+let hydrationPromise: Promise<void> | null = null;
 
 function createId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
@@ -72,24 +75,33 @@ function sanitizeParameter(value: unknown, key?: string): unknown {
 function hydrate() {
   if (hydrated || typeof window === 'undefined') return;
   hydrated = true;
-  try {
-    const stored = window.sessionStorage.getItem(STORAGE_KEY);
-    const parsed = stored ? JSON.parse(stored) : [];
-    if (Array.isArray(parsed)) {
-      entries = parsed.filter(entry => typeof entry?.sql === 'string' && entry.sql.trim()).slice(-MAX_ENTRIES) as ActivityEntry[];
+
+  hydrationPromise = (async () => {
+    await migrateLegacyWorkspaceCollection<ActivityEntry>('activity-log', 'global', STORAGE_KEY, 'session');
+    const stored = await readWorkspaceCollection<ActivityEntry>('activity-log', 'global');
+    const merged = new Map<string, ActivityEntry>();
+    for (const entry of [...stored, ...entries]) {
+      if (entry && typeof entry.id === 'string' && typeof entry.sql === 'string' && entry.sql.trim()) {
+        merged.set(entry.id, entry);
+      }
     }
-  } catch {
-    entries = [];
-  }
+    entries = [...merged.values()]
+      .sort((left, right) => left.timestamp.localeCompare(right.timestamp))
+      .slice(-MAX_ENTRIES);
+    notify();
+  })().catch(() => {
+    // Native günlük yüklenemezse oturum içi kayıtlar RAM'de çalışmaya devam eder.
+  }).finally(() => {
+    hydrationPromise = null;
+  });
 }
 
 function persist() {
   if (typeof window === 'undefined') return;
-  try {
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(-MAX_ENTRIES)));
-  } catch {
-    // SQL günlüğü ana uygulama akışını hiçbir zaman durdurmamalı.
-  }
+  const snapshot = entries.slice(-MAX_ENTRIES);
+  void (hydrationPromise ?? Promise.resolve())
+    .then(() => writeWorkspaceCollection('activity-log', 'global', snapshot))
+    .catch(() => undefined);
 }
 
 function notify() {
