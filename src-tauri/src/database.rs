@@ -471,10 +471,11 @@ async fn database_objects(c:&Connection,p:&Map<String,Value>,max:usize)->Result<
 async fn table_data(c:&Connection,p:&Map<String,Value>,max_page:usize)->Result<Value,String>{
     let db=payload_str(p,"database")?;let table=payload_str(p,"table")?;let page=p.get("page").and_then(Value::as_u64).unwrap_or(1).max(1);let maximum=max_page.max(100) as u64;let size=p.get("pageSize").and_then(Value::as_u64).unwrap_or(100).clamp(100,maximum);
     let (where_sql,filters)=build_filters(p,&c.engine)?;let (sort_sql,sorts)=build_sorts(p,&c.engine)?;let qt=qualified(db,table,&c.engine)?;
-    let known=p.get("knownTotalRows").and_then(Value::as_u64);let count=p.get("includeTotal").and_then(Value::as_bool).unwrap_or(true)||known.is_none();let total=if count{let rr=execute_sql(c,&format!("SELECT COUNT(*) AS totalRows FROM {}{}",qt,where_sql),Some(db),1).await?;rows_of(&rr).first().and_then(|x|x.get("totalRows")).map(|x|num(Some(x))).unwrap_or(0)}else{known.unwrap_or(0)};
+    let mut conn=open_native(c,Some(db)).await?;
+    let known=p.get("knownTotalRows").and_then(Value::as_u64);let count=p.get("includeTotal").and_then(Value::as_bool).unwrap_or(true)||known.is_none();let total=if count{let rr=execute_on(&mut conn,&format!("SELECT COUNT(*) AS totalRows FROM {}{}",qt,where_sql),1).await?;rows_of(&rr).first().and_then(|x|x.get("totalRows")).map(|x|num(Some(x))).unwrap_or(0)}else{known.unwrap_or(0)};
     let pages=((total+size-1)/size).max(1);let current=page.min(pages);let offset=(current-1)*size;
     let data_sql=if is_mssql(&c.engine){format!("SELECT * FROM {}{}{}{} OFFSET {} ROWS FETCH NEXT {} ROWS ONLY",qt,where_sql,if sort_sql.is_empty(){" ORDER BY (SELECT NULL)"}else{&sort_sql},"",offset,size)}else{format!("SELECT * FROM {}{}{} LIMIT {} OFFSET {}",qt,where_sql,sort_sql,size,offset)};
-    let data=rows_of(&execute_sql(c,&data_sql,Some(db),size as usize).await?);
+    let data=rows_of(&execute_on(&mut conn,&data_sql,size as usize).await?);
     Ok(json!({"data":data,"pagination":{"page":current,"pageSize":size,"totalRows":total,"totalPages":pages,"hasPreviousPage":current>1,"hasNextPage":current<pages},"sorts":sorts,"filters":filters,"_meta":{"statements":[{"label":"Tablo satırları","sql":data_sql}]}}))
 }
 
