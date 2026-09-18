@@ -38,7 +38,7 @@
       }
     },
     "icon": [
-      "../public/logo.png"
+      "icons/icon.ico"
     ]
   }
 }
