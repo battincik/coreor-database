@@ -54,7 +54,7 @@ export function primaryModifier(event: KeyboardEvent | ReactKeyboardEvent) {
   return detectPlatform() === 'mac' ? event.metaKey : event.ctrlKey;
 }
 
-export function matchesShortcut(event: KeyboardEvent | React.KeyboardEvent, id: ShortcutId) {
+export function matchesShortcut(event: KeyboardEvent | ReactKeyboardEvent, id: ShortcutId) {
   const shortcut = SHORTCUTS[id];
   const keyMatches = shortcut.key.length === 1
     ? event.key.toLocaleLowerCase('en-US') === shortcut.key.toLocaleLowerCase('en-US')
