@@ -79,3 +79,27 @@ export function readLocalVaultStatus(): Promise<LocalVaultStatus> {
 export function readCloudVaultReadiness(): Promise<CloudVaultReadiness> {
   return invokeDesktop<CloudVaultReadiness>('cloud_vault_readiness');
 }
+
+export type SyncableWorkspaceCollection =
+  | 'query-history' | 'query-favorites' | 'sql-notebooks' | 'activity-log'
+  | 'snippets' | 'schema-snapshots' | 'migration-drafts' | 'prepared-statements';
+
+export interface WorkspaceSyncManifest {
+  workspaceSchemaVersion: number;
+  deviceId: string;
+  conflictModel: string;
+  collections: Array<{ namespace: string; schemaVersion: number; activeRecords: number; tombstones: number; maxRevision: number }>;
+}
+
+export function readWorkspaceCollection<T>(collection: SyncableWorkspaceCollection, scope: string): Promise<T[]> {
+  return invokeDesktop<T[]>('workspace_read', { collection, scope });
+}
+export function writeWorkspaceCollection<T>(collection: SyncableWorkspaceCollection, scope: string, items: T[]): Promise<T[]> {
+  return invokeDesktop<T[]>('workspace_write', { collection, scope, items });
+}
+export function importLegacyWorkspaceCollection<T>(collection: SyncableWorkspaceCollection, scope: string, items: T[]): Promise<T[]> {
+  return invokeDesktop<T[]>('workspace_import_legacy', { collection, scope, items });
+}
+export function readWorkspaceSyncManifest(): Promise<WorkspaceSyncManifest> {
+  return invokeDesktop<WorkspaceSyncManifest>('workspace_sync_manifest');
+}

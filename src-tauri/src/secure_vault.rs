@@ -1,4 +1,5 @@
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use chrono::Utc;
 use ring::{
     aead::{self, Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM},
     rand::{SecureRandom, SystemRandom},
@@ -6,12 +7,13 @@ use ring::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs,
     path::PathBuf,
     sync::{Mutex, OnceLock, RwLock},
 };
 use tauri::Manager;
+use uuid::Uuid;
 
 const VAULT_VERSION: u32 = 1;
 const VAULT_FILE_NAME: &str = "connection-vault.v1.json";
@@ -37,13 +39,52 @@ struct VaultEnvelope {
 #[serde(rename_all = "camelCase")]
 struct VaultPayload {
     version: u32,
+    #[serde(default = "new_device_id")]
+    device_id: String,
     #[serde(default)]
     connections: Vec<Value>,
+    #[serde(default)]
+    workspace: HashMap<String, WorkspaceCollection>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceRecord {
+    id: String,
+    revision: u64,
+    order: usize,
+    updated_at: String,
+    deleted_at: Option<String>,
+    updated_by_device: String,
+    payload: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceCollection {
+    #[serde(default = "workspace_schema_version")]
+    schema_version: u32,
+    #[serde(default)]
+    records: Vec<WorkspaceRecord>,
+}
+
+impl Default for WorkspaceCollection {
+    fn default() -> Self {
+        Self { schema_version: workspace_schema_version(), records: Vec::new() }
+    }
+}
+
+fn workspace_schema_version() -> u32 { 1 }
+fn new_device_id() -> String { Uuid::new_v4().to_string() }
 
 impl Default for VaultPayload {
     fn default() -> Self {
-        Self { version: VAULT_VERSION, connections: Vec::new() }
+        Self {
+            version: VAULT_VERSION,
+            device_id: new_device_id(),
+            connections: Vec::new(),
+            workspace: HashMap::new(),
+        }
     }
 }
 
@@ -270,19 +311,20 @@ pub fn read_connections_for_ui(app: &tauri::AppHandle) -> Result<Vec<Value>, Str
 pub fn write_connections(app: &tauri::AppHandle, incoming: Vec<Value>) -> Result<(), String> {
     let _guard = io_lock().lock()
         .map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
-    let existing = load_payload_unlocked(app)?;
-    let previous_passwords = existing.connections.iter().filter_map(|connection| {
+    let mut payload = load_payload_unlocked(app)?;
+    let previous_passwords = payload.connections.iter().filter_map(|connection| {
         Some((connection_id(connection)?.to_string(), connection_password(connection)?))
     }).collect::<HashMap<_, _>>();
 
-    let connections = incoming.into_iter().map(|connection| {
+    payload.connections = incoming.into_iter().map(|connection| {
         let previous = connection_id(&connection)
             .and_then(|id| previous_passwords.get(id))
             .map(String::as_str);
         prepare_for_storage(connection, previous)
     }).collect();
+    payload.version = VAULT_VERSION;
 
-    save_payload_unlocked(app, &VaultPayload { version: VAULT_VERSION, connections })
+    save_payload_unlocked(app, &payload)
 }
 
 pub fn migrate_legacy_connections(app: &tauri::AppHandle, legacy_connections: Vec<Value>) -> Result<(), String> {
@@ -316,6 +358,131 @@ pub fn migrate_legacy_connections(app: &tauri::AppHandle, legacy_connections: Ve
 
     payload.version = VAULT_VERSION;
     save_payload_unlocked(app, &payload)
+}
+
+
+const SYNCABLE_WORKSPACE_COLLECTIONS: &[&str] = &[
+    "query-history", "query-favorites", "sql-notebooks", "activity-log",
+    "snippets", "schema-snapshots", "migration-drafts", "prepared-statements",
+];
+
+fn workspace_namespace(collection: &str, scope: &str) -> Result<String, String> {
+    if !SYNCABLE_WORKSPACE_COLLECTIONS.contains(&collection) {
+        return Err("Desteklenmeyen workspace koleksiyonu.".to_string());
+    }
+    let scope = scope.trim();
+    if scope.is_empty() || scope.len() > 160 || !scope.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':' | '.')) {
+        return Err("Workspace scope geçersiz.".to_string());
+    }
+    Ok(format!("{collection}:{scope}"))
+}
+
+fn workspace_item_id(value: &Value) -> Result<String, String> {
+    value.get("id").and_then(Value::as_str)
+        .filter(|id| !id.trim().is_empty() && id.len() <= 200)
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| "Workspace kaydında geçerli id alanı bulunmalıdır.".to_string())
+}
+
+fn active_workspace_values(collection: &WorkspaceCollection) -> Vec<Value> {
+    let mut records = collection.records.iter().filter(|record| record.deleted_at.is_none()).cloned().collect::<Vec<_>>();
+    records.sort_by_key(|record| record.order);
+    records.into_iter().map(|record| record.payload).collect()
+}
+
+fn merge_workspace_items(payload: &mut VaultPayload, namespace: String, incoming: Vec<Value>, import_only: bool) -> Result<bool, String> {
+    let device_id = payload.device_id.clone();
+    let now = Utc::now().to_rfc3339();
+    let collection = payload.workspace.entry(namespace).or_default();
+    collection.schema_version = workspace_schema_version();
+    let mut index_by_id = collection.records.iter().enumerate().map(|(i, r)| (r.id.clone(), i)).collect::<HashMap<_, _>>();
+    let mut seen = HashSet::new();
+    let mut changed = false;
+    let append_order_start = collection.records.iter().filter(|r| r.deleted_at.is_none()).map(|r| r.order).max().map(|v| v + 1).unwrap_or(0);
+
+    for (incoming_order, item) in incoming.into_iter().enumerate() {
+        let id = workspace_item_id(&item)?;
+        if !seen.insert(id.clone()) { continue; }
+        if let Some(index) = index_by_id.get(&id).copied() {
+            if import_only { continue; }
+            let record = &mut collection.records[index];
+            if record.payload != item || record.deleted_at.is_some() || record.order != incoming_order {
+                record.payload = item;
+                record.deleted_at = None;
+                record.order = incoming_order;
+                record.revision = record.revision.saturating_add(1).max(1);
+                record.updated_at = now.clone();
+                record.updated_by_device = device_id.clone();
+                changed = true;
+            }
+        } else {
+            let order = if import_only { append_order_start + incoming_order } else { incoming_order };
+            collection.records.push(WorkspaceRecord {
+                id: id.clone(), revision: 1, order, updated_at: now.clone(), deleted_at: None,
+                updated_by_device: device_id.clone(), payload: item,
+            });
+            index_by_id.insert(id, collection.records.len() - 1);
+            changed = true;
+        }
+    }
+
+    if !import_only {
+        for record in &mut collection.records {
+            if record.deleted_at.is_none() && !seen.contains(&record.id) {
+                record.revision = record.revision.saturating_add(1).max(1);
+                record.updated_at = now.clone();
+                record.updated_by_device = device_id.clone();
+                record.deleted_at = Some(now.clone());
+                record.payload = Value::Null;
+                changed = true;
+            }
+        }
+    }
+    Ok(changed)
+}
+
+pub fn workspace_read(app: &tauri::AppHandle, collection: &str, scope: &str) -> Result<Vec<Value>, String> {
+    let namespace = workspace_namespace(collection, scope)?;
+    let _guard = io_lock().lock().map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
+    let payload = load_payload_unlocked(app)?;
+    Ok(payload.workspace.get(&namespace).map(active_workspace_values).unwrap_or_default())
+}
+
+pub fn workspace_write(app: &tauri::AppHandle, collection: &str, scope: &str, items: Vec<Value>) -> Result<Vec<Value>, String> {
+    let namespace = workspace_namespace(collection, scope)?;
+    let _guard = io_lock().lock().map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
+    let mut payload = load_payload_unlocked(app)?;
+    if merge_workspace_items(&mut payload, namespace.clone(), items, false)? { save_payload_unlocked(app, &payload)?; }
+    Ok(payload.workspace.get(&namespace).map(active_workspace_values).unwrap_or_default())
+}
+
+pub fn workspace_import_legacy(app: &tauri::AppHandle, collection: &str, scope: &str, items: Vec<Value>) -> Result<Vec<Value>, String> {
+    let namespace = workspace_namespace(collection, scope)?;
+    let _guard = io_lock().lock().map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
+    let mut payload = load_payload_unlocked(app)?;
+    if merge_workspace_items(&mut payload, namespace.clone(), items, true)? { save_payload_unlocked(app, &payload)?; }
+    Ok(payload.workspace.get(&namespace).map(active_workspace_values).unwrap_or_default())
+}
+
+pub fn workspace_sync_manifest(app: &tauri::AppHandle) -> Result<Value, String> {
+    let _guard = io_lock().lock().map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
+    let payload = load_payload_unlocked(app)?;
+    let collections = payload.workspace.iter().map(|(namespace, collection)| {
+        let active = collection.records.iter().filter(|record| record.deleted_at.is_none()).count();
+        json!({
+            "namespace": namespace,
+            "schemaVersion": collection.schema_version,
+            "activeRecords": active,
+            "tombstones": collection.records.len().saturating_sub(active),
+            "maxRevision": collection.records.iter().map(|record| record.revision).max().unwrap_or(0)
+        })
+    }).collect::<Vec<_>>();
+    Ok(json!({
+        "workspaceSchemaVersion": workspace_schema_version(),
+        "deviceId": payload.device_id,
+        "conflictModel": "record-revision+tombstone+device-id",
+        "collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &tauri::AppHandle, server_id: &str) -> Result<String, String> {
@@ -359,6 +526,9 @@ pub fn cloud_readiness_metadata() -> Value {
         "payloadCipher": "AES-256-GCM",
         "vaultKeyBytes": 32,
         "passwordKdf": "Argon2id",
+        "workspaceSchemaVersion": workspace_schema_version(),
+        "syncableCollections": SYNCABLE_WORKSPACE_COLLECTIONS,
+        "conflictModel": "record-revision+tombstone+device-id",
         "zeroKnowledge": true,
         "masterPasswordStored": false
     })

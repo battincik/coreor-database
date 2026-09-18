@@ -43,6 +43,7 @@ import { matchesShortcut } from '@/lib/shortcuts';
 import { approvalRequests, automationId, migrationDrafts, schemaSnapshots } from '@/lib/databaseAutomation';
 import { analyzeSqlDocument, type SqlDiagnostic } from '@/lib/sqlLanguageServer';
 import { useCoreorToast } from '@/components/ui/coreor-toast';
+import { migrateLegacyWorkspaceCollection, readWorkspaceCollection, writeWorkspaceCollection } from '@/lib/nativeWorkspaceStore';
 
 interface QueryWorkspaceProps {
   tab: EditorQueryTab;
@@ -78,8 +79,10 @@ function valueText(value: unknown) {
   }
   return String(value);
 }
-function readStored(key: string): StoredQuery[] { if (typeof window === 'undefined') return []; try { const value = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(value) ? value : []; } catch { return []; } }
-function writeStored(key: string, values: StoredQuery[]) { if (typeof window !== 'undefined') localStorage.setItem(key, JSON.stringify(values.slice(0, MAX_HISTORY))); }
+function writeStored(key: string, values: StoredQuery[]) {
+  const collection = key === HISTORY_KEY ? 'query-history' : 'query-favorites';
+  void writeWorkspaceCollection(collection, 'global', values.slice(0, MAX_HISTORY));
+}
 function queryTitle(sql: string) { const text = sql.replace(/\s+/g, ' ').trim(); return text.length > 72 ? `${text.slice(0, 72)}…` : text || 'SQL sorgusu'; }
 function formatSql(source: string) { return source.trim().replace(/\s+(FROM|WHERE|LEFT JOIN|RIGHT JOIN|INNER JOIN|GROUP BY|HAVING|ORDER BY|LIMIT|VALUES|SET)\s+/gi, '\n$1\n  ').replace(/\s+(AND|OR)\s+/gi, '\n  $1 '); }
 
@@ -160,10 +163,26 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   const databaseOptions = useMemo<SearchSelectOption[]>(() => [{ value: '', label: 'Sunucu geneli' }, ...databases.map(database => ({ value: database.name, label: database.name, description: `${database.tableCount} tablo` }))], [databases]);
 
   useEffect(() => {
-    setHistory(readStored(HISTORY_KEY));
-    setFavorites(readStored(FAVORITES_KEY));
+    let cancelled = false;
     const storedHeight = Number(localStorage.getItem(RESULT_HEIGHT_KEY));
     if (Number.isFinite(storedHeight) && storedHeight >= 120) setResultHeight(storedHeight);
+    void (async () => {
+      await Promise.all([
+        migrateLegacyWorkspaceCollection('query-history', 'global', HISTORY_KEY, 'local'),
+        migrateLegacyWorkspaceCollection('query-favorites', 'global', FAVORITES_KEY, 'local')
+      ]);
+      const [storedHistory, storedFavorites] = await Promise.all([
+        readWorkspaceCollection<StoredQuery>('query-history', 'global'),
+        readWorkspaceCollection<StoredQuery>('query-favorites', 'global')
+      ]);
+      if (!cancelled) {
+        setHistory(storedHistory.slice(0, MAX_HISTORY));
+        setFavorites(storedFavorites.slice(0, MAX_HISTORY));
+      }
+    })().catch(() => {
+      if (!cancelled) { setHistory([]); setFavorites([]); }
+    });
+    return () => { cancelled = true; };
   }, []);
   useEffect(() => { setColumnCache({}); }, [selectedServer?.id, tab.databaseName]);
   useEffect(() => {

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CoreorConfirmModal, type CoreorConfirmation } from '@/components/ui/coreor-confirm-modal';
 import { useAppContextMenu } from '@/components/app-context-menu';
+import { migrateLegacyWorkspaceCollection, readWorkspaceCollection, writeWorkspaceCollection } from '@/lib/nativeWorkspaceStore';
 
 interface SqlNotebookModalProps {
   open: boolean;
@@ -96,22 +97,16 @@ function serializableDocuments(documents: NotebookDocument[]) {
   }));
 }
 
-function readDocuments(serverId: string | null, selectedDatabase?: string | null) {
-  if (typeof window === 'undefined') return [createDocument(selectedDatabase)];
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(storageKey(serverId)) || '[]') as NotebookDocument[];
-    if (!Array.isArray(parsed) || !parsed.length) return [createDocument(selectedDatabase)];
-    return parsed.slice(0, MAX_DOCUMENTS).map(document => ({
-      ...document,
-      cells: Array.isArray(document.cells) && document.cells.length ? document.cells.map(cell => ({
-        ...cell,
-        chart: cell.chart || { type: 'none', categoryColumn: '', valueColumn: '' },
-        isRunning: false
-      })) : [createCell('sql')]
-    }));
-  } catch {
-    return [createDocument(selectedDatabase)];
-  }
+function normalizeDocuments(documents: NotebookDocument[], selectedDatabase?: string | null) {
+  if (!Array.isArray(documents) || !documents.length) return [createDocument(selectedDatabase)];
+  return documents.slice(0, MAX_DOCUMENTS).map(document => ({
+    ...document,
+    cells: Array.isArray(document.cells) && document.cells.length ? document.cells.map(cell => ({
+      ...cell,
+      chart: cell.chart || { type: 'none', categoryColumn: '', valueColumn: '' },
+      isRunning: false
+    })) : [createCell('sql')]
+  }));
 }
 
 function valueText(value: unknown) {
@@ -184,17 +179,33 @@ export function SqlNotebookModal({ open, onClose, serverId, accountId, databases
 
   useEffect(() => {
     if (!open) return;
-    const next = readDocuments(serverId, selectedDatabase);
-    setDocuments(next);
-    setActiveDocumentId(next[0]?.id || null);
-    setLoaded(true);
+    let cancelled = false;
+    setLoaded(false);
+    void (async () => {
+      const scope = serverId || 'no-server';
+      await migrateLegacyWorkspaceCollection('sql-notebooks', scope, storageKey(serverId), 'local');
+      const stored = await readWorkspaceCollection<NotebookDocument>('sql-notebooks', scope);
+      const next = normalizeDocuments(stored, selectedDatabase);
+      if (!cancelled) {
+        setDocuments(next);
+        setActiveDocumentId(next[0]?.id || null);
+        setLoaded(true);
+      }
+    })().catch(() => {
+      if (cancelled) return;
+      const next = [createDocument(selectedDatabase)];
+      setDocuments(next);
+      setActiveDocumentId(next[0]?.id || null);
+      setLoaded(true);
+    });
+    return () => { cancelled = true; };
   }, [open, serverId]);
 
   useEffect(() => {
     if (!loaded || !open) return;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
-      try { window.localStorage.setItem(storageKey(serverId), JSON.stringify(serializableDocuments(documents))); } catch { /* notebook remains usable in memory */ }
+      void writeWorkspaceCollection('sql-notebooks', serverId || 'no-server', serializableDocuments(documents));
     }, 250);
     return () => { if (saveTimer.current) window.clearTimeout(saveTimer.current); };
   }, [documents, loaded, open, serverId]);

@@ -184,6 +184,24 @@ fn cloud_vault_readiness() -> Value {
     secure_vault::cloud_readiness_metadata()
 }
 
+
+#[tauri::command]
+fn workspace_read(app: tauri::AppHandle, collection: String, scope: String) -> Result<Vec<Value>, String> {
+    secure_vault::workspace_read(&app, &collection, &scope)
+}
+#[tauri::command]
+fn workspace_write(app: tauri::AppHandle, collection: String, scope: String, items: Vec<Value>) -> Result<Vec<Value>, String> {
+    secure_vault::workspace_write(&app, &collection, &scope, items)
+}
+#[tauri::command]
+fn workspace_import_legacy(app: tauri::AppHandle, collection: String, scope: String, items: Vec<Value>) -> Result<Vec<Value>, String> {
+    secure_vault::workspace_import_legacy(&app, &collection, &scope, items)
+}
+#[tauri::command]
+fn workspace_sync_manifest(app: tauri::AppHandle) -> Result<Value, String> {
+    secure_vault::workspace_sync_manifest(&app)
+}
+
 #[tauri::command]
 async fn database_request(
     app: tauri::AppHandle,
@@ -244,6 +262,10 @@ pub fn run() {
             write_config,
             vault_status,
             cloud_vault_readiness,
+            workspace_read,
+            workspace_write,
+            workspace_import_legacy,
+            workspace_sync_manifest,
             database_request
         ])
         .run(tauri::generate_context!())
