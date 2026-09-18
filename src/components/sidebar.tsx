@@ -745,7 +745,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         </div>
       </header>
 
-      <div className="coreor-sidebar-scroll min-h-0 flex-1 overflow-auto p-1.5">
+      <div className="coreor-sidebar-scroll min-h-0 flex-1 overflow-auto py-1.5 pl-1.5 pr-0">
         {isServersLoading && !servers.length ? (
           <div className="flex h-32 items-center justify-center gap-2 text-[10px] text-zinc-600">
             <Activity className="h-3.5 w-3.5 animate-spin" />
@@ -798,7 +798,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                             >
                               <Database className="h-3 w-3 shrink-0 text-sky-400" />
                               <span className="min-w-0 flex-1 truncate text-[9px] text-zinc-400">{database.name}</span>
-                              <span className="shrink-0 text-[8px] tabular-nums text-zinc-600">{database.objectMatches.length.toLocaleString('tr-TR')} {database.objectMatches.length === 1 ? 'nesne' : 'nesne'}</span>
+                              <span className="shrink-0 text-[9px] tabular-nums text-zinc-500">{database.objectMatches.length.toLocaleString('tr-TR')} {database.objectMatches.length === 1 ? 'nesne' : 'nesne'}</span>
                             </button>
                           </div>
                           {databaseOpen && (() => {
@@ -808,7 +808,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                               const detail = database.tableDetails.find(item => item.tableName === table);
                               return { name: table, kind: detail?.tableType?.toUpperCase().includes('VIEW') ? 'view' : 'table' };
                             });
-                            const visibleObjects = objectFilterActive ? database.objectMatches : loaded || fallbackObjects;
+                            const visibleObjects = objectFilterActive ? database.objectMatches : loaded?.length ? loaded : fallbackObjects;
                             const sortedObjects = [...visibleObjects].sort((left, right) => left.name.localeCompare(right.name, 'tr', { sensitivity: 'base' }));
                             const renderObject = (object: DatabaseSchemaObject, Icon: typeof Table2) => {
                               const detail = database.tableDetails.find(item => item.tableName === object.name);
@@ -830,7 +830,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                               >
                                 <Icon className={`h-3 w-3 shrink-0 ${objectKindColor(object.kind)}`} />
                                 <span className="min-w-0 flex-1 truncate text-[9px]">{object.schema && object.schema !== database.name ? `${object.schema}.` : ''}{object.name}</span>
-                                {preferences.objectExplorerDetails && metadata && <span className="max-w-[48%] shrink-0 truncate font-mono text-[8px] tabular-nums text-zinc-600 group-hover:text-zinc-400">{metadata}</span>}
+                                {preferences.objectExplorerDetails && metadata && <span className="max-w-[48%] shrink-0 truncate font-mono text-[9px] tabular-nums text-zinc-500 group-hover:text-zinc-300">{metadata}</span>}
                                 {!preferences.objectExplorerGrouped && <span className={`shrink-0 rounded bg-white/[0.025] px-1.5 py-0.5 text-[7px] uppercase ${objectKindColor(object.kind)}`}>{object.kind}</span>}
                               </button>
                               );
