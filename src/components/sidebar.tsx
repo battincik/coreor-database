@@ -44,23 +44,30 @@ function compactCount(value: number) {
   return new Intl.NumberFormat('tr-TR', { notation: value >= 1000 ? 'compact' : 'standard', maximumFractionDigits: 1 }).format(value);
 }
 
+function compactBytes(bytes: number | null | undefined) {
+  const value = Number(bytes);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  if (value >= 1024 ** 3) return `${(value / 1024 ** 3).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} GB`;
+  if (value >= 1024 ** 2) return `${(value / 1024 ** 2).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} MB`;
+  return `${Math.max(1, Math.round(value / 1024)).toLocaleString('tr-TR')} KB`;
+}
+
 function compactSize(megabytes: string | number | null | undefined) {
   const mb = Number(megabytes);
-  if (!Number.isFinite(mb) || mb <= 0) return null;
-  if (mb >= 1024) return `${(mb / 1024).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} GB`;
-  if (mb >= 1) return `${mb.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} MB`;
-  return `${Math.max(1, Math.round(mb * 1024)).toLocaleString('tr-TR')} KB`;
+  return Number.isFinite(mb) && mb > 0 ? compactBytes(mb * 1024 * 1024) : null;
 }
 
 function objectMetadataText(object: DatabaseSchemaObject, detail?: DatabaseTable) {
   if (object.kind === 'table') {
-    const size = compactSize(detail?.sizeMB);
-    return [`${compactCount(detail?.rows || 0)} satır`, size].filter(Boolean).join(' • ');
+    const rows = object.rows ?? detail?.rows;
+    const size = compactBytes(object.sizeBytes) || compactSize(detail?.sizeMB);
+    if (rows === undefined && !size) return null;
+    return [rows === undefined ? null : `${compactCount(rows)} satır`, size].filter(Boolean).join(' • ');
   }
   if (object.kind === 'view') {
-    const size = compactSize(detail?.sizeMB);
-    const rows = detail?.rows ? `${compactCount(detail.rows)} satır` : null;
-    return [rows, size].filter(Boolean).join(' • ') || 'View';
+    const rows = object.rows ?? detail?.rows;
+    const size = compactBytes(object.sizeBytes) || compactSize(detail?.sizeMB);
+    return [rows ? `${compactCount(rows)} satır` : null, size].filter(Boolean).join(' • ') || 'View';
   }
   if (object.kind === 'trigger') return object.tableName ? `→ ${object.tableName}` : 'Trigger';
   if (object.kind === 'procedure') return object.comment?.trim() || 'Procedure';
@@ -762,7 +769,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                   <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => setActiveServerId(server.id)}>
                     <Server className={`h-3.5 w-3.5 shrink-0 ${active ? 'text-emerald-400' : 'text-emerald-700'}`} />
                     <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-zinc-300">{server.name}</span>
-                    <span className="rounded bg-zinc-900 px-1.5 py-0.5 text-[7px] text-zinc-600">{databaseEngineLabel(server.databaseType)}</span>
+                    <span className="rounded bg-zinc-900 px-1.5 py-0.5 text-[8px] text-zinc-500">{databaseEngineLabel(server.databaseType)}</span>
                   </button>
                   <button type="button" className="flex h-6 w-6 items-center justify-center rounded opacity-0 hover:bg-zinc-800 group-hover:opacity-100" onClick={event => serverMenu(event, server)}>
                     <MoreHorizontal className="h-3.5 w-3.5" />
@@ -791,7 +798,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                             >
                               <Database className="h-3 w-3 shrink-0 text-sky-400" />
                               <span className="min-w-0 flex-1 truncate text-[9px] text-zinc-400">{database.name}</span>
-                              <span className="text-[7px] tabular-nums text-zinc-700">{database.tableCount}</span>
+                              <span className="shrink-0 text-[8px] tabular-nums text-zinc-600">{database.objectMatches.length.toLocaleString('tr-TR')} {database.objectMatches.length === 1 ? 'nesne' : 'nesne'}</span>
                             </button>
                           </div>
                           {databaseOpen && (() => {
@@ -823,8 +830,8 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                               >
                                 <Icon className={`h-3 w-3 shrink-0 ${objectKindColor(object.kind)}`} />
                                 <span className="min-w-0 flex-1 truncate text-[9px]">{object.schema && object.schema !== database.name ? `${object.schema}.` : ''}{object.name}</span>
-                                {preferences.objectExplorerDetails && metadata && <span className="max-w-[46%] shrink-0 truncate font-mono text-[6.5px] tabular-nums text-zinc-700 group-hover:text-zinc-500">{metadata}</span>}
-                                {!preferences.objectExplorerGrouped && <span className={`shrink-0 rounded bg-white/[0.025] px-1 py-0.5 text-[6px] uppercase ${objectKindColor(object.kind)}`}>{object.kind}</span>}
+                                {preferences.objectExplorerDetails && metadata && <span className="max-w-[48%] shrink-0 truncate font-mono text-[8px] tabular-nums text-zinc-600 group-hover:text-zinc-400">{metadata}</span>}
+                                {!preferences.objectExplorerGrouped && <span className={`shrink-0 rounded bg-white/[0.025] px-1.5 py-0.5 text-[7px] uppercase ${objectKindColor(object.kind)}`}>{object.kind}</span>}
                               </button>
                               );
                             };
@@ -845,7 +852,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                                         <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => toggle(setExpandedObjectGroups, groupKey)}>
                                           <GroupIcon className={`h-3 w-3 shrink-0 ${objectKindColor(group.kind)}`} />
                                           <span className="min-w-0 flex-1 truncate text-[9px] font-medium text-zinc-400">{group.label}</span>
-                                          <span className="pr-2 text-[7px] tabular-nums text-zinc-700">{items.length}</span>
+                                          <span className="pr-2 text-[8px] tabular-nums text-zinc-600">{items.length}</span>
                                         </button>
                                       </div>
                                       {groupOpen && (
