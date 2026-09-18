@@ -179,6 +179,51 @@ async fn execute_action(request: DatabaseRequest, config: DesktopConfig) -> Resu
             let data = result["rows"].as_array().cloned().unwrap_or_default();
             Ok(json!({ "data": data, "pagination": { "page": page, "pageSize": page_size, "totalRows": data.len(), "totalPages": 1, "hasPreviousPage": page > 1, "hasNextPage": data.len() == page_size as usize }, "sorts": [], "filters": [], "_meta": { "statements": [{ "label": "Tablo verileri", "sql": sql }] } }))
         }
+        "table-info" => {
+            let database = request.payload.get("database").and_then(Value::as_str).ok_or_else(|| "Veritabanı eksik.".to_string())?;
+            let table = request.payload.get("table").and_then(Value::as_str).ok_or_else(|| "Tablo eksik.".to_string())?;
+            if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") {
+                let sql = format!("SELECT column_name AS \"Field\", data_type AS \"Type\", is_nullable AS \"Null\", column_default AS \"Default\", ordinal_position AS \"Ordinal_position\" FROM information_schema.columns WHERE table_schema='public' AND table_name='{}' ORDER BY ordinal_position", table.replace('\\'', "''"));
+                let result = pg_query(&c, &sql, Some(database), config.max_result_rows).await?;
+                Ok(json!({ "table": { "name": table, "comment": "", "engine": c.engine, "collation": null, "charset": null, "autoIncrement": null, "rowFormat": null, "tableType": "BASE TABLE", "createTime": null, "updateTime": null }, "columns": result["rows"], "indexes": [], "foreignKeys": [], "checkConstraints": [], "partitions": [], "createSQL": "", "_meta": { "statements": [{ "label": "Tablo yapısı", "sql": sql }] } }))
+            } else {
+                let sql = format!("SELECT COLUMN_NAME AS Field, COLUMN_TYPE AS Type, IS_NULLABLE AS \`Null\`, COLUMN_KEY AS \`Key\`, COLUMN_DEFAULT AS \`Default\`, EXTRA AS Extra, COLUMN_COMMENT AS Comment, COLLATION_NAME AS Collation, ORDINAL_POSITION AS Ordinal_position, DATA_TYPE AS Data_type, CHARACTER_MAXIMUM_LENGTH AS Character_maximum_length, NUMERIC_PRECISION AS Numeric_precision, NUMERIC_SCALE AS Numeric_scale, DATETIME_PRECISION AS Datetime_precision, CHARACTER_SET_NAME AS Character_set_name, GENERATION_EXPRESSION AS Generation_expression FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='{}' AND TABLE_NAME='{}' ORDER BY ORDINAL_POSITION", database.replace('\\'', "''"), table.replace('\\'', "''"));
+                let result = mysql_query(&c, &sql, Some(database), config.max_result_rows).await?;
+                Ok(json!({ "table": { "name": table, "comment": "", "engine": c.engine, "collation": null, "charset": null, "autoIncrement": null, "rowFormat": null, "tableType": "BASE TABLE", "createTime": null, "updateTime": null }, "columns": result["rows"], "indexes": [], "foreignKeys": [], "checkConstraints": [], "partitions": [], "createSQL": "", "_meta": { "statements": [{ "label": "Tablo yapısı", "sql": sql }] } }))
+            }
+        }
+        "process-list" => {
+            if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") {
+                let sql = "SELECT pid AS id, usename AS user, client_addr::text AS host, datname AS database, state AS command, EXTRACT(EPOCH FROM (now()-query_start))::bigint AS seconds, wait_event AS state, query AS info FROM pg_stat_activity ORDER BY query_start NULLS LAST";
+                let result = pg_query(&c, sql, database, config.max_result_rows).await?;
+                Ok(json!({ "processes": result["rows"], "locks": [], "deadlockText": null, "currentConnectionId": null }))
+            } else {
+                let sql = "SELECT ID AS id, USER AS user, HOST AS host, DB AS database, COMMAND AS command, TIME AS seconds, STATE AS state, INFO AS info FROM information_schema.PROCESSLIST ORDER BY TIME DESC";
+                let result = mysql_query(&c, sql, database, config.max_result_rows).await?;
+                Ok(json!({ "processes": result["rows"], "locks": [], "deadlockText": null, "currentConnectionId": null }))
+            }
+        }
+        "process-kill" => {
+            let id = request.payload.get("processId").and_then(Value::as_u64).ok_or_else(|| "Process ID eksik.".to_string())?;
+            let sql = if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") { format!("SELECT pg_terminate_backend({})", id) } else { format!("KILL {}", id) };
+            if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") { pg_query(&c, &sql, database, 1).await?; } else { mysql_query(&c, &sql, database, 1).await?; }
+            Ok(json!({ "killed": true, "processId": id }))
+        }
+        "users-list" => {
+            if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") {
+                let sql = "SELECT rolname AS user, '' AS host, NULL AS plugin, false AS \"accountLocked\", false AS \"passwordExpired\", NULL AS \"passwordLastChanged\", false AS \"isRole\" FROM pg_roles ORDER BY rolname";
+                let result = pg_query(&c, sql, database, config.max_result_rows).await?;
+                Ok(json!({ "users": result["rows"], "roles": [], "assignments": [] }))
+            } else {
+                let sql = "SELECT User AS user, Host AS host, plugin, IF(account_locked='Y',1,0) AS accountLocked, IF(password_expired='Y',1,0) AS passwordExpired, password_last_changed AS passwordLastChanged, 0 AS isRole FROM mysql.user ORDER BY User, Host";
+                let result = mysql_query(&c, sql, database, config.max_result_rows).await?;
+                Ok(json!({ "users": result["rows"], "roles": [], "assignments": [] }))
+            }
+        }
+        "performance-snapshot" => {
+            let sampled = chrono::Utc::now().to_rfc3339();
+            Ok(json!({ "sampledAt": sampled, "uptimeSeconds": 0, "questions": 0, "threadsConnected": 0, "threadsRunning": 0, "maxUsedConnections": 0, "maxConnections": null, "slowQueries": 0, "abortedConnects": 0, "bytesReceived": 0, "bytesSent": 0, "bufferPool": { "totalPages":0,"freePages":0,"dataPages":0,"dirtyPages":0,"pageSize":0,"usagePercent":0,"dirtyPercent":0,"hitRatio":null,"reads":0,"readRequests":0 }, "replication": { "available":false,"running":null,"secondsBehind":null,"ioRunning":null,"sqlRunning":null,"sourceHost":null,"channelName":null,"lastError":null }, "storage": { "dataBytes":0,"indexBytes":0,"freeBytes":0,"totalBytes":0,"selectedDatabaseBytes":null,"topSchemas":[] } }))
+        }
         "query" => {
             let sql = sql.ok_or_else(|| "SQL sorgusu eksik.".to_string())?;
             if c.read_only {
