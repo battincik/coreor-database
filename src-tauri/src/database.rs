@@ -182,8 +182,12 @@ pub async fn execute_sql(c: &Connection, sql: &str, database: Option<&str>, limi
 }
 
 fn is_mutating(sql:&str)->bool{
-    let s=sql.trim_start().to_ascii_lowercase();
-    ["insert","update","delete","replace","merge","alter","create","drop","truncate","rename","grant","revoke","call","exec ","execute ","kill","begin","start transaction","commit","rollback"].iter().any(|x|s.starts_with(x))
+    let keywords=["insert","update","delete","replace","merge","alter","create","drop","truncate","rename","grant","revoke","call","exec ","execute ","kill","begin","start transaction","commit","rollback"];
+    sql.split(';').any(|statement|{
+        let s=statement.trim_start().to_ascii_lowercase();
+        if keywords.iter().any(|x|s.starts_with(x)){return true}
+        s.starts_with("with ") && [" insert "," update "," delete "," merge "].iter().any(|x|s.contains(x))
+    })
 }
 
 fn ident(raw:&str, engine:&str)->Result<String,String>{
