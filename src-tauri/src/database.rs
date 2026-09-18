@@ -426,6 +426,33 @@ async fn table_info(c:&Connection,p:&Map<String,Value>,max:usize)->Result<Value,
 async fn update_cell(c:&Connection,p:&Map<String,Value>)->Result<Value,String>{
     if c.read_only{return Err("Bu bağlantı salt okunur modda.".into())}let db=payload_str(p,"database")?;let table=payload_str(p,"table")?;let col=payload_str(p,"column")?;let pk=p.get("primaryKey").and_then(Value::as_object).ok_or("Primary key eksik.")?;if pk.is_empty(){return Err("Primary key boş.".into())}let value=p.get("value").cloned().unwrap_or(Value::Null);let where_sql=pk.iter().map(|(k,v)|Ok(format!("{}={}",ident(k,&c.engine)?,literal(v,&c.engine)))).collect::<Result<Vec<_>,String>>()?.join(" AND ");let sql=format!("UPDATE {} SET {}={} WHERE {}",qualified(db,table,&c.engine)?,ident(col,&c.engine)?,literal(&value,&c.engine),where_sql);let r=execute_sql(c,&sql,Some(db),1).await?;Ok(json!({"affectedRows":r["affectedRows"],"value":value,"_meta":{"statements":[{"label":"Hücre güncelleme","sql":sql}]}}))
 }
+async fn insert_row(c:&Connection,p:&Map<String,Value>)->Result<Value,String>{
+    if c.read_only{return Err("Bu bağlantı salt okunur modda.".into())}
+    let db=payload_str(p,"database")?;
+    let table=payload_str(p,"table")?;
+    let values=p.get("values").and_then(Value::as_object).ok_or("Satır değerleri eksik.")?;
+    let mut columns=Vec::new();
+    let mut literals=Vec::new();
+    for (column,spec_value) in values {
+        let spec=spec_value.as_object().ok_or("Satır kolon değeri geçersiz.")?;
+        match spec.get("mode").and_then(Value::as_str).unwrap_or("value") {
+            "default"=>continue,
+            "null"=>{columns.push(ident(column,&c.engine)?);literals.push("NULL".to_string());},
+            "value"=>{columns.push(ident(column,&c.engine)?);literals.push(literal(&spec.get("value").cloned().unwrap_or(Value::Null),&c.engine));},
+            _=>return Err("Satır değer modu geçersiz.".into())
+        }
+    }
+    let target=qualified(db,table,&c.engine)?;
+    let sql=if columns.is_empty(){
+        if !is_pg(&c.engine)&&!is_mssql(&c.engine){format!("INSERT INTO {} () VALUES ()",target)}
+        else{format!("INSERT INTO {} DEFAULT VALUES",target)}
+    }else{
+        format!("INSERT INTO {} ({}) VALUES ({})",target,columns.join(", "),literals.join(", "))
+    };
+    let result=execute_sql(c,&sql,Some(db),1).await?;
+    Ok(json!({"affectedRows":result.get("affectedRows").cloned().unwrap_or(json!(0)),"insertId":result.get("insertId").cloned().unwrap_or(Value::Null),"_meta":{"statements":[{"label":"Satır ekleme","sql":sql}]}}))
+}
+
 async fn delete_rows(c:&Connection,p:&Map<String,Value>)->Result<Value,String>{
     if c.read_only{return Err("Bu bağlantı salt okunur modda.".into())}let db=payload_str(p,"database")?;let table=payload_str(p,"table")?;let pks=p.get("primaryKeys").and_then(Value::as_array).ok_or("Primary key listesi eksik.")?;let mut cs=Vec::new();for v in pks{if let Some(pk)=v.as_object(){if pk.is_empty(){continue}cs.push(format!("({})",pk.iter().map(|(k,v)|Ok(format!("{}={}",ident(k,&c.engine)?,literal(v,&c.engine)))).collect::<Result<Vec<_>,String>>()?.join(" AND ")));}}if cs.is_empty(){return Err("Silinecek satır yok.".into())}let sql=format!("DELETE FROM {} WHERE {}",qualified(db,table,&c.engine)?,cs.join(" OR "));let r=execute_sql(c,&sql,Some(db),1).await?;Ok(json!({"affectedRows":r["affectedRows"],"_meta":{"statements":[{"label":"Satır silme","sql":sql}]}}))
 }
@@ -558,6 +585,7 @@ pub async fn execute_action(request:DatabaseRequest,max_rows:usize,max_page:usiz
  "table-data"=>table_data(&c,&p,max_page).await,
  "table-info"=>table_info(&c,&p,max_rows).await,
  "update-cell"=>update_cell(&c,&p).await,
+ "insert-row"=>insert_row(&c,&p).await,
  "delete-rows"=>delete_rows(&c,&p).await,
  "alter-table"=>alter_table(&c,&p,max_rows).await,
  "query"=>{let sql=payload_str(&p,"sql")?;execute_sql(&c,sql,p.get("database").and_then(Value::as_str),max_rows).await},
