@@ -1,6 +1,7 @@
 mod database;
 mod secure_vault;
 mod transactions;
+mod window_state;
 
 use database::DatabaseRequest;
 use serde::{Deserialize, Serialize};
@@ -253,6 +254,7 @@ pub fn run() {
         .manage(TransactionStore::default())
         .setup(|app| {
             ensure_secure_config(app.handle()).map_err(std::io::Error::other)?;
+            window_state::restore_and_track(app).map_err(std::io::Error::other)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
