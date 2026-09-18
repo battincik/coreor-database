@@ -245,7 +245,7 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
     username: server.username?.trim(),
     password: server.password,
     databaseName: server.databaseName?.trim(),
-    sslMode: server.sslMode ?? 'required',
+    sslMode: server.sslMode ?? 'preferred',
     connectionTimeoutMs: server.connectionTimeoutMs ?? 20_000,
     readOnly: Boolean(server.readOnly),
     visibleTo: server.visibleTo ?? [],
