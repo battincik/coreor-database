@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Activity, Braces, ChevronDown, ChevronRight, Circle, Code2, Copy, Database, Download, FileCode2, FunctionSquare, Gauge, HardDrive, KeyRound, LogOut, MoreHorizontal, Network, Plus, RefreshCw, Search, Server, Settings2, ShieldCheck, Sparkles, Table2, Trash2, UserRound, View, Wifi, WifiOff, Wrench, X, Zap } from 'lucide-react';
 import type { DatabaseEngine, DatabaseSchemaObject, DatabaseServerConfig, SidebarProps } from 'types';
@@ -145,6 +145,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const { openContextMenu } = useAppContextMenu();
   const { servers, activeServerId, setActiveServerId, addServer, updateServer, removeServer, loadServers, isAddingServer, isServersLoading } = context;
   const [search, setSearch] = useState('');
+  const searchRef = useRef<HTMLInputElement | null>(null);
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
   const [expandedDatabases, setExpandedDatabases] = useState<Set<string>>(new Set());
   const [expandedObjectGroups, setExpandedObjectGroups] = useState<Set<string>>(new Set());
@@ -158,6 +159,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const [createDatabase, setCreateDatabase] = useState<CreateDatabaseState | null>(null);
   const [online, setOnline] = useState(true);
 
+  useEffect(() => {
+    const focusSearch = () => { searchRef.current?.focus(); searchRef.current?.select(); };
+    window.addEventListener('coreor:focus-object-search', focusSearch);
+    return () => window.removeEventListener('coreor:focus-object-search', focusSearch);
+  }, []);
   useEffect(() => {
     setOnline(navigator.onLine);
     const update = () => setOnline(navigator.onLine);
@@ -599,7 +605,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         </div>
         <div className="relative mt-2">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" />
-          <Input value={search} onChange={event => setSearch(event.target.value)} className="h-8 rounded-xl border-zinc-800 bg-black/30 pl-8 pr-8 text-[10px]" placeholder="Sunucu, DB, tablo, view, routine, trigger ara…" />
+          <Input ref={searchRef} value={search} onChange={event => setSearch(event.target.value)} className="h-8 rounded-xl border-zinc-800 bg-black/30 pl-8 pr-8 text-[10px]" placeholder="Sunucu, DB, tablo, view, routine, trigger ara…" />
           {search && (
             <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600" onClick={() => setSearch('')}>
               <X className="h-3.5 w-3.5" />
