@@ -1,7 +1,7 @@
 'use client';
 
 import { LanguageProvider } from '@/context/LanguageContext';
-import { AuthProvider } from '@/context/AuthContext';
+import { DesktopProvider } from '@/context/DesktopContext';
 import { DatabaseProvider } from '@/context/DatabaseContext';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { LegacyTranslationBridge } from '@/components/legacy-translation-bridge';
@@ -9,13 +9,13 @@ import { LegacyTranslationBridge } from '@/components/legacy-translation-bridge'
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <LanguageProvider>
-      <AuthProvider>
+      <DesktopProvider>
         <DatabaseProvider>
           <LegacyTranslationBridge />
           {children}
           <LanguageSwitcher />
         </DatabaseProvider>
-      </AuthProvider>
+      </DesktopProvider>
     </LanguageProvider>
   );
 }
