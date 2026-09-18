@@ -2,18 +2,21 @@
 
 import { LanguageProvider } from '@/context/LanguageContext';
 import { DesktopProvider } from '@/context/DesktopContext';
+import { AuthProvider } from '@/context/AuthContext';
 import { DatabaseProvider } from '@/context/DatabaseContext';
 import { LegacyTranslationBridge } from '@/components/legacy-translation-bridge';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <LanguageProvider>
-      <DesktopProvider>
+      <AuthProvider>
+        <DesktopProvider>
         <DatabaseProvider>
           <LegacyTranslationBridge />
           {children}
         </DatabaseProvider>
-      </DesktopProvider>
+        </DesktopProvider>
+      </AuthProvider>
     </LanguageProvider>
   );
 }
