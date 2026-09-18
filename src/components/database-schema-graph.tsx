@@ -65,6 +65,79 @@ function defaultPositions(tableNames: string[]) {
   }]));
 }
 
+function automaticPositions(tableNames: string[], tableInfo: Record<string, TableInfo>, edges: GraphEdge[]) {
+  if (!tableNames.length) return {};
+  const known = new Set(tableNames);
+  const parents = new Map<string, Set<string>>();
+  const neighbors = new Map<string, Set<string>>();
+  for (const table of tableNames) { parents.set(table, new Set()); neighbors.set(table, new Set()); }
+  for (const edge of edges) {
+    if (!known.has(edge.source.table) || !known.has(edge.target.table) || edge.source.table === edge.target.table) continue;
+    parents.get(edge.source.table)?.add(edge.target.table);
+    neighbors.get(edge.source.table)?.add(edge.target.table);
+    neighbors.get(edge.target.table)?.add(edge.source.table);
+  }
+
+  const rank = new Map(tableNames.map(table => [table, 0]));
+  for (let pass = 0; pass < tableNames.length; pass += 1) {
+    let changed = false;
+    for (const table of tableNames) {
+      const dependencies = parents.get(table);
+      if (!dependencies?.size) continue;
+      const candidate = Math.min(tableNames.length - 1, Math.max(...[...dependencies].map(parent => (rank.get(parent) || 0) + 1)));
+      if (candidate > (rank.get(table) || 0)) { rank.set(table, candidate); changed = true; }
+    }
+    if (!changed) break;
+  }
+
+  const usedRanks = [...new Set([...rank.values()])].sort((a, b) => a - b);
+  const compactRank = new Map(usedRanks.map((value, index) => [value, index]));
+  for (const table of tableNames) rank.set(table, compactRank.get(rank.get(table) || 0) || 0);
+
+  const layers = new Map<number, string[]>();
+  for (const table of tableNames) {
+    const layer = rank.get(table) || 0;
+    layers.set(layer, [...(layers.get(layer) || []), table]);
+  }
+
+  const order = new Map<string, number>();
+  for (const layer of [...layers.keys()].sort((a, b) => a - b)) {
+    const items = layers.get(layer) || [];
+    items.sort((left, right) => {
+      const score = (table: string) => {
+        const linked = [...(neighbors.get(table) || [])].filter(item => order.has(item));
+        return linked.length ? linked.reduce((sum, item) => sum + (order.get(item) || 0), 0) / linked.length : Number.MAX_SAFE_INTEGER;
+      };
+      const leftScore = score(left);
+      const rightScore = score(right);
+      return leftScore !== rightScore ? leftScore - rightScore : left.localeCompare(right);
+    });
+    items.forEach((table, index) => order.set(table, index));
+  }
+
+  const result: Record<string, Point> = {};
+  for (const layer of [...layers.keys()].sort((a, b) => a - b)) {
+    let y = 72;
+    for (const table of layers.get(layer) || []) {
+      result[table] = { x: 72 + layer * (CARD_WIDTH + 160), y };
+      y += nodeHeight(tableInfo[table]) + 96;
+    }
+  }
+
+  const isolated = tableNames.filter(table => !(neighbors.get(table)?.size));
+  if (isolated.length > 8) {
+    const rowsPerColumn = Math.max(5, Math.ceil(Math.sqrt(isolated.length)));
+    isolated.forEach((table, index) => {
+      const column = Math.floor(index / rowsPerColumn);
+      const row = index % rowsPerColumn;
+      let y = 72;
+      for (let i = 0; i < row; i += 1) y += nodeHeight(tableInfo[isolated[column * rowsPerColumn + i]]) + 96;
+      result[table] = { x: 72 + column * (CARD_WIDTH + 160), y };
+    });
+  }
+  return result;
+}
+
 function loadPositions(serverId: string, databaseName: string, tableNames: string[]) {
   if (typeof window === 'undefined') return defaultPositions(tableNames);
   try {
@@ -280,9 +353,12 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
   };
 
   const resetLayout = () => {
-    const next = defaultPositions(tableNames);
-    setPositions(next); persistPositions(serverId, databaseName, next);
+    const next = automaticPositions(tableNames, tableInfo, edges);
+    setPositions(next);
+    persistPositions(serverId, databaseName, next);
+    setSelectedEdge(null); setSource(null); setTarget(null);
     setZoom(0.9); updatePan({ x: 32, y: 32 });
+    window.setTimeout(fit, 0);
   };
 
   const chooseColumn = (table: string, column: string) => {
