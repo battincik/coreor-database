@@ -49,7 +49,7 @@ const DEFAULTS: AppPreferences = {
   autoRefreshProcesses: false, confirmDangerousQueries: true, dryRunMutations: true,
   requireSecondApproval: true, productionAlterApproval: true, autoSchemaSnapshots: true,
   queryResultLimit: 5000, importBatchSize: 250, rememberPanelSizes: true, rememberQueryWorkspace: true,
-  defaultReadOnlyConnections: false, liveNotifications: true, performanceRefreshSeconds: 5
+  defaultReadOnlyConnections: false, liveNotifications: true, performanceRefreshSeconds: 10
 };
 let snapshot: AppPreferences = DEFAULTS;
 let hydrated = false;
