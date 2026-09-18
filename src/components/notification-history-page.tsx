@@ -207,7 +207,9 @@ export function NotificationHistoryPage() {
         <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-zinc-950">
           <RuntimeCompatibility />
           <DatabaseNotificationMonitor />
-          <DatabaseMenuBar selectedDatabase={null} selectedTable={null} />
+          <div data-coreor-app-chrome="top" className="relative z-[2147483000] shrink-0">
+            <DatabaseMenuBar selectedDatabase={null} selectedTable={null} />
+          </div>
           <NotificationHistoryContent />
           <div data-coreor-app-chrome="bottom" className="relative z-[2147483000] shrink-0">
             <BottomBar selectedDatabase={null} selectedTable={null} />

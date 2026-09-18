@@ -191,7 +191,9 @@ function EditorWorkspace() {
     >
       <RuntimeCompatibility />
       <DatabaseNotificationMonitor />
-      <DatabaseMenuBar selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
+      <div data-coreor-app-chrome="top" className="relative z-[2147483000] shrink-0">
+        <DatabaseMenuBar selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
+      </div>
       <DatabaseCommandPalette servers={servers} activeServerId={activeServerId} selectedDatabase={selectedDatabase} selectedTable={selectedTable} onDatabaseSelect={handleDatabaseSelect} onTableSelect={handleTableSelect} />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1 overflow-hidden" onLayout={rememberLayout}>

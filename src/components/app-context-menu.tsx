@@ -51,11 +51,53 @@ interface SubmenuState {
 const MENU_SURFACE_CLASS =
   'w-max min-w-60 max-w-[min(320px,calc(100vw-16px))] overflow-visible rounded-xl border border-zinc-700/80 bg-zinc-950/98 shadow-[0_18px_70px_rgba(0,0,0,.68)] backdrop-blur-xl';
 
-function MenuItems({ items, closeMenu, onBack, autoFocus = false }: { items: AppContextMenuItem[]; closeMenu: () => void; onBack?: () => void; autoFocus?: boolean }) {
+interface MenuBounds {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+function menuBounds(): MenuBounds {
+  const margin = 8;
+  const topChrome = document.querySelector<HTMLElement>('[data-coreor-app-chrome="top"]')?.getBoundingClientRect();
+  const bottomChrome = document.querySelector<HTMLElement>('[data-coreor-app-chrome="bottom"]')?.getBoundingClientRect();
+  const top = Math.max(margin, topChrome ? topChrome.bottom + 4 : margin);
+  const bottom = Math.min(window.innerHeight - margin, bottomChrome ? bottomChrome.top - 4 : window.innerHeight - margin);
+  return {
+    left: margin,
+    right: Math.max(margin, window.innerWidth - margin),
+    top,
+    bottom: Math.max(top + 40, bottom)
+  };
+}
+
+function clampValue(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
+function MenuItems({
+  items,
+  closeMenu,
+  onBack,
+  autoFocus = false,
+  maxHeight
+}: {
+  items: AppContextMenuItem[];
+  closeMenu: () => void;
+  onBack?: () => void;
+  autoFocus?: boolean;
+  maxHeight?: number;
+}) {
   const menuItems = visibleItems(items);
   const selectable = menuItems.filter(item => !item.separator);
   const [submenu, setSubmenu] = useState<SubmenuState | null>(null);
-  const [submenuPosition, setSubmenuPosition] = useState<{ x: number; y: number; ready: boolean }>({ x: 0, y: 0, ready: false });
+  const [submenuPosition, setSubmenuPosition] = useState<{ x: number; y: number; ready: boolean; maxHeight: number }>({
+    x: 0,
+    y: 0,
+    ready: false,
+    maxHeight: 520
+  });
   const [activeId, setActiveId] = useState<string | null>(() => selectable[0]?.id || null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const submenuRef = useRef<HTMLDivElement | null>(null);
@@ -72,7 +114,13 @@ function MenuItems({ items, closeMenu, onBack, autoFocus = false }: { items: App
     const anchor = rootRef.current.querySelector<HTMLElement>(`[data-menu-id="${CSS.escape(item.id)}"]`);
     if (!anchor) return;
     const rect = anchor.getBoundingClientRect();
-    setSubmenuPosition({ x: rect.right - 4, y: rect.top, ready: false });
+    const bounds = menuBounds();
+    setSubmenuPosition({
+      x: rect.right - 4,
+      y: rect.top,
+      ready: false,
+      maxHeight: Math.max(120, Math.min(520, bounds.bottom - bounds.top))
+    });
     setSubmenu({
       id: item.id,
       anchorLeft: rect.left,
@@ -86,16 +134,33 @@ function MenuItems({ items, closeMenu, onBack, autoFocus = false }: { items: App
   useLayoutEffect(() => {
     if (!submenu || !submenuRef.current) return;
     const rect = submenuRef.current.getBoundingClientRect();
-    const margin = 8;
+    const bounds = menuBounds();
     const overlap = 4;
-    const openRight = submenu.anchorRight + rect.width <= window.innerWidth - margin;
-    const x = openRight
+
+    const fitsRight = submenu.anchorRight + rect.width - overlap <= bounds.right;
+    const fitsLeft = submenu.anchorLeft - rect.width + overlap >= bounds.left;
+    const x = fitsRight
       ? submenu.anchorRight - overlap
-      : Math.max(margin, submenu.anchorLeft - rect.width + overlap);
-    const preferredTop = submenu.anchorTop;
-    const maxY = Math.max(margin, window.innerHeight - rect.height - margin);
-    const y = Math.max(margin, Math.min(preferredTop, maxY));
-    setSubmenuPosition({ x, y, ready: true });
+      : fitsLeft
+        ? submenu.anchorLeft - rect.width + overlap
+        : clampValue(submenu.anchorRight - overlap, bounds.left, bounds.right - rect.width);
+
+    const alignTop = submenu.anchorTop;
+    const alignBottom = submenu.anchorBottom - rect.height;
+    const fitsDown = alignTop + rect.height <= bounds.bottom;
+    const fitsUp = alignBottom >= bounds.top;
+    const y = fitsDown
+      ? alignTop
+      : fitsUp
+        ? alignBottom
+        : clampValue(alignTop, bounds.top, bounds.bottom - rect.height);
+
+    setSubmenuPosition({
+      x: clampValue(x, bounds.left, bounds.right - rect.width),
+      y: clampValue(y, bounds.top, bounds.bottom - rect.height),
+      ready: true,
+      maxHeight: Math.max(120, Math.min(520, bounds.bottom - bounds.top))
+    });
   }, [submenu]);
   const move = (direction: 1 | -1) => {
     if (!selectable.length) return;
@@ -122,7 +187,8 @@ function MenuItems({ items, closeMenu, onBack, autoFocus = false }: { items: App
         ref={rootRef}
         role="menu"
         tabIndex={0}
-        className="max-h-[min(70vh,520px)] min-w-60 overflow-y-auto py-1 outline-none"
+        className="min-w-60 overflow-y-auto py-1 outline-none"
+        style={{ maxHeight: maxHeight ?? 'min(70vh, 520px)' }}
         onKeyDown={event => {
           event.stopPropagation();
           if (event.key === 'ArrowDown') { event.preventDefault(); move(1); }
@@ -180,7 +246,7 @@ function MenuItems({ items, closeMenu, onBack, autoFocus = false }: { items: App
         <div
           ref={submenuRef}
           data-coreor-context-menu="true"
-          className={`fixed z-[1810] ${MENU_SURFACE_CLASS}`}
+          className={`fixed z-[2147483310] ${MENU_SURFACE_CLASS}`}
           style={{
             left: submenuPosition.x,
             top: submenuPosition.y,
@@ -193,6 +259,7 @@ function MenuItems({ items, closeMenu, onBack, autoFocus = false }: { items: App
             items={activeSubmenuChildren}
             closeMenu={closeMenu}
             autoFocus={submenu.focus}
+            maxHeight={submenuPosition.maxHeight}
             onBack={() => {
               setSubmenu(null);
               window.requestAnimationFrame(() => rootRef.current?.focus());
@@ -207,7 +274,7 @@ function MenuItems({ items, closeMenu, onBack, autoFocus = false }: { items: App
 
 export function AppContextMenuProvider({ children }: { children: React.ReactNode }) {
   const [menu, setMenu] = useState<MenuState | null>(null);
-  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0, ready: false, maxHeight: 520 });
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const closeContextMenu = useCallback(() => setMenu(null), []);
@@ -220,7 +287,13 @@ export function AppContextMenuProvider({ children }: { children: React.ReactNode
       if (!nextItems.length) return;
       const x = event.clientX;
       const y = event.clientY;
-      setMenuPosition({ x, y });
+      const bounds = menuBounds();
+      setMenuPosition({
+        x,
+        y,
+        ready: false,
+        maxHeight: Math.max(120, Math.min(520, bounds.bottom - bounds.top - (title ? 34 : 0)))
+      });
       setMenu({ x, y, items: nextItems, title });
     },
     []
@@ -249,19 +322,20 @@ export function AppContextMenuProvider({ children }: { children: React.ReactNode
     };
   }, [menu, closeContextMenu]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!menu || !menuRef.current) return;
     const rect = menuRef.current.getBoundingClientRect();
-    const maxX = Math.max(8, window.innerWidth - rect.width - 8);
-    const maxY = Math.max(8, window.innerHeight - rect.height - 8);
-    const nextX = Math.max(8, Math.min(menu.x, maxX));
-    const nextY = Math.max(8, Math.min(menu.y, maxY));
+    const bounds = menuBounds();
+    const nextX = clampValue(menu.x, bounds.left, bounds.right - rect.width);
+    const nextY = clampValue(menu.y, bounds.top, bounds.bottom - rect.height);
+    const maxHeight = Math.max(120, Math.min(520, bounds.bottom - bounds.top - (menu.title ? 34 : 0)));
 
-    setMenuPosition(current =>
-      Math.abs(current.x - nextX) < 0.5 && Math.abs(current.y - nextY) < 0.5
-        ? current
-        : { x: nextX, y: nextY }
-    );
+    setMenuPosition({
+      x: nextX,
+      y: nextY,
+      ready: true,
+      maxHeight
+    });
   }, [menu]);
 
   const contextValue = useMemo(() => ({ openContextMenu, closeContextMenu }), [openContextMenu, closeContextMenu]);
@@ -275,13 +349,17 @@ export function AppContextMenuProvider({ children }: { children: React.ReactNode
             ref={menuRef}
             role="menu"
             data-coreor-context-menu="true"
-            className={`fixed z-[1800] ${MENU_SURFACE_CLASS}`}
-            style={{ left: menuPosition.x, top: menuPosition.y }}
+            className={`fixed z-[2147483300] ${MENU_SURFACE_CLASS}`}
+            style={{
+              left: menuPosition.x,
+              top: menuPosition.y,
+              visibility: menuPosition.ready ? 'visible' : 'hidden'
+            }}
             onMouseDown={event => event.stopPropagation()}
             onContextMenu={event => event.preventDefault()}
           >
             {menu.title && <div className="max-w-80 truncate border-b border-zinc-800 px-3 py-2 text-[10px] font-medium text-zinc-500">{menu.title}</div>}
-            <MenuItems items={menu.items} closeMenu={closeContextMenu} autoFocus />
+            <MenuItems items={menu.items} closeMenu={closeContextMenu} autoFocus maxHeight={menuPosition.maxHeight} />
           </div>,
           document.body
         )}
