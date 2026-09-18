@@ -264,7 +264,8 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
         for row in db_rows {
             let Some(object)=row.as_object() else { continue };
             let Some(name)=object.get("Database").or_else(||object.get("database")).or_else(||object.values().next()).and_then(Value::as_str) else { continue };
-            if ["information_schema","performance_schema","mysql","sys"].contains(&name) { continue; }
+            let normalized_name=name.to_ascii_lowercase();
+            if ["information_schema","performance_schema","metrics_schema","mysql","sys"].contains(&normalized_name.as_str()) { continue; }
 
             let escaped=name.replace("'","''");
             let table_sql=format!(
