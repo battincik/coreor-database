@@ -394,7 +394,7 @@ export function DatabasePanel({
         <TabsContent value="database" className="m-0 min-h-0 flex-1 overflow-hidden p-0"><DatabaseCatalogView mode="tables" databases={databases} selectedDatabase={selectedDatabase} selectedTable={selectedTable} activeServerName={activeServer?.name} isLoading={catalogLoading} error={catalogError} onRefresh={loadCatalog} onDatabaseSelect={handleDatabaseSelect} onTableSelect={(databaseName, tableName) => handleTableSelect(databaseName, tableName)} onDatabaseContextMenu={openDatabaseMenu} onTableContextMenu={openTableMenu} onOpenQuery={databaseName => createQueryTab({ databaseName })} /></TabsContent>
 
         <TabsContent value="schema-graph" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
-          {!selectedDatabase || !activeServerId ? <EmptyState icon={Network} title="Veritabanı seçilmedi" description="Şema grafiği için bir veritabanı seçin." /> : <DatabaseSchemaGraph serverId={activeServerId} databaseName={selectedDatabase} accountId={workspaceKey} catalog={databases} onCatalogRefresh={loadCatalog} onOpenTable={tableName => handleTableSelect(selectedDatabase, tableName, 'structure')} />}
+          {!selectedDatabase || !activeServerId ? <EmptyState icon={Network} title="Veritabanı seçilmedi" description="Şema grafiği için bir veritabanı seçin." /> : <DatabaseSchemaGraph serverId={activeServerId} databaseName={selectedDatabase} accountId={workspaceKey} catalog={databases} readOnly={Boolean(activeServer?.readOnly)} onCatalogRefresh={loadCatalog} onOpenTable={tableName => handleTableSelect(selectedDatabase, tableName, 'structure')} />}
         </TabsContent>
 
         <TabsContent value="table" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
