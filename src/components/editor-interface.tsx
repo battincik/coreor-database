@@ -50,6 +50,12 @@ function EditorWorkspace() {
       } else if (matchesShortcut(event, 'settings')) {
         event.preventDefault();
         window.dispatchEvent(new Event(OPEN_SETTINGS_MODAL_EVENT));
+      } else if (matchesShortcut(event, 'backupCenter')) {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent('coreor:open-automation-center', { detail: { tab: 'backups' } }));
+      } else if (matchesShortcut(event, 'automationCenter')) {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent('coreor:open-automation-center', { detail: { tab: 'history' } }));
       } else if (matchesShortcut(event, 'refresh')) {
         event.preventDefault();
         window.dispatchEvent(new Event('coreor:refresh-active-view'));
