@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Loader2, Plus, X } from 'lucide-react';
@@ -57,6 +58,7 @@ export function TableRowInsertModal({
   const columns = useMemo(() => info.columns.filter(column => !isGenerated(column)), [info.columns]);
   const [draft, setDraft] = useState<Record<string, DraftValue>>({});
   const [busy, setBusy] = useState(false);
+  useModalEscape(open, onClose, busy);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

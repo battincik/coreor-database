@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Pencil, X } from 'lucide-react';
@@ -20,6 +21,7 @@ export function CoreorInputModal({
 }) {
   const [value, setValue] = useState(initialValue);
   const [busy, setBusy] = useState(false);
+  useModalEscape(open, onClose, busy);
   useEffect(() => { if (open) { setValue(initialValue); setBusy(false); } }, [open, initialValue]);
   if (!open || typeof document === 'undefined') return null;
   const normalized = value.trim();

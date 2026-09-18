@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -120,6 +121,7 @@ export function DatabaseSettingsModal({ open, onClose, initialTab = 'account' }:
   const [profileConfirmation, setProfileConfirmation] = useState<CoreorConfirmation | null>(null);
   const [vaultStatus, setVaultStatus] = useState<LocalVaultStatus | null>(null);
   const [vaultError, setVaultError] = useState<string | null>(null);
+  useModalEscape(open, onClose);
   useEffect(() => setMounted(true), []);
   useEffect(() => { if (open) setTab(initialTab); }, [open, initialTab]);
   useEffect(() => {

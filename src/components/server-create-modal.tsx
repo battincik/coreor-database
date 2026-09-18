@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -111,6 +112,7 @@ export function ServerCreateModal({ open, onClose, onSubmit, initialServer, onUp
   const [mounted, setMounted] = useState(false);
   const [values, setValues] = useState<ServerCreateModalValues>(DEFAULT_VALUES);
   const [submitting, setSubmitting] = useState(false);
+  useModalEscape(open, onClose, submitting);
   const [testing, setTesting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -338,6 +339,7 @@ export function DatabaseImportExportModal({
   const [fileName, setFileName] = useState('');
   const [delimiter, setDelimiter] = useState('');
   const [busy, setBusy] = useState(false);
+  useModalEscape(open, onClose, busy);
   const [progress, setProgress] = useState({ current: 0, total: 0, affected: 0 });
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);

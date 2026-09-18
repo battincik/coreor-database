@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -96,6 +97,7 @@ export function DatabaseAutomationCenterModal({ open, onClose, initialTab = 'his
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  useModalEscape(open, onClose, busy);
   const [serverId, setServerId] = useState(activeServerId || '');
   const [databaseName, setDatabaseName] = useState(selectedDatabase || '');
   const [tableName, setTableName] = useState(selectedTable || '');

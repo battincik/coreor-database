@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Activity, AlertTriangle, Clock, Database, HardDrive, Loader2, RefreshCw, Server, X } from 'lucide-react';
@@ -97,6 +98,7 @@ export function DatabasePerformancePanelModal({ open, onClose, serverId, account
   const [snapshot, setSnapshot] = useState<DatabasePerformanceSnapshot | null>(null);
   const [points, setPoints] = useState<PerformancePoint[]>([]);
   const [loading, setLoading] = useState(false);
+  useModalEscape(open, onClose);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [historyWindow, setHistoryWindow] = useState<HistoryWindow>('15m');
   const [error, setError] = useState<string | null>(null);

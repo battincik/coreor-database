@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Copy, KeyRound, Loader2, Plus, RefreshCw, Save, Shield, Trash2, UserCog, Users, X } from 'lucide-react';
@@ -44,6 +45,7 @@ export function DatabaseUserManagerModal({ open, onClose, serverId, accountId, d
   const [grants, setGrants] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  useModalEscape(open, onClose, busy);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [search, setSearch] = useState('');

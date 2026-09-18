@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Code2, Loader2, X } from 'lucide-react';
@@ -21,6 +22,7 @@ export function DatabaseActionConfirmModal({ action, onClose }: { action: Databa
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useModalEscape(Boolean(action), onClose, busy);
   useEffect(() => { setValue(''); setBusy(false); setError(null); }, [action?.title, action?.expectedText]);
   if (!action || typeof document === 'undefined') return null;
   const matches = value === action.expectedText;

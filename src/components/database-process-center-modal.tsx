@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Clock3, Copy, Loader2, Lock, RefreshCw, Skull, StopCircle, X } from 'lucide-react';
@@ -39,6 +40,7 @@ export function DatabaseProcessCenterModal({ open, onClose, serverId, accountId 
   const [minimumSeconds, setMinimumSeconds] = useState(0);
   const [killingId, setKillingId] = useState<number | null>(null);
   const [confirmation, setConfirmation] = useState<CoreorConfirmation | null>(null);
+  useModalEscape(open, onClose, killingId !== null);
 
   const load = async () => {
     if (!serverId || !accountId) return;

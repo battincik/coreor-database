@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Loader2, X } from 'lucide-react';
@@ -17,6 +18,7 @@ export interface CoreorConfirmation {
 export function CoreorConfirmModal({ action, onClose }: { action: CoreorConfirmation | null; onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useModalEscape(Boolean(action), onClose, busy);
   useEffect(() => { setBusy(false); setError(null); }, [action?.title]);
   if (!action || typeof document === 'undefined') return null;
 

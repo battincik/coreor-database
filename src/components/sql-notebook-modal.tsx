@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowDown, ArrowUp, BarChart2, BookOpen, Code, Copy, Download, FileText, Loader2, Play, Plus, Save, Trash2, X } from 'lucide-react';
@@ -175,6 +176,7 @@ export function SqlNotebookModal({ open, onClose, serverId, accountId, databases
   const [confirmation, setConfirmation] = useState<CoreorConfirmation | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const saveTimer = useRef<number | null>(null);
+  useModalEscape(open, onClose, runningAll);
   const activeDocument = documents.find(document => document.id === activeDocumentId) || documents[0] || null;
 
   useEffect(() => {

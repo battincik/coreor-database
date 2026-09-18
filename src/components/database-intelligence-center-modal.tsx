@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -146,6 +147,7 @@ export function DatabaseIntelligenceCenterModal({ open, onClose, initialTab = 'p
   const [tableInfo, setTableInfo] = useState<TableInfo | null>(null);
   const [snapshot, setSnapshot] = useState<DatabasePerformanceSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
+  useModalEscape(open, onClose, busy);
   const [error, setError] = useState<string | null>(null);
   const [slowThreshold, setSlowThreshold] = useState(1000);
   const [maskRules, setMaskRules] = useState<MaskRule[]>([]);

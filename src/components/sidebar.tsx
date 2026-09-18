@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Activity, Braces, Check, ChevronDown, ChevronRight, Circle, Code2, Copy, Database, Download, FileCode2, FunctionSquare, Gauge, HardDrive, KeyRound, ListFilter, LogOut, MoreHorizontal, Network, Plus, RefreshCw, Search, Server, Settings2, ShieldCheck, Sparkles, Table2, Trash2, UserRound, View, Wifi, WifiOff, Wrench, X, Zap } from 'lucide-react';
@@ -166,6 +167,7 @@ function objectDropSql(engine: DatabaseEngine, databaseName: string, object: Dat
 }
 
 function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: CreateDatabaseState | null; onChange: (state: CreateDatabaseState) => void; onClose: () => void; onCreate: () => void | Promise<void> }) {
+  useModalEscape(Boolean(state), onClose, Boolean(state?.busy));
   if (!state || typeof document === 'undefined') return null;
   const family = databaseEngineFamily(state.server.databaseType);
   const supportsCharset = family === 'mysql';
