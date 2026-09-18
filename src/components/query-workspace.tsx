@@ -38,6 +38,7 @@ import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-se
 import { SqlEditor } from '@/components/ui/sql-syntax';
 import { DatabaseActionConfirmModal, type DatabaseActionConfirmation } from '@/components/database-action-confirm-modal';
 import { useAppPreferences } from '@/lib/appPreferences';
+import { toSqlLiteral } from '@/lib/queryWorkspaceEvents';
 import { approvalRequests, automationId, migrationDrafts, schemaSnapshots } from '@/lib/databaseAutomation';
 import { analyzeSqlDocument, type SqlDiagnostic } from '@/lib/sqlLanguageServer';
 import { useCoreorToast } from '@/components/ui/coreor-toast';
@@ -294,12 +295,33 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   const insertSuggestion = (suggestion: Suggestion) => { const next = `${tab.sql.slice(0, token.start)}${suggestion.insertText}${tab.sql.slice(cursor)}`; onChange({ sql: next }); setCursor(token.start + suggestion.insertText.length); setSuggestionsOpen(false); };
   const libraryItems = library === 'history' ? history : favorites;
   const editorContextMenu = (event: React.MouseEvent) => openContextMenu(event, [
-    { id: 'run', label: 'Sorguyu çalıştır', icon: Play, shortcut: 'Ctrl+Enter', disabled: Boolean(selectedServer?.readOnly && splitStatements(tab.sql).some(isWriteStatement)), onSelect: runQuery },
-    { id: 'format', label: 'SQL biçimlendir', icon: Wand2, onSelect: () => onChange({ sql: formatSql(tab.sql) }) },
-    { id: 'favorite', label: isFavorite ? 'Favorilerden kaldır' : 'Favorilere ekle', icon: isFavorite ? StarOff : Star, onSelect: toggleFavorite },
+    { id: 'run', label: 'Sorguyu çalıştır', icon: Play, shortcut: 'Ctrl+Enter', disabled: !tab.sql.trim() || Boolean(selectedServer?.readOnly && splitStatements(tab.sql).some(isWriteStatement)), onSelect: runQuery },
+    { id: 'format', label: 'SQL biçimlendir', icon: Wand2, disabled: !tab.sql.trim(), onSelect: () => onChange({ sql: formatSql(tab.sql) }) },
+    { id: 'explain', label: 'EXPLAIN olarak hazırla', icon: Search, disabled: !tab.sql.trim() || /^\s*EXPLAIN\b/i.test(tab.sql), onSelect: () => onChange({ sql: `EXPLAIN ${tab.sql.trim()}` }) },
+    { id: 'sep-library', separator: true },
+    { id: 'favorite', label: isFavorite ? 'Favorilerden kaldır' : 'Favorilere ekle', icon: isFavorite ? StarOff : Star, disabled: !tab.sql.trim(), onSelect: toggleFavorite },
+    { id: 'history', label: 'Sorgu geçmişini aç', icon: History, onSelect: () => setLibrary('history') },
+    { id: 'favorites', label: 'Favorileri aç', icon: BookOpen, onSelect: () => setLibrary('favorites') },
+    { id: 'sep-copy', separator: true },
+    { id: 'copy-sql', label: 'Tüm SQL’i kopyala', icon: Copy, disabled: !tab.sql.trim(), onSelect: () => navigator.clipboard.writeText(tab.sql) },
+    { id: 'copy-db', label: 'Aktif veritabanını kopyala', icon: Database, disabled: !tab.databaseName, onSelect: () => navigator.clipboard.writeText(tab.databaseName || '') },
     { id: 'duplicate', label: 'Sekmeyi çoğalt', icon: Copy, onSelect: onDuplicate },
-    { id: 'clear', label: 'Editörü temizle', icon: Trash2, onSelect: () => onChange({ sql: '', result: null, error: null }) }
-  ]);
+    { id: 'sep-danger', separator: true },
+    { id: 'clear-result', label: 'Sonucu temizle', icon: XCircle, disabled: !tab.result && !tab.error, onSelect: () => { setResultSets([]); setActiveResultId(null); onChange({ result: null, error: null }); } },
+    { id: 'clear', label: 'Editörü temizle', icon: Trash2, danger: Boolean(tab.sql.trim()), onSelect: () => onChange({ sql: '', result: null, error: null }) }
+  ], tab.title);
+
+  const resultCellContextMenu = (event: React.MouseEvent, row: Record<string, unknown>, column: string) => {
+    const value = row[column];
+    openContextMenu(event, [
+      { id: 'copy-value', label: 'Hücre değerini kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(valueText(value)) },
+      { id: 'copy-literal', label: 'SQL literal olarak kopyala', icon: Code2, onSelect: () => navigator.clipboard.writeText(toSqlLiteral(value)) },
+      { id: 'copy-column', label: 'Kolon adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(column) },
+      { id: 'sep-row', separator: true },
+      { id: 'copy-row', label: 'Satırı JSON olarak kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(JSON.stringify(row, null, 2)) },
+      { id: 'copy-result', label: 'Tüm sonucu JSON olarak kopyala', icon: Copy, disabled: !activeResult?.rows?.length, onSelect: () => navigator.clipboard.writeText(JSON.stringify(activeResult?.rows || [], null, 2)) }
+    ], `${column}: ${valueText(value)}`);
+  };
 
   const startResultResize = (event: React.PointerEvent<HTMLDivElement>) => {
     if (resultCollapsed || !splitRef.current) return;
@@ -347,7 +369,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
         <div className="flex min-h-0 shrink-0 flex-col border-t border-zinc-800 bg-black/20" style={{ height: resultCollapsed ? 36 : resultHeight }}>
           {!resultCollapsed && <div role="separator" aria-orientation="horizontal" aria-label="Sonuç paneli yüksekliğini değiştir" className="group flex h-1.5 shrink-0 cursor-row-resize touch-none items-center justify-center bg-zinc-950 hover:bg-cyan-500/10" onPointerDown={startResultResize}><GripHorizontal className="h-3 w-3 text-zinc-800 transition group-hover:text-cyan-500" /></div>}
           <div className="coreor-hide-scrollbar flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-zinc-800 px-2 text-[10px] text-zinc-500"><Terminal className="h-3.5 w-3.5"/>{resultSets.length > 1 ? resultSets.map(item => <button key={item.id} onClick={() => setActiveResultId(item.id)} className={`rounded px-2 py-1 ${activeSet?.id === item.id ? 'bg-cyan-500/10 text-cyan-300' : 'hover:bg-zinc-900'}`}>{item.label}{item.error ? ' • hata' : item.dryRun ? ' • ön izleme' : ''}</button>) : <span>{activeSet?.dryRun ? 'Dry-run sonucu' : 'Sonuç'}</span>}<span className="ml-auto shrink-0">{activeResult?.rows?.length?.toLocaleString('tr-TR') || 0} satır</span><button type="button" className="ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" onClick={() => setResultCollapsed(previous => !previous)} title={resultCollapsed ? 'Sonuç panelini aç' : 'Sonuç panelini tamamen daralt'} aria-label={resultCollapsed ? 'Sonuç panelini aç' : 'Sonuç panelini daralt'}>{resultCollapsed ? <ChevronUp className="h-3.5 w-3.5"/> : <ChevronDown className="h-3.5 w-3.5"/>}</button></div>
-          {!resultCollapsed && (activeSet?.error || tab.error ? <div className="m-3 rounded border border-red-500/30 bg-red-500/10 p-3 font-mono text-[11px] text-red-300">{activeSet?.error || tab.error}</div> : activeResult?.rows?.length ? <ScrollArea className="min-h-0 flex-1"><div className="min-w-max"><Table size="sm" columnStorageKey={`query-result:${tab.id}:${columns.join('|')}`}><TableHeader><TableRow>{columns.map(column => <TableHead key={column} columnKey={column} className="sticky top-0 z-10 border bg-zinc-950">{column}</TableHead>)}</TableRow></TableHeader><TableBody>{activeResult.rows.map((row, rowIndex) => <TableRow key={rowIndex}>{columns.map(column => <TableCell key={column} className="truncate border font-mono text-[11px]" title={valueText(row[column])}>{valueText(row[column])}</TableCell>)}</TableRow>)}</TableBody></Table></div></ScrollArea> : activeResult ? <div className="flex flex-1 items-center justify-center text-xs text-zinc-500">{typeof activeResult.affectedRows === 'number' ? `${activeResult.affectedRows.toLocaleString('tr-TR')} satır etkilendi.` : 'Sorgu tamamlandı.'}</div> : <div className="flex flex-1 items-center justify-center text-xs text-zinc-600">Sonuçlar burada gösterilir.</div>)}
+          {!resultCollapsed && (activeSet?.error || tab.error ? <div className="m-3 rounded border border-red-500/30 bg-red-500/10 p-3 font-mono text-[11px] text-red-300">{activeSet?.error || tab.error}</div> : activeResult?.rows?.length ? <ScrollArea className="min-h-0 flex-1"><div className="min-w-max"><Table size="sm" columnStorageKey={`query-result:${tab.id}:${columns.join('|')}`}><TableHeader><TableRow>{columns.map(column => <TableHead key={column} columnKey={column} className="sticky top-0 z-10 border bg-zinc-950">{column}</TableHead>)}</TableRow></TableHeader><TableBody>{activeResult.rows.map((row, rowIndex) => <TableRow key={rowIndex}>{columns.map(column => <TableCell key={column} className="truncate border font-mono text-[11px]" title={valueText(row[column])} onContextMenu={event => resultCellContextMenu(event, row, column)}>{valueText(row[column])}</TableCell>)}</TableRow>)}</TableBody></Table></div></ScrollArea> : activeResult ? <div className="flex flex-1 items-center justify-center text-xs text-zinc-500">{typeof activeResult.affectedRows === 'number' ? `${activeResult.affectedRows.toLocaleString('tr-TR')} satır etkilendi.` : 'Sorgu tamamlandı.'}</div> : <div className="flex flex-1 items-center justify-center text-xs text-zinc-600">Sonuçlar burada gösterilir.</div>)}
         </div>
       </div>
       {library && <aside className="min-h-0 overflow-y-auto border-l border-zinc-800 p-2">{libraryItems.map(item => <button key={item.id} className="mb-1 w-full rounded-xl border border-zinc-800 p-3 text-left" onClick={() => { onChange({ sql: item.sql, databaseName: item.databaseName }); setLibrary(null); }}><div className="truncate text-[10px] font-medium">{item.title}</div><div className="mt-1 line-clamp-2 font-mono text-[8px] text-zinc-600">{item.sql}</div></button>)}</aside>}
