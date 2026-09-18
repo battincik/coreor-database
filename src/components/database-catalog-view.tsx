@@ -253,7 +253,7 @@ export function DatabaseCatalogView({
       </div>
 
       <div className="shrink-0 border-b border-zinc-900 bg-black/15 px-2 py-1 text-[9px] text-zinc-700">
-        Sütun ayırıcısını sürükleyerek genişliği değiştirin; ayırıcıya çift tıklayarak Excel tarzı otomatik fit uygulayın. Genişlikler bu tablo için tarayıcıda saklanır.
+        Sütun ayırıcısını sürükleyerek genişliği değiştirin; ayırıcıya çift tıklayarak Excel tarzı otomatik fit uygulayın. Genişlikler bu tablo için yerel uygulama durumunda saklanır.
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
