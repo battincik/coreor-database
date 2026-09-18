@@ -21,13 +21,14 @@
     "native:check": "npm run icons:ensure && cargo check --locked --manifest-path src-tauri/Cargo.toml",
     "i18n:check": "node scripts/validate-locales.mjs",
     "architecture:check": "node scripts/assert-native-client.mjs",
-    "check": "npm run locks:check && npm run architecture:check && npm run i18n:check && npm run lint && npm run typecheck && npm run ui:build && npm run native:check",
+    "check": "npm run locks:check && npm run architecture:check && npm run i18n:check && npm run i18n:audit && npm run lint && npm run typecheck && npm run ui:build && npm run native:check",
     "locks:generate": "node scripts/prepare-lockfiles.mjs",
     "locks:check": "node scripts/assert-lockfiles.mjs",
     "profile:windows": "npm run profile",
     "icons:generate": "tauri icon src-tauri/icons/app-icon.svg",
     "icons:ensure": "node scripts/ensure-icons.mjs",
-    "profile": "node scripts/profile-desktop.mjs"
+    "profile": "node scripts/profile-desktop.mjs",
+    "i18n:audit": "node scripts/audit-i18n.mjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.3",

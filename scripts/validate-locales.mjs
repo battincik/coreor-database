@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const localeDirectory = join(root, 'src', 'locales');
 const supportedLocales = ['tr', 'en', 'es', 'zh-CN', 'hi', 'ar', 'pt-BR', 'fr', 'de', 'ru', 'ja', 'ko'];
+const requiredLocales = ['tr', 'en'];
 const placeholderPattern = /\{([A-Za-z0-9_]+)\}/g;
 const sqlKeywordKeys = {
   'sql.keyword.select': 'SELECT',
@@ -43,18 +44,22 @@ for (const code of supportedLocales) dictionaries.set(code, flatten(await readJs
 
 const problems = [];
 const reference = dictionaries.get('en');
+const turkish = dictionaries.get('tr');
 const referenceKeys = Object.keys(reference).sort();
+
+for (const code of requiredLocales) {
+  const dictionary = dictionaries.get(code);
+  const missing = referenceKeys.filter(key => !(key in dictionary));
+  const extra = Object.keys(dictionary).filter(key => !(key in reference));
+  if (missing.length) problems.push(`${code}: eksik anahtarlar: ${missing.join(', ')}`);
+  if (extra.length) problems.push(`${code}: İngilizce kaynak pakette olmayan anahtarlar: ${extra.join(', ')}`);
+}
 
 for (const code of supportedLocales) {
   const dictionary = dictionaries.get(code);
-  const keys = Object.keys(dictionary).sort();
-  const missing = referenceKeys.filter(key => !(key in dictionary));
-  const extra = keys.filter(key => !(key in reference));
-  if (missing.length) problems.push(`${code}: eksik anahtarlar: ${missing.join(', ')}`);
-  if (extra.length) problems.push(`${code}: fazla anahtarlar: ${extra.join(', ')}`);
-
   for (const key of referenceKeys) {
     const value = dictionary[key];
+    if (value === undefined) continue; // Community locale: runtime English fallback.
     if (typeof value !== 'string' || !value.trim()) {
       problems.push(`${code}: ${key} boş veya string değil.`);
       continue;
@@ -71,9 +76,14 @@ for (const code of supportedLocales) {
   if (!dictionary['meta.nativeName']?.trim()) problems.push(`${code}: meta.nativeName zorunludur.`);
 }
 
+if (Object.keys(turkish).length !== referenceKeys.length) {
+  problems.push(`tr/en kaynak paketleri aynı sayıda anahtar taşımalıdır. tr=${Object.keys(turkish).length}, en=${referenceKeys.length}`);
+}
+
 for (const [key, keyword] of Object.entries(sqlKeywordKeys)) {
   for (const code of supportedLocales) {
-    if (dictionaries.get(code)[key] !== keyword) problems.push(`${code}: ${key} SQL anahtar kelimesi ${keyword} olarak korunmalıdır.`);
+    const value = dictionaries.get(code)[key];
+    if (value !== undefined && value !== keyword) problems.push(`${code}: ${key} SQL anahtar kelimesi ${keyword} olarak korunmalıdır.`);
   }
 }
 
@@ -88,6 +98,11 @@ if (problems.length) {
   process.exit(1);
 }
 
-console.log(`✓ ${supportedLocales.length} nested JSON dil paketi doğrulandı.`);
-console.log(`✓ Her pakette ${referenceKeys.length} ortak çeviri anahtarı bulunuyor.`);
+console.log(`✓ Türkçe ve İngilizce kaynak paketlerinde ${referenceKeys.length} ortak anahtar doğrulandı.`);
+for (const code of supportedLocales) {
+  const translated = referenceKeys.filter(key => key in dictionaries.get(code)).length;
+  const coverage = ((translated / referenceKeys.length) * 100).toFixed(1);
+  console.log(`  ${code.padEnd(5)} ${String(translated).padStart(4)}/${referenceKeys.length} • %${coverage}`);
+}
+console.log('✓ Eksik community locale anahtarları runtime’da İngilizce fallback kullanır.');
 console.log('✓ Yer tutucular, yazım yönleri ve SQL anahtar kelimeleri uyumlu.');
