@@ -144,6 +144,16 @@ async fn pg_query(c: &Connection, sql: &str, database: Option<&str>, limit: usiz
     Ok(json!({ "rows": rows, "affectedRows": 0 }))
 }
 
+fn sql_literal(value: &Value) -> String {
+    match value {
+        Value::Null => "NULL".into(),
+        Value::Bool(v) => if *v { "TRUE".into() } else { "FALSE".into() },
+        Value::Number(v) => v.to_string(),
+        Value::String(v) => format!("'{}'", v.replace('\\'', "''")),
+        _ => format!("'{}'", value.to_string().replace('\\'', "''")),
+    }
+}
+
 async fn execute_action(request: DatabaseRequest, config: DesktopConfig) -> Result<Value, String> {
     let c = request.connection.ok_or_else(|| "Bağlantı bilgisi eksik.".to_string())?;
     let database = request.payload.get("database").and_then(Value::as_str);
@@ -178,6 +188,45 @@ async fn execute_action(request: DatabaseRequest, config: DesktopConfig) -> Resu
             let result = if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") { pg_query(&c, &sql, Some(database), page_size as usize).await? } else { mysql_query(&c, &sql, Some(database), page_size as usize).await? };
             let data = result["rows"].as_array().cloned().unwrap_or_default();
             Ok(json!({ "data": data, "pagination": { "page": page, "pageSize": page_size, "totalRows": data.len(), "totalPages": 1, "hasPreviousPage": page > 1, "hasNextPage": data.len() == page_size as usize }, "sorts": [], "filters": [], "_meta": { "statements": [{ "label": "Tablo verileri", "sql": sql }] } }))
+        }
+        "update-cell" => {
+            if c.read_only { return Err("Bu bağlantı salt okunur modda.".into()); }
+            let database = request.payload.get("database").and_then(Value::as_str).ok_or_else(|| "Veritabanı eksik.".to_string())?;
+            let table = request.payload.get("table").and_then(Value::as_str).ok_or_else(|| "Tablo eksik.".to_string())?;
+            let column = request.payload.get("column").and_then(Value::as_str).ok_or_else(|| "Kolon eksik.".to_string())?;
+            let pk = request.payload.get("primaryKey").and_then(Value::as_object).ok_or_else(|| "Primary key eksik.".to_string())?;
+            let value = request.payload.get("value").cloned().unwrap_or(Value::Null);
+            let quote = if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") { "\"" } else { "`" };
+            let literal = sql_literal(&value);
+            let where_sql = pk.iter().map(|(k,v)| format!("{q}{k}{q}={v}", q=quote, k=k.replace(quote,""), v=sql_literal(v))).collect::<Vec<_>>().join(" AND ");
+            let sql = format!("UPDATE {q}{db}{q}.{q}{table}{q} SET {q}{col}{q}={value} WHERE {where_sql}", q=quote, db=database.replace(quote,""), table=table.replace(quote,""), col=column.replace(quote,""), value=literal, where_sql=where_sql);
+            let result = if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") { pg_query(&c,&sql,Some(database),1).await? } else { mysql_query(&c,&sql,Some(database),1).await? };
+            Ok(json!({ "affectedRows": result["affectedRows"], "value": value, "_meta": { "statements":[{"label":"Hücre güncelleme","sql":sql}] } }))
+        }
+        "delete-rows" => {
+            if c.read_only { return Err("Bu bağlantı salt okunur modda.".into()); }
+            let database = request.payload.get("database").and_then(Value::as_str).ok_or_else(|| "Veritabanı eksik.".to_string())?;
+            let table = request.payload.get("table").and_then(Value::as_str).ok_or_else(|| "Tablo eksik.".to_string())?;
+            let keys = request.payload.get("primaryKeys").and_then(Value::as_array).ok_or_else(|| "Primary key listesi eksik.".to_string())?;
+            let quote = if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") { "\"" } else { "`" };
+            let clauses = keys.iter().filter_map(Value::as_object).map(|pk| format!("({})", pk.iter().map(|(k,v)| format!("{q}{k}{q}={v}",q=quote,k=k.replace(quote,""),v=sql_literal(v))).collect::<Vec<_>>().join(" AND "))).collect::<Vec<_>>();
+            if clauses.is_empty() { return Err("Silinecek satır bulunamadı.".into()); }
+            let sql=format!("DELETE FROM {q}{db}{q}.{q}{table}{q} WHERE {}",clauses.join(" OR "),q=quote,db=database.replace(quote,""),table=table.replace(quote,""));
+            let result=if matches!(c.engine.as_str(),"postgresql"|"cockroachdb"){pg_query(&c,&sql,Some(database),1).await?}else{mysql_query(&c,&sql,Some(database),1).await?};
+            Ok(json!({"affectedRows":result["affectedRows"],"_meta":{"statements":[{"label":"Satır silme","sql":sql}]}}))
+        }
+        "export-data" => {
+            let input=request.payload.get("exportInput").and_then(Value::as_object).ok_or_else(||"Export bilgisi eksik.".to_string())?;
+            let database=input.get("database").and_then(Value::as_str).ok_or_else(||"Veritabanı eksik.".to_string())?;
+            let table=input.get("table").and_then(Value::as_str).ok_or_else(||"Tablo eksik.".to_string())?;
+            let limit=input.get("limit").and_then(Value::as_u64).unwrap_or(config.max_result_rows as u64).min(config.max_result_rows as u64);
+            let offset=input.get("offset").and_then(Value::as_u64).unwrap_or(0);
+            let quote=if matches!(c.engine.as_str(),"postgresql"|"cockroachdb"){"\""}else{"`"};
+            let sql=format!("SELECT * FROM {q}{db}{q}.{q}{table}{q} LIMIT {limit} OFFSET {offset}",q=quote,db=database.replace(quote,""),table=table.replace(quote,""),limit=limit,offset=offset);
+            let result=if matches!(c.engine.as_str(),"postgresql"|"cockroachdb"){pg_query(&c,&sql,Some(database),limit as usize).await?}else{mysql_query(&c,&sql,Some(database),limit as usize).await?};
+            let rows=result["rows"].as_array().cloned().unwrap_or_default();
+            let columns=rows.first().and_then(Value::as_object).map(|o|o.keys().cloned().collect::<Vec<_>>()).unwrap_or_default();
+            Ok(json!({"rows":rows,"columns":columns,"rowCount":rows.len()}))
         }
         "table-info" => {
             let database = request.payload.get("database").and_then(Value::as_str).ok_or_else(|| "Veritabanı eksik.".to_string())?;
