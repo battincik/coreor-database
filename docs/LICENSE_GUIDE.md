@@ -1,6 +1,6 @@
 # Apache License 2.0 — Practical Guide
 
-Coreor Web Database is licensed under the Apache License, Version 2.0. The legally controlling text is the repository-root [LICENSE](../LICENSE) file.
+Coreor Database is licensed under the Apache License, Version 2.0. The legally controlling text is the repository-root [LICENSE](../LICENSE) file.
 
 This document is a plain-language project guide only. It does not replace the license text and is not legal advice.
 
@@ -48,7 +48,7 @@ Apache 2.0 does **not** give a general right to use project trademarks, trade na
 
 Accordingly:
 
-- you may accurately say your product is based on or derived from Coreor Web Database,
+- you may accurately say your product is based on or derived from Coreor Database,
 - you should not imply that an independent fork/service is the official Coreor service,
 - use of Coreor logos or branding may require separate permission depending on the use.
 
@@ -71,7 +71,7 @@ Examples can include:
 - paid hosting,
 - enterprise deployment services,
 - paid support,
-- a commercial product containing or building upon Coreor Web Database.
+- a commercial product containing or building upon Coreor Database.
 
 The license's attribution, notice and other conditions still apply when redistribution occurs.
 
@@ -91,7 +91,7 @@ Contributors should only submit code they have the right to contribute.
 
 ## Third-party dependencies
 
-The Apache 2.0 license for Coreor Web Database does not replace the licenses of third-party npm packages, database drivers, frameworks or other included components.
+The Apache 2.0 license for Coreor Database does not replace the licenses of third-party npm packages, database drivers, frameworks or other included components.
 
 Redistributors are responsible for complying with applicable third-party license notices as well.
 
@@ -111,7 +111,7 @@ Generally permitted under Apache 2.0.
 
 ### Example: company internal deployment
 
-A company modifies Coreor Web Database and uses it internally.
+A company modifies Coreor Database and uses it internally.
 
 Generally permitted under Apache 2.0.
 
