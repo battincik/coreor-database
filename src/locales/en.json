@@ -673,7 +673,11 @@
     "working": "Running",
     "failed": "Failed",
     "noTable": "No table selected",
-    "topbarTooltip": "Table and database maintenance center"
+    "topbarTooltip": "Table and database maintenance center",
+    "singleTable": "Single table",
+    "tableSearch": "Search table…",
+    "stopped": "Stopped",
+    "pending": "Pending"
   },
   "processCenter": {
     "title": "Process and lock center",

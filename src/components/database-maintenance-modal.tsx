@@ -26,6 +26,7 @@ import { useModalEscape } from '@/lib/useModalEscape';
 import { Button } from '@/components/ui/button';
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 import { DatabaseContext } from '@/context/DatabaseContext';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface DatabaseMaintenanceModalProps {
   open: boolean;
@@ -64,29 +65,29 @@ interface MaintenanceLog {
   message: string;
 }
 
-function operationDefinitions(engine: DatabaseEngine | undefined): MaintenanceOperationDefinition[] {
+function operationDefinitions(engine: DatabaseEngine | undefined, t: (key: string) => string): MaintenanceOperationDefinition[] {
   if (engine === 'cockroachdb') {
-    return [{ id: 'analyze', label: 'ANALYZE', description: 'Optimizer istatistiklerini günceller.', impact: 'low' }];
+    return [{ id: 'analyze', label: 'ANALYZE', description: t('maintenance.optimizerStats'), impact: 'low' }];
   }
   const family = databaseEngineFamily(engine);
   if (family === 'postgresql') {
     return [
-      { id: 'analyze', label: 'ANALYZE', description: 'Planner istatistiklerini günceller.', impact: 'low' },
-      { id: 'vacuum-analyze', label: 'VACUUM ANALYZE', description: 'Ölü tuple temizliği ve istatistik güncellemesi.', impact: 'medium' },
-      { id: 'reindex', label: 'REINDEX', description: 'Tablo indekslerini yeniden oluşturur; yoğun I/O yaratabilir.', impact: 'high' }
+      { id: 'analyze', label: 'ANALYZE', description: t('maintenance.plannerStats'), impact: 'low' },
+      { id: 'vacuum-analyze', label: 'VACUUM ANALYZE', description: t('maintenance.vacuumAnalyze'), impact: 'medium' },
+      { id: 'reindex', label: 'REINDEX', description: t('maintenance.rebuildIndexes'), impact: 'high' }
     ];
   }
   if (family === 'mssql') {
     return [
-      { id: 'check', label: 'CHECKTABLE', description: 'Tablo bütünlüğünü kontrol eder.', impact: 'medium', readOnlySafe: true },
+      { id: 'check', label: 'CHECKTABLE', description: t('maintenance.integrityCheck'), impact: 'medium', readOnlySafe: true },
       { id: 'update-statistics', label: 'UPDATE STATISTICS', description: 'Query optimizer istatistiklerini yeniler.', impact: 'low' },
-      { id: 'reorganize-index', label: 'INDEX REORGANIZE', description: 'Tüm indeksleri çevrimiçi yeniden düzenler.', impact: 'medium' }
+      { id: 'reorganize-index', label: 'INDEX REORGANIZE', description: t('maintenance.reorganizeIndexes'), impact: 'medium' }
     ];
   }
   return [
-    { id: 'check', label: 'CHECK TABLE', description: 'Tablonun bütünlük durumunu kontrol eder.', impact: 'low', readOnlySafe: true },
-    { id: 'analyze', label: 'ANALYZE TABLE', description: 'Optimizer istatistiklerini günceller.', impact: 'low' },
-    { id: 'optimize', label: 'OPTIMIZE TABLE', description: 'Tabloyu yeniden düzenler ve kullanılmayan alanı toparlamayı dener.', impact: 'high' }
+    { id: 'check', label: 'CHECK TABLE', description: t('maintenance.integrityStatus'), impact: 'low', readOnlySafe: true },
+    { id: 'analyze', label: 'ANALYZE TABLE', description: t('maintenance.optimizerStats'), impact: 'low' },
+    { id: 'optimize', label: 'OPTIMIZE TABLE', description: t('maintenance.optimizeTable'), impact: 'high' }
   ];
 }
 
@@ -118,6 +119,7 @@ export function DatabaseMaintenanceModal({
   initialTable
 }: DatabaseMaintenanceModalProps) {
   const { loadServers } = useContext(DatabaseContext)!;
+  const { t } = useLanguage();
   const [databaseName, setDatabaseName] = useState(initialDatabase || '');
   const [scope, setScope] = useState<'database' | 'table'>(initialTable ? 'table' : 'database');
   const [tableName, setTableName] = useState(initialTable || '');
@@ -132,13 +134,13 @@ export function DatabaseMaintenanceModal({
 
   const databases = server?.databases || [];
   const database = databases.find(item => item.name === databaseName) || null;
-  const definitions = useMemo(() => operationDefinitions(server?.databaseType), [server?.databaseType]);
+  const definitions = useMemo(() => operationDefinitions(server?.databaseType, t), [server?.databaseType, t]);
   const allowedDefinitions = useMemo(
     () => server?.readOnly ? definitions.filter(operation => operation.readOnlySafe) : definitions,
     [definitions, server?.readOnly]
   );
   const tableOptions = useMemo<SearchSelectOption[]>(
-    () => (database?.tables || []).map(table => ({ value: table, label: table, description: 'Tablo bakım hedefi' })),
+    () => (database?.tables || []).map(table => ({ value: table, label: table, description: t('maintenance.tableTarget') })),
     [database]
   );
   const databaseOptions = useMemo<SearchSelectOption[]>(
@@ -248,7 +250,7 @@ export function DatabaseMaintenanceModal({
             operation,
             status: 'success',
             durationMs,
-            message: result.rows.length ? `${result.rows.length} sonuç satırı` : 'Tamamlandı'
+            message: result.rows.length ? `${result.rows.length} sonuç satırı` : t('maintenance.completed')
           }, ...current].slice(0, 200));
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -302,7 +304,7 @@ export function DatabaseMaintenanceModal({
       id: `maintenance-${server.id}-${database.name}-${Date.now()}`,
       severity: failed ? 'warning' : 'success',
       source: 'system',
-      title: cancelRef.current ? 'Bakım görevi durduruldu' : failed ? 'Bakım bazı hatalarla tamamlandı' : 'Bakım tamamlandı',
+      title: cancelRef.current ? t('maintenance.taskStopped') : failed ? t('maintenance.partialFailure') : t('maintenance.completedTitle'),
       description: `${database.name} • ${success} başarılı • ${failed} hata • ${completed}/${total} adım`,
       serverId: server.id,
       serverName: server.name,
@@ -325,12 +327,12 @@ export function DatabaseMaintenanceModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[370] flex items-center justify-center p-2 sm:p-3">
-      <button type="button" aria-label="Bakım merkezini kapat" className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={running ? undefined : onClose} />
+      <button type="button" aria-label={t('maintenance.close')} className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={running ? undefined : onClose} />
       <div className="relative z-10 flex h-[calc(100dvh-16px)] max-h-[860px] w-[calc(100vw-16px)] max-w-[1180px] min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl sm:h-[calc(100dvh-24px)] sm:w-[calc(100vw-24px)]">
         <header className="flex shrink-0 items-center gap-3 border-b border-zinc-800 px-4 py-3">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-sky-500/20 bg-sky-500/10 text-sky-300"><Wrench className="h-4 w-4" /></span>
           <div className="min-w-0 flex-1">
-            <div className="text-[12px] font-semibold text-zinc-100">Bakım merkezi</div>
+            <div className="text-[12px] font-semibold text-zinc-100">{t('maintenance.title')}</div>
             <div className="mt-0.5 truncate text-[8px] text-zinc-600">{server.name} • {databaseEngineLabel(server.databaseType)} • tablo bazlı sıralı bakım</div>
           </div>
           {server.readOnly && <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[8px] text-amber-300">Salt-okunur</span>}
@@ -340,61 +342,61 @@ export function DatabaseMaintenanceModal({
         <div className="coreor-scrollbar min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
           <div className="grid gap-3 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)]">
             <section className="rounded-xl border border-zinc-800 bg-black/20 p-3">
-              <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold text-zinc-300"><Database className="h-3.5 w-3.5 text-cyan-400" />Hedef</div>
+              <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold text-zinc-300"><Database className="h-3.5 w-3.5 text-cyan-400" />{t('maintenance.target')}</div>
               <div className="grid gap-2 sm:grid-cols-2">
-                <div><div className="mb-1 text-[8px] uppercase tracking-wider text-zinc-600">Veritabanı</div><SearchSelect value={databaseName} options={databaseOptions} onValueChange={value => { setDatabaseName(value); setTableName(''); }} disabled={running} searchPlaceholder="Veritabanı ara…" dropdownMinWidth={360} /></div>
-                <div><div className="mb-1 text-[8px] uppercase tracking-wider text-zinc-600">Kapsam</div><div className="flex h-10 rounded-xl border border-zinc-800 bg-zinc-950 p-1">{(['database','table'] as const).map(value => <button key={value} type="button" disabled={running} onClick={() => setScope(value)} className={`flex-1 rounded-lg text-[9px] transition ${scope === value ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-600 hover:text-zinc-300'}`}>{value === 'database' ? 'Tüm tablolar' : 'Tek tablo'}</button>)}</div></div>
+                <div><div className="mb-1 text-[8px] uppercase tracking-wider text-zinc-600">Veritabanı</div><SearchSelect value={databaseName} options={databaseOptions} onValueChange={value => { setDatabaseName(value); setTableName(''); }} disabled={running} searchPlaceholder={t('maintenance.databaseSearch')} dropdownMinWidth={360} /></div>
+                <div><div className="mb-1 text-[8px] uppercase tracking-wider text-zinc-600">{t('maintenance.scope')}</div><div className="flex h-10 rounded-xl border border-zinc-800 bg-zinc-950 p-1">{(['database','table'] as const).map(value => <button key={value} type="button" disabled={running} onClick={() => setScope(value)} className={`flex-1 rounded-lg text-[9px] transition ${scope === value ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-600 hover:text-zinc-300'}`}>{value === 'database' ? t('maintenance.allTables') : t('maintenance.singleTable')}</button>)}</div></div>
               </div>
-              {scope === 'table' && <div className="mt-2"><div className="mb-1 text-[8px] uppercase tracking-wider text-zinc-600">Tablo</div><SearchSelect value={tableName} options={tableOptions} onValueChange={setTableName} disabled={running} searchPlaceholder="Tablo ara…" dropdownMinWidth={380} /></div>}
+              {scope === 'table' && <div className="mt-2"><div className="mb-1 text-[8px] uppercase tracking-wider text-zinc-600">Tablo</div><SearchSelect value={tableName} options={tableOptions} onValueChange={setTableName} disabled={running} searchPlaceholder={t('maintenance.tableSearch')} dropdownMinWidth={380} /></div>}
               <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/70 p-2.5 text-[8px] leading-4 text-zinc-500">
-                {scope === 'database' ? `${database?.tables.length || 0} tablo sırayla işlenecek.` : tableName ? `${tableName} üzerinde seçili bakım adımları çalışacak.` : 'Bir tablo seçin.'}
+                {scope === 'database' ? `${database?.tables.length || 0} tablo sırayla işlenecek.` : tableName ? `${tableName} üzerinde seçili bakım adımları çalışacak.` : t('maintenance.selectTable')}
                 {' '}Bakım tek bağlantıda toplu SQL yerine tablo/adım bazında yürütülür; bu sayede ilerleme ve hata noktası izlenebilir.
               </div>
             </section>
 
             <section className="rounded-xl border border-zinc-800 bg-black/20 p-3">
-              <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold text-zinc-300"><Gauge className="h-3.5 w-3.5 text-emerald-400" />Bakım işlemleri</div>
+              <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold text-zinc-300"><Gauge className="h-3.5 w-3.5 text-emerald-400" />{t('maintenance.operations')}</div>
               <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {allowedDefinitions.map(operation => {
                   const selected = operations.includes(operation.id);
                   return <button key={operation.id} type="button" disabled={running} onClick={() => toggleOperation(operation.id)} className={`min-w-0 rounded-xl border p-3 text-left transition ${selected ? 'border-cyan-500/35 bg-cyan-500/[0.06]' : 'border-zinc-800 bg-zinc-950/50 hover:border-zinc-700'}`}>
                     <div className="flex items-start gap-2"><span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${selected ? 'border-cyan-400 bg-cyan-400 text-black' : 'border-zinc-700'}`}>{selected && <CheckCircle2 className="h-3 w-3" />}</span><span className="min-w-0 flex-1"><span className="block text-[9px] font-semibold text-zinc-200">{operation.label}</span><span className="mt-1 block text-[8px] leading-4 text-zinc-600">{operation.description}</span></span></div>
-                    <span className={`mt-2 inline-flex rounded border px-1.5 py-0.5 text-[7px] ${impactClass(operation.impact)}`}>{operation.impact === 'high' ? 'Yüksek I/O' : operation.impact === 'medium' ? 'Orta yük' : 'Düşük yük'}</span>
+                    <span className={`mt-2 inline-flex rounded border px-1.5 py-0.5 text-[7px] ${impactClass(operation.impact)}`}>{operation.impact === 'high' ? t('maintenance.highIo') : operation.impact === 'medium' ? t('maintenance.mediumLoad') : t('maintenance.lowLoad')}</span>
                   </button>;
                 })}
               </div>
-              {server.readOnly && !allowedDefinitions.length && <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.05] p-3 text-[9px] text-amber-300">Bu motor için salt-okunur profilde çalıştırılabilecek bakım işlemi yok.</div>}
+              {server.readOnly && !allowedDefinitions.length && <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.05] p-3 text-[9px] text-amber-300">{t('maintenance.readOnlyUnavailable')}</div>}
             </section>
           </div>
 
           <section className="mt-3 rounded-xl border border-zinc-800 bg-black/20 p-3">
             <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between text-[9px]"><span className="font-medium text-zinc-300">{running ? cancelRequested ? 'Mevcut adım tamamlanınca durdurulacak…' : 'Bakım çalışıyor' : overall.total ? 'Son bakım sonucu' : 'Hazır'}</span><span className="font-mono text-zinc-600">{overall.completed}/{overall.total || ((scope === 'table' ? (tableName ? 1 : 0) : database?.tables.length || 0) * operations.length)} • %{overallPercent}</span></div>
+                <div className="flex items-center justify-between text-[9px]"><span className="font-medium text-zinc-300">{running ? cancelRequested ? t('maintenance.stopAfterCurrent') : t('maintenance.running') : overall.total ? t('maintenance.lastResult') : t('common.ready')}</span><span className="font-mono text-zinc-600">{overall.completed}/{overall.total || ((scope === 'table' ? (tableName ? 1 : 0) : database?.tables.length || 0) * operations.length)} • %{overallPercent}</span></div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-900"><div className="h-full rounded-full bg-cyan-500 transition-[width] duration-300" style={{ width: `${overallPercent}%` }} /></div>
               </div>
               <div className="flex shrink-0 gap-2">
-                {running ? <Button variant="outline" size="sm" className="h-8 gap-1.5 text-[9px] text-amber-300" onClick={requestCancel} disabled={cancelRequested}><PauseCircle className="h-3.5 w-3.5" />Durdur</Button>
-                  : <Button size="sm" className="h-8 gap-1.5 text-[9px]" onClick={() => void run()} disabled={!database || !operations.length || (scope === 'table' && !tableName)}><Play className="h-3.5 w-3.5" />Bakımı başlat</Button>}
+                {running ? <Button variant="outline" size="sm" className="h-8 gap-1.5 text-[9px] text-amber-300" onClick={requestCancel} disabled={cancelRequested}><PauseCircle className="h-3.5 w-3.5" />{t('maintenance.stop')}</Button>
+                  : <Button size="sm" className="h-8 gap-1.5 text-[9px]" onClick={() => void run()} disabled={!database || !operations.length || (scope === 'table' && !tableName)}><Play className="h-3.5 w-3.5" />{t('maintenance.start')}</Button>}
               </div>
             </div>
             {overall.total > 0 && <div className="mt-2 flex gap-3 text-[8px]"><span className="text-emerald-400">{overall.success} başarılı</span><span className={overall.failed ? 'text-red-400' : 'text-zinc-600'}>{overall.failed} hata</span><span className="text-zinc-600">{overall.total - overall.completed} bekleyen</span></div>}
           </section>
 
           {visibleTables.length > 0 && <section className="mt-3 overflow-hidden rounded-xl border border-zinc-800 bg-black/20">
-            <div className="grid grid-cols-[minmax(180px,1fr)_110px_100px_90px] border-b border-zinc-800 bg-zinc-900/40 px-3 py-2 text-[8px] uppercase tracking-wider text-zinc-600"><span>Tablo</span><span>İlerleme</span><span>Durum</span><span className="text-right">Süre</span></div>
+            <div className="grid grid-cols-[minmax(180px,1fr)_110px_100px_90px] border-b border-zinc-800 bg-zinc-900/40 px-3 py-2 text-[8px] uppercase tracking-wider text-zinc-600"><span>Tablo</span><span>{t('maintenance.progress')}</span><span>Durum</span><span className="text-right">Süre</span></div>
             <div className="coreor-scrollbar max-h-72 overflow-y-auto">
               {visibleTables.map(([table, progress]) => <div key={table} className="grid grid-cols-[minmax(180px,1fr)_110px_100px_90px] items-center border-b border-zinc-900 px-3 py-2 text-[9px] last:border-0">
                 <div className="min-w-0"><div className="truncate text-zinc-300">{table}</div><div className="mt-0.5 truncate text-[7px] text-zinc-700">{progress.currentOperation || progress.error || '—'}</div></div>
                 <div><div className="h-1.5 overflow-hidden rounded-full bg-zinc-900"><div className={`h-full transition-[width] duration-300 ${progress.failed ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${percent(progress.completed, progress.total)}%` }} /></div><div className="mt-1 font-mono text-[7px] text-zinc-700">{progress.completed}/{progress.total}</div></div>
-                <div className={progress.status === 'success' ? 'text-emerald-400' : progress.status === 'error' ? 'text-red-400' : progress.status === 'running' ? 'text-cyan-400' : progress.status === 'cancelled' ? 'text-amber-400' : 'text-zinc-600'}>{progress.status === 'running' ? 'Çalışıyor' : progress.status === 'success' ? 'Tamamlandı' : progress.status === 'error' ? 'Hatalı' : progress.status === 'cancelled' ? 'Durduruldu' : 'Bekliyor'}</div>
+                <div className={progress.status === 'success' ? 'text-emerald-400' : progress.status === 'error' ? 'text-red-400' : progress.status === 'running' ? 'text-cyan-400' : progress.status === 'cancelled' ? 'text-amber-400' : 'text-zinc-600'}>{progress.status === 'running' ? t('maintenance.working') : progress.status === 'success' ? t('maintenance.completed') : progress.status === 'error' ? t('maintenance.failed') : progress.status === 'cancelled' ? t('maintenance.stopped') : t('maintenance.pending')}</div>
                 <div className="text-right font-mono text-zinc-600">{progress.durationMs ? `${progress.durationMs} ms` : '—'}</div>
               </div>)}
             </div>
           </section>}
 
           {logs.length > 0 && <section className="mt-3 rounded-xl border border-zinc-800 bg-black/20 p-3">
-            <div className="mb-2 flex items-center gap-2 text-[9px] font-semibold text-zinc-400"><Activity className="h-3.5 w-3.5" />Son bakım adımları</div>
+            <div className="mb-2 flex items-center gap-2 text-[9px] font-semibold text-zinc-400"><Activity className="h-3.5 w-3.5" />{t('maintenance.recentSteps')}</div>
             <div className="space-y-1">
               {logs.slice(0, 8).map(log => <div key={log.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-zinc-900 bg-zinc-950/50 px-2.5 py-2 text-[8px]"><span>{log.status === 'success' ? <ShieldCheck className="h-3 w-3 text-emerald-400" /> : <AlertTriangle className="h-3 w-3 text-red-400" />}</span><span className="min-w-0 flex-1 truncate text-zinc-400">{log.table} • {log.operation}</span><span className="truncate text-zinc-600">{log.message}</span><span className="shrink-0 font-mono text-zinc-700">{log.durationMs} ms</span></div>)}
             </div>
@@ -402,7 +404,7 @@ export function DatabaseMaintenanceModal({
         </div>
 
         <footer className="flex shrink-0 items-center justify-between border-t border-zinc-800 bg-zinc-950 px-4 py-2.5">
-          <div className="flex items-center gap-2 text-[8px] text-zinc-600"><Table2 className="h-3 w-3" />{scope === 'database' ? `${database?.tables.length || 0} tablo` : tableName || 'Tablo seçilmedi'} • {operations.length} işlem seçili</div>
+          <div className="flex items-center gap-2 text-[8px] text-zinc-600"><Table2 className="h-3 w-3" />{scope === 'database' ? `${database?.tables.length || 0} tablo` : tableName || t('maintenance.noTable')} • {operations.length} işlem seçili</div>
           <div className="flex items-center gap-2">{running && <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400" />}<span className="text-[8px] text-zinc-700">{databaseEngineLabel(server.databaseType)}</span></div>
         </footer>
       </div>

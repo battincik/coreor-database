@@ -673,7 +673,11 @@
     "working": "Çalışıyor",
     "failed": "Hatalı",
     "noTable": "Tablo seçilmedi",
-    "topbarTooltip": "Tablo ve veritabanı bakım merkezi"
+    "topbarTooltip": "Tablo ve veritabanı bakım merkezi",
+    "singleTable": "Tek tablo",
+    "tableSearch": "Tablo ara…",
+    "stopped": "Durduruldu",
+    "pending": "Bekliyor"
   },
   "processCenter": {
     "title": "Process ve kilit merkezi",
