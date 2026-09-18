@@ -54,7 +54,7 @@ impl TxSession {
 }
 
 #[derive(Default)]
-pub struct TransactionStore(pub Mutex<HashMap<String,TxSession>>);
+pub struct TransactionStore(Mutex<HashMap<String,TxSession>>);
 
 async fn cleanup(store:&TransactionStore){
     let mut map=store.0.lock().await;let now=Utc::now();
@@ -63,6 +63,11 @@ async fn cleanup(store:&TransactionStore){
 }
 
 pub fn is_transaction_action(action:&str)->bool{action.starts_with("transaction-")}
+
+pub async fn discard(store:&TransactionStore,id:&str){
+    let mut map=store.0.lock().await;
+    map.remove(id);
+}
 
 pub async fn handle(request:DatabaseRequest,store:&TransactionStore,max_rows:usize)->Result<Value,String>{
     cleanup(store).await;
