@@ -4,9 +4,8 @@ import React, { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, LogOut, Search, Settings } from 'lucide-react';
+import { ArrowLeft, Search, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { signOut } from 'next-auth/react';
 import { useLanguage } from '@/context/LanguageContext';
 import { settingsItems, iconMap, routeMap } from '@/lib/settingsConfig';
 
@@ -79,12 +78,6 @@ export function SettingsSidebar({ activeTab }: { activeTab?: string }) {
         </div>
       </ScrollArea>
 
-      <div className="shrink-0 border-t border-zinc-800 p-2">
-        <Button variant="ghost" className="h-8 w-full justify-start gap-2 px-2 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300" onClick={() => signOut({ callbackUrl: '/' })}>
-          <LogOut className="h-4 w-4" />
-          {t('logout', 'Çıkış yap')}
-        </Button>
-      </div>
     </aside>
   );
 }
