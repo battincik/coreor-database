@@ -304,7 +304,8 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
         // SHOW DATABASES follows the server's real visibility rules and works with restricted users.
         // Metadata is then loaded per visible schema so one denied information_schema field cannot blank the whole catalog.
         let db_sql="SHOW DATABASES";
-        let db_rows=rows_of(&execute_sql(c,db_sql,None,max).await?);
+        let mut conn=open_native(c,c.database.as_deref()).await?;
+        let db_rows=rows_of(&execute_on(&mut conn,db_sql,max).await?);
         let mut out=Vec::new();
 
         for row in db_rows {
@@ -319,11 +320,11 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
                 escaped,escaped,escaped,escaped
             );
 
-            let mut tables=match execute_sql(c,&table_sql,Some(&name),max).await {
+            let mut tables=match execute_on(&mut conn,&table_sql,max).await {
                 Ok(result)=>rows_of(&result),
                 Err(_)=>{
                     let fallback=format!("SHOW FULL TABLES FROM {}",ident(&name,&c.engine)?);
-                    rows_of(&execute_sql(c,&fallback,Some(&name),max).await?)
+                    rows_of(&execute_on(&mut conn,&fallback,max).await?)
                 }
             };
 
@@ -336,7 +337,7 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
             });
             if suspicious_zero_stats {
                 let status_sql=format!("SHOW TABLE STATUS FROM {}",ident(&name,&c.engine)?);
-                if let Ok(status_result)=execute_sql(c,&status_sql,Some(&name),max).await {
+                if let Ok(status_result)=execute_on(&mut conn,&status_sql,max).await {
                     let status_rows=rows_of(&status_result);
                     if status_rows.iter().any(|row|row.get("Data_length").map(|value|num(Some(value))>0).unwrap_or(false)) {
                         tables=status_rows.into_iter().filter_map(|row|{
