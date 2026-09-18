@@ -662,7 +662,7 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
         if let Some(table)=table {
             let table_literal=literal(&json!(table),&c.engine);
             (format!(
-                "SELECT COALESCE(pg_relation_size(c.oid),0)::bigint AS \"dataBytes\",COALESCE(GREATEST(pg_total_relation_size(c.oid)-pg_relation_size(c.oid),0),0)::bigint AS \"indexBytes\",0::bigint AS \"freeBytes\",COALESCE(pg_total_relation_size(c.oid),0)::bigint AS \"totalBytes\",GREATEST(c.reltuples,0)::bigint AS \"rows\" FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname={} AND c.relkind IN ('r','p','m') LIMIT 1",
+                "SELECT COALESCE(pg_relation_size(c.oid),0)::bigint AS \"dataBytes\",COALESCE(GREATEST(pg_total_relation_size(c.oid)-pg_relation_size(c.oid),0),0)::bigint AS \"indexBytes\",0::bigint AS \"freeBytes\",COALESCE(pg_total_relation_size(c.oid),0)::bigint AS \"totalBytes\",GREATEST(c.reltuples,0)::bigint AS \"rows\",1::bigint AS \"objectCount\" FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relname={} AND c.relkind IN ('r','p','m') AND n.nspname NOT IN ('pg_catalog','information_schema') ORDER BY CASE WHEN n.nspname=ANY(current_schemas(false)) THEN 0 ELSE 1 END,n.nspname LIMIT 1",
                 table_literal
             ),Some(db))
         }else{
@@ -670,10 +670,10 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
         }
     }else if is_mssql(&c.engine){
         if let Some(table)=table {
-            let object_name=literal(&json!(format!("dbo.{}",table)),&c.engine);
+            let table_literal=literal(&json!(table),&c.engine);
             (format!(
-                "SELECT COALESCE(SUM(ps.in_row_data_page_count+ps.lob_used_page_count+ps.row_overflow_used_page_count),0)*8192 AS dataBytes,(COALESCE(SUM(ps.reserved_page_count),0)-COALESCE(SUM(ps.in_row_data_page_count+ps.lob_used_page_count+ps.row_overflow_used_page_count),0))*8192 AS indexBytes,0 AS freeBytes,COALESCE(SUM(ps.reserved_page_count),0)*8192 AS totalBytes,COALESCE(SUM(CASE WHEN ps.index_id IN (0,1) THEN ps.row_count ELSE 0 END),0) AS [rows] FROM sys.dm_db_partition_stats ps WHERE ps.object_id=OBJECT_ID({})",
-                object_name
+                "WITH target AS (SELECT TOP (1) t.object_id FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE t.name={} ORDER BY CASE WHEN s.name='dbo' THEN 0 ELSE 1 END,s.name) SELECT COALESCE(SUM(ps.in_row_data_page_count+ps.lob_used_page_count+ps.row_overflow_used_page_count),0)*8192 AS dataBytes,(COALESCE(SUM(ps.reserved_page_count),0)-COALESCE(SUM(ps.in_row_data_page_count+ps.lob_used_page_count+ps.row_overflow_used_page_count),0))*8192 AS indexBytes,0 AS freeBytes,COALESCE(SUM(ps.reserved_page_count),0)*8192 AS totalBytes,COALESCE(SUM(CASE WHEN ps.index_id IN (0,1) THEN ps.row_count ELSE 0 END),0) AS [rows],CASE WHEN EXISTS(SELECT 1 FROM target) THEN 1 ELSE 0 END AS objectCount FROM sys.dm_db_partition_stats ps WHERE ps.object_id=(SELECT object_id FROM target)",
+                table_literal
             ),Some(db))
         }else{
             ("SELECT COALESCE(SUM(size),0)*8192 AS dataBytes,0 AS indexBytes,0 AS freeBytes,COALESCE(SUM(size),0)*8192 AS totalBytes,NULL AS [rows] FROM sys.database_files".into(),Some(db))
@@ -682,12 +682,16 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
         let db_literal=literal(&json!(db),&c.engine);
         let table_clause=table.map(|table|format!(" AND TABLE_NAME={}",literal(&json!(table),&c.engine))).unwrap_or_default();
         (format!(
-            "SELECT CAST(COALESCE(SUM(DATA_LENGTH),0) AS CHAR) AS dataBytes,CAST(COALESCE(SUM(INDEX_LENGTH),0) AS CHAR) AS indexBytes,CAST(COALESCE(SUM(DATA_FREE),0) AS CHAR) AS freeBytes,CAST(COALESCE(SUM(DATA_LENGTH),0)+COALESCE(SUM(INDEX_LENGTH),0) AS CHAR) AS totalBytes,CAST(COALESCE(SUM(TABLE_ROWS),0) AS CHAR) AS `rows` FROM information_schema.TABLES WHERE TABLE_SCHEMA={}{}",
+            "SELECT CAST(COALESCE(SUM(DATA_LENGTH),0) AS CHAR) AS dataBytes,CAST(COALESCE(SUM(INDEX_LENGTH),0) AS CHAR) AS indexBytes,CAST(COALESCE(SUM(DATA_FREE),0) AS CHAR) AS freeBytes,CAST(COALESCE(SUM(DATA_LENGTH),0)+COALESCE(SUM(INDEX_LENGTH),0) AS CHAR) AS totalBytes,CAST(COALESCE(SUM(TABLE_ROWS),0) AS CHAR) AS `rows`,CAST(COUNT(*) AS CHAR) AS objectCount FROM information_schema.TABLES WHERE TABLE_SCHEMA={}{}",
             db_literal,table_clause
         ),None)
     };
 
-    let row=rows_of(&execute_sql(c,&sql,target_db,1).await?).into_iter().next().unwrap_or(json!({}));
+    let row=rows_of(&execute_sql(c,&sql,target_db,1).await?).into_iter().next()
+        .ok_or_else(|| if scope=="table" {"Tablo depolama metadata'sında bulunamadı.".to_string()} else {"Depolama sorgusu sonuç döndürmedi.".to_string()})?;
+    if scope=="table" && num(row.get("objectCount"))==0 {
+        return Err("Tablo depolama metadata'sında bulunamadı veya bu kullanıcı tarafından görüntülenemiyor.".into());
+    }
     Ok(json!({
         "scope":scope,
         "database":db,
