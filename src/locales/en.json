@@ -599,7 +599,8 @@
     "minimize": "Minimize",
     "maximizeRestore": "Maximize / restore",
     "maximizeOrRestore": "Maximize or restore",
-    "dragToMove": "Drag to move the window"
+    "dragToMove": "Drag to move the window",
+    "drag": "Drag to move the window"
   },
   "notificationCenter": {
     "title": "Notification center",
@@ -633,7 +634,8 @@
     "sqlAction": "Review the error code and technical details. Open the related SQL in the editor and verify the target database and user permissions.",
     "genericMeaning": "This record was created by Coreor Database to track an important application or database event.",
     "genericCause": "The cause depends on the source and technical metadata fields.",
-    "genericAction": "Use the server, database, code, and timestamp to inspect the related workspace."
+    "genericAction": "Use the server, database, code, and timestamp to inspect the related workspace.",
+    "backToEditor": "Back to editor"
   },
   "maintenance": {
     "title": "Maintenance center",

@@ -27,14 +27,14 @@ interface BottomBarGuideProps {
 }
 
 const items = [
-  { icon: Server, title: 'Bağlantı ve motor', text: 'Bağlantı sağlığı, MySQL/MariaDB motoru, sürüm profili, TLS modu, host ve port bilgilerini gösterir.' },
-  { icon: Clock3, title: 'İki farklı süre', text: 'Uptime veritabanı sunucusunun gerçek çalışma süresidir. Coreor süresi ise aktif profilin bu sekmede seçili kaldığı süredir.' },
-  { icon: Activity, title: 'Thread ve bağlantılar', text: 'Bağlı thread, çalışan thread, en yüksek bağlantı kullanımı ve reddedilen bağlantı değerleri sunucudan okunur.' },
-  { icon: Gauge, title: 'Buffer pool', text: 'InnoDB bellek kullanımı, boş sayfa, dirty page ve hit ratio değerleri sorgu performansını yorumlamaya yardımcı olur.' },
-  { icon: HardDrive, title: 'Depolama', text: 'Veri, indeks, boş alan, toplam mantıksal boyut ve seçili veritabanının yaklaşık boyutu gösterilir.' },
-  { icon: Network, title: 'Ağ trafiği', text: 'Sunucu açılışından beri alınan ve gönderilen toplam byte sayaçlarıdır; anlık bant genişliği değildir.' },
-  { icon: Table, title: 'Grid durumu', text: 'Aktif tablo sayfası, sayfa boyutu, toplam satır, filtre ve sıralama durumunu gösterir.' },
-  { icon: TerminalSquare, title: 'SQL özeti', text: 'Bu uygulama oturumundaki kullanıcı işlemleri üzerinden başarı oranı, hata, uyarı ve sorgu süreleri hesaplanır.' }
+  { icon: Server, title: t('statusGuide.connectionEngine'), text: t('statusGuide.connectionEngineDescription') },
+  { icon: Clock3, title: t('statusGuide.twoDurations'), text: t('statusGuide.twoDurationsDescription') },
+  { icon: Activity, title: t('bottomBar.connectionsThreads'), text: t('statusGuide.threadsDescription') },
+  { icon: Gauge, title: 'Buffer pool', text: t('statusGuide.bufferDescription') },
+  { icon: HardDrive, title: 'Depolama', text: t('statusGuide.storageDescription') },
+  { icon: Network, title: t('database.traffic'), text: t('statusGuide.trafficDescription') },
+  { icon: Table, title: 'Grid durumu', text: t('statusGuide.gridDescription') },
+  { icon: TerminalSquare, title: t('statusGuide.sqlSummary'), text: t('statusGuide.sqlSummaryDescription') }
 ];
 
 export function BottomBarGuide({ selectedDatabase, selectedTable }: BottomBarGuideProps) {
@@ -49,10 +49,10 @@ export function BottomBarGuide({ selectedDatabase, selectedTable }: BottomBarGui
         type="button"
         aria-label="BottomBar ayrıntı rehberi"
         className="flex h-full items-center gap-1.5 px-2.5 text-[9px] text-zinc-500 transition hover:bg-white/[0.04] hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-500/30"
-        title="BottomBar durum rehberi"
+        title={t('statusGuide.tooltip')}
       >
         <Info className="h-3 w-3" />
-        <span className="hidden xl:inline">Durum rehberi</span>
+        <span className="hidden xl:inline">{t('statusGuide.title')}</span>
       </button>
 
       <div className="pointer-events-none absolute bottom-[calc(100%+6px)] right-0 hidden w-[min(680px,82vw)] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/98 shadow-2xl backdrop-blur-xl group-hover:block group-focus-within:block">
@@ -61,14 +61,14 @@ export function BottomBarGuide({ selectedDatabase, selectedTable }: BottomBarGui
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-300"><Info className="h-4 w-4" /></div>
             <div className="min-w-0 flex-1">
               <div className="text-xs font-semibold text-zinc-100">BottomBar durum rehberi</div>
-              <p className="mt-1 text-[10px] leading-5 text-zinc-500">Her metriğin üzerine geldiğinizde canlı değerleri görebilirsiniz. Bu panel göstergelerin ne anlama geldiğini açıklar.</p>
+              <p className="mt-1 text-[10px] leading-5 text-zinc-500">{t('statusGuide.intro')}</p>
             </div>
             <span className="rounded-full border border-zinc-800 bg-black/20 px-2 py-1 text-[8px] text-zinc-500">v2.0.2</span>
           </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-4">
-            <div className="rounded-lg border border-zinc-800 bg-black/20 p-2.5"><div className="text-[8px] uppercase tracking-wider text-zinc-600">Sunucu</div><div className="mt-1 truncate text-[10px] font-medium text-zinc-200">{activeServer?.name || 'Seçilmedi'}</div></div>
-            <div className="rounded-lg border border-zinc-800 bg-black/20 p-2.5"><div className="text-[8px] uppercase tracking-wider text-zinc-600">Veritabanı</div><div className="mt-1 truncate text-[10px] font-medium text-zinc-200">{selectedDatabase || 'Sunucu geneli'}</div></div>
-            <div className="rounded-lg border border-zinc-800 bg-black/20 p-2.5"><div className="text-[8px] uppercase tracking-wider text-zinc-600">Tablo</div><div className="mt-1 truncate text-[10px] font-medium text-zinc-200">{selectedTable || 'Seçilmedi'}</div></div>
+            <div className="rounded-lg border border-zinc-800 bg-black/20 p-2.5"><div className="text-[8px] uppercase tracking-wider text-zinc-600">{t('statusGuide.server')}</div><div className="mt-1 truncate text-[10px] font-medium text-zinc-200">{activeServer?.name || t('statusGuide.notSelected')}</div></div>
+            <div className="rounded-lg border border-zinc-800 bg-black/20 p-2.5"><div className="text-[8px] uppercase tracking-wider text-zinc-600">{t('database.database')}</div><div className="mt-1 truncate text-[10px] font-medium text-zinc-200">{selectedDatabase || t('query.serverScope')}</div></div>
+            <div className="rounded-lg border border-zinc-800 bg-black/20 p-2.5"><div className="text-[8px] uppercase tracking-wider text-zinc-600">{t('database.table')}</div><div className="mt-1 truncate text-[10px] font-medium text-zinc-200">{selectedTable || t('statusGuide.notSelected')}</div></div>
             <div className="rounded-lg border border-zinc-800 bg-black/20 p-2.5"><div className="text-[8px] uppercase tracking-wider text-zinc-600">SQL oturumu</div><div className={`mt-1 text-[10px] font-medium ${errorCount ? 'text-amber-300' : 'text-emerald-300'}`}>{activities.length} işlem • {errorCount} hata</div></div>
           </div>
         </div>

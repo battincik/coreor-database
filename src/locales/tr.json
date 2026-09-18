@@ -599,7 +599,8 @@
     "minimize": "Küçült",
     "maximizeRestore": "Büyüt / geri yükle",
     "maximizeOrRestore": "Büyüt veya geri yükle",
-    "dragToMove": "Pencereyi taşımak için sürükleyin"
+    "dragToMove": "Pencereyi taşımak için sürükleyin",
+    "drag": "Pencereyi taşımak için sürükleyin"
   },
   "notificationCenter": {
     "title": "Bildirim merkezi",
@@ -633,7 +634,8 @@
     "sqlAction": "Hata kodunu ve teknik ayrıntıları inceleyin. İlgili SQL’i editörde hedef veritabanı ve kullanıcı yetkileriyle birlikte doğrulayın.",
     "genericMeaning": "Bu kayıt Coreor Database tarafından önemli bir uygulama veya veritabanı olayını izlemek için oluşturuldu.",
     "genericCause": "Kaynağa ve teknik metadata alanlarına göre olayın nedeni değişebilir.",
-    "genericAction": "Sunucu, veritabanı, kod ve zaman bilgisini kullanarak ilgili çalışma alanını kontrol edin."
+    "genericAction": "Sunucu, veritabanı, kod ve zaman bilgisini kullanarak ilgili çalışma alanını kontrol edin.",
+    "backToEditor": "Editöre dön"
   },
   "maintenance": {
     "title": "Bakım merkezi",
