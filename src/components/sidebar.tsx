@@ -322,8 +322,18 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           const detail = database.tableDetails.find(item => item.tableName === table);
           return { name: table, kind: detail?.tableType?.toUpperCase().includes('VIEW') ? 'view' : 'table' };
         });
-        const sourceObjects = databaseObjects[key]?.length ? databaseObjects[key] : catalogObjects;
-        const objectMatches = sourceObjects.filter(object =>
+        const nativeObjects = databaseObjects[key] || [];
+        const mergedObjects = [...catalogObjects];
+        for (const object of nativeObjects) {
+          const index = mergedObjects.findIndex(existing =>
+            existing.kind === object.kind
+            && existing.name === object.name
+            && (existing.schema || '') === (object.schema || '')
+          );
+          if (index >= 0) mergedObjects[index] = { ...mergedObjects[index], ...object };
+          else mergedObjects.push(object);
+        }
+        const objectMatches = mergedObjects.filter(object =>
           searchTypeEnabled(object.kind)
           && (!normalizedSearch || `${server.name} ${database.name} ${object.kind} ${object.schema || ''} ${object.name} ${object.tableName || ''}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch))
         );
@@ -849,7 +859,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                               const detail = database.tableDetails.find(item => item.tableName === table);
                               return { name: table, kind: detail?.tableType?.toUpperCase().includes('VIEW') ? 'view' : 'table' };
                             });
-                            const visibleObjects = objectFilterActive ? database.objectMatches : loaded?.length ? loaded : fallbackObjects;
+                            const visibleObjects = database.objectMatches.length
+                              ? database.objectMatches
+                              : loaded?.length
+                                ? [...fallbackObjects, ...loaded.filter(object => !fallbackObjects.some(fallback => fallback.kind === object.kind && fallback.name === object.name))]
+                                : fallbackObjects;
                             const sortedObjects = [...visibleObjects].sort((left, right) => left.name.localeCompare(right.name, 'tr', { sensitivity: 'base' }));
                             const renderObject = (object: DatabaseSchemaObject, Icon: typeof Table2) => {
                               const detail = database.tableDetails.find(item => item.tableName === object.name);
