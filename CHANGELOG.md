@@ -1,59 +1,48 @@
 # Changelog
 
-All notable changes to Coreor Web Database are documented in this file.
-
-The project follows a pragmatic versioning approach. Until a formal release automation is introduced, version numbers in `package.json`, GitHub Releases and this file should be kept in sync manually.
+Notable changes to Coreor Database are tracked here.
 
 ## [Unreleased]
 
-### Added
-- Public repository documentation set.
-- Apache License 2.0 and NOTICE file.
-- Public release checklist and contributor/security guidance.
-- Dependabot configuration for npm and GitHub Actions.
+### Architecture
+- Converted the product direction from hosted/browser-first to a cross-platform Tauri desktop application.
+- Database access now belongs to the local Rust process through Tauri IPC.
+- Added cross-platform bundle configuration for Windows, macOS and Linux.
+- Added optional account capability architecture that does not gate local database access.
 
-### Security
-- Public SaaS connection model with private/reserved target blocking.
-- Trusted-origin checks for database API requests.
-- Request body size limits and per-user process-local rate limiting.
-- Strong production NextAuth secret requirements.
-- Safer database error normalization.
-- Activity Console masking for common password, token and API-key fields.
-- Security response headers including CSP, HSTS, frame, MIME, referrer and permissions policies.
+### Added
+- Full Object Explorer for tables, views, procedures, functions, triggers and events.
+- Rich object/context menus and platform-aware keyboard shortcuts.
+- Fuzzy Command Palette with recent commands and database-object indexing.
+- Native row insertion workflow.
+- Cross-platform GitHub Actions validation and artifact workflows.
+- Open-source project documentation and Apache-2.0 metadata.
 
 ### Performance
-- Short-lived decrypted vault profile cache with in-flight read coalescing.
-- Performance snapshot caching and request deduplication.
+- Lazy and cached database-object discovery.
+- Reduced repeated metadata connections and polling.
+- Heavy UI tools load on demand.
+- Background/hidden-window polling is reduced.
+- Native resource profiling support for Windows.
 
-### Developer experience
-- Standardized actionable database client errors.
-- Hardened production deployment workflow with verification, health check and rollback logic.
+### Security
+- Native read-only enforcement.
+- Guest-first account design; account availability does not control local DB access.
+- Architecture guard prevents reintroduction of hosted database API routes and Node DB drivers.
 
 ## [3.1.0] - 2026
 
-### Highlights
-- Modern browser-based multi-database workbench.
-- GitHub authentication and account-scoped browser vault.
-- Support for MySQL, MariaDB, PostgreSQL, CockroachDB, TiDB and Microsoft SQL Server adapters.
-- SQL workspace, table editing, schema exploration and administration tools.
-- Transaction workspace for supported engines.
-- Performance, process, schema graph, import/export, user management and automation-oriented tooling.
-- Multi-language interface infrastructure.
+### Historical note
+3.1.0 began during the earlier web-client era. The current unreleased branch supersedes that architecture with the Tauri/Rust local-first desktop model.
 
-### Architecture
-- Database profiles stored in browser IndexedDB and encrypted with WebCrypto AES-GCM.
-- Database connection requests routed through same-origin Next.js Node.js API handlers.
-- Credentials are not intentionally persisted by the application server after a request completes.
+## Release maintenance
 
-## Maintenance rules
+When preparing a release, synchronize:
 
-When preparing a new release:
+1. `package.json`,
+2. `src-tauri/Cargo.toml`,
+3. `src-tauri/tauri.conf.json`,
+4. this changelog,
+5. the Git tag/GitHub Release.
 
-1. Update `package.json` version.
-2. Move relevant entries from `Unreleased` into a dated version section.
-3. Run `npm ci` and `npm run check`.
-4. Review security advisories and dependency updates.
-5. Create a Git tag and GitHub Release.
-6. Verify the production deployment.
-
-See [RELEASING.md](RELEASING.md) for the complete release process.
+See [RELEASING.md](RELEASING.md).
