@@ -140,6 +140,28 @@
   * { @apply border-border; }
   html { font-size: var(--coreor-ui-font-size); }
   body { @apply bg-background text-foreground; font-family: var(--coreor-font-family); line-height: var(--coreor-line-height); }
+
+  /* Desktop WebViews otherwise inherit thick platform scrollbars. Keep them
+     unobtrusive everywhere; they only render on elements that actually overflow. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / .28) transparent;
+  }
+  *::-webkit-scrollbar { width: 6px; height: 6px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    min-height: 24px;
+    min-width: 24px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: hsl(var(--muted-foreground) / .28);
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / .48);
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-corner { background: transparent; }
   :root[data-reduced-motion='true'] *, :root[data-reduced-motion='true'] *::before, :root[data-reduced-motion='true'] *::after {
     animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.001ms !important;
   }
@@ -168,12 +190,16 @@
     text-rendering: geometricPrecision;
   }
   .coreor-console-text { font-size: var(--coreor-console-font-size) !important; }
+  .coreor-scrollbar,
   .coreor-sidebar-scroll {
     scrollbar-width: thin;
-    scrollbar-color: rgba(113, 113, 122, .42) transparent;
+    scrollbar-color: hsl(var(--muted-foreground) / .38) transparent;
   }
+  .coreor-scrollbar::-webkit-scrollbar,
   .coreor-sidebar-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+  .coreor-scrollbar::-webkit-scrollbar-track,
   .coreor-sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+  .coreor-scrollbar::-webkit-scrollbar-thumb,
   .coreor-sidebar-scroll::-webkit-scrollbar-thumb {
     min-height: 28px;
     border: 1px solid transparent;
@@ -181,7 +207,11 @@
     background: rgba(113, 113, 122, .42);
     background-clip: padding-box;
   }
-  .coreor-sidebar-scroll::-webkit-scrollbar-thumb:hover { background: rgba(161, 161, 170, .62); background-clip: padding-box; }
+  .coreor-scrollbar::-webkit-scrollbar-thumb:hover,
+  .coreor-sidebar-scroll::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / .58); background-clip: padding-box; }
+  .coreor-scrollbar::-webkit-scrollbar-corner,
   .coreor-sidebar-scroll::-webkit-scrollbar-corner { background: transparent; }
+  .coreor-hide-scrollbar { scrollbar-width: none; }
+  .coreor-hide-scrollbar::-webkit-scrollbar { display: none; }
   :root[data-compact='false'] .coreor-compact-row { min-height: 2.25rem; padding-top: .375rem; padding-bottom: .375rem; }
 }
