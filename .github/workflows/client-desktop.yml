@@ -32,7 +32,7 @@ jobs:
       - name: Static frontend build
         run: npm run build:web
       - name: Tauri Windows bundles
-        run: npx --no-install tauri build --bundles nsis,msi --locked
+        run: npx --no-install tauri build --bundles nsis,msi
       - name: Upload Windows installers
         uses: actions/upload-artifact@v4
         with:
