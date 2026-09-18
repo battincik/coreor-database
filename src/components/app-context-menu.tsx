@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronRight } from 'lucide-react';
 import { shortcutLabel, type ShortcutId } from '@/lib/shortcuts';
@@ -39,14 +39,26 @@ function visibleItems(items: AppContextMenuItem[]) {
   return items.filter(item => item.id !== 'set-null');
 }
 
-interface SubmenuState { id: string; x: number; y: number; focus: boolean }
+interface SubmenuState {
+  id: string;
+  anchorLeft: number;
+  anchorRight: number;
+  anchorTop: number;
+  anchorBottom: number;
+  focus: boolean;
+}
+
+const MENU_SURFACE_CLASS =
+  'w-max min-w-60 max-w-[min(320px,calc(100vw-16px))] overflow-visible rounded-xl border border-zinc-700/80 bg-zinc-950/98 shadow-[0_18px_70px_rgba(0,0,0,.68)] backdrop-blur-xl';
 
 function MenuItems({ items, closeMenu, onBack, autoFocus = false }: { items: AppContextMenuItem[]; closeMenu: () => void; onBack?: () => void; autoFocus?: boolean }) {
   const menuItems = visibleItems(items);
   const selectable = menuItems.filter(item => !item.separator);
   const [submenu, setSubmenu] = useState<SubmenuState | null>(null);
+  const [submenuPosition, setSubmenuPosition] = useState<{ x: number; y: number; ready: boolean }>({ x: 0, y: 0, ready: false });
   const [activeId, setActiveId] = useState<string | null>(() => selectable[0]?.id || null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const submenuRef = useRef<HTMLDivElement | null>(null);
   const typeaheadRef = useRef('');
   const typeaheadTimer = useRef<number | null>(null);
 
@@ -60,12 +72,31 @@ function MenuItems({ items, closeMenu, onBack, autoFocus = false }: { items: App
     const anchor = rootRef.current.querySelector<HTMLElement>(`[data-menu-id="${CSS.escape(item.id)}"]`);
     if (!anchor) return;
     const rect = anchor.getBoundingClientRect();
-    const width = 270;
-    const x = rect.right + width > window.innerWidth - 8 ? Math.max(8, rect.left - width + 4) : rect.right - 4;
-    const submenuHeight = Math.min(520, Math.max(180, window.innerHeight * 0.7));
-    const y = Math.max(8, Math.min(rect.top, window.innerHeight - submenuHeight - 8));
-    setSubmenu({ id: item.id, x, y, focus });
+    setSubmenuPosition({ x: rect.right - 4, y: rect.top, ready: false });
+    setSubmenu({
+      id: item.id,
+      anchorLeft: rect.left,
+      anchorRight: rect.right,
+      anchorTop: rect.top,
+      anchorBottom: rect.bottom,
+      focus
+    });
   };
+
+  useLayoutEffect(() => {
+    if (!submenu || !submenuRef.current) return;
+    const rect = submenuRef.current.getBoundingClientRect();
+    const margin = 8;
+    const overlap = 4;
+    const openRight = submenu.anchorRight + rect.width <= window.innerWidth - margin;
+    const x = openRight
+      ? submenu.anchorRight - overlap
+      : Math.max(margin, submenu.anchorLeft - rect.width + overlap);
+    const preferredTop = submenu.anchorTop;
+    const maxY = Math.max(margin, window.innerHeight - rect.height - margin);
+    const y = Math.max(margin, Math.min(preferredTop, maxY));
+    setSubmenuPosition({ x, y, ready: true });
+  }, [submenu]);
   const move = (direction: 1 | -1) => {
     if (!selectable.length) return;
     const current = Math.max(0, selectable.findIndex(item => item.id === activeId));
@@ -147,9 +178,15 @@ function MenuItems({ items, closeMenu, onBack, autoFocus = false }: { items: App
       </div>
       {submenu && activeSubmenuChildren.length > 0 && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed z-[1810] rounded-xl border border-zinc-700/80 bg-zinc-950 shadow-[0_18px_55px_rgba(0,0,0,.62)]"
-          style={{ left: submenu.x, top: submenu.y }}
+          ref={submenuRef}
+          className={`fixed z-[1810] ${MENU_SURFACE_CLASS}`}
+          style={{
+            left: submenuPosition.x,
+            top: submenuPosition.y,
+            visibility: submenuPosition.ready ? 'visible' : 'hidden'
+          }}
           onMouseDown={event => event.stopPropagation()}
+          onContextMenu={event => event.preventDefault()}
         >
           <MenuItems
             items={activeSubmenuChildren}
@@ -236,7 +273,7 @@ export function AppContextMenuProvider({ children }: { children: React.ReactNode
           <div
             ref={menuRef}
             role="menu"
-            className="fixed z-[1800] min-w-60 overflow-visible rounded-xl border border-zinc-700/80 bg-zinc-950/98 shadow-[0_18px_70px_rgba(0,0,0,.68)] backdrop-blur-xl"
+            className={`fixed z-[1800] ${MENU_SURFACE_CLASS}`}
             style={{ left: menuPosition.x, top: menuPosition.y }}
             onMouseDown={event => event.stopPropagation()}
             onContextMenu={event => event.preventDefault()}
