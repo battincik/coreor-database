@@ -3,7 +3,7 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Activity, Braces, Check, ChevronDown, ChevronRight, Circle, Code2, Copy, Database, Download, FileCode2, FunctionSquare, Gauge, HardDrive, KeyRound, ListFilter, LogOut, MoreHorizontal, Network, Plus, RefreshCw, Search, Server, Settings2, ShieldCheck, Sparkles, Table2, Trash2, UserRound, View, Wifi, WifiOff, Wrench, X, Zap } from 'lucide-react';
-import type { DatabaseEngine, DatabaseSchemaObject, DatabaseServerConfig, SidebarProps } from 'types';
+import type { DatabaseEngine, DatabaseSchemaObject, DatabaseServerConfig, DatabaseTable, SidebarProps } from 'types';
 import { DatabaseContext } from '@/context/DatabaseContext';
 import { useDesktop } from '@/context/DesktopContext';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,36 @@ const OBJECT_SEARCH_TYPES: Array<{ value: ObjectSearchType; label: string; icon:
 
 function objectKindColor(kind: DatabaseSchemaObject['kind']) {
   return OBJECT_SEARCH_TYPES.find(item => item.value === kind)?.color || 'text-zinc-500';
+}
+
+function compactCount(value: number) {
+  if (!Number.isFinite(value)) return '—';
+  return new Intl.NumberFormat('tr-TR', { notation: value >= 1000 ? 'compact' : 'standard', maximumFractionDigits: 1 }).format(value);
+}
+
+function compactSize(megabytes: string | number | null | undefined) {
+  const mb = Number(megabytes);
+  if (!Number.isFinite(mb) || mb <= 0) return null;
+  if (mb >= 1024) return `${(mb / 1024).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} GB`;
+  if (mb >= 1) return `${mb.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} MB`;
+  return `${Math.max(1, Math.round(mb * 1024)).toLocaleString('tr-TR')} KB`;
+}
+
+function objectMetadataText(object: DatabaseSchemaObject, detail?: DatabaseTable) {
+  if (object.kind === 'table') {
+    const size = compactSize(detail?.sizeMB);
+    return [`${compactCount(detail?.rows || 0)} satır`, size].filter(Boolean).join(' • ');
+  }
+  if (object.kind === 'view') {
+    const size = compactSize(detail?.sizeMB);
+    const rows = detail?.rows ? `${compactCount(detail.rows)} satır` : null;
+    return [rows, size].filter(Boolean).join(' • ') || 'View';
+  }
+  if (object.kind === 'trigger') return object.tableName ? `→ ${object.tableName}` : 'Trigger';
+  if (object.kind === 'procedure') return object.comment?.trim() || 'Procedure';
+  if (object.kind === 'function') return object.comment?.trim() || 'Function';
+  if (object.kind === 'event') return object.comment?.trim() || (object.updatedAt ? 'Zamanlanmış event' : 'Event');
+  return null;
 }
 
 interface CreateDatabaseState {
@@ -773,10 +803,14 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                             });
                             const visibleObjects = objectFilterActive ? database.objectMatches : loaded || fallbackObjects;
                             const sortedObjects = [...visibleObjects].sort((left, right) => left.name.localeCompare(right.name, 'tr', { sensitivity: 'base' }));
-                            const renderObject = (object: DatabaseSchemaObject, Icon: typeof Table2) => (
+                            const renderObject = (object: DatabaseSchemaObject, Icon: typeof Table2) => {
+                              const detail = database.tableDetails.find(item => item.tableName === object.name);
+                              const metadata = objectMetadataText(object, detail);
+                              return (
                               <button
                                 key={`${object.kind}:${object.schema || ''}:${object.name}`}
                                 type="button"
+                                title={preferences.objectExplorerDetails && metadata ? `${object.name} • ${metadata}` : object.name}
                                 className={`group flex h-7 w-full min-w-0 items-center gap-2 rounded px-2 text-left ${active && selectedDatabase === database.name && selectedTable === object.name && (object.kind === 'table' || object.kind === 'view') ? 'bg-cyan-500/10 text-cyan-100' : 'text-zinc-500 hover:bg-white/[0.025] hover:text-zinc-200'}`}
                                 onClick={() => {
                                   setActiveServerId(server.id); onDatabaseSelect(database.name);
@@ -789,10 +823,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                               >
                                 <Icon className={`h-3 w-3 shrink-0 ${objectKindColor(object.kind)}`} />
                                 <span className="min-w-0 flex-1 truncate text-[9px]">{object.schema && object.schema !== database.name ? `${object.schema}.` : ''}{object.name}</span>
-                                {!preferences.objectExplorerGrouped && <span className={`rounded bg-white/[0.025] px-1 py-0.5 text-[6px] uppercase ${objectKindColor(object.kind)}`}>{object.kind}</span>}
-                                {object.tableName && <span className="max-w-20 truncate text-[7px] text-zinc-700">{object.tableName}</span>}
+                                {preferences.objectExplorerDetails && metadata && <span className="max-w-[46%] shrink-0 truncate font-mono text-[6.5px] tabular-nums text-zinc-700 group-hover:text-zinc-500">{metadata}</span>}
+                                {!preferences.objectExplorerGrouped && <span className={`shrink-0 rounded bg-white/[0.025] px-1 py-0.5 text-[6px] uppercase ${objectKindColor(object.kind)}`}>{object.kind}</span>}
                               </button>
-                            );
+                              );
+                            };
                             return (
                               <div className="ml-5 border-l border-zinc-900 pl-1">
                                 {objectLoading.has(key) && !loaded && <div className="flex h-7 items-center gap-2 px-2 text-[8px] text-zinc-700"><Activity className="h-3 w-3 animate-spin" />Nesneler yükleniyor…</div>}
