@@ -78,7 +78,7 @@ function automaticPositions(tableNames: string[], tableInfo: Record<string, Tabl
     neighbors.get(edge.target.table)?.add(edge.source.table);
   }
 
-  const rank = new Map(tableNames.map(table => [table, 0]));
+  const rank = new Map<string, number>(tableNames.map(table => [table, 0] as const));
   for (let pass = 0; pass < tableNames.length; pass += 1) {
     let changed = false;
     for (const table of tableNames) {
@@ -91,7 +91,7 @@ function automaticPositions(tableNames: string[], tableInfo: Record<string, Tabl
   }
 
   const usedRanks = [...new Set([...rank.values()])].sort((a, b) => a - b);
-  const compactRank = new Map(usedRanks.map((value, index) => [value, index]));
+  const compactRank = new Map<number, number>(usedRanks.map((value, index) => [value, index] as const));
   for (const table of tableNames) rank.set(table, compactRank.get(rank.get(table) || 0) || 0);
 
   const layers = new Map<number, string[]>();
