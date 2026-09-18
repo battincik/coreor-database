@@ -2,7 +2,7 @@
 
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, Braces, ChevronDown, ChevronRight, Circle, Code2, Copy, Database, Download, FileCode2, FunctionSquare, Gauge, HardDrive, KeyRound, LogOut, MoreHorizontal, Network, Plus, RefreshCw, Search, Server, Settings2, ShieldCheck, Sparkles, Table2, Trash2, UserRound, View, Wifi, WifiOff, Wrench, X, Zap } from 'lucide-react';
+import { Activity, Braces, Check, ChevronDown, ChevronRight, Circle, Code2, Copy, Database, Download, FileCode2, FunctionSquare, Gauge, HardDrive, KeyRound, ListFilter, LogOut, MoreHorizontal, Network, Plus, RefreshCw, Search, Server, Settings2, ShieldCheck, Sparkles, Table2, Trash2, UserRound, View, Wifi, WifiOff, Wrench, X, Zap } from 'lucide-react';
 import type { DatabaseEngine, DatabaseSchemaObject, DatabaseServerConfig, SidebarProps } from 'types';
 import { DatabaseContext } from '@/context/DatabaseContext';
 import { useDesktop } from '@/context/DesktopContext';
@@ -17,8 +17,27 @@ import { executeDatabaseQuery, fetchDatabaseObjects, fetchServerTables } from '@
 import { openQueryTab } from '@/lib/queryWorkspaceEvents';
 import { OPEN_IMPORT_EXPORT_EVENT, OPEN_SETTINGS_MODAL_EVENT } from '@/lib/databaseToolEvents';
 import { databaseEngineDefinition, databaseEngineFamily, databaseEngineLabel, quoteDatabaseIdentifier, qualifiedDatabaseTable } from '@/lib/databaseEngines';
+import { useAppPreferences } from '@/lib/appPreferences';
 
 const objectExplorerKey = (serverId: string, databaseName: string) => `${serverId}:${databaseName}`;
+
+type ObjectSearchType = 'all' | 'server' | 'database' | DatabaseSchemaObject['kind'];
+
+const OBJECT_SEARCH_TYPES: Array<{ value: ObjectSearchType; label: string; icon: typeof Database; color: string }> = [
+  { value: 'all', label: 'Hepsi', icon: Search, color: 'text-cyan-300' },
+  { value: 'server', label: 'Sunucu', icon: Server, color: 'text-emerald-400' },
+  { value: 'database', label: 'Veritabanı', icon: Database, color: 'text-sky-400' },
+  { value: 'table', label: 'Tablo', icon: Table2, color: 'text-cyan-400' },
+  { value: 'view', label: 'View', icon: View, color: 'text-violet-400' },
+  { value: 'procedure', label: 'Procedure', icon: Zap, color: 'text-amber-400' },
+  { value: 'function', label: 'Function', icon: FunctionSquare, color: 'text-fuchsia-400' },
+  { value: 'trigger', label: 'Trigger', icon: Activity, color: 'text-orange-400' },
+  { value: 'event', label: 'Event', icon: Sparkles, color: 'text-emerald-400' }
+];
+
+function objectKindColor(kind: DatabaseSchemaObject['kind']) {
+  return OBJECT_SEARCH_TYPES.find(item => item.value === kind)?.color || 'text-zinc-500';
+}
 
 interface CreateDatabaseState {
   server: DatabaseServerConfig;
@@ -143,8 +162,12 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const { workspaceKey, user } = useDesktop();
   const context = useContext(DatabaseContext)!;
   const { openContextMenu } = useAppContextMenu();
+  const { preferences } = useAppPreferences();
   const { servers, activeServerId, setActiveServerId, addServer, updateServer, removeServer, loadServers, isAddingServer, isServersLoading } = context;
   const [search, setSearch] = useState('');
+  const [searchTypes, setSearchTypes] = useState<Set<ObjectSearchType>>(new Set(['all']));
+  const [searchFilterOpen, setSearchFilterOpen] = useState(false);
+  const searchFilterRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
   const [expandedDatabases, setExpandedDatabases] = useState<Set<string>>(new Set());
@@ -163,6 +186,13 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     const focusSearch = () => { searchRef.current?.focus(); searchRef.current?.select(); };
     window.addEventListener('coreor:focus-object-search', focusSearch);
     return () => window.removeEventListener('coreor:focus-object-search', focusSearch);
+  }, []);
+  useEffect(() => {
+    const closeFilter = (event: MouseEvent) => {
+      if (!searchFilterRef.current?.contains(event.target as Node)) setSearchFilterOpen(false);
+    };
+    document.addEventListener('mousedown', closeFilter);
+    return () => document.removeEventListener('mousedown', closeFilter);
   }, []);
   useEffect(() => {
     setOnline(navigator.onLine);
