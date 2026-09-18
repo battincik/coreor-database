@@ -340,7 +340,7 @@ export async function fetchDatabaseObjects(serverId: string, databaseName: strin
 export async function fetchTableData(serverId: string, databaseName: string, tableName: string, accountId?: string | null, options: FetchTableDataOptions = {}) {
   const server = await requireServer(accountId, serverId);
   return requestDatabaseApi<TableDataResponse>(server, 'table-data', {
-    database: databaseName, table: tableName, page: options.page ?? 1, pageSize: options.pageSize ?? 50,
+    database: databaseName, table: tableName, page: options.page ?? 1, pageSize: options.pageSize ?? 100,
     sorts: options.sorts ?? [], filters: options.filters ?? [], includeTotal: options.includeTotal ?? true,
     knownTotalRows: options.knownTotalRows
   }, { requestKey: `table-data:${serverId}:${databaseName}:${tableName}`, connectionDatabase: databaseName });
