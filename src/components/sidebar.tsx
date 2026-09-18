@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { Activity, Braces, ChevronDown, ChevronRight, Circle, Code2, Database, Download, FileCode2, FunctionSquare, Gauge, HardDrive, KeyRound, LogOut, MoreHorizontal, Network, Plus, RefreshCw, Search, Server, Settings2, ShieldCheck, Sparkles, Table2, Trash2, UserRound, View, Wifi, WifiOff, Wrench, X, Zap } from 'lucide-react';
 import type { DatabaseEngine, DatabaseServerConfig, SidebarProps } from 'types';
 import { DatabaseContext } from '@/context/DatabaseContext';
-import { useAuth } from '@/context/AuthContext';
+import { useDesktop } from '@/context/DesktopContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -93,7 +93,7 @@ function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: Cr
 }
 
 export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatabase, selectedTable }: SidebarProps) {
-  const { activeToken, user } = useAuth();
+  const { workspaceKey, user } = useDesktop();
   const context = useContext(DatabaseContext)!;
   const { openContextMenu } = useAppContextMenu();
   const { servers, activeServerId, setActiveServerId, addServer, updateServer, loadServers, isAddingServer, isServersLoading } = context;
@@ -172,8 +172,8 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     setExpandedDatabases(new Set());
   };
   const refreshServer = async (server: DatabaseServerConfig) => {
-    if (!activeToken) return;
-    await fetchServerTables(server.id, activeToken);
+    if (!workspaceKey) return;
+    await fetchServerTables(server.id, workspaceKey);
     await loadServers();
   };
   const runDangerous = (server: DatabaseServerConfig, database: string, table: string, sql: string, title: string, description: string, label: string) =>
@@ -184,8 +184,8 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       sql,
       confirmLabel: label,
       onConfirm: async () => {
-        if (!activeToken) throw new Error('Yerel çalışma alanı hazır değil.');
-        await executeDatabaseQuery(server.id, sql, activeToken, database);
+        if (!workspaceKey) throw new Error('Yerel çalışma alanı hazır değil.');
+        await executeDatabaseQuery(server.id, sql, workspaceKey, database);
         await refreshServer(server);
         if (/DROP\s+TABLE/i.test(sql)) onTableSelect(null);
       }
@@ -572,12 +572,12 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         onChange={setCreateDatabase}
         onClose={() => setCreateDatabase(null)}
         onCreate={async () => {
-          if (!createDatabase || !activeToken) return;
+          if (!createDatabase || !workspaceKey) return;
           const name = createDatabase.name.trim();
           const engine = createDatabase.server.databaseType || 'mysql';
           setCreateDatabase({ ...createDatabase, busy: true, error: null });
           try {
-            await executeDatabaseQuery(createDatabase.server.id, `CREATE DATABASE ${quoteDatabaseIdentifier(name, engine)};`, activeToken, null);
+            await executeDatabaseQuery(createDatabase.server.id, `CREATE DATABASE ${quoteDatabaseIdentifier(name, engine)};`, workspaceKey, null);
             await refreshServer(createDatabase.server);
             setCreateDatabase(null);
           } catch (error) {
