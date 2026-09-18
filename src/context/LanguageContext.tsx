@@ -110,7 +110,7 @@ function normalizeLocale(input?: string | null): LocaleCode | null {
   return matched?.code ?? null;
 }
 
-function detectBrowserLocale(): LocaleCode {
+function detectSystemLocale(): LocaleCode {
   if (typeof navigator === 'undefined') return DEFAULT_LOCALE;
   for (const candidate of navigator.languages?.length ? navigator.languages : [navigator.language]) {
     const normalized = normalizeLocale(candidate);
@@ -151,7 +151,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY) || window.localStorage.getItem(LEGACY_STORAGE_KEY);
-    const initial = normalizeLocale(stored) ?? detectBrowserLocale();
+    const initial = normalizeLocale(stored) ?? detectSystemLocale();
     setLanguageState(initial);
     window.localStorage.setItem(STORAGE_KEY, initial);
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
