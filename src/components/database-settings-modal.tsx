@@ -28,7 +28,7 @@ import {
 import type { AppFontFamily, AppThemeName, PerformanceRefreshSeconds, SyntaxThemeName } from '@/lib/appPreferences';
 import { useAppPreferences } from '@/lib/appPreferences';
 import { DatabaseContext } from '@/context/DatabaseContext';
-import { useAuth } from '@/context/AuthContext';
+import { useDesktop } from '@/context/DesktopContext';
 import { databaseEngineLabel } from '@/lib/databaseEngines';
 import { ReleaseNotesTree } from '@/components/release-notes-tree';
 import { OrganizationSettingsPanel } from '@/components/organization-settings-panel';
@@ -102,7 +102,7 @@ function Range({ value, min, max, step = 1, suffix = '', onChange }: { value: nu
 }
 
 export function DatabaseSettingsModal({ open, onClose, initialTab = 'account' }: DatabaseSettingsModalProps) {
-  const { activeToken } = useAuth();
+  const { workspaceKey } = useDesktop();
   const { preferences, setPreferences, resetPreferences } = useAppPreferences();
   const { servers, activeServerId, loadServers, isServersLoading } = useContext(DatabaseContext)!;
   const [tab, setTab] = useState<DatabaseSettingsTab>(initialTab);
@@ -131,7 +131,7 @@ export function DatabaseSettingsModal({ open, onClose, initialTab = 'account' }:
           <header className="flex h-16 items-center gap-3 border-b border-zinc-800 px-5"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-800"><ActiveIcon className="h-4 w-4 text-cyan-400" /></span><div className="min-w-0 flex-1"><h2 className="text-sm font-semibold">{activeTab.label}</h2><p className="text-[9px] text-zinc-600">{activeTab.description}</p></div><Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button></header>
           <div className="coreor-table-scroll min-h-0 flex-1 overflow-auto p-5">
             {tab === 'account' && <div className="space-y-4"><section className="rounded-2xl border border-cyan-500/15 bg-gradient-to-br from-cyan-500/[0.07] via-transparent to-purple-500/[0.05] p-5"><div className="flex items-center gap-4">{user?.image ? <img src={user.image} alt="" className="h-16 w-16 rounded-2xl border border-zinc-700 object-cover" /> : <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-700"><UserRound className="h-7 w-7" /></div>}<div><h3 className="text-lg font-semibold">{user?.name || 'Coreor kullanıcısı'}</h3><div className="text-[10px] text-zinc-500">{user?.email || 'E-posta paylaşılmadı'}</div></div></div><div className="mt-5 grid gap-2 sm:grid-cols-4">{[
-              { icon: GitBranch, label: 'Hesap', value: user?.id || activeToken?.slice(0, 12) || '—' },
+              { icon: GitBranch, label: 'Hesap', value: user?.id || workspaceKey?.slice(0, 12) || '—' },
               { icon: Laptop, label: 'Cihaz', value: device.platform },
               { icon: Wifi, label: 'Dil', value: device.language },
               { icon: ShieldCheck, label: 'Ağ', value: device.online ? 'Bağlı' : 'Çevrimdışı' }
