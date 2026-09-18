@@ -64,6 +64,6 @@ Suggested topics:
 ## Community
 
 - [ ] Add sanitized screenshots/GIFs.
-- [ ] Add issue/PR templates.
+- [x] Add issue/PR templates.
 - [ ] Define maintainer/review expectations.
 - [ ] Decide public release version/tag.
