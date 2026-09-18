@@ -1,30 +1,42 @@
-# Coreor Database Desktop
+# Coreor Database Masaüstü
 
-`client` branch'i **Tauri 2 + Rust + Next.js statik arayüz** kullanan yerel Windows veritabanı istemcisidir.
+Coreor Database; Next.js statik arayüz, Tauri 2 ve Rust ile hazırlanmış bağımsız Windows veritabanı istemcisidir.
 
 ## Mimari
 
 ```text
-Next.js statik UI
-      |
-   Tauri IPC
-      |
+Next.js statik UI (WebView)
+        |
+        | Tauri IPC
+        v
 Rust native veritabanı katmanı
-      |
-MySQL / MariaDB / TiDB
-PostgreSQL / CockroachDB
-Microsoft SQL Server
+        |
+        +-- MySQL / MariaDB / TiDB (sqlx)
+        +-- PostgreSQL / CockroachDB (sqlx)
+        +-- Microsoft SQL Server (Tiberius)
 ```
 
-Bu branch'te uygulama web backend'i, OAuth, NextAuth oturumu, Next.js API route'u veya zorunlu `.env` dosyası yoktur. Veritabanı TCP bağlantıları doğrudan kullanıcının bilgisayarındaki Rust sürecinden açılır.
+Web veritabanı backend'i, Next.js API route'u, auth/session servisi ve zorunlu `.env` yoktur.
 
-## Yerel veri
+Bağlantı profilleri ve uygulama ayarları Tauri uygulama config dizininde yerel olarak tutulur. Veritabanı trafiği doğrudan kullanıcının bilgisayarından çıkar.
 
-Bağlantı profilleri ve uygulama ayarları Tauri uygulama config dizinindeki `config.json` içinde saklanır. Bu dosya veritabanı parolaları içerebileceği için hassas yerel veri olarak korunmalıdır.
+## Native özellikler
+
+- Bağlantı testi
+- Veritabanı / tablo kataloğu
+- Tablo yapısı, indeksler, foreign key ve schema düzenleme
+- Filtreleme, sıralama ve pagination
+- Hücre güncelleme ve satır silme
+- SQL sorgu çalıştırma
+- Kalıcı transaction oturumları, commit / rollback
+- Process ve lock görüntüleme / sonlandırma
+- Kullanıcı, rol ve yetki yönetimi
+- Import / export
+- Performans snapshotları
+- Read-only profil koruması
+- MySQL, MariaDB, TiDB, PostgreSQL, CockroachDB ve MSSQL
 
 ## Geliştirme
-
-Node.js 20+, Rust stable, Microsoft C++ Build Tools ve WebView2 gereklidir.
 
 ```powershell
 npm install
@@ -40,6 +52,4 @@ npm run tauri:dev
 npm run tauri:build
 ```
 
-Tauri, NSIS `.exe` ve MSI kurulum paketleri üretecek şekilde yapılandırılmıştır.
-
-Bağlantı testi, katalog, tablo metadata, pagination/filter/sort, hücre güncelleme, satır silme, SQL çalıştırma, şema değişiklikleri, kalıcı transaction oturumları, process/lock tanılama, kullanıcı/rol/yetki yönetimi, performans, import/export ve read-only koruması native Rust katmanından çalışır.
+Tauri bundle ayarları NSIS ve MSI hedeflerini üretir.
