@@ -729,7 +729,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                     {serverOpen ? <ChevronDown className="h-3.5 w-3.5 text-cyan-400" /> : <ChevronRight className="h-3.5 w-3.5 text-zinc-600" />}
                   </button>
                   <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => setActiveServerId(server.id)}>
-                    <Server className={`h-3.5 w-3.5 shrink-0 ${active ? 'text-emerald-400' : 'text-zinc-600'}`} />
+                    <Server className={`h-3.5 w-3.5 shrink-0 ${active ? 'text-emerald-400' : 'text-emerald-700'}`} />
                     <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-zinc-300">{server.name}</span>
                     <span className="rounded bg-zinc-900 px-1.5 py-0.5 text-[7px] text-zinc-600">{databaseEngineLabel(server.databaseType)}</span>
                   </button>
@@ -758,7 +758,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                                 onTableSelect(null);
                               }}
                             >
-                              <Database className="h-3 w-3 shrink-0 text-emerald-500" />
+                              <Database className="h-3 w-3 shrink-0 text-sky-400" />
                               <span className="min-w-0 flex-1 truncate text-[9px] text-zinc-400">{database.name}</span>
                               <span className="text-[7px] tabular-nums text-zinc-700">{database.tableCount}</span>
                             </button>
@@ -770,15 +770,34 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                               const detail = database.tableDetails.find(item => item.tableName === table);
                               return { name: table, kind: detail?.tableType?.toUpperCase().includes('VIEW') ? 'view' : 'table' };
                             });
-                            const visibleObjects = normalizedSearch
-                              ? [...database.objectMatches, ...fallbackObjects.filter(fallback => !database.objectMatches.some(object => object.kind === fallback.kind && object.name === fallback.name))]
-                              : loaded || fallbackObjects;
+                            const visibleObjects = objectFilterActive ? database.objectMatches : loaded || fallbackObjects;
+                            const sortedObjects = [...visibleObjects].sort((left, right) => left.name.localeCompare(right.name, 'tr', { sensitivity: 'base' }));
+                            const renderObject = (object: DatabaseSchemaObject, Icon: typeof Table2) => (
+                              <button
+                                key={`${object.kind}:${object.schema || ''}:${object.name}`}
+                                type="button"
+                                className={`group flex h-7 w-full min-w-0 items-center gap-2 rounded px-2 text-left ${active && selectedDatabase === database.name && selectedTable === object.name && (object.kind === 'table' || object.kind === 'view') ? 'bg-cyan-500/10 text-cyan-100' : 'text-zinc-500 hover:bg-white/[0.025] hover:text-zinc-200'}`}
+                                onClick={() => {
+                                  setActiveServerId(server.id); onDatabaseSelect(database.name);
+                                  if (object.kind === 'table' || object.kind === 'view') onTableSelect(object.name);
+                                  else if (object.kind === 'procedure') openSql(server, database.name, `${object.name} çağır`, `CALL ${objectQualifiedName(server.databaseType || 'mysql', database.name, object)}();`);
+                                  else if (object.kind === 'function') openSql(server, database.name, `${object.name} çalıştır`, `SELECT ${objectQualifiedName(server.databaseType || 'mysql', database.name, object)}();`);
+                                  else openSql(server, database.name, `${object.name} tanımı`, objectDefinitionSql(server.databaseType || 'mysql', database.name, object), true);
+                                }}
+                                onContextMenu={event => objectMenu(event, server, database.name, object)}
+                              >
+                                <Icon className={`h-3 w-3 shrink-0 ${objectKindColor(object.kind)}`} />
+                                <span className="min-w-0 flex-1 truncate text-[9px]">{object.schema && object.schema !== database.name ? `${object.schema}.` : ''}{object.name}</span>
+                                {!preferences.objectExplorerGrouped && <span className={`rounded bg-white/[0.025] px-1 py-0.5 text-[6px] uppercase ${objectKindColor(object.kind)}`}>{object.kind}</span>}
+                                {object.tableName && <span className="max-w-20 truncate text-[7px] text-zinc-700">{object.tableName}</span>}
+                              </button>
+                            );
                             return (
                               <div className="ml-5 border-l border-zinc-900 pl-1">
                                 {objectLoading.has(key) && !loaded && <div className="flex h-7 items-center gap-2 px-2 text-[8px] text-zinc-700"><Activity className="h-3 w-3 animate-spin" />Nesneler yükleniyor…</div>}
-                                {objectGroupDefinitions.map(group => {
+                                {preferences.objectExplorerGrouped ? objectGroupDefinitions.filter(group => searchTypeEnabled(group.kind)).map(group => {
                                   const GroupIcon = group.icon;
-                                  const items = visibleObjects.filter(object => object.kind === group.kind);
+                                  const items = sortedObjects.filter(object => object.kind === group.kind);
                                   const groupKey = `${key}:${group.kind}`;
                                   const groupOpen = expandedObjectGroups.has(groupKey) || objectFilterActive;
                                   return (
@@ -788,37 +807,26 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                                           {groupOpen ? <ChevronDown className="h-3 w-3 text-zinc-500" /> : <ChevronRight className="h-3 w-3 text-zinc-700" />}
                                         </button>
                                         <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => toggle(setExpandedObjectGroups, groupKey)}>
-                                          <GroupIcon className="h-3 w-3 shrink-0 text-zinc-600" />
-                                          <span className="min-w-0 flex-1 truncate text-[9px] font-medium text-zinc-500">{group.label}</span>
+                                          <GroupIcon className={`h-3 w-3 shrink-0 ${objectKindColor(group.kind)}`} />
+                                          <span className="min-w-0 flex-1 truncate text-[9px] font-medium text-zinc-400">{group.label}</span>
                                           <span className="pr-2 text-[7px] tabular-nums text-zinc-700">{items.length}</span>
                                         </button>
                                       </div>
                                       {groupOpen && (
                                         <div className="ml-5 border-l border-zinc-900/80 pl-1">
-                                          {items.length ? items.map(object => (
-                                            <button
-                                              key={`${object.kind}:${object.schema || ''}:${object.name}`}
-                                              type="button"
-                                              className={`group flex h-7 w-full min-w-0 items-center gap-2 rounded px-2 text-left ${active && selectedDatabase === database.name && selectedTable === object.name && (object.kind === 'table' || object.kind === 'view') ? 'bg-cyan-500/10 text-cyan-200' : 'text-zinc-500 hover:bg-white/[0.025] hover:text-zinc-300'}`}
-                                              onClick={() => {
-                                                setActiveServerId(server.id); onDatabaseSelect(database.name);
-                                                if (object.kind === 'table' || object.kind === 'view') onTableSelect(object.name);
-                                                else if (object.kind === 'procedure') openSql(server, database.name, `${object.name} çağır`, `CALL ${objectQualifiedName(server.databaseType || 'mysql', database.name, object)}();`);
-                                                else if (object.kind === 'function') openSql(server, database.name, `${object.name} çalıştır`, `SELECT ${objectQualifiedName(server.databaseType || 'mysql', database.name, object)}();`);
-                                                else openSql(server, database.name, `${object.name} tanımı`, objectDefinitionSql(server.databaseType || 'mysql', database.name, object), true);
-                                              }}
-                                              onContextMenu={event => objectMenu(event, server, database.name, object)}
-                                            >
-                                              <GroupIcon className="h-3 w-3 shrink-0" />
-                                              <span className="min-w-0 flex-1 truncate text-[9px]">{object.schema && object.schema !== database.name ? `${object.schema}.` : ''}{object.name}</span>
-                                              {object.tableName && <span className="max-w-20 truncate text-[7px] text-zinc-700">{object.tableName}</span>}
-                                            </button>
-                                          )) : <div className="px-2 py-1.5 text-[8px] text-zinc-800">Nesne yok</div>}
+                                          {items.length ? items.map(object => renderObject(object, GroupIcon)) : <div className="px-2 py-1.5 text-[8px] text-zinc-800">Nesne yok</div>}
                                         </div>
                                       )}
                                     </div>
                                   );
-                                })}
+                                }) : (
+                                  <div className="py-0.5">
+                                    {sortedObjects.length ? sortedObjects.map(object => {
+                                      const definition = objectGroupDefinitions.find(group => group.kind === object.kind);
+                                      return renderObject(object, definition?.icon || FileCode2);
+                                    }) : <div className="px-2 py-2 text-[8px] text-zinc-800">Nesne yok</div>}
+                                  </div>
+                                )}
                               </div>
                             );
                           })()}
