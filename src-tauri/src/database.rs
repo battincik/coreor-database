@@ -487,13 +487,44 @@ async fn database_objects(c:&Connection,p:&Map<String,Value>,max:usize)->Result<
                 append_object_rows(&mut objects,vec![Value::Object(object)],kind);
             }
         }
-        for row in rows_of(&execute_on(&mut conn,&routine_sql,limit).await.unwrap_or(json!({"rows":[]}))) {
+        let routine_rows=rows_of(&execute_on(&mut conn,&routine_sql,limit).await.unwrap_or(json!({"rows":[]})));
+        let mut procedure_count=0usize;let mut function_count=0usize;
+        for row in routine_rows {
             let kind=row.get("routineType").and_then(Value::as_str).map(|value|if value.eq_ignore_ascii_case("FUNCTION"){"function"}else{"procedure"}).unwrap_or("procedure");
+            if kind=="function"{function_count+=1}else{procedure_count+=1}
             append_object_rows(&mut objects,vec![row],kind);
         }
-        append_object_rows(&mut objects,rows_of(&execute_on(&mut conn,&trigger_sql,limit).await.unwrap_or(json!({"rows":[]}))),"trigger");
-        append_object_rows(&mut objects,rows_of(&execute_on(&mut conn,&event_sql,limit).await.unwrap_or(json!({"rows":[]}))),"event");
-        statements.push(json!({"label":"Object Explorer","sql":format!("information_schema objects • {}",db)}));
+        if procedure_count==0 {
+            let fallback=format!("SHOW PROCEDURE STATUS WHERE Db='{}'",esc);
+            for row in rows_of(&execute_on(&mut conn,&fallback,limit).await.unwrap_or(json!({"rows":[]}))) {
+                let name=row.get("Name").and_then(text_value).unwrap_or_default();if name.is_empty(){continue}
+                objects.push(json!({"name":name,"kind":"procedure","schema":db,"definition":null,"createdAt":row.get("Created").cloned().unwrap_or(Value::Null),"updatedAt":row.get("Modified").cloned().unwrap_or(Value::Null),"comment":row.get("Comment").cloned().unwrap_or(json!(""))}));
+            }
+        }
+        if function_count==0 {
+            let fallback=format!("SHOW FUNCTION STATUS WHERE Db='{}'",esc);
+            for row in rows_of(&execute_on(&mut conn,&fallback,limit).await.unwrap_or(json!({"rows":[]}))) {
+                let name=row.get("Name").and_then(text_value).unwrap_or_default();if name.is_empty(){continue}
+                objects.push(json!({"name":name,"kind":"function","schema":db,"definition":null,"createdAt":row.get("Created").cloned().unwrap_or(Value::Null),"updatedAt":row.get("Modified").cloned().unwrap_or(Value::Null),"comment":row.get("Comment").cloned().unwrap_or(json!(""))}));
+            }
+        }
+        let trigger_rows=rows_of(&execute_on(&mut conn,&trigger_sql,limit).await.unwrap_or(json!({"rows":[]})));
+        if trigger_rows.is_empty() {
+            let fallback=format!("SHOW TRIGGERS FROM {}",ident(db,&c.engine)?);
+            for row in rows_of(&execute_on(&mut conn,&fallback,limit).await.unwrap_or(json!({"rows":[]}))) {
+                let name=row.get("Trigger").and_then(text_value).unwrap_or_default();if name.is_empty(){continue}
+                objects.push(json!({"name":name,"kind":"trigger","schema":db,"tableName":row.get("Table").cloned().unwrap_or(Value::Null),"definition":row.get("Statement").cloned().unwrap_or(Value::Null)}));
+            }
+        } else { append_object_rows(&mut objects,trigger_rows,"trigger"); }
+        let event_rows=rows_of(&execute_on(&mut conn,&event_sql,limit).await.unwrap_or(json!({"rows":[]})));
+        if event_rows.is_empty() {
+            let fallback=format!("SHOW EVENTS FROM {}",ident(db,&c.engine)?);
+            for row in rows_of(&execute_on(&mut conn,&fallback,limit).await.unwrap_or(json!({"rows":[]}))) {
+                let name=row.get("Name").and_then(text_value).unwrap_or_default();if name.is_empty(){continue}
+                objects.push(json!({"name":name,"kind":"event","schema":db,"definition":null,"createdAt":row.get("Created").cloned().unwrap_or(Value::Null),"updatedAt":row.get("Last altered").cloned().unwrap_or(Value::Null),"comment":row.get("Comment").cloned().unwrap_or(json!(""))}));
+            }
+        } else { append_object_rows(&mut objects,event_rows,"event"); }
+        statements.push(json!({"label":"Object Explorer","sql":format!("information_schema + SHOW fallback • {}",db)}));
     }else if is_pg(&c.engine){
         let relation_sql="SELECT c.relname AS name,n.nspname AS schema,NULL::text AS comment,NULL::text AS definition,CASE WHEN c.relkind IN ('v','m') THEN 'view' ELSE 'table' END AS kind,CASE WHEN c.relkind IN ('r','p','m') THEN GREATEST(c.reltuples,0)::bigint ELSE 0 END AS rows,CASE WHEN c.relkind IN ('r','p','m') THEN pg_relation_size(c.oid) ELSE 0 END AS \"dataSizeBytes\",CASE WHEN c.relkind IN ('r','p','m') THEN GREATEST(pg_total_relation_size(c.oid)-pg_relation_size(c.oid),0) ELSE 0 END AS \"indexSizeBytes\",CASE WHEN c.relkind IN ('r','p','m') THEN pg_total_relation_size(c.oid) ELSE 0 END AS \"sizeBytes\" FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind IN ('r','p','v','m') AND n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_toast%' ORDER BY n.nspname,c.relname";
         let routine_sql="SELECT routine_name AS name,routine_schema AS schema,routine_definition AS definition,CASE WHEN routine_type='FUNCTION' THEN 'function' ELSE 'procedure' END AS kind FROM information_schema.routines WHERE routine_schema NOT IN ('pg_catalog','information_schema') ORDER BY routine_schema,routine_name";
