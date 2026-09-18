@@ -4,9 +4,9 @@
   "version": "3.1.0",
   "identifier": "net.coreor.database",
   "build": {
-    "beforeDevCommand": "npm run dev:ui",
+    "beforeDevCommand": "npm run ui:dev",
     "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "npm run build:ui",
+    "beforeBuildCommand": "npm run ui:build",
     "frontendDist": "../out"
   },
   "app": {
@@ -37,17 +37,19 @@
       }
     },
     "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
+      "icons/icon.png",
       "icons/icon.ico"
     ],
     "category": "DeveloperTool",
-    "shortDescription": "Cross-platform native database client",
-    "longDescription": "Coreor Database is a local-first cross-platform database client for MySQL, MariaDB, TiDB, PostgreSQL, CockroachDB and Microsoft SQL Server.",
+    "shortDescription": "Cross-platform local-first database client",
+    "longDescription": "Coreor Database is a local-first database client for MySQL, MariaDB, TiDB, PostgreSQL, CockroachDB and Microsoft SQL Server.",
     "macOS": {
       "minimumSystemVersion": "12.0"
-    }
+    },
+    "publisher": "Coreor",
+    "copyright": "Copyright © 2026 Coreor Database contributors",
+    "homepage": "https://github.com/battincik/web.database.coreor.net",
+    "license": "Apache-2.0",
+    "licenseFile": "../LICENSE"
   }
 }
