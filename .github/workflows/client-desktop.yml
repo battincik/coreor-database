@@ -22,17 +22,17 @@ jobs:
         with:
           workspaces: src-tauri
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
       - name: Desktop-only architecture
         run: npm run desktop:check
       - name: TypeScript
         run: npm run typecheck
       - name: Native Rust check
-        run: cargo check --manifest-path src-tauri/Cargo.toml
+        run: cargo check --locked --manifest-path src-tauri/Cargo.toml
       - name: Static frontend build
         run: npm run build:web
       - name: Tauri Windows bundles
-        run: npx tauri build --bundles nsis,msi
+        run: npx --no-install tauri build --bundles nsis,msi --locked
       - name: Upload Windows installers
         uses: actions/upload-artifact@v4
         with:
