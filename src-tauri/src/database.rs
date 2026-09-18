@@ -400,7 +400,7 @@ async fn table_info(c:&Connection,p:&Map<String,Value>,max:usize)->Result<Value,
         let cols=format!("SELECT COLUMN_NAME AS Field,COLUMN_TYPE AS Type,IS_NULLABLE AS `Null`,COLUMN_KEY AS `Key`,COLUMN_DEFAULT AS `Default`,EXTRA AS Extra,COLUMN_COMMENT AS Comment,COLLATION_NAME AS Collation,ORDINAL_POSITION AS Ordinal_position,DATA_TYPE AS Data_type,CHARACTER_MAXIMUM_LENGTH AS Character_maximum_length,NUMERIC_PRECISION AS Numeric_precision,NUMERIC_SCALE AS Numeric_scale,DATETIME_PRECISION AS Datetime_precision,CHARACTER_SET_NAME AS Character_set_name,GENERATION_EXPRESSION AS Generation_expression FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='{}' AND TABLE_NAME='{}' ORDER BY ORDINAL_POSITION",escdb,esct);
         let idx=format!("SELECT INDEX_NAME AS Key_name,COLUMN_NAME AS Column_name,NON_UNIQUE AS Non_unique,SEQ_IN_INDEX AS Seq_in_index,INDEX_TYPE AS Index_type,COLLATION AS Collation,CARDINALITY AS Cardinality,SUB_PART AS Sub_part,NULLABLE AS Nullable,INDEX_COMMENT AS Index_comment,'YES' AS Is_visible,NULL AS Expression FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='{}' AND TABLE_NAME='{}' ORDER BY INDEX_NAME,SEQ_IN_INDEX",escdb,esct);
         let fks=format!("SELECT CONSTRAINT_NAME,COLUMN_NAME,ORDINAL_POSITION,REFERENCED_TABLE_SCHEMA,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA='{}' AND TABLE_NAME='{}' AND REFERENCED_TABLE_NAME IS NOT NULL",escdb,esct);
-        let create=format!("SHOW CREATE TABLE {}",qualified(db,table,&c.engine)?);let columns=rows_of(&execute_sql(c,&cols,Some(db),max).await?);let indexes=rows_of(&execute_sql(c,&idx,Some(db),max).await.unwrap_or(json!({"rows":[]})));let foreign=rows_of(&execute_sql(c,&fks,Some(db),max).await.unwrap_or(json!({"rows":[]})));let cr=rows_of(&execute_sql(c,&create,Some(db),1).await.unwrap_or(json!({"rows":[]})));let create_sql=cr.first().and_then(Value::as_object).and_then(|o|o.values().last()).and_then(Value::as_str).unwrap_or("").to_string();
+        let create=format!("SHOW CREATE TABLE {}",qualified(db,table,&c.engine)?);let mut conn=open_native(c,Some(db)).await?;let columns=rows_of(&execute_on(&mut conn,&cols,max).await?);let indexes=rows_of(&execute_on(&mut conn,&idx,max).await.unwrap_or(json!({"rows":[]})));let foreign=rows_of(&execute_on(&mut conn,&fks,max).await.unwrap_or(json!({"rows":[]})));let cr=rows_of(&execute_on(&mut conn,&create,1).await.unwrap_or(json!({"rows":[]})));let create_sql=cr.first().and_then(Value::as_object).and_then(|o|o.values().last()).and_then(Value::as_str).unwrap_or("").to_string();
         return Ok(json!({"table":{"name":table,"comment":"","engine":c.engine,"collation":null,"charset":null,"autoIncrement":null,"rowFormat":null,"tableType":"BASE TABLE","createTime":null,"updateTime":null},"columns":columns,"indexes":indexes,"foreignKeys":foreign,"checkConstraints":[],"partitions":[],"createSQL":create_sql,"_meta":{"statements":[{"label":"Tablo yapısı","sql":cols}]}}))
     }
     let esc=table.replace("'","''");
@@ -417,9 +417,10 @@ async fn table_info(c:&Connection,p:&Map<String,Value>,max:usize)->Result<Value,
        format!("SELECT fk.name AS CONSTRAINT_NAME,pc.name AS COLUMN_NAME,fkc.constraint_column_id AS ORDINAL_POSITION,DB_NAME() AS REFERENCED_TABLE_SCHEMA,rt.name AS REFERENCED_TABLE_NAME,rc.name AS REFERENCED_COLUMN_NAME,fk.update_referential_action_desc AS UPDATE_RULE,fk.delete_referential_action_desc AS DELETE_RULE FROM sys.foreign_keys fk JOIN sys.foreign_key_columns fkc ON fk.object_id=fkc.constraint_object_id JOIN sys.tables pt ON pt.object_id=fk.parent_object_id JOIN sys.columns pc ON pc.object_id=pt.object_id AND pc.column_id=fkc.parent_column_id JOIN sys.tables rt ON rt.object_id=fk.referenced_object_id JOIN sys.columns rc ON rc.object_id=rt.object_id AND rc.column_id=fkc.referenced_column_id WHERE pt.object_id=OBJECT_ID(N'dbo.{}') ORDER BY fk.name,fkc.constraint_column_id",esc)
       )
     };
-    let columns=rows_of(&execute_sql(c,&sql,Some(db),max).await?);
-    let indexes=rows_of(&execute_sql(c,&index_sql,Some(db),max).await.unwrap_or(json!({"rows":[]})));
-    let foreign_keys=rows_of(&execute_sql(c,&fk_sql,Some(db),max).await.unwrap_or(json!({"rows":[]})));
+    let mut conn=open_native(c,Some(db)).await?;
+    let columns=rows_of(&execute_on(&mut conn,&sql,max).await?);
+    let indexes=rows_of(&execute_on(&mut conn,&index_sql,max).await.unwrap_or(json!({"rows":[]})));
+    let foreign_keys=rows_of(&execute_on(&mut conn,&fk_sql,max).await.unwrap_or(json!({"rows":[]})));
     Ok(json!({"table":{"name":table,"comment":"","engine":c.engine,"collation":null,"charset":null,"autoIncrement":null,"rowFormat":null,"tableType":"BASE TABLE","createTime":null,"updateTime":null},"columns":columns,"indexes":indexes,"foreignKeys":foreign_keys,"checkConstraints":[],"partitions":[],"createSQL":"","_meta":{"statements":[{"label":"Tablo yapısı","sql":sql},{"label":"İndeksler","sql":index_sql},{"label":"Foreign key","sql":fk_sql}]}}))
 }
 
@@ -544,16 +545,17 @@ async fn workbench(c:&Connection,action:&str,p:&Map<String,Value>,max:usize)->Re
 
 async fn performance(c:&Connection,p:&Map<String,Value>,max:usize)->Result<Value,String>{
  if !is_pg(&c.engine)&&!is_mssql(&c.engine){
-  let status=rows_of(&execute_sql(c,"SHOW GLOBAL STATUS",None,max).await?);
-  let vars=rows_of(&execute_sql(c,"SHOW GLOBAL VARIABLES WHERE Variable_name IN ('max_connections','innodb_page_size')",None,max).await.unwrap_or(json!({"rows":[]})));
-  let schema=rows_of(&execute_sql(c,"SELECT TABLE_SCHEMA AS schemaName,COALESCE(SUM(DATA_LENGTH),0) AS dataBytes,COALESCE(SUM(INDEX_LENGTH),0) AS indexBytes,COALESCE(SUM(DATA_FREE),0) AS freeBytes FROM information_schema.TABLES WHERE TABLE_SCHEMA NOT IN ('information_schema','performance_schema','mysql','sys') GROUP BY TABLE_SCHEMA ORDER BY COALESCE(SUM(DATA_LENGTH),0)+COALESCE(SUM(INDEX_LENGTH),0) DESC",None,12).await.unwrap_or(json!({"rows":[]})));
+  let mut conn=open_native(c,None).await?;
+  let status=rows_of(&execute_on(&mut conn,"SHOW GLOBAL STATUS",max).await?);
+  let vars=rows_of(&execute_on(&mut conn,"SHOW GLOBAL VARIABLES WHERE Variable_name IN ('max_connections','innodb_page_size')",max).await.unwrap_or(json!({"rows":[]})));
+  let schema=rows_of(&execute_on(&mut conn,"SELECT TABLE_SCHEMA AS schemaName,COALESCE(SUM(DATA_LENGTH),0) AS dataBytes,COALESCE(SUM(INDEX_LENGTH),0) AS indexBytes,COALESCE(SUM(DATA_FREE),0) AS freeBytes FROM information_schema.TABLES WHERE TABLE_SCHEMA NOT IN ('information_schema','performance_schema','mysql','sys') GROUP BY TABLE_SCHEMA ORDER BY COALESCE(SUM(DATA_LENGTH),0)+COALESCE(SUM(INDEX_LENGTH),0) DESC",12).await.unwrap_or(json!({"rows":[]})));
   let mut sm=std::collections::HashMap::new();for x in status{if let(Some(k),Some(v))=(x.get("Variable_name").and_then(Value::as_str),x.get("Value")){sm.insert(k.to_string(),num(Some(v)));}}
   let mut vm=std::collections::HashMap::new();for x in vars{if let(Some(k),Some(v))=(x.get("Variable_name").and_then(Value::as_str),x.get("Value")){vm.insert(k.to_string(),num(Some(v)));}}
   let total=*sm.get("Innodb_buffer_pool_pages_total").unwrap_or(&0);let free=*sm.get("Innodb_buffer_pool_pages_free").unwrap_or(&0);let dirty=*sm.get("Innodb_buffer_pool_pages_dirty").unwrap_or(&0);let reads=*sm.get("Innodb_buffer_pool_reads").unwrap_or(&0);let req=*sm.get("Innodb_buffer_pool_read_requests").unwrap_or(&0);
   let top_schemas=schema.iter().map(|x|{let data=num(x.get("dataBytes"));let index=num(x.get("indexBytes"));let freeb=num(x.get("freeBytes"));json!({"schema":x.get("schemaName"),"dataBytes":data,"indexBytes":index,"freeBytes":freeb,"totalBytes":data+index})}).collect::<Vec<_>>();
   let data_bytes=top_schemas.iter().map(|x|num(x.get("dataBytes"))).sum::<u64>();let index_bytes=top_schemas.iter().map(|x|num(x.get("indexBytes"))).sum::<u64>();let free_bytes=top_schemas.iter().map(|x|num(x.get("freeBytes"))).sum::<u64>();
-  let mut replica=rows_of(&execute_sql(c,"SHOW REPLICA STATUS",None,1).await.unwrap_or(json!({"rows":[]})));
-  if replica.is_empty(){replica=rows_of(&execute_sql(c,"SHOW SLAVE STATUS",None,1).await.unwrap_or(json!({"rows":[]})));}
+  let mut replica=rows_of(&execute_on(&mut conn,"SHOW REPLICA STATUS",1).await.unwrap_or(json!({"rows":[]})));
+  if replica.is_empty(){replica=rows_of(&execute_on(&mut conn,"SHOW SLAVE STATUS",1).await.unwrap_or(json!({"rows":[]})));}
   let replication=if let Some(ro)=replica.first().and_then(Value::as_object){
     let io=ro.get("Replica_IO_Running").or_else(||ro.get("Slave_IO_Running")).and_then(Value::as_str);
     let sq=ro.get("Replica_SQL_Running").or_else(||ro.get("Slave_SQL_Running")).and_then(Value::as_str);
@@ -565,16 +567,18 @@ async fn performance(c:&Connection,p:&Map<String,Value>,max:usize)->Result<Value
  if is_pg(&c.engine){
    let db=p.get("database").and_then(Value::as_str).or(c.database.as_deref()).unwrap_or("postgres");
    let sql="SELECT EXTRACT(EPOCH FROM(now()-pg_postmaster_start_time()))::bigint AS uptime,COALESCE(xact_commit+xact_rollback,0)::bigint AS questions,numbackends::bigint AS connected,COALESCE(blks_read,0)::bigint AS reads,COALESCE(blks_hit,0)::bigint AS hits,COALESCE(temp_bytes,0)::bigint AS tempBytes FROM pg_stat_database WHERE datname=current_database()";
-   let row=rows_of(&execute_sql(c,sql,Some(db),1).await?).into_iter().next().unwrap_or(json!({}));
-   let running=rows_of(&execute_sql(c,"SELECT COUNT(*) AS n FROM pg_stat_activity WHERE state='active'",Some(db),1).await?).first().and_then(|x|x.get("n")).map(|x|num(Some(x))).unwrap_or(0);
-   let max_conn=rows_of(&execute_sql(c,"SELECT current_setting('max_connections')::bigint AS n",Some(db),1).await?).first().and_then(|x|x.get("n")).map(|x|num(Some(x))).unwrap_or(0);
-   let size=rows_of(&execute_sql(c,"SELECT pg_database_size(current_database())::bigint AS n",Some(db),1).await?).first().and_then(|x|x.get("n")).map(|x|num(Some(x))).unwrap_or(0);
+   let mut conn=open_native(c,Some(db)).await?;
+   let row=rows_of(&execute_on(&mut conn,sql,1).await?).into_iter().next().unwrap_or(json!({}));
+   let running=rows_of(&execute_on(&mut conn,"SELECT COUNT(*) AS n FROM pg_stat_activity WHERE state='active'",1).await?).first().and_then(|x|x.get("n")).map(|x|num(Some(x))).unwrap_or(0);
+   let max_conn=rows_of(&execute_on(&mut conn,"SELECT current_setting('max_connections')::bigint AS n",1).await?).first().and_then(|x|x.get("n")).map(|x|num(Some(x))).unwrap_or(0);
+   let size=rows_of(&execute_on(&mut conn,"SELECT pg_database_size(current_database())::bigint AS n",1).await?).first().and_then(|x|x.get("n")).map(|x|num(Some(x))).unwrap_or(0);
    let reads=num(row.get("reads"));let hits=num(row.get("hits"));let total=reads+hits;
    return Ok(json!({"sampledAt":Utc::now().to_rfc3339(),"uptimeSeconds":num(row.get("uptime")),"questions":num(row.get("questions")),"threadsConnected":num(row.get("connected")),"threadsRunning":running,"maxUsedConnections":num(row.get("connected")),"maxConnections":max_conn,"slowQueries":0,"abortedConnects":0,"bytesReceived":0,"bytesSent":0,"bufferPool":{"totalPages":total,"freePages":0,"dataPages":hits,"dirtyPages":0,"pageSize":8192,"usagePercent":if total>0{hits as f64/total as f64*100.0}else{0.0},"dirtyPercent":0,"hitRatio":if total>0{Some(hits as f64/total as f64)}else{None},"reads":reads,"readRequests":total},"replication":{"available":false,"running":null,"secondsBehind":null,"ioRunning":null,"sqlRunning":null,"sourceHost":null,"channelName":null,"lastError":null},"storage":{"dataBytes":size,"indexBytes":0,"freeBytes":0,"totalBytes":size,"selectedDatabaseBytes":size,"topSchemas":[{"schema":db,"dataBytes":size,"indexBytes":0,"freeBytes":0,"totalBytes":size}]}}))
  }
  let db=p.get("database").and_then(Value::as_str).or(c.database.as_deref());
- let stats=rows_of(&execute_sql(c,"SELECT DATEDIFF(SECOND,sqlserver_start_time,SYSDATETIME()) AS uptime,(SELECT COUNT(*) FROM sys.dm_exec_sessions WHERE is_user_process=1) AS connected,(SELECT COUNT(*) FROM sys.dm_exec_requests WHERE session_id<>@@SPID) AS running,@@MAX_CONNECTIONS AS maxConnections FROM sys.dm_os_sys_info",db,1).await?).into_iter().next().unwrap_or(json!({}));
- let size=rows_of(&execute_sql(c,"SELECT COALESCE(SUM(size),0)*8192 AS bytes FROM sys.database_files",db,1).await.unwrap_or(json!({"rows":[]}))).first().and_then(|x|x.get("bytes")).map(|x|num(Some(x))).unwrap_or(0);
+ let mut conn=open_native(c,db).await?;
+ let stats=rows_of(&execute_on(&mut conn,"SELECT DATEDIFF(SECOND,sqlserver_start_time,SYSDATETIME()) AS uptime,(SELECT COUNT(*) FROM sys.dm_exec_sessions WHERE is_user_process=1) AS connected,(SELECT COUNT(*) FROM sys.dm_exec_requests WHERE session_id<>@@SPID) AS running,@@MAX_CONNECTIONS AS maxConnections FROM sys.dm_os_sys_info",1).await?).into_iter().next().unwrap_or(json!({}));
+ let size=rows_of(&execute_on(&mut conn,"SELECT COALESCE(SUM(size),0)*8192 AS bytes FROM sys.database_files",1).await.unwrap_or(json!({"rows":[]}))).first().and_then(|x|x.get("bytes")).map(|x|num(Some(x))).unwrap_or(0);
  Ok(json!({"sampledAt":Utc::now().to_rfc3339(),"uptimeSeconds":num(stats.get("uptime")),"questions":0,"threadsConnected":num(stats.get("connected")),"threadsRunning":num(stats.get("running")),"maxUsedConnections":num(stats.get("connected")),"maxConnections":num(stats.get("maxConnections")),"slowQueries":0,"abortedConnects":0,"bytesReceived":0,"bytesSent":0,"bufferPool":{"totalPages":0,"freePages":0,"dataPages":0,"dirtyPages":0,"pageSize":8192,"usagePercent":0,"dirtyPercent":0,"hitRatio":null,"reads":0,"readRequests":0},"replication":{"available":false,"running":null,"secondsBehind":null,"ioRunning":null,"sqlRunning":null,"sourceHost":null,"channelName":null,"lastError":null},"storage":{"dataBytes":size,"indexBytes":0,"freeBytes":0,"totalBytes":size,"selectedDatabaseBytes":size,"topSchemas":[]}}))
 }
 pub async fn execute_action(request:DatabaseRequest,max_rows:usize,max_page:usize)->Result<Value,String>{
