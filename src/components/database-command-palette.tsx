@@ -118,7 +118,6 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
         const database = databases[cursor++];
         if (!database) return;
         const key = `${activeServer.id}:${database.name}`;
-        if (objectIndex[key]) continue;
         try {
           const result = await fetchDatabaseObjects(activeServer.id, database.name, workspaceKey);
           if (!cancelled) setObjectIndex(previous => ({ ...previous, [key]: result.objects }));
@@ -127,7 +126,7 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
     };
     void Promise.all([worker(), worker(), worker()]);
     return () => { cancelled = true; };
-  }, [open, activeServer?.id, workspaceKey]);
+  }, [open, activeServer, workspaceKey]);
 
   const allItems = useMemo<PaletteItem[]>(() => {
     const items: PaletteItem[] = [
