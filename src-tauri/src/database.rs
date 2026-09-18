@@ -2,7 +2,7 @@ use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use sqlx::{Column, Connection as SqlxConnection, Row};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tiberius::{AuthMethod, Client, Config, EncryptionLevel};
 use tokio::net::TcpStream;
 use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
@@ -755,6 +755,63 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
     }))
 }
 
+
+async fn maintenance_run(c:&Connection,p:&Map<String,Value>,max:usize)->Result<Value,String>{
+    let db=payload_str(p,"database")?;
+    let table=payload_str(p,"table")?;
+    let operation=payload_str(p,"operation")?;
+    if table.trim().is_empty(){return Err("Bakım için tablo adı eksik.".into())}
+
+    let read_only_safe=operation=="check";
+    if c.read_only && !read_only_safe {
+        return Err("Salt-okunur bağlantıda yalnız bütünlük kontrolü çalıştırılabilir.".into());
+    }
+
+    let table_ident=ident(table,&c.engine)?;
+    let qualified_table=qualified(db,table,&c.engine)?;
+    let sql=if is_mssql(&c.engine){
+        match operation{
+            "check"=>format!("DBCC CHECKTABLE ({}) WITH NO_INFOMSGS",qualified_table),
+            "update-statistics"=>format!("UPDATE STATISTICS {} WITH ALL",qualified_table),
+            "reorganize-index"=>format!("ALTER INDEX ALL ON {} REORGANIZE",qualified_table),
+            _=>return Err("Bu bakım işlemi MSSQL için desteklenmiyor.".into())
+        }
+    }else if c.engine=="cockroachdb"{
+        match operation{
+            "analyze"=>format!("ANALYZE {}",table_ident),
+            _=>return Err("CockroachDB için bu bakım işlemi desteklenmiyor.".into())
+        }
+    }else if is_pg(&c.engine){
+        match operation{
+            "analyze"=>format!("ANALYZE {}",table_ident),
+            "vacuum-analyze"=>format!("VACUUM (ANALYZE) {}",table_ident),
+            "reindex"=>format!("REINDEX TABLE {}",table_ident),
+            _=>return Err("Bu bakım işlemi PostgreSQL için desteklenmiyor.".into())
+        }
+    }else{
+        match operation{
+            "check"=>format!("CHECK TABLE {}",qualified_table),
+            "analyze"=>format!("ANALYZE TABLE {}",qualified_table),
+            "optimize"=>format!("OPTIMIZE TABLE {}",qualified_table),
+            _=>return Err("Bu bakım işlemi MySQL/MariaDB için desteklenmiyor.".into())
+        }
+    };
+
+    let started=Instant::now();
+    let result=execute_sql(c,&sql,Some(db),max).await?;
+    let duration_ms=started.elapsed().as_millis().min(u64::MAX as u128) as u64;
+    Ok(json!({
+        "database":db,
+        "table":table,
+        "operation":operation,
+        "statement":sql,
+        "durationMs":duration_ms,
+        "affectedRows":num(result.get("affectedRows")),
+        "rows":rows_of(&result),
+        "completedAt":Utc::now().to_rfc3339()
+    }))
+}
+
 async fn workbench(c:&Connection,action:&str,p:&Map<String,Value>,max:usize)->Result<Value,String>{
  match action{
  "process-list"=>{
@@ -807,6 +864,7 @@ async fn workbench(c:&Connection,action:&str,p:&Map<String,Value>,max:usize)->Re
  "export-data"=>{let inp=p.get("exportInput").and_then(Value::as_object).ok_or("Export bilgisi eksik.")?;let db=payload_str(inp,"database")?;let table=payload_str(inp,"table")?;let limit=inp.get("limit").and_then(Value::as_u64).unwrap_or(5000).min(50000);let offset=inp.get("offset").and_then(Value::as_u64).unwrap_or(0);let cols=inp.get("columns").and_then(Value::as_array).filter(|x|!x.is_empty()).map(|x|x.iter().filter_map(Value::as_str).map(|v|ident(v,&c.engine)).collect::<Result<Vec<_>,_>>()).transpose()?.map(|x|x.join(",")).unwrap_or("*".into());let order=if let Some(o)=inp.get("orderBy").and_then(Value::as_str){format!(" ORDER BY {} {}",ident(o,&c.engine)?,if inp.get("orderDirection").and_then(Value::as_str)==Some("desc"){"DESC"}else{"ASC"})}else{String::new()};let sql=if is_mssql(&c.engine){format!("SELECT {} FROM {}{}{} OFFSET {} ROWS FETCH NEXT {} ROWS ONLY",cols,qualified(db,table,&c.engine)?,if order.is_empty(){" ORDER BY (SELECT NULL)"}else{&order},"",offset,limit)}else{format!("SELECT {} FROM {}{} LIMIT {} OFFSET {}",cols,qualified(db,table,&c.engine)?,order,limit,offset)};let rows=rows_of(&execute_sql(c,&sql,Some(db),limit as usize).await?);let columns=rows.first().and_then(Value::as_object).map(|x|x.keys().cloned().collect::<Vec<_>>()).unwrap_or_default();Ok(json!({"rowCount":rows.len(),"columns":columns,"rows":rows}))},
  "performance-snapshot"=>performance(c,p,max).await,
  "storage-recalculate"=>storage_recalculate(c,p).await,
+ "maintenance-run"=>maintenance_run(c,p,max).await,
  "user-save"=>{
    if c.read_only{return Err("Salt okunur.".into())}
    let input=p.get("userInput").and_then(Value::as_object).ok_or("Kullanıcı bilgisi eksik.")?;

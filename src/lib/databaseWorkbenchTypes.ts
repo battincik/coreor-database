@@ -12,6 +12,7 @@ export type DatabaseWorkbenchAction =
   | 'process-kill'
   | 'performance-snapshot'
   | 'storage-recalculate'
+  | 'maintenance-run'
   | 'import-data'
   | 'export-data';
 
@@ -168,6 +169,32 @@ export interface DatabaseStorageRecalculation {
   measurementSource?: 'innodb-tablespace' | 'information-schema' | null;
   rows: number | null;
   sampledAt: string;
+}
+
+export type DatabaseMaintenanceOperation =
+  | 'check'
+  | 'analyze'
+  | 'optimize'
+  | 'vacuum-analyze'
+  | 'reindex'
+  | 'update-statistics'
+  | 'reorganize-index';
+
+export interface DatabaseMaintenanceStepInput {
+  database: string;
+  table: string;
+  operation: DatabaseMaintenanceOperation;
+}
+
+export interface DatabaseMaintenanceStepResponse {
+  database: string;
+  table: string;
+  operation: DatabaseMaintenanceOperation;
+  statement: string;
+  durationMs: number;
+  affectedRows: number;
+  rows: Record<string, unknown>[];
+  completedAt: string;
 }
 
 export interface DatabaseImportDataInput {

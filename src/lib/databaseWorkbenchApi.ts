@@ -6,6 +6,8 @@ import type {
   DatabaseExportDataResponse,
   DatabaseImportDataInput,
   DatabaseImportDataResponse,
+  DatabaseMaintenanceStepInput,
+  DatabaseMaintenanceStepResponse,
   DatabasePerformanceSnapshot,
   DatabasePrivilegeChangeInput,
   DatabaseProcessCenterResponse,
@@ -194,6 +196,21 @@ export async function recalculateTableStorage(serverId: string, database: string
   );
   await persistStorageRecalculation(serverId, result);
   return result;
+}
+
+export function runDatabaseMaintenanceStep(
+  serverId: string,
+  input: DatabaseMaintenanceStepInput,
+  accountId?: string | null
+) {
+  return workbenchRequest<DatabaseMaintenanceStepResponse>(
+    serverId,
+    accountId,
+    'maintenance-run',
+    input as unknown as Record<string, unknown>,
+    input.database,
+    false
+  );
 }
 
 export function fetchDatabasePerformanceSnapshot(serverId: string, accountId?: string | null, database?: string | null) {
