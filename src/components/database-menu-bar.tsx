@@ -57,12 +57,14 @@ const DatabaseAutomationCenterModal = dynamic(() => import('@/components/databas
 const DatabaseIntelligenceCenterModal = dynamic(() => import('@/components/database-intelligence-center-modal').then(module => module.DatabaseIntelligenceCenterModal), { ssr: false });
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 import { shortcutLabel } from '@/lib/shortcuts';
+import { useNativePlatform } from '@/lib/platformRuntime';
 
 interface DatabaseMenuBarProps { selectedDatabase: string | null; selectedTable: string | null; }
 
 export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMenuBarProps) {
   const { workspaceKey } = useDesktop();
   const { t } = useLanguage();
+  const platform = useNativePlatform();
   const { servers, databases, activeServerId, setActiveServerId, loadServers } = useContext(DatabaseContext)!;
   const activeServer = servers.find(server => server.id === activeServerId) ?? null;
   const mysqlWorkbench = databaseEngineFamily(activeServer?.databaseType) === 'mysql';
@@ -146,6 +148,11 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
 
   return <>
     <div data-coreor-app-chrome="top" className="relative z-[2147483000] flex h-8 shrink-0 select-none items-stretch border-b border-zinc-800 bg-zinc-950/95 text-[11px] text-zinc-400 shadow-sm backdrop-blur">
+      {platform.os === 'macos' && <div className="flex shrink-0 items-center gap-2 px-3" data-tauri-drag-region>
+        <button type="button" className="h-3 w-3 rounded-full bg-red-500/90 ring-1 ring-red-400/30 transition hover:bg-red-400" onClick={() => void windowAction('close')} title="Kapat" aria-label="Kapat" />
+        <button type="button" className="h-3 w-3 rounded-full bg-amber-400/90 ring-1 ring-amber-300/30 transition hover:bg-amber-300" onClick={() => void windowAction('minimize')} title="Küçült" aria-label="Küçült" />
+        <button type="button" className="h-3 w-3 rounded-full bg-emerald-500/90 ring-1 ring-emerald-400/30 transition hover:bg-emerald-400" onClick={() => void windowAction('maximize')} title="Büyüt / geri yükle" aria-label="Büyüt veya geri yükle" />
+      </div>}
       <div className="coreor-hide-scrollbar flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto pl-2">
       <div className="mr-1 flex min-w-44 max-w-64 shrink-0 items-center gap-2"><Database className="h-3.5 w-3.5 shrink-0 text-emerald-400" /><SearchSelect value={activeServerId || ''} options={serverOptions} onValueChange={serverId => setActiveServerId(serverId || null)} placeholder={t('topbar.connectionSelect')} searchPlaceholder={t('topbar.connectionSearch')} emptyText={t('topbar.noSavedServer')} className="min-w-0 flex-1" triggerClassName="min-h-7 h-7 rounded-lg border-zinc-800/80 bg-black/20 px-2 [&>span]:py-0" dropdownMinWidth={390} showDescriptionInTrigger={false} /></div>
       <button className={toolButton} disabled={!activeServer || busy} onClick={() => void connect()}>{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400" /> : <Server className="h-3.5 w-3.5 text-emerald-400" />}{t('topbar.connect')}</button>
@@ -167,11 +174,11 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
       {activeServer?.readOnly && <span className="ml-1 shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[8px] text-amber-300">{t('topbar.readOnly')}</span>}
       <div className="min-w-8 flex-1 self-stretch" data-tauri-drag-region title="Pencereyi taşımak için sürükleyin" onDoubleClick={() => void windowAction('maximize')} />
       </div>
-      <div className="flex shrink-0 items-center border-l border-zinc-800 bg-black/15">
-        <button type="button" className={windowButton} onClick={() => void windowAction('minimize')} title="Simge durumuna küçült" aria-label="Simge durumuna küçült"><Minus className="h-3.5 w-3.5" strokeWidth={1.7} /></button>
+      {platform.os !== 'macos' && <div className="flex shrink-0 items-center border-l border-zinc-800 bg-black/15">
+        <button type="button" className={windowButton} onClick={() => void windowAction('minimize')} title="Küçült" aria-label="Küçült"><Minus className="h-3.5 w-3.5" strokeWidth={1.7} /></button>
         <button type="button" className={windowButton} onClick={() => void windowAction('maximize')} title="Büyüt / geri yükle" aria-label="Büyüt veya geri yükle"><Square className="h-3 w-3" strokeWidth={1.7} /></button>
         <button type="button" className={`${windowButton} hover:!bg-red-600 hover:!text-white`} onClick={() => void windowAction('close')} title="Kapat" aria-label="Kapat"><X className="h-4 w-4" strokeWidth={1.7} /></button>
-      </div>
+      </div>}
     </div>
     {usersOpen && <DatabaseUserManagerModal open={usersOpen} onClose={() => setUsersOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} />}
     {processOpen && <DatabaseProcessCenterModal open={processOpen} onClose={() => setProcessOpen(false)} serverId={activeServerId} accountId={workspaceKey} />}
