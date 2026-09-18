@@ -12,7 +12,6 @@ import { BottomBarGuide } from '@/components/bottom-bar-guide';
 import { CoreorToastProvider } from '@/components/ui/coreor-toast';
 import { DatabaseNotificationMonitor } from '@/components/database-notification-monitor';
 import { RuntimeCompatibility } from '@/components/runtime-compatibility';
-import Topbar from './Topbar';
 import BottomBar from './BottomBar';
 import { AppContextMenuProvider, useAppContextMenu } from '@/components/app-context-menu';
 import { DatabaseContext } from '@/context/DatabaseContext';
@@ -24,7 +23,6 @@ function EditorWorkspace() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('sql-editor');
   const [query, setQuery] = useState('SELECT * FROM users LIMIT 10;');
-  const [showTopbar, setShowTopbar] = useState(false);
   const lastTableView = useRef<'table' | 'table-data'>('table-data');
   const panelSaveTimer = useRef<number | null>(null);
   const { openContextMenu } = useAppContextMenu();
@@ -33,7 +31,6 @@ function EditorWorkspace() {
   const activeServer = servers.find(server => server.id === activeServerId) ?? null;
 
   useEffect(() => {
-    if (window.navigator.userAgent.includes('CoreorApp')) setShowTopbar(true);
     return () => {
       if (panelSaveTimer.current) window.clearTimeout(panelSaveTimer.current);
     };
@@ -128,7 +125,6 @@ function EditorWorkspace() {
     >
       <RuntimeCompatibility />
       <DatabaseNotificationMonitor />
-      {showTopbar && <Topbar />}
       <DatabaseMenuBar selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
       <DatabaseCommandPalette servers={servers} activeServerId={activeServerId} selectedDatabase={selectedDatabase} selectedTable={selectedTable} onDatabaseSelect={handleDatabaseSelect} onTableSelect={handleTableSelect} />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
