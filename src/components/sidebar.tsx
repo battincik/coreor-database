@@ -204,7 +204,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const context = useContext(DatabaseContext)!;
   const { openContextMenu } = useAppContextMenu();
   const { preferences } = useAppPreferences();
-  const { servers, activeServerId, setActiveServerId, addServer, updateServer, removeServer, loadServers, isAddingServer, isServersLoading } = context;
+  const { servers, setServers, activeServerId, setActiveServerId, addServer, updateServer, removeServer, loadServers, isAddingServer, isServersLoading } = context;
   const [search, setSearch] = useState('');
   const [searchTypes, setSearchTypes] = useState<Set<ObjectSearchType>>(new Set(['all']));
   const [searchFilterOpen, setSearchFilterOpen] = useState(false);
@@ -222,6 +222,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const [profileConfirmation, setProfileConfirmation] = useState<CoreorConfirmation | null>(null);
   const [createDatabase, setCreateDatabase] = useState<CreateDatabaseState | null>(null);
   const [online, setOnline] = useState(true);
+  const catalogBootstrapKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     const focusSearch = () => { searchRef.current?.focus(); searchRef.current?.select(); };
@@ -357,12 +358,49 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     setExpandedDatabases(new Set());
     setExpandedObjectGroups(new Set());
   };
-  const refreshServer = async (server: DatabaseServerConfig) => {
+  const preloadServerObjects = useCallback(async (server: DatabaseServerConfig, databases: DatabaseServerConfig['databases']) => {
+    if (!workspaceKey || !databases?.length) return;
+    const targets = databases.map(database => database.name);
+    let cursor = 0;
+    const worker = async () => {
+      while (true) {
+        const databaseName = targets[cursor++];
+        if (!databaseName) return;
+        const key = objectExplorerKey(server.id, databaseName);
+        setObjectLoading(previous => new Set(previous).add(key));
+        try {
+          const result = await fetchDatabaseObjects(server.id, databaseName, workspaceKey, true);
+          setDatabaseObjects(previous => ({ ...previous, [key]: result.objects }));
+        } catch {
+          setDatabaseObjects(previous => ({ ...previous, [key]: [] }));
+        } finally {
+          setObjectLoading(previous => { const next = new Set(previous); next.delete(key); return next; });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, targets.length) }, () => worker()));
+  }, [workspaceKey]);
+
+  const refreshServer = useCallback(async (server: DatabaseServerConfig) => {
     if (!workspaceKey) return;
-    await fetchServerTables(server.id, workspaceKey);
+    const response = await fetchServerTables(server.id, workspaceKey);
+    const nextServer = { ...server, databases: response.databases };
+    setServers(previous => previous.map(item => item.id === server.id ? { ...item, databases: response.databases } : item));
     setDatabaseObjects(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => !key.startsWith(`${server.id}:`))));
-    await loadServers();
-  };
+    await preloadServerObjects(nextServer, response.databases);
+  }, [workspaceKey, setServers, preloadServerObjects]);
+
+  useEffect(() => {
+    if (!workspaceKey || !activeServerId) return;
+    const server = servers.find(item => item.id === activeServerId);
+    if (!server) return;
+    const bootstrapKey = [server.id, server.host, server.port, server.username, server.databaseType, server.sslMode].join(':');
+    if (catalogBootstrapKeyRef.current === bootstrapKey) return;
+    catalogBootstrapKeyRef.current = bootstrapKey;
+    void refreshServer(server).catch(() => {
+      if (catalogBootstrapKeyRef.current === bootstrapKey) catalogBootstrapKeyRef.current = null;
+    });
+  }, [workspaceKey, activeServerId, servers, refreshServer]);
   const runDangerous = (server: DatabaseServerConfig, database: string, table: string, sql: string, title: string, description: string, label: string) =>
     setConfirmation({
       title,
