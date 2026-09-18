@@ -360,7 +360,26 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     setPositions(next);
     persistPositions(serverId, databaseName, next);
     setSelectedEdge(null); setSource(null); setTarget(null);
-    setZoom(0.9); updatePan({ x: 32, y: 32 });
+
+    const viewport = viewportRef.current;
+    const entries = Object.entries(next);
+    if (viewport && entries.length) {
+      const minX = Math.min(...entries.map(([, point]) => point.x));
+      const minY = Math.min(...entries.map(([, point]) => point.y));
+      const maxX = Math.max(...entries.map(([table, point]) => point.x + CARD_WIDTH));
+      const maxY = Math.max(...entries.map(([table, point]) => point.y + nodeHeight(tableInfo[table])));
+      const width = Math.max(1, maxX - minX);
+      const height = Math.max(1, maxY - minY);
+      const padding = 56;
+      const nextZoom = clamp(Math.min((viewport.clientWidth - padding * 2) / width, (viewport.clientHeight - padding * 2) / height, 1.15), MIN_ZOOM, MAX_ZOOM);
+      setZoom(nextZoom);
+      updatePan({
+        x: (viewport.clientWidth - width * nextZoom) / 2 - minX * nextZoom,
+        y: (viewport.clientHeight - height * nextZoom) / 2 - minY * nextZoom
+      });
+    } else {
+      setZoom(0.9); updatePan({ x: 32, y: 32 });
+    }
   };
 
   const chooseColumn = (table: string, column: string) => {
