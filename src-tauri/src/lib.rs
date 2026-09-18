@@ -203,6 +203,17 @@ fn workspace_sync_manifest(app: tauri::AppHandle) -> Result<Value, String> {
     secure_vault::workspace_sync_manifest(&app)
 }
 
+
+#[tauri::command]
+fn workspace_sync_export(app: tauri::AppHandle) -> Result<Value, String> {
+    secure_vault::workspace_sync_export(&app)
+}
+
+#[tauri::command]
+fn workspace_sync_merge(app: tauri::AppHandle, remote: Value) -> Result<Value, String> {
+    secure_vault::workspace_sync_merge(&app, remote)
+}
+
 #[tauri::command]
 async fn database_request(
     app: tauri::AppHandle,
@@ -268,6 +279,8 @@ pub fn run() {
             workspace_write,
             workspace_import_legacy,
             workspace_sync_manifest,
+            workspace_sync_export,
+            workspace_sync_merge,
             database_request
         ])
         .run(tauri::generate_context!())

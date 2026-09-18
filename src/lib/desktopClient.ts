@@ -40,6 +40,9 @@ export interface CloudVaultReadiness {
   payloadCipher: 'AES-256-GCM' | string;
   vaultKeyBytes: number;
   passwordKdf: 'Argon2id' | string;
+  workspaceSchemaVersion: number;
+  syncableCollections: SyncableWorkspaceCollection[];
+  conflictModel: string;
   zeroKnowledge: boolean;
   masterPasswordStored: boolean;
 }
@@ -103,4 +106,28 @@ export function importLegacyWorkspaceCollection<T>(collection: SyncableWorkspace
 }
 export function readWorkspaceSyncManifest(): Promise<WorkspaceSyncManifest> {
   return invokeDesktop<WorkspaceSyncManifest>('workspace_sync_manifest');
+}
+
+export interface WorkspaceSyncMergeResult {
+  mergedRecords: number;
+  conflicts: Array<{
+    namespace: string;
+    recordId: string;
+    revision: number;
+    localUpdatedAt: string;
+    remoteUpdatedAt: string;
+    localDeviceId: string;
+    remoteDeviceId: string;
+  }>;
+  hasConflicts: boolean;
+  deviceId: string;
+  schemaVersion: number;
+}
+
+export function exportWorkspaceSyncPayload<T = unknown>(): Promise<T> {
+  return invokeDesktop<T>('workspace_sync_export');
+}
+
+export function mergeWorkspaceSyncPayload<T extends object>(remote: T): Promise<WorkspaceSyncMergeResult> {
+  return invokeDesktop<WorkspaceSyncMergeResult>('workspace_sync_merge', { remote });
 }

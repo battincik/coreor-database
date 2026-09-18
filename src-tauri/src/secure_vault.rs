@@ -465,6 +465,133 @@ pub fn workspace_import_legacy(app: &tauri::AppHandle, collection: &str, scope: 
     Ok(payload.workspace.get(&namespace).map(active_workspace_values).unwrap_or_default())
 }
 
+
+fn workspace_sync_namespace_allowed(namespace: &str) -> bool {
+    let Some((collection, scope)) = namespace.split_once(':') else { return false; };
+    workspace_namespace(collection, scope).map(|expected| expected == namespace).unwrap_or(false)
+}
+
+pub fn workspace_sync_export(app: &tauri::AppHandle) -> Result<Value, String> {
+    let _guard = io_lock().lock().map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
+    let payload = load_payload_unlocked(app)?;
+    let collections = payload.workspace.iter()
+        .filter(|(namespace, _)| workspace_sync_namespace_allowed(namespace))
+        .map(|(namespace, collection)| json!({
+            "namespace": namespace,
+            "schemaVersion": collection.schema_version,
+            "records": collection.records
+        }))
+        .collect::<Vec<_>>();
+
+    Ok(json!({
+        "schemaVersion": workspace_schema_version(),
+        "deviceId": payload.device_id,
+        "exportedAt": Utc::now().to_rfc3339(),
+        "collections": collections
+    }))
+}
+
+pub fn workspace_sync_merge(app: &tauri::AppHandle, remote: Value) -> Result<Value, String> {
+    let schema_version = remote.get("schemaVersion").and_then(Value::as_u64).unwrap_or(0) as u32;
+    if schema_version == 0 || schema_version > workspace_schema_version() {
+        return Err("Desteklenmeyen cloud workspace şema sürümü.".to_string());
+    }
+    let remote_collections = remote.get("collections").and_then(Value::as_array)
+        .ok_or_else(|| "Cloud workspace collections alanı eksik.".to_string())?;
+
+    let _guard = io_lock().lock().map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
+    let mut payload = load_payload_unlocked(app)?;
+    let mut changed = false;
+    let mut merged_records = 0usize;
+    let mut conflicts = Vec::new();
+
+    for remote_collection in remote_collections {
+        let namespace = remote_collection.get("namespace").and_then(Value::as_str)
+            .ok_or_else(|| "Cloud workspace namespace eksik.".to_string())?;
+        if !workspace_sync_namespace_allowed(namespace) {
+            return Err(format!("Geçersiz cloud workspace namespace: {namespace}"));
+        }
+        let collection_schema = remote_collection.get("schemaVersion").and_then(Value::as_u64).unwrap_or(0) as u32;
+        if collection_schema == 0 || collection_schema > workspace_schema_version() {
+            return Err(format!("Desteklenmeyen collection şema sürümü: {namespace}"));
+        }
+        let remote_records = remote_collection.get("records").and_then(Value::as_array)
+            .ok_or_else(|| format!("Cloud workspace records alanı eksik: {namespace}"))?
+            .iter()
+            .cloned()
+            .map(|value| serde_json::from_value::<WorkspaceRecord>(value).map_err(|error| error.to_string()))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let local_collection = payload.workspace.entry(namespace.to_string()).or_default();
+        local_collection.schema_version = workspace_schema_version();
+
+        for remote_record in remote_records {
+            if remote_record.id.trim().is_empty() || remote_record.id.len() > 200 {
+                return Err(format!("Geçersiz cloud workspace record id: {namespace}"));
+            }
+
+            if let Some(index) = local_collection.records.iter().position(|record| record.id == remote_record.id) {
+                let local_record = &local_collection.records[index];
+                let identical = local_record.revision == remote_record.revision
+                    && local_record.updated_at == remote_record.updated_at
+                    && local_record.deleted_at == remote_record.deleted_at
+                    && local_record.updated_by_device == remote_record.updated_by_device
+                    && local_record.payload == remote_record.payload;
+
+                if identical {
+                    continue;
+                }
+
+                if remote_record.revision > local_record.revision {
+                    local_collection.records[index] = remote_record;
+                    merged_records += 1;
+                    changed = true;
+                    continue;
+                }
+
+                if remote_record.revision < local_record.revision {
+                    continue;
+                }
+
+                if remote_record.updated_by_device == local_record.updated_by_device {
+                    if remote_record.updated_at > local_record.updated_at {
+                        local_collection.records[index] = remote_record;
+                        merged_records += 1;
+                        changed = true;
+                    }
+                    continue;
+                }
+
+                conflicts.push(json!({
+                    "namespace": namespace,
+                    "recordId": local_record.id,
+                    "revision": local_record.revision,
+                    "localUpdatedAt": local_record.updated_at,
+                    "remoteUpdatedAt": remote_record.updated_at,
+                    "localDeviceId": local_record.updated_by_device,
+                    "remoteDeviceId": remote_record.updated_by_device
+                }));
+            } else {
+                local_collection.records.push(remote_record);
+                merged_records += 1;
+                changed = true;
+            }
+        }
+    }
+
+    if changed {
+        save_payload_unlocked(app, &payload)?;
+    }
+
+    Ok(json!({
+        "mergedRecords": merged_records,
+        "conflicts": conflicts,
+        "hasConflicts": !conflicts.is_empty(),
+        "deviceId": payload.device_id,
+        "schemaVersion": workspace_schema_version()
+    }))
+}
+
 pub fn workspace_sync_manifest(app: &tauri::AppHandle) -> Result<Value, String> {
     let _guard = io_lock().lock().map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
     let payload = load_payload_unlocked(app)?;
