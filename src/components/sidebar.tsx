@@ -353,6 +353,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           }
         },
         { id: 'query', label: 'SELECT sorgusu', icon: Code2, onSelect: () => openSql(server, database, `${table} SELECT`, `SELECT * FROM ${qualified}\nLIMIT 100;`) },
+        { id: 'insert-row', label: 'Satır ekle', icon: Plus, disabled: Boolean(server.readOnly), onSelect: () => { setActiveServerId(server.id); onDatabaseSelect(database); onTableSelect(table); window.dispatchEvent(new CustomEvent('coreor:request-insert-table-row', { detail: { databaseName: database, tableName: table } })); } },
         {
           id: 'new',
           label: 'Yeni oluştur',
