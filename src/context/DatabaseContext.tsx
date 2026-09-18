@@ -125,6 +125,17 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
   }, [activeServerId, workspaceKey]);
   useEffect(() => { void loadServers(); }, [loadServers]);
 
+  useEffect(() => {
+    const activeServer = servers.find(server => server.id === activeServerId) ?? null;
+    const activeCatalog = activeServer?.databases ?? [];
+    setDatabases(activeCatalog);
+    setDatabaseTables(activeCatalog.flatMap(database => database.tableDetails ?? []));
+    if (!activeServer) {
+      setTableInfo(null);
+      setTableData([]);
+    }
+  }, [servers, activeServerId]);
+
   const persistServer = async (server: DatabaseServerConfig, loadInitialCatalog: boolean) => {
     if (!workspaceKey) throw new Error('Yerel çalışma alanı hazır değil.');
     setIsAddingServer(true);
