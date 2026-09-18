@@ -1,121 +1,69 @@
 # Public Release Checklist
 
-Use this checklist before changing `battincik/web.database.coreor.net` from private to public.
+The repository is currently private. Complete this checklist before changing visibility.
 
-## P0 — Complete before public visibility
+## Source and history
 
-- [x] **Repository license added:** Apache License 2.0 with `LICENSE`, `NOTICE` and a plain-language `docs/LICENSE_GUIDE.md`.
-- [ ] **Upgrade vulnerable framework/auth dependencies** tracked in Issue #32 and regenerate `package-lock.json` deterministically.
-- [ ] **Resolve GitHub Actions startup failures** tracked in Issue #36 so required checks can actually run.
-- [ ] **Run a full Git-history secret scan**, not only a current-tree search. Recommended local tools include `gitleaks detect --source .` or `trufflehog git file://...` on a fresh full clone.
-- [ ] Rotate/revoke any credential discovered in history before history cleanup.
-- [ ] Verify production `GITHUB_ID`, `GITHUB_SECRET`, `NEXTAUTH_SECRET`, release tokens and database credentials exist only in deployment secret stores, never in repository files.
-- [ ] Verify GitHub OAuth callback URLs contain only intended production/development origins.
-- [ ] Enable private vulnerability reporting / GitHub Security Advisories for the public repository.
+- [x] Apache-2.0 `LICENSE` exists.
+- [x] `NOTICE` exists.
+- [x] English and Turkish README files exist.
+- [x] Contribution, security, support and code-of-conduct documents exist.
+- [ ] Scan full Git history with Gitleaks/TruffleHog.
+- [ ] Rotate any credential found in history before cleanup.
+- [ ] Confirm no private infrastructure details remain in docs/issues.
+- [ ] Review third-party dependency licenses.
 
-## Repository protection
+## Architecture
 
-- [ ] Protect `main` or create an equivalent repository ruleset.
-- [ ] Require pull requests before merge for external changes.
-- [ ] Require passing CI/status checks before merge.
-- [ ] Block force pushes and branch deletion on `main`.
-- [ ] Consider requiring conversation resolution before merge.
-- [ ] Review who has admin/write access after the repository becomes public.
-- [ ] Enable Dependabot alerts and security updates.
-- [ ] Enable secret scanning and push protection where available.
+- [x] No Next.js database API backend.
+- [x] No Node database drivers.
+- [x] Native Rust layer owns DB connections.
+- [x] Account login is optional for local DB use.
+- [x] Architecture guard runs in CI.
+- [ ] Replace plaintext local credential persistence with platform secret-store integration or document the accepted risk for the first public release.
 
-## Current-tree exposure review
+## Cross-platform
 
-- [x] `.env*` is ignored except `.env.example`.
-- [x] PEM files are ignored.
-- [x] `.vercel`, `.next`, build output, dependency folders and common debug logs are ignored.
-- [x] Current repository tree contains `.env.example`, not a committed production `.env` file.
-- [x] Current-tree code searches performed during public-release preparation did not identify an obvious hard-coded production credential.
-- [ ] Perform the independent full-history scan described above before changing visibility.
+- [x] CI definition covers Windows, macOS and Linux.
+- [x] Tauri bundle target is cross-platform.
+- [ ] Validate actual installers/packages on physical/VM systems.
+- [ ] Test common Linux distributions.
+- [ ] Validate macOS Intel/Apple Silicon release strategy.
+- [ ] Configure Windows code signing.
+- [ ] Configure macOS signing/notarization.
+- [ ] Publish checksums/signatures with release artifacts.
 
-> A clean current tree does not prove that Git history is clean. Deleted secrets remain recoverable from older commits until history is rewritten, and any exposed secret must be rotated regardless of cleanup.
+## GitHub repository controls
 
-## Application security
-
-- [x] Any GitHub user may authenticate; authentication is used for identity/account separation rather than a user allowlist.
-- [x] Publicly routable DB hosts can be used without a per-customer server allowlist.
-- [x] Loopback/private/link-local/reserved targets are blocked by default as SSRF protection.
-- [x] Private/local exceptions are explicit through `DATABASE_ALLOWED_HOSTS`.
-- [x] Outbound DB ports are constrained through `DATABASE_ALLOWED_PORTS`.
-- [x] Same-origin validation and production security headers are present.
-- [x] Request-size, read-only and basic per-user rate-limit controls are present.
-- [x] Unexpected driver errors are normalized before reaching clients.
-- [x] Browser vault data is encrypted with AES-GCM.
-- [ ] Add centralized rate limiting / abuse controls before scaling the hosted public service to multiple instances.
-- [ ] Decide whether database TLS should be mandatory for the hosted service or remain user-configurable.
-- [ ] Resolve SQL result-limit bypasses for CTE/comment-prefixed SELECT statements tracked in Issue #37.
-
-## Architecture / scaling
-
-- [ ] Do not enable arbitrary multi-instance transaction routing until Issue #38 is resolved or sticky/stateful transaction routing is in place.
-- [ ] Keep PM2/process topology compatible with transaction ownership assumptions.
-- [ ] Re-test performance snapshots against large databases and constrained DB connection limits.
-- [ ] Re-test metadata/catalog loading against servers with many schemas/tables.
-
-## Public documentation
-
-- [x] English README available as `README.md`.
-- [x] Turkish README available as `README.tr.md`.
-- [x] Language selector is present at the top of both README files.
-- [x] Security model explains that all GitHub users can sign in.
-- [x] README explains that the application server sees credentials in memory during DB connection setup.
-- [x] README documents private-network restrictions and the public-host behavior.
-- [x] README documents multi-instance transaction limitations.
-- [x] `SECURITY.md` added.
-- [x] `CONTRIBUTING.md` added.
-- [x] `CODE_OF_CONDUCT.md` added.
-- [x] `SUPPORT.md` added.
-- [x] `CHANGELOG.md` added.
-- [x] `ROADMAP.md` added.
-- [x] `ARCHITECTURE.md` added.
-- [x] `SECURITY_MODEL.md` added.
-- [x] `DATABASE_SUPPORT.md` added.
-- [x] `SELF_HOSTING.md` added.
-- [x] `DEPLOYMENT.md` added.
-- [x] `TROUBLESHOOTING.md` added.
-- [x] `RELEASING.md` added.
-- [x] `docs/DEVELOPMENT.md` added.
-- [x] `docs/THREAT_MODEL.md` added.
-- [x] `docs/LICENSE_GUIDE.md` and `docs/README.md` added.
-- [ ] Add screenshots/GIFs with sanitized demo data if a visual project showcase is desired.
-- [ ] Set the GitHub repository description, website and topics after changing visibility.
+- [ ] Protect `main`.
+- [ ] Require pull requests and passing CI.
+- [ ] Disable force-push/deletion for protected branches.
+- [ ] Enable Dependabot alerts/security updates.
+- [ ] Enable secret scanning/push protection.
+- [ ] Enable private vulnerability reporting.
+- [ ] Review collaborator/admin access.
+- [ ] Add/update repository description and topics after public launch.
 
 Suggested topics:
 
-`database-client`, `database-management`, `mysql`, `mariadb`, `postgresql`, `mssql`, `tidb`, `cockroachdb`, `nextjs`, `typescript`, `sql`, `self-hosted`
+`database-client`, `database-management`, `tauri`, `rust`, `sql`, `mysql`, `postgresql`, `mssql`, `cross-platform`
 
-## Production verification
+## Product validation
 
-Run on the exact commit intended for release:
+- [ ] Guest mode works with account API unavailable.
+- [ ] MySQL/MariaDB core flows pass.
+- [ ] PostgreSQL core flows pass.
+- [ ] MSSQL core flows pass.
+- [ ] Read-only profiles reject native mutations.
+- [ ] Object Explorer works on large catalogs.
+- [ ] 5k-row grid behavior is profiled and acceptable.
+- [ ] Import/export has bounded memory behavior.
+- [ ] Database credentials do not appear in logs.
+- [ ] Optional account capability gates do not block local workflows.
 
-```bash
-npm ci
-npm run check
-```
+## Community
 
-Then verify:
-
-- [ ] Login/logout works with the production GitHub OAuth application.
-- [ ] A normal GitHub account can create its own server profile.
-- [ ] Public MySQL/MariaDB connection works.
-- [ ] Public PostgreSQL connection works.
-- [ ] Public MSSQL connection works if advertised for launch.
-- [ ] Private/loopback targets are rejected without explicit operator allowlisting.
-- [ ] Read-only profiles reject mutations server-side.
-- [ ] Invalid TLS certificates produce safe/actionable errors.
-- [ ] Oversized request bodies are rejected.
-- [ ] Rate limiting returns the expected 429 behavior.
-- [ ] Credentials do not appear in application logs, browser console output, error responses or release-history payloads.
-- [ ] Production health check succeeds after a clean deploy.
-
-## After going public
-
-- [ ] Watch Dependabot/security alerts.
-- [ ] Triage external issues and PRs for secret leakage before quoting/reposting their content.
-- [ ] Treat any report involving SSRF, auth/session bypass, credential exposure or remote code execution as high priority.
-- [ ] Periodically repeat dependency audits and GitHub security-setting reviews.
+- [ ] Add sanitized screenshots/GIFs.
+- [ ] Add issue/PR templates.
+- [ ] Define maintainer/review expectations.
+- [ ] Decide public release version/tag.
