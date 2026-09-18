@@ -172,14 +172,14 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
         <button type="button" className={`${windowButton} hover:!bg-red-600 hover:!text-white`} onClick={() => void windowAction('close')} title="Kapat" aria-label="Kapat"><X className="h-4 w-4" strokeWidth={1.7} /></button>
       </div>
     </div>
-    <DatabaseUserManagerModal open={usersOpen} onClose={() => setUsersOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} />
-    <DatabaseProcessCenterModal open={processOpen} onClose={() => setProcessOpen(false)} serverId={activeServerId} accountId={workspaceKey} />
-    <DatabasePerformancePanelModal open={performanceOpen} onClose={() => setPerformanceOpen(false)} serverId={activeServerId} accountId={workspaceKey} selectedDatabase={selectedDatabase} />
-    <SqlNotebookModal open={notebookOpen} onClose={() => setNotebookOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} selectedDatabase={selectedDatabase} />
-    <DatabaseImportExportModal open={transferOpen} onClose={() => setTransferOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
-    <DatabaseSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialTab={settingsTab} />
-    <DatabaseTransactionWorkspaceModal open={transactionOpen} onClose={() => setTransactionOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} selectedDatabase={selectedDatabase} />
-    <DatabaseAutomationCenterModal open={automationOpen} onClose={() => setAutomationOpen(false)} initialTab={automationTab} servers={servers} activeServerId={activeServerId} accountId={workspaceKey} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
-    <DatabaseIntelligenceCenterModal open={intelligenceOpen} onClose={() => setIntelligenceOpen(false)} initialTab={intelligenceTab} servers={servers} activeServerId={activeServerId} accountId={workspaceKey} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
+    {usersOpen && <DatabaseUserManagerModal open={usersOpen} onClose={() => setUsersOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} />}
+    {processOpen && <DatabaseProcessCenterModal open={processOpen} onClose={() => setProcessOpen(false)} serverId={activeServerId} accountId={workspaceKey} />}
+    {performanceOpen && <DatabasePerformancePanelModal open={performanceOpen} onClose={() => setPerformanceOpen(false)} serverId={activeServerId} accountId={workspaceKey} selectedDatabase={selectedDatabase} />}
+    {notebookOpen && <SqlNotebookModal open={notebookOpen} onClose={() => setNotebookOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} selectedDatabase={selectedDatabase} />}
+    {transferOpen && <DatabaseImportExportModal open={transferOpen} onClose={() => setTransferOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />}
+    {settingsOpen && <DatabaseSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialTab={settingsTab} />}
+    {transactionOpen && <DatabaseTransactionWorkspaceModal open={transactionOpen} onClose={() => setTransactionOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} selectedDatabase={selectedDatabase} />}
+    {automationOpen && <DatabaseAutomationCenterModal open={automationOpen} onClose={() => setAutomationOpen(false)} initialTab={automationTab} servers={servers} activeServerId={activeServerId} accountId={workspaceKey} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />}
+    {intelligenceOpen && <DatabaseIntelligenceCenterModal open={intelligenceOpen} onClose={() => setIntelligenceOpen(false)} initialTab={intelligenceTab} servers={servers} activeServerId={activeServerId} accountId={workspaceKey} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />}
   </>;
 }
