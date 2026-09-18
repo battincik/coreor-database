@@ -383,6 +383,32 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
     Ok(json!({"databases":out,"_meta":{"statements":[{"label":"Katalog","sql":db_sql}]}}))
 }
 
+async fn schema_overview(c:&Connection,p:&Map<String,Value>,max:usize)->Result<Value,String>{
+    if is_pg(&c.engine)||is_mssql(&c.engine){
+        return Ok(json!({"supported":false,"tables":[],"columns":[],"indexes":[],"foreignKeys":[]}))
+    }
+    let db=payload_str(p,"database")?;
+    let escdb=db.replace("'","''");
+    let metadata_limit=max.saturating_mul(4).clamp(10_000,50_000);
+    let tables_sql=format!("SELECT TABLE_NAME AS tableName,ENGINE AS engine,TABLE_COLLATION AS tableCollation,TABLE_COMMENT AS tableComment,AUTO_INCREMENT AS autoIncrement,ROW_FORMAT AS rowFormat,TABLE_TYPE AS tableType,CREATE_TIME AS createTime,UPDATE_TIME AS updateTime FROM information_schema.TABLES WHERE TABLE_SCHEMA='{}' ORDER BY TABLE_NAME",escdb);
+    let columns_sql=format!("SELECT TABLE_NAME AS tableName,COLUMN_NAME AS Field,COLUMN_TYPE AS Type,IS_NULLABLE AS `Null`,COLUMN_KEY AS `Key`,COLUMN_DEFAULT AS `Default`,EXTRA AS Extra,COLUMN_COMMENT AS Comment,COLLATION_NAME AS Collation,ORDINAL_POSITION AS Ordinal_position,DATA_TYPE AS Data_type,CHARACTER_MAXIMUM_LENGTH AS Character_maximum_length,NUMERIC_PRECISION AS Numeric_precision,NUMERIC_SCALE AS Numeric_scale,DATETIME_PRECISION AS Datetime_precision,CHARACTER_SET_NAME AS Character_set_name,GENERATION_EXPRESSION AS Generation_expression FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='{}' ORDER BY TABLE_NAME,ORDINAL_POSITION",escdb);
+    let indexes_sql=format!("SELECT TABLE_NAME AS tableName,INDEX_NAME AS Key_name,COLUMN_NAME AS Column_name,NON_UNIQUE AS Non_unique,SEQ_IN_INDEX AS Seq_in_index,INDEX_TYPE AS Index_type,COLLATION AS Collation,CARDINALITY AS Cardinality,SUB_PART AS Sub_part,NULLABLE AS Nullable,INDEX_COMMENT AS Index_comment,'YES' AS Is_visible,NULL AS Expression FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='{}' ORDER BY TABLE_NAME,INDEX_NAME,SEQ_IN_INDEX",escdb);
+    let fks_sql=format!("SELECT k.TABLE_NAME AS tableName,k.CONSTRAINT_NAME,k.COLUMN_NAME,k.ORDINAL_POSITION,k.REFERENCED_TABLE_SCHEMA,k.REFERENCED_TABLE_NAME,k.REFERENCED_COLUMN_NAME,COALESCE(r.UPDATE_RULE,'RESTRICT') AS UPDATE_RULE,COALESCE(r.DELETE_RULE,'RESTRICT') AS DELETE_RULE FROM information_schema.KEY_COLUMN_USAGE k LEFT JOIN information_schema.REFERENTIAL_CONSTRAINTS r ON r.CONSTRAINT_SCHEMA=k.CONSTRAINT_SCHEMA AND r.TABLE_NAME=k.TABLE_NAME AND r.CONSTRAINT_NAME=k.CONSTRAINT_NAME WHERE k.TABLE_SCHEMA='{}' AND k.REFERENCED_TABLE_NAME IS NOT NULL ORDER BY k.TABLE_NAME,k.CONSTRAINT_NAME,k.ORDINAL_POSITION",escdb);
+    let mut conn=open_native(c,Some(db)).await?;
+    let tables=rows_of(&execute_on(&mut conn,&tables_sql,metadata_limit).await?);
+    let columns=rows_of(&execute_on(&mut conn,&columns_sql,metadata_limit).await?);
+    let indexes=rows_of(&execute_on(&mut conn,&indexes_sql,metadata_limit).await.unwrap_or(json!({"rows":[]})));
+    let foreign_keys=rows_of(&execute_on(&mut conn,&fks_sql,metadata_limit).await.unwrap_or(json!({"rows":[]})));
+    Ok(json!({
+        "supported":true,
+        "tables":tables,
+        "columns":columns,
+        "indexes":indexes,
+        "foreignKeys":foreign_keys,
+        "_meta":{"statements":[{"label":"Şema metadata","sql":format!("information_schema batch • {} • tables + columns + indexes + foreign keys",db)}]}
+    }))
+}
+
 async fn table_data(c:&Connection,p:&Map<String,Value>,max_page:usize)->Result<Value,String>{
     let db=payload_str(p,"database")?;let table=payload_str(p,"table")?;let page=p.get("page").and_then(Value::as_u64).unwrap_or(1).max(1);let size=p.get("pageSize").and_then(Value::as_u64).unwrap_or(50).clamp(10,max_page as u64);
     let (where_sql,filters)=build_filters(p,&c.engine)?;let (sort_sql,sorts)=build_sorts(p,&c.engine)?;let qt=qualified(db,table,&c.engine)?;
