@@ -8,6 +8,7 @@ import type {
   DatabaseQueryStatement,
   DatabaseServerConfig,
   QueryExecutionResult,
+  SchemaOverviewResponse,
   TableCellUpdateInput,
   TableCellUpdateResponse,
   TableRowInsertInput,
@@ -67,6 +68,7 @@ const ACTION_TITLES: Record<DatabaseApiAction, string> = {
   test: 'Bağlantı testi',
   catalog: 'Veritabanı kataloğu',
   'table-info': 'Tablo yapısı',
+  'schema-overview': 'Şema metadata',
   'table-data': 'Tablo verileri',
   'update-cell': 'Hücre güncelleme',
   'insert-row': 'Satır ekleme',
@@ -106,6 +108,7 @@ function fallbackStatements(action: DatabaseApiAction, payload: Record<string, u
   if (action === 'test') return [{ label: 'Bağlantı testi', sql: `/* ${engine} bağlantı testi */ SELECT version` }];
   if (action === 'catalog') return [{ label: 'Ayrıntılı katalog', sql: `/* ${engine} katalog sorguları */` }];
   if (action === 'table-info') return [{ label: 'Tablo yapısı', sql: `/* ${engine} */ DESCRIBE ${database}.${table}` }];
+  if (action === 'schema-overview') return [{ label: 'Şema metadata', sql: `/* ${engine} */ information_schema metadata for ${database}` }];
   if (action === 'table-data') return [{ label: 'Tablo satırları', sql: `SELECT * FROM ${database}.${table}` }];
   if (action === 'update-cell') return [{ label: 'Hücre güncelleme', sql: `UPDATE ${database}.${table} SET ${String(payload.column || 'column')} = ? WHERE <primary-key>` }];
   if (action === 'insert-row') return [{ label: 'Satır ekleme', sql: `INSERT INTO ${database}.${table} (...) VALUES (...)` }];
@@ -119,6 +122,7 @@ function resultMetrics(action: DatabaseApiAction, result: unknown) {
   if (!payload) return {};
   if (action === 'catalog') return { rowCount: payload.databases?.length };
   if (action === 'table-info') return { rowCount: payload.columns?.length };
+  if (action === 'schema-overview') return { rowCount: payload.columns?.length };
   if (action === 'table-data') return { rowCount: payload.data?.length };
   if (action === 'alter-table') return { rowCount: payload.tableInfo?.columns?.length };
   if (action === 'update-cell' || action === 'insert-row' || action === 'delete-rows') return { affectedRows: payload.affectedRows };
@@ -294,6 +298,11 @@ export async function fetchServerTables(serverId: string, accountId?: string | n
 export async function fetchTableInfo(serverId: string, databaseName: string, tableName: string, accountId?: string | null) {
   const server = await requireServer(accountId, serverId);
   return requestDatabaseApi<TableInfo>(server, 'table-info', { database: databaseName, table: tableName }, { requestKey: `table-info:${serverId}:${databaseName}:${tableName}`, connectionDatabase: databaseName });
+}
+
+export async function fetchSchemaOverview(serverId: string, databaseName: string, accountId?: string | null) {
+  const server = await requireServer(accountId, serverId);
+  return requestDatabaseApi<SchemaOverviewResponse>(server, 'schema-overview', { database: databaseName }, { requestKey: `schema-overview:${serverId}:${databaseName}`, connectionDatabase: databaseName });
 }
 
 export async function fetchTableData(serverId: string, databaseName: string, tableName: string, accountId?: string | null, options: FetchTableDataOptions = {}) {
