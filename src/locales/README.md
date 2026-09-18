@@ -1,58 +1,69 @@
 # Coreor Database locales
 
-Her desteklenen dil tek bir JSON dosyasıyla tanımlanır. UI metinleri component içinde hardcode edilmez.
+Coreor uses **JSON-only translation catalogs**. User-facing UI text belongs in locale JSON files and React components consume it with `t('namespace.key')`.
 
-## JSON yapısı
+## Modern locale format
 
 ```json
 {
+  "meta": {
+    "direction": "ltr",
+    "nativeName": "English"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel"
   },
   "topbar": {
     "connect": "Connect"
-  },
-  "maintenance": {
-    "title": "Maintenance center"
   }
 }
 ```
 
-React tarafında noktalı path kullanılır:
+Nested JSON becomes dotted keys at runtime:
 
 ```tsx
 const { t } = useLanguage();
 <Button>{t('common.save')}</Button>
 ```
 
-Değişken metinler placeholder kullanır:
+Dynamic copy uses named placeholders:
 
 ```json
-{
-  "query": {
-    "affectedRows": "{count} rows affected"
-  }
-}
+{ "query": { "affectedRows": "{count} rows affected" } }
 ```
 
 ```tsx
 t('query.affectedRows', { count: 42 })
 ```
 
-## Yeni dil ekleme
+## Add a language
 
-1. `en.json` dosyasını yeni locale adına kopyalayın.
-2. Anahtar yapısını değiştirmeden yalnız string değerlerini çevirin.
-3. `{count}`, `{name}` gibi placeholder'ları koruyun.
-4. SQL keyword değerlerini (`SELECT`, `INSERT`, ...) çevirmeyin.
-5. `LanguageContext.tsx` içinde import, `LocaleCode` ve `SUPPORTED_LANGUAGES` kayıtlarını ekleyin.
-6. `scripts/validate-locales.mjs` içindeki `supportedLocales` listesine locale'i ekleyin.
-7. `npm run i18n:check` çalıştırın.
+1. Copy `en.json` to `<locale>.json`.
+2. Set `meta.nativeName` and `meta.direction` (`ltr` or `rtl`).
+3. Translate string values without changing key structure.
+4. Preserve placeholders such as `{count}`, `{name}`, and `{database}`.
+5. Keep SQL keywords such as `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `CREATE`, `ALTER`, `DROP`, and `TRUNCATE` unchanged.
+6. Run:
+   ```bash
+   npm run i18n:generate
+   npm run i18n:check
+   npm run i18n:audit
+   ```
 
-## Kurallar
+No manual edit to `LanguageContext.tsx`, a TypeScript locale union, or a validator locale list is required. `registry.ts` is generated from every modern JSON locale.
 
-- Yeni kullanıcı metni önce locale JSON'larına eklenir, sonra `t('namespace.key')` ile kullanılır.
-- İngilizce fallback yalnız runtime güvenlik ağıdır; eksik dil paketi validator'dan geçmez.
-- Bütün locale dosyaları aynı key setine ve aynı placeholder setine sahip olmalıdır.
-- JSON UTF-8 ve 2-space indentation kullanır.
+## Fallback and legacy packs
+
+- `en.json` and `tr.json` are complete source catalogs and must share the same keys/placeholders.
+- Community locales may be partial. Missing keys fall back to English at runtime.
+- Old flat JSON packs without `meta.nativeName` and `meta.direction` remain legacy compatibility files and are not exposed in the language picker until migrated.
+
+## Rules
+
+- Do not hard-code user-facing labels, descriptions, placeholders, titles, aria labels, toast text, or modal copy in components.
+- Add copy to `en.json` and `tr.json` first, then call `t('namespace.key')`.
+- Prefer semantic namespaces such as `sidebar.menu.*`, `maintenance.*`, and `notificationCenter.*`.
+- Database values, SQL source text, engine identifiers, filenames, and protocol constants are not translated.
+- JSON is UTF-8 with two-space indentation.
+- `LegacyTranslationBridge` is a migration safety net only. New UI must use direct `t(...)` calls.

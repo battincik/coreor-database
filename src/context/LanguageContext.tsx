@@ -1,20 +1,8 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import english from '@/locales/en.json';
-import turkish from '@/locales/tr.json';
-import spanish from '@/locales/es.json';
-import french from '@/locales/fr.json';
-import german from '@/locales/de.json';
-import portugueseBrazil from '@/locales/pt-BR.json';
-import russian from '@/locales/ru.json';
-import simplifiedChinese from '@/locales/zh-CN.json';
-import japanese from '@/locales/ja.json';
-import korean from '@/locales/ko.json';
-import hindi from '@/locales/hi.json';
-import arabic from '@/locales/ar.json';
+import { LOCALE_MODULES, type LocaleCode } from '@/locales/registry';
 
-export type LocaleCode = 'tr' | 'en' | 'es' | 'zh-CN' | 'hi' | 'ar' | 'pt-BR' | 'fr' | 'de' | 'ru' | 'ja' | 'ko';
 export type LocaleDirection = 'ltr' | 'rtl';
 export type TranslationValues = Record<string, string | number>;
 export type TranslationDictionary = Record<string, string>;
@@ -29,20 +17,29 @@ export interface SupportedLanguage {
   searchTerms: string[];
 }
 
-export const SUPPORTED_LANGUAGES: SupportedLanguage[] = [
-  { code: 'tr', nativeName: 'Türkçe', englishName: 'Turkish', direction: 'ltr', region: 'Türkiye', searchTerms: ['turkce', 'türkçe', 'turkish'] },
-  { code: 'en', nativeName: 'English', englishName: 'English', direction: 'ltr', region: 'Global', searchTerms: ['english', 'ingilizce'] },
-  { code: 'es', nativeName: 'Español', englishName: 'Spanish', direction: 'ltr', region: 'España / Latinoamérica', searchTerms: ['spanish', 'espanol', 'español', 'ispanyolca'] },
-  { code: 'zh-CN', nativeName: '简体中文', englishName: 'Simplified Chinese', direction: 'ltr', region: '中国大陆', searchTerms: ['chinese', 'simplified', '中文', 'çince'] },
-  { code: 'hi', nativeName: 'हिन्दी', englishName: 'Hindi', direction: 'ltr', region: 'भारत', searchTerms: ['hindi', 'हिन्दी', 'hintce'] },
-  { code: 'ar', nativeName: 'العربية', englishName: 'Arabic', direction: 'rtl', region: 'الشرق الأوسط', searchTerms: ['arabic', 'العربية', 'arapça'] },
-  { code: 'pt-BR', nativeName: 'Português (Brasil)', englishName: 'Portuguese', direction: 'ltr', region: 'Brasil', searchTerms: ['portuguese', 'portugues', 'português', 'brezilya'] },
-  { code: 'fr', nativeName: 'Français', englishName: 'French', direction: 'ltr', region: 'France / Francophonie', searchTerms: ['french', 'francais', 'français', 'fransızca'] },
-  { code: 'de', nativeName: 'Deutsch', englishName: 'German', direction: 'ltr', region: 'Deutschland', searchTerms: ['german', 'deutsch', 'almanca'] },
-  { code: 'ru', nativeName: 'Русский', englishName: 'Russian', direction: 'ltr', region: 'Россия / СНГ', searchTerms: ['russian', 'русский', 'rusça'] },
-  { code: 'ja', nativeName: '日本語', englishName: 'Japanese', direction: 'ltr', region: '日本', searchTerms: ['japanese', '日本語', 'japonca'] },
-  { code: 'ko', nativeName: '한국어', englishName: 'Korean', direction: 'ltr', region: '대한민국', searchTerms: ['korean', '한국어', 'korece'] }
-];
+export const SUPPORTED_LANGUAGES: SupportedLanguage[] = (Object.entries(LOCALE_MODULES) as Array<[LocaleCode, LocaleTree]>)
+  .map(([code, tree]) => {
+    const meta = tree.meta as LocaleTree | undefined;
+    const nativeName = typeof meta?.nativeName === 'string' ? meta.nativeName : code;
+    const direction: LocaleDirection = meta?.direction === 'rtl' ? 'rtl' : 'ltr';
+    let englishName = code;
+    try {
+      englishName = new Intl.DisplayNames(['en'], { type: 'language' }).of(code) || code;
+    } catch {
+      englishName = code;
+    }
+    const regionCode = code.includes('-') ? code.split('-')[1] : null;
+    let region = 'Global';
+    if (regionCode) {
+      try {
+        region = new Intl.DisplayNames(['en'], { type: 'region' }).of(regionCode.toUpperCase()) || regionCode.toUpperCase();
+      } catch {
+        region = regionCode.toUpperCase();
+      }
+    }
+    return { code, nativeName, englishName, direction, region, searchTerms: [code, nativeName, englishName] };
+  })
+  .sort((left, right) => left.nativeName.localeCompare(right.nativeName));
 
 function flattenLocaleTree(tree: LocaleTree, prefix = '', output: TranslationDictionary = {}): TranslationDictionary {
   for (const [key, value] of Object.entries(tree)) {
@@ -58,20 +55,7 @@ function flattenLocaleTree(tree: LocaleTree, prefix = '', output: TranslationDic
   return output;
 }
 
-const RAW_LANGUAGE_DICTIONARIES: Record<LocaleCode, LocaleTree> = {
-  tr: turkish as LocaleTree,
-  en: english as LocaleTree,
-  es: spanish as LocaleTree,
-  'zh-CN': simplifiedChinese as LocaleTree,
-  hi: hindi as LocaleTree,
-  ar: arabic as LocaleTree,
-  'pt-BR': portugueseBrazil as LocaleTree,
-  fr: french as LocaleTree,
-  de: german as LocaleTree,
-  ru: russian as LocaleTree,
-  ja: japanese as LocaleTree,
-  ko: korean as LocaleTree
-};
+const RAW_LANGUAGE_DICTIONARIES = LOCALE_MODULES as unknown as Record<LocaleCode, LocaleTree>;
 
 const ENGLISH_DICTIONARY = flattenLocaleTree(RAW_LANGUAGE_DICTIONARIES.en);
 
