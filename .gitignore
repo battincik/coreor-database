@@ -15,6 +15,12 @@
 /build
 /src-tauri/target/
 
+# generated desktop icon derivatives
+# app-icon.svg is the source of truth. icon.ico stays tracked because
+# tauri-build needs it during Windows Cargo hot rebuilds.
+src-tauri/icons/*.png
+src-tauri/icons/*.icns
+
 # OS/editor
 .DS_Store
 Thumbs.db
