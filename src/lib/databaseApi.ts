@@ -365,12 +365,49 @@ export async function fetchSchemaOverview(serverId: string, databaseName: string
   return requestDatabaseApi<SchemaOverviewResponse>(server, 'schema-overview', { database: databaseName }, { requestKey: `schema-overview:${serverId}:${databaseName}`, connectionDatabase: databaseName });
 }
 
+function mbToBytes(value: string | number | null | undefined) {
+  const numeric = Number(value || 0);
+  return Number.isFinite(numeric) ? Math.max(0, Math.round(numeric * 1048576)) : 0;
+}
+
+function mergeMeasuredObjectMetadata(
+  server: DatabaseServerConfig,
+  databaseName: string,
+  response: DatabaseObjectsResponse
+): DatabaseObjectsResponse {
+  const database = (server.databases || []).find(item => item.name === databaseName);
+  if (!database?.tableDetails?.length) return response;
+  const measured = new Map(
+    database.tableDetails
+      .filter(table => Boolean(table.storageMeasuredAt))
+      .map(table => [table.tableName, table])
+  );
+  if (!measured.size) return response;
+
+  return {
+    ...response,
+    objects: response.objects.map(object => {
+      if (object.kind !== 'table') return object;
+      const detail = measured.get(object.name);
+      if (!detail) return object;
+      return {
+        ...object,
+        rows: detail.rows,
+        dataSizeBytes: mbToBytes(detail.dataSizeMB),
+        indexSizeBytes: mbToBytes(detail.indexSizeMB),
+        sizeBytes: mbToBytes(detail.sizeMB)
+      };
+    })
+  };
+}
+
 export async function fetchDatabaseObjects(serverId: string, databaseName: string, accountId?: string | null, force = false) {
   const key = `${serverId}:${databaseName}`;
   const cached = databaseObjectsCache.get(key);
   if (!force && cached && cached.expiresAt > Date.now()) return cached.value;
   const server = await requireServer(accountId, serverId);
-  const value = await requestDatabaseApi<DatabaseObjectsResponse>(server, 'database-objects', { database: databaseName }, { requestKey: `database-objects:${key}`, connectionDatabase: databaseName });
+  const raw = await requestDatabaseApi<DatabaseObjectsResponse>(server, 'database-objects', { database: databaseName }, { requestKey: `database-objects:${key}`, connectionDatabase: databaseName });
+  const value = mergeMeasuredObjectMetadata(server, databaseName, raw);
   databaseObjectsCache.set(key, { expiresAt: Date.now() + DATABASE_OBJECTS_CACHE_MS, value });
   return value;
 }
