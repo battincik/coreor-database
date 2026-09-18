@@ -123,7 +123,7 @@ export function SqlEditor({
   const updateCursor = (element: HTMLTextAreaElement) => onCursorChange?.(element.selectionStart);
 
   return (
-    <div className={`coreor-sql-syntax relative h-full min-h-0 overflow-hidden bg-[var(--coreor-editor-bg)] ${className}`}>
+    <div className={`coreor-sql-syntax coreor-sql-editor-stack relative h-full min-h-0 overflow-hidden bg-[var(--coreor-editor-bg)] ${className}`}>
       <pre ref={preRef} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre p-3 font-mono text-[length:var(--coreor-editor-font-size)] font-normal not-italic leading-[var(--coreor-line-height)]" style={{ tabSize: 2, fontVariantLigatures: 'none' }}><SqlHighlightedText sql={value || `${placeholder || ''}`} />{value.endsWith('\n') ? '\n ' : ''}</pre>
       <textarea
         value={value}
