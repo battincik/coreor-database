@@ -33,6 +33,7 @@ Technical documentation for **Coreor Database**.
 ## Community/legal
 
 - [Code of Conduct](../CODE_OF_CONDUCT.md)
+- [Governance](../GOVERNANCE.md)
 - [Security Policy](../SECURITY.md)
 - [Apache-2.0 License](../LICENSE)
 - [NOTICE](../NOTICE)
