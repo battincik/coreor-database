@@ -43,3 +43,7 @@ config.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# environment files are not used by desktop client, never commit them
+.env*
+!.env.example.disabled
