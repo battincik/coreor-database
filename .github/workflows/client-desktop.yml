@@ -23,6 +23,8 @@ jobs:
           workspaces: src-tauri
       - name: Install frontend dependencies
         run: npm install
+      - name: Desktop-only architecture
+        run: npm run desktop:check
       - name: TypeScript
         run: npm run typecheck
       - name: Native Rust check
