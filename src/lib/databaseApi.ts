@@ -300,6 +300,7 @@ export async function fetchServerTables(serverId: string, accountId?: string | n
   const server = await requireServer(accountId, serverId);
   const response = await requestDatabaseApi<{ databases: DatabaseCatalogItem[]; _meta?: DatabaseQueryMeta }>(server, 'catalog', {}, { requestKey: `catalog:${serverId}` });
   if (!Array.isArray(response?.databases)) throw new Error('Yerel veritabanı köprüsü katalog yanıtı geçersiz.');
+  for (const key of databaseObjectsCache.keys()) if (key.startsWith(`${serverId}:`)) databaseObjectsCache.delete(key);
   await updateCachedDatabases(serverId, response.databases);
   return { serverId, databases: response.databases };
 }
