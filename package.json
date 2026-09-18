@@ -7,14 +7,14 @@
   },
   "scripts": {
     "dev": "npm run tauri:dev",
-    "dev:web": "next dev",
+    "dev:web": "node scripts/clean-next-cache.mjs && next dev",
     "build": "npm run tauri:build",
     "build:web": "npm run typecheck && next build",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node scripts/clean-next-cache.mjs && tsc --noEmit",
     "i18n:check": "node scripts/validate-locales.mjs",
     "check": "npm run desktop:check && npm run i18n:check && npm run lint && npm run build:web",
     "desktop:check": "node scripts/assert-desktop-only.mjs"
