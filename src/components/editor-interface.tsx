@@ -139,7 +139,7 @@ function EditorWorkspace() {
             </EditorPanelErrorBoundary>
           </ResizablePanel>
         </ResizablePanelGroup>
-        <div data-coreor-app-chrome="bottom" className="relative z-[2000] shrink-0">
+        <div data-coreor-app-chrome="bottom" className="relative z-[2147483000] shrink-0">
           <BottomBar selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
           <BottomBarGuide selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
         </div>
