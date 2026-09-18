@@ -21,6 +21,7 @@ interface DatabaseSchemaGraphProps {
   catalog: DatabaseCatalogItem[];
   onOpenTable?: (tableName: string) => void;
   onCatalogRefresh?: () => void | Promise<void>;
+  readOnly?: boolean;
 }
 
 type Point = { x: number; y: number };
@@ -214,7 +215,7 @@ async function loadWithConcurrency<T, R>(items: T[], concurrency: number, worker
   return results;
 }
 
-export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog, onOpenTable, onCatalogRefresh }: DatabaseSchemaGraphProps) {
+export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog, onOpenTable, onCatalogRefresh, readOnly = false }: DatabaseSchemaGraphProps) {
   const { openContextMenu } = useAppContextMenu();
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const panRef = useRef<Point>({ x: 32, y: 32 });
@@ -446,7 +447,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     openContextMenu(event, [
       { id: 'data', label: 'Verileri aç', icon: Table2, onSelect: () => { onOpenTable?.(tableName); window.dispatchEvent(new CustomEvent('coreor:open-table-view', { detail: { view: 'data' } })); } },
       { id: 'structure', label: 'Yapıyı aç', icon: Columns3, onSelect: () => onOpenTable?.(tableName) },
-      { id: 'insert', label: 'Yeni satır ekle', icon: Plus, onSelect: () => { onOpenTable?.(tableName); window.dispatchEvent(new CustomEvent('coreor:request-insert-table-row', { detail: { databaseName, tableName } })); } },
+      { id: 'insert', label: 'Yeni satır ekle', icon: Plus, disabled: readOnly, onSelect: () => { onOpenTable?.(tableName); window.dispatchEvent(new CustomEvent('coreor:request-insert-table-row', { detail: { databaseName, tableName } })); } },
       { id: 'sep-query', separator: true },
       { id: 'select', label: 'İlk 100 satırı sorgula', icon: Code, onSelect: () => openQueryTab({ serverId, databaseName, title: `${tableName} SELECT`, sql: `SELECT * FROM ${table}\nLIMIT 100;`, runImmediately: true }) },
       { id: 'count', label: 'Satır sayısını sorgula', icon: Code, onSelect: () => openQueryTab({ serverId, databaseName, title: `${tableName} COUNT`, sql: `SELECT COUNT(*) AS totalRows FROM ${table};`, runImmediately: true }) },
@@ -463,7 +464,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
   const openGraphColumnMenu = (event: React.MouseEvent, tableName: string, columnName: string) => {
     const table = qualifiedSqlName(databaseName, tableName);
     openContextMenu(event, [
-      { id: 'relation-source', label: 'İlişki başlangıcı olarak seç', icon: Link2, onSelect: () => { setSource({ table: tableName, column: columnName }); setTarget(null); setSelectedEdge(null); } },
+      { id: 'relation-source', label: 'İlişki başlangıcı olarak seç', icon: Link2, disabled: readOnly, onSelect: () => { setSource({ table: tableName, column: columnName }); setTarget(null); setSelectedEdge(null); } },
       { id: 'open-table', label: 'Tablo yapısını aç', icon: Table2, onSelect: () => onOpenTable?.(tableName) },
       { id: 'sep-query', separator: true },
       { id: 'distinct', label: 'DISTINCT değerleri sorgula', icon: Code, onSelect: () => openQueryTab({ serverId, databaseName, title: `${columnName} DISTINCT`, sql: `SELECT ${quoteSqlIdentifier(columnName)}, COUNT(*) AS occurrences\nFROM ${table}\nGROUP BY ${quoteSqlIdentifier(columnName)}\nORDER BY occurrences DESC\nLIMIT 250;`, runImmediately: true }) },
@@ -500,7 +501,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     { id: 'copy-name', label: 'Constraint adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(edge.name) },
     { id: 'copy-relation', label: 'İlişki yolunu kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(`${edge.source.table}.${edge.source.column} -> ${edge.target.table}.${edge.target.column}`) },
     { id: 'sep-danger', separator: true },
-    { id: 'remove', label: 'Foreign key’i kaldır', icon: Unlink, danger: true, disabled: savingLink, onSelect: () => requestRemoveEdge(edge) }
+    { id: 'remove', label: 'Foreign key’i kaldır', icon: Unlink, danger: true, disabled: readOnly || savingLink, onSelect: () => requestRemoveEdge(edge) }
   ], edge.name);
 
   const chooseColumn = (table: string, column: string) => {
@@ -547,7 +548,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
 
     {(error || message || tableNames.length < (database.tables || []).length) && <div className={`shrink-0 border-b px-3 py-1.5 text-[10px] ${error ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-amber-500/20 bg-amber-500/[0.08] text-amber-200'}`}>{error || message || `Performans için ilk ${MAX_TABLES} tablo gösteriliyor.`}</div>}
 
-    {(source || selectedEdge) && <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b border-zinc-800 bg-zinc-950/80 px-3 py-1.5 text-[10px]">{selectedEdge ? <><Link2 className="h-4 w-4 text-cyan-400" /><span className="font-medium">{selectedEdge.name}</span><span className="text-zinc-500">{selectedEdge.source.table}.{selectedEdge.source.column} → {selectedEdge.target.table}.{selectedEdge.target.column}</span><span className="rounded bg-zinc-900 px-2 py-1 text-zinc-500">DELETE {selectedEdge.onDelete}</span><span className="rounded bg-zinc-900 px-2 py-1 text-zinc-500">UPDATE {selectedEdge.onUpdate}</span><Button size="sm" variant="ghost" className="ml-auto h-7 text-[10px] text-red-400" disabled={savingLink} onClick={() => void removeSelectedEdge()}><Unlink className="mr-1.5 h-3.5 w-3.5" />Bağlantıyı kaldır</Button></> : <><Link2 className="h-4 w-4 text-cyan-400" /><span className="rounded bg-cyan-500/10 px-2 py-1 text-cyan-200">{source?.table}.{source?.column}</span><span className="text-zinc-600">→</span>{target ? <span className="rounded bg-emerald-500/10 px-2 py-1 text-emerald-200">{target.table}.{target.column}</span> : <span className="text-zinc-500">Hedef kolonu seçin</span>}{target && <><input value={constraintName} onChange={event => setConstraintName(event.target.value)} className="h-8 w-60 rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-[10px]" placeholder="Constraint adı" /><div className="w-44"><SearchSelect value={onDelete} options={FK_OPTIONS} onValueChange={setOnDelete} triggerClassName="h-8 min-h-8 rounded-lg px-2 [&>span]:py-0" showDescriptionInTrigger={false} dropdownMinWidth={440} /></div><div className="w-44"><SearchSelect value={onUpdate} options={FK_OPTIONS} onValueChange={setOnUpdate} triggerClassName="h-8 min-h-8 rounded-lg px-2 [&>span]:py-0" showDescriptionInTrigger={false} dropdownMinWidth={440} /></div><Button size="sm" className="h-8 text-[10px]" disabled={!constraintName.trim() || savingLink || source?.table === target.table} onClick={() => void createForeignKey()}>{savingLink ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Link2 className="mr-1.5 h-3.5 w-3.5" />}Bağlantıyı oluştur</Button></>}<Button size="sm" variant="ghost" className="ml-auto h-7 text-[10px]" onClick={() => { setSource(null); setTarget(null); }}>İptal</Button></>}</div>}
+    {(source || selectedEdge) && <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b border-zinc-800 bg-zinc-950/80 px-3 py-1.5 text-[10px]">{selectedEdge ? <><Link2 className="h-4 w-4 text-cyan-400" /><span className="font-medium">{selectedEdge.name}</span><span className="text-zinc-500">{selectedEdge.source.table}.{selectedEdge.source.column} → {selectedEdge.target.table}.{selectedEdge.target.column}</span><span className="rounded bg-zinc-900 px-2 py-1 text-zinc-500">DELETE {selectedEdge.onDelete}</span><span className="rounded bg-zinc-900 px-2 py-1 text-zinc-500">UPDATE {selectedEdge.onUpdate}</span><Button size="sm" variant="ghost" className="ml-auto h-7 text-[10px] text-red-400" disabled={savingLink} onClick={() => void removeSelectedEdge()}><Unlink className="mr-1.5 h-3.5 w-3.5" />Bağlantıyı kaldır</Button></> : <><Link2 className="h-4 w-4 text-cyan-400" /><span className="rounded bg-cyan-500/10 px-2 py-1 text-cyan-200">{source?.table}.{source?.column}</span><span className="text-zinc-600">→</span>{target ? <span className="rounded bg-emerald-500/10 px-2 py-1 text-emerald-200">{target.table}.{target.column}</span> : <span className="text-zinc-500">Hedef kolonu seçin</span>}{target && <><input value={constraintName} onChange={event => setConstraintName(event.target.value)} className="h-8 w-60 rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-[10px]" placeholder="Constraint adı" /><div className="w-44"><SearchSelect value={onDelete} options={FK_OPTIONS} onValueChange={setOnDelete} triggerClassName="h-8 min-h-8 rounded-lg px-2 [&>span]:py-0" showDescriptionInTrigger={false} dropdownMinWidth={440} /></div><div className="w-44"><SearchSelect value={onUpdate} options={FK_OPTIONS} onValueChange={setOnUpdate} triggerClassName="h-8 min-h-8 rounded-lg px-2 [&>span]:py-0" showDescriptionInTrigger={false} dropdownMinWidth={440} /></div><Button size="sm" className="h-8 text-[10px]" disabled={readOnly || !constraintName.trim() || savingLink || source?.table === target.table} onClick={() => void createForeignKey()}>{savingLink ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Link2 className="mr-1.5 h-3.5 w-3.5" />}Bağlantıyı oluştur</Button></>}<Button size="sm" variant="ghost" className="ml-auto h-7 text-[10px]" onClick={() => { setSource(null); setTarget(null); }}>İptal</Button></>}</div>}
 
     <div
       ref={viewportRef}
