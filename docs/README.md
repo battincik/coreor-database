@@ -1,12 +1,39 @@
-# Coreor Database documentation
+# Documentation
 
-The client is a local-first cross-platform desktop application built with Tauri 2, Rust and a Next.js static renderer.
+Technical documentation for **Coreor Database**.
 
-Primary references:
+## Start here
 
-- `../README.md` — development and distribution
-- `../README.tr.md` — Turkish development guide
-- `../ARCHITECTURE.md` — desktop architecture rules
-- `../CLIENT.md` — client branch contract
+- [README](../README.md)
+- [Türkçe README](../README.tr.md)
+- [Architecture](../ARCHITECTURE.md)
+- [Database Support](../DATABASE_SUPPORT.md)
 
-Supported desktop operating systems are Windows, macOS and Linux. Database access is native through Rust/Tauri IPC; documentation that describes a browser-hosted database backend is obsolete for the `client` branch.
+## Development
+
+- [Development Guide](DEVELOPMENT.md)
+- [Contributing](../CONTRIBUTING.md)
+- [Troubleshooting](../TROUBLESHOOTING.md)
+- [Platform Support](PLATFORM_SUPPORT.md)
+
+## Accounts and local-first design
+
+- [Coreor Account API integration](ACCOUNT_API.md)
+- [Security Model](../SECURITY_MODEL.md)
+- [Threat Model](THREAT_MODEL.md)
+
+## Project/release
+
+- [Roadmap](../ROADMAP.md)
+- [Changelog](../CHANGELOG.md)
+- [Releasing](../RELEASING.md)
+- [Public Release Checklist](PUBLIC_RELEASE_CHECKLIST.md)
+- [Support](../SUPPORT.md)
+
+## Community/legal
+
+- [Code of Conduct](../CODE_OF_CONDUCT.md)
+- [Security Policy](../SECURITY.md)
+- [Apache-2.0 License](../LICENSE)
+- [NOTICE](../NOTICE)
+- [License Guide](LICENSE_GUIDE.md)
