@@ -821,6 +821,13 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                     <Server className={`h-3.5 w-3.5 shrink-0 ${active ? 'text-emerald-400' : 'text-emerald-700'}`} />
                     <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-zinc-300">{server.name}</span>
                     <span className="rounded bg-zinc-900 px-1.5 py-0.5 text-[8px] text-zinc-500">{databaseEngineLabel(server.databaseType)}</span>
+                    <span
+                      className="flex shrink-0 items-center gap-1 rounded bg-blue-500/[0.06] px-1.5 py-0.5 font-mono text-[8px] tabular-nums text-blue-300/80"
+                      title="Katalogdaki veritabanlarının toplam veri + indeks boyutu. Fiziksel sunucu disk kapasitesi değildir."
+                    >
+                      <HardDrive className="h-2.5 w-2.5" />
+                      {compactSize((server.databases || []).reduce((sum, database) => sum + (Number(database.totalSizeMB) || 0), 0))}
+                    </span>
                   </button>
                   <button type="button" className="flex h-6 w-6 items-center justify-center rounded opacity-0 hover:bg-zinc-800 group-hover:opacity-100" onClick={event => serverMenu(event, server)}>
                     <MoreHorizontal className="h-3.5 w-3.5" />
@@ -849,7 +856,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                             >
                               <Database className="h-3 w-3 shrink-0 text-sky-400" />
                               <span className="min-w-0 flex-1 truncate text-[9px] text-zinc-400">{database.name}</span>
-                              <span className="shrink-0 text-[9px] tabular-nums text-zinc-500">{database.objectMatches.length.toLocaleString('tr-TR')} {database.objectMatches.length === 1 ? 'nesne' : 'nesne'}</span>
+                              <span className="flex shrink-0 items-center gap-1.5 text-[9px] tabular-nums text-zinc-500">
+                                <span>{database.objectMatches.length.toLocaleString('tr-TR')} nesne</span>
+                                <span className="text-zinc-800">•</span>
+                                <span className="font-mono text-blue-300/75">{compactSize(database.totalSizeMB)}</span>
+                              </span>
                             </button>
                           </div>
                           {databaseOpen && (() => {
