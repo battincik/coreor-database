@@ -206,6 +206,13 @@ fn literal(v:&Value,engine:&str)->String{
     match v{
         Value::Null=>"NULL".into(),Value::Bool(x)=>if *x{"1".into()}else{"0".into()},Value::Number(x)=>x.to_string(),
         Value::String(x)=>format!("N'{}'",x.replace("'","''")),
+        Value::Object(o) if o.get("type").and_then(Value::as_str)==Some("binary")=>{
+            let encoded=o.get("base64").and_then(Value::as_str).unwrap_or("");
+            if is_pg(engine){format!("decode('{}','base64')",encoded.replace("'","''"))}
+            else if is_mssql(engine){
+                match base64::Engine::decode(&base64::engine::general_purpose::STANDARD,encoded){Ok(bytes)=>format!("0x{}",bytes.iter().map(|b|format!("{:02X}",b)).collect::<String>()),Err(_)=>"NULL".into()}
+            }else{format!("FROM_BASE64('{}')",encoded.replace("'","''"))}
+        }
         _=>format!("N'{}'",v.to_string().replace("'","''"))
     }
 }
