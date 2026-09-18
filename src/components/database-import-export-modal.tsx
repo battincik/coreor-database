@@ -555,9 +555,9 @@ export function DatabaseImportExportModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[326] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[326] flex items-center justify-center p-2 sm:p-3">
       <button className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} aria-label="Kapat" />
-      <div className="relative z-10 flex h-[min(840px,94vh)] w-[min(1280px,97vw)] min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+      <div className="relative z-10 flex h-[calc(100dvh-16px)] max-h-[840px] w-[calc(100vw-16px)] max-w-[1280px] min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl sm:h-[calc(100dvh-24px)] sm:w-[calc(100vw-24px)]">
         <div className="flex h-12 shrink-0 items-center gap-3 border-b border-zinc-800 px-4">
           <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
           <div>

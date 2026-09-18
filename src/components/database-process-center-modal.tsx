@@ -92,9 +92,9 @@ export function DatabaseProcessCenterModal({ open, onClose, serverId, accountId 
 
   return <>
     {createPortal(
-    <div className="fixed inset-0 z-[325] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[325] flex items-center justify-center p-2 sm:p-3">
       <button type="button" className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} aria-label="Kapat" />
-      <div className="relative z-10 flex h-[min(780px,92vh)] w-[min(1280px,96vw)] min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+      <div className="relative z-10 flex h-[calc(100dvh-16px)] max-h-[780px] w-[calc(100vw-16px)] max-w-[1280px] min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl sm:h-[calc(100dvh-24px)] sm:w-[calc(100vw-24px)]">
         <div className="flex h-12 shrink-0 items-center gap-3 border-b border-zinc-800 px-4"><Clock3 className="h-4 w-4 text-cyan-400" /><div><h2 className="text-sm font-semibold">Process ve kilit merkezi</h2><p className="text-[10px] text-zinc-500">Çalışan sorgular, metadata lock ve son InnoDB deadlock kaydı.</p></div><span className="ml-auto text-[10px] text-zinc-600">{preferences.autoRefreshProcesses ? `${preferences.performanceRefreshSeconds} sn otomatik yenileme` : 'Manuel yenileme'}</span><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => void load()}><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></Button><Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}><X className="h-4 w-4" /></Button></div>
         {error && <div className="shrink-0 border-b border-red-500/20 bg-red-500/10 px-4 py-2 text-xs text-red-300">{error}</div>}
         <Tabs defaultValue="processes" className="flex min-h-0 flex-1 flex-col">

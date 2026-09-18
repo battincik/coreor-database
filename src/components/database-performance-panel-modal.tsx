@@ -180,9 +180,9 @@ export function DatabasePerformancePanelModal({ open, onClose, serverId, account
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[328] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[328] flex items-center justify-center p-2 sm:p-3">
       <button type="button" className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} aria-label="Kapat" />
-      <div className="relative z-10 flex h-[min(880px,95vh)] w-[min(1420px,97vw)] min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+      <div className="relative z-10 flex h-[calc(100dvh-16px)] max-h-[880px] w-[calc(100vw-16px)] max-w-[1420px] min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl sm:h-[calc(100dvh-24px)] sm:w-[calc(100vw-24px)]">
         <div className="flex h-14 shrink-0 items-center gap-3 border-b border-zinc-800 px-4">
           <Activity className="h-4 w-4 text-cyan-400" />
           <div><h2 className="text-sm font-semibold">Veritabanı performans paneli</h2><p className="text-[10px] text-zinc-500">Yerel zaman serisi, canlı yenileme, InnoDB, replication ve mantıksal depolama.</p></div>

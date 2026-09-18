@@ -152,13 +152,13 @@ export function DatabaseUserManagerModal({ open, onClose, serverId, accountId, d
 
   return <>
     {createPortal(
-    <div className="fixed inset-0 z-[320] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[320] flex items-center justify-center p-2 sm:p-3">
       <button type="button" className="absolute inset-0 bg-black/75 backdrop-blur-sm" aria-label="Kapat" onClick={onClose} />
-      <div className="relative z-10 flex h-[min(820px,92vh)] w-[min(1180px,96vw)] min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+      <div className="relative z-10 flex h-[calc(100dvh-16px)] max-h-[820px] w-[calc(100vw-16px)] max-w-[1180px] min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl sm:h-[calc(100dvh-24px)] sm:w-[calc(100vw-24px)]">
         <div className="flex h-12 shrink-0 items-center gap-3 border-b border-zinc-800 px-4"><Users className="h-4 w-4 text-cyan-400" /><div><h2 className="text-sm font-semibold">Kullanıcı, rol ve yetki yönetimi</h2><p className="text-[10px] text-zinc-500">MySQL/MariaDB hesaplarını ve erişim kapsamlarını yönetin.</p></div><Button variant="ghost" size="icon" className="ml-auto h-8 w-8" onClick={onClose}><X className="h-4 w-4" /></Button></div>
         {(error || message) && <div className={`shrink-0 border-b px-4 py-2 text-xs ${error ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'}`}>{error || message}</div>}
-        <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)]">
-          <aside className="flex min-h-0 flex-col border-r border-zinc-800">
+        <div className="grid min-h-0 min-w-0 flex-1 grid-cols-[clamp(190px,27vw,280px)_minmax(0,1fr)]">
+          <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r border-zinc-800">
             <div className="space-y-2 border-b border-zinc-800 p-2"><div className="flex gap-1"><Input value={search} onChange={event => setSearch(event.target.value)} placeholder="Kullanıcı ara" className="h-8 text-xs" /><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => void load()}><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></Button></div><Button size="sm" variant="outline" className="h-8 w-full text-xs" onClick={newUser}><Plus className="mr-1.5 h-3.5 w-3.5" /> Yeni kullanıcı</Button></div>
             <div className="min-h-0 flex-1 overflow-y-auto p-1">{loading ? <div className="flex items-center gap-2 p-3 text-xs text-zinc-500"><Loader2 className="h-4 w-4 animate-spin" /> Yükleniyor</div> : filteredUsers.map(user => <button key={accountKey(user)} type="button" onClick={() => setSelected(user)} onContextMenu={event => openUserMenu(event, user)} className={`mb-0.5 flex w-full items-center gap-2 rounded p-2 text-left ${selected && accountKey(selected) === accountKey(user) ? 'bg-cyan-500/10 text-cyan-200' : 'hover:bg-zinc-900'}`}><UserCog className="h-4 w-4 shrink-0 text-zinc-500" /><span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium">{user.user}</span><span className="block truncate text-[10px] text-zinc-600">@{user.host} • {user.plugin || 'varsayılan'}</span></span>{user.accountLocked && <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-300">kilitli</span>}</button>)}</div>
           </aside>

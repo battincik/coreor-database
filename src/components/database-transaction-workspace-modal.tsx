@@ -189,9 +189,9 @@ export function DatabaseTransactionWorkspaceModal({ open, onClose, serverId, acc
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[332] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[332] flex items-center justify-center p-2 sm:p-3">
       <button type="button" aria-label="Transaction çalışma alanını kapat" className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={requestClose} />
-      <div className="relative z-10 flex h-[min(880px,95vh)] w-[min(1420px,97vw)] min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+      <div className="relative z-10 flex h-[calc(100dvh-16px)] max-h-[880px] w-[calc(100vw-16px)] max-w-[1420px] min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl sm:h-[calc(100dvh-24px)] sm:w-[calc(100vw-24px)]">
         <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-3 border-b border-zinc-800 px-4 py-2">
           <ShieldAlert className="h-4 w-4 text-amber-400" />
           <div><h2 className="text-sm font-semibold">Transaction çalışma alanı</h2><p className="text-[9px] text-zinc-600">Aynı MySQL bağlantısı üzerinde kontrollü commit ve rollback.</p></div>
@@ -206,7 +206,7 @@ export function DatabaseTransactionWorkspaceModal({ open, onClose, serverId, acc
         {error && <div className="flex shrink-0 items-center gap-2 border-b border-red-500/20 bg-red-500/10 px-4 py-2 text-[10px] text-red-300"><XCircle className="h-3.5 w-3.5" />{error}</div>}
         {message && !error && <div className="flex shrink-0 items-center gap-2 border-b border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-2 text-[10px] text-emerald-300"><CheckCircle2 className="h-3.5 w-3.5" />{message}</div>}
 
-        <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1.35fr)_380px]">
+        <div className="grid min-h-0 min-w-0 flex-1 xl:grid-cols-[minmax(0,1.35fr)_clamp(280px,30vw,380px)]">
           <main className="flex min-h-0 min-w-0 flex-col border-r border-zinc-800">
             <div className="flex h-9 shrink-0 items-center gap-2 border-b border-zinc-800 px-3 text-[9px] text-zinc-600"><Database className="h-3.5 w-3.5" />{databaseName || 'Sunucu geneli'}<span className="ml-auto">Ctrl/Cmd + Enter</span></div>
             <textarea value={sql} onChange={event => setSql(event.target.value)} spellCheck={false} className="coreor-sql-editor min-h-48 shrink-0 resize-y border-0 border-b border-zinc-800 bg-black/20 p-4 font-mono outline-none" placeholder="SQL sorgunuzu yazın…" />
