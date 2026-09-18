@@ -331,7 +331,11 @@ pub fn status(app: &tauri::AppHandle) -> Result<VaultStatus, String> {
     let _guard = io_lock().lock()
         .map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
     let path = vault_file(app)?;
-    let key_available = cached_key()?.is_some() || platform_secret::read()?.is_some();
+    let key_available = if path.exists() {
+        cached_key()?.is_some() || platform_secret::read()?.is_some()
+    } else {
+        cached_key()?.is_some()
+    };
     let connection_count = if path.exists() && key_available {
         load_payload_unlocked(app)?.connections.len()
     } else {
