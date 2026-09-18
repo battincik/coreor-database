@@ -30,7 +30,8 @@
     "profile": "node scripts/profile-desktop.mjs",
     "i18n:audit": "node scripts/audit-i18n.mjs",
     "i18n:generate": "node scripts/generate-locale-registry.mjs",
-    "i18n:registry:check": "node scripts/generate-locale-registry.mjs --check"
+    "i18n:registry:check": "node scripts/generate-locale-registry.mjs --check",
+    "i18n:audit:strict": "node scripts/audit-i18n.mjs --strict-direct"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.3",

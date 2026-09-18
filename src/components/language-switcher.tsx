@@ -36,14 +36,14 @@ export function LanguageSwitcher({ placement = 'floating' }: { placement?: 'floa
   }, [open]);
 
   const filtered = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase('tr-TR');
+    const normalized = query.trim().toLocaleLowerCase(language);
     if (!normalized) return SUPPORTED_LANGUAGES;
     return SUPPORTED_LANGUAGES.filter(item =>
       `${item.code} ${item.nativeName} ${item.englishName} ${item.region} ${item.searchTerms.join(' ')}`
-        .toLocaleLowerCase('tr-TR')
+        .toLocaleLowerCase(language)
         .includes(normalized)
     );
-  }, [query]);
+  }, [language, query]);
 
   const choose = (code: typeof language) => {
     const next = SUPPORTED_LANGUAGES.find(item => item.code === code);

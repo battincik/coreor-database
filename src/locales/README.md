@@ -67,3 +67,17 @@ No manual edit to `LanguageContext.tsx`, a TypeScript locale union, or a validat
 - Database values, SQL source text, engine identifiers, filenames, and protocol constants are not translated.
 - JSON is UTF-8 with two-space indentation.
 - `LegacyTranslationBridge` is a migration safety net only. New UI must use direct `t(...)` calls.
+
+
+## Audit modes
+
+`npm run i18n:audit` scans every TypeScript/TSX file for:
+- literal `t('...')` keys missing from `en.json` or `tr.json`,
+- user-facing JSX text not represented in the source JSON catalogs,
+- translatable `title`, `placeholder`, `aria-*` attributes,
+- menu/dialog option `label`, `title`, `description`, and `confirmLabel` values,
+- uncataloged Turkish fallback copy.
+
+Catalog-backed legacy literals remain translated by `LegacyTranslationBridge` and are reported as migration debt.
+
+`npm run i18n:audit:strict` additionally fails on those catalog-backed legacy literals. Use it while converting old components to direct `t(...)` calls.
