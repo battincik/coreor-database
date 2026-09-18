@@ -469,7 +469,7 @@ async fn database_objects(c:&Connection,p:&Map<String,Value>,max:usize)->Result<
 }
 
 async fn table_data(c:&Connection,p:&Map<String,Value>,max_page:usize)->Result<Value,String>{
-    let db=payload_str(p,"database")?;let table=payload_str(p,"table")?;let page=p.get("page").and_then(Value::as_u64).unwrap_or(1).max(1);let size=p.get("pageSize").and_then(Value::as_u64).unwrap_or(50).clamp(10,max_page as u64);
+    let db=payload_str(p,"database")?;let table=payload_str(p,"table")?;let page=p.get("page").and_then(Value::as_u64).unwrap_or(1).max(1);let maximum=max_page.max(100) as u64;let size=p.get("pageSize").and_then(Value::as_u64).unwrap_or(100).clamp(100,maximum);
     let (where_sql,filters)=build_filters(p,&c.engine)?;let (sort_sql,sorts)=build_sorts(p,&c.engine)?;let qt=qualified(db,table,&c.engine)?;
     let known=p.get("knownTotalRows").and_then(Value::as_u64);let count=p.get("includeTotal").and_then(Value::as_bool).unwrap_or(true)||known.is_none();let total=if count{let rr=execute_sql(c,&format!("SELECT COUNT(*) AS totalRows FROM {}{}",qt,where_sql),Some(db),1).await?;rows_of(&rr).first().and_then(|x|x.get("totalRows")).map(|x|num(Some(x))).unwrap_or(0)}else{known.unwrap_or(0)};
     let pages=((total+size-1)/size).max(1);let current=page.min(pages);let offset=(current-1)*size;
