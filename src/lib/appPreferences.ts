@@ -38,10 +38,11 @@ export interface AppPreferences {
   defaultReadOnlyConnections: boolean;
   liveNotifications: boolean;
   performanceRefreshSeconds: PerformanceRefreshSeconds;
+  developerToolsEnabled: boolean;
 }
 
-const STORAGE_KEY = 'coreor:app-preferences:v7';
-const LEGACY_STORAGE_KEYS = ['coreor:app-preferences:v6', 'coreor:app-preferences:v5', 'coreor:app-preferences:v4', 'coreor:app-preferences:v3'];
+const STORAGE_KEY = 'coreor:app-preferences:v8';
+const LEGACY_STORAGE_KEYS = ['coreor:app-preferences:v7', 'coreor:app-preferences:v6', 'coreor:app-preferences:v5', 'coreor:app-preferences:v4', 'coreor:app-preferences:v3'];
 const listeners = new Set<() => void>();
 const DEFAULTS: AppPreferences = {
   theme: 'amoled', syntaxTheme: 'coreor', fontFamily: 'system', uiFontSize: 12,
@@ -51,7 +52,8 @@ const DEFAULTS: AppPreferences = {
   autoRefreshProcesses: false, confirmDangerousQueries: true, dryRunMutations: true,
   requireSecondApproval: true, productionAlterApproval: true, autoSchemaSnapshots: true,
   queryResultLimit: 5000, importBatchSize: 250, rememberPanelSizes: true, rememberQueryWorkspace: true,
-  defaultReadOnlyConnections: false, liveNotifications: true, performanceRefreshSeconds: 10
+  defaultReadOnlyConnections: false, liveNotifications: true, performanceRefreshSeconds: 10,
+  developerToolsEnabled: false
 };
 let snapshot: AppPreferences = DEFAULTS;
 let hydrated = false;
@@ -95,6 +97,7 @@ function applyToDocument(preferences: AppPreferences) {
   root.dataset.highContrastBorders = preferences.highContrastBorders ? 'true' : 'false';
   root.dataset.dyslexiaSpacing = preferences.dyslexiaSpacing ? 'true' : 'false';
   root.dataset.liveNotifications = preferences.liveNotifications ? 'true' : 'false';
+  root.dataset.developerTools = preferences.developerToolsEnabled ? 'true' : 'false';
   root.style.setProperty('--coreor-ui-font-size', `${preferences.uiFontSize}px`);
   root.style.setProperty('--coreor-editor-font-size', `${preferences.editorFontSize}px`);
   root.style.setProperty('--coreor-console-font-size', `${preferences.consoleFontSize}px`);

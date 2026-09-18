@@ -134,3 +134,11 @@ export function exportWorkspaceSyncPayload<T = unknown>(): Promise<T> {
 export function mergeWorkspaceSyncPayload<T extends object>(remote: T): Promise<WorkspaceSyncMergeResult> {
   return invokeDesktop<WorkspaceSyncMergeResult>('workspace_sync_merge', { remote });
 }
+
+export function setDeveloperToolsEnabled(enabled: boolean): Promise<void> {
+  return invokeDesktop<void>('set_developer_tools_enabled', { enabled });
+}
+
+export function openDeveloperTools(): Promise<void> {
+  return invokeDesktop<void>('open_developer_tools');
+}

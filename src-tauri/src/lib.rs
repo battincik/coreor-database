@@ -1,4 +1,5 @@
 mod database;
+mod developer_tools;
 mod secure_vault;
 mod transactions;
 mod window_state;
@@ -266,6 +267,7 @@ pub fn run() {
         .setup(|app| {
             ensure_secure_config(app.handle()).map_err(std::io::Error::other)?;
             window_state::restore_and_track(app).map_err(std::io::Error::other)?;
+            developer_tools::initialize(app).map_err(std::io::Error::other)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -275,6 +277,8 @@ pub fn run() {
             write_config,
             vault_status,
             cloud_vault_readiness,
+            developer_tools::set_developer_tools_enabled,
+            developer_tools::open_developer_tools,
             workspace_read,
             workspace_write,
             workspace_import_legacy,
