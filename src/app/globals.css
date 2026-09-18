@@ -154,6 +154,19 @@
 @layer components {
   .coreor-sql-editor { background: var(--coreor-editor-bg) !important; color: var(--coreor-editor-fg) !important; font-size: var(--coreor-editor-font-size) !important; line-height: var(--coreor-line-height); }
   .coreor-sql-editor::selection { background: var(--coreor-editor-selection); }
+  .coreor-sql-editor-stack pre,
+  .coreor-sql-editor-stack textarea,
+  .coreor-sql-editor-stack pre span {
+    font-family: "Cascadia Mono", Consolas, "Courier New", monospace !important;
+    font-weight: 400 !important;
+    font-style: normal !important;
+    font-kerning: none !important;
+    font-variant-ligatures: none !important;
+    font-feature-settings: "liga" 0, "calt" 0, "kern" 0 !important;
+    letter-spacing: 0 !important;
+    word-spacing: 0 !important;
+    text-rendering: geometricPrecision;
+  }
   .coreor-console-text { font-size: var(--coreor-console-font-size) !important; }
   :root[data-compact='false'] .coreor-compact-row { min-height: 2.25rem; padding-top: .375rem; padding-bottom: .375rem; }
 }
