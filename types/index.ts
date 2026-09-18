@@ -19,6 +19,8 @@ export type DatabaseApiAction =
   | 'test'
   | 'catalog'
   | 'table-info'
+  | 'schema-overview'
+  | 'database-objects'
   | 'table-data'
   | 'update-cell'
   | 'insert-row'
@@ -99,6 +101,34 @@ export interface DatabaseCatalogItem {
   totalSizeMB: string;
   tables: string[];
   tableDetails: DatabaseTable[];
+}
+
+export type DatabaseObjectKind = 'table' | 'view' | 'procedure' | 'function' | 'trigger' | 'event';
+
+export interface DatabaseSchemaObject {
+  name: string;
+  kind: DatabaseObjectKind;
+  schema?: string | null;
+  tableName?: string | null;
+  definition?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  comment?: string | null;
+}
+
+export interface DatabaseObjectsResponse {
+  supported: boolean;
+  objects: DatabaseSchemaObject[];
+  _meta?: DatabaseQueryMeta;
+}
+
+export interface SchemaOverviewResponse {
+  supported: boolean;
+  tables: Array<Record<string, unknown>>;
+  columns: Array<Record<string, unknown>>;
+  indexes: Array<Record<string, unknown>>;
+  foreignKeys: Array<Record<string, unknown>>;
+  _meta?: DatabaseQueryMeta;
 }
 
 export interface DatabaseServerConfig {
