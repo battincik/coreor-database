@@ -61,7 +61,21 @@ const RESULT_HEIGHT_KEY = 'coreor:query-result-height:v1';
 const SQL_KEYWORDS = ['SELECT','DISTINCT','FROM','WHERE','AND','OR','NOT','NULL','JOIN','LEFT JOIN','RIGHT JOIN','ON','GROUP BY','HAVING','ORDER BY','ASC','DESC','LIMIT','OFFSET','TOP','INSERT INTO','VALUES','UPDATE','SET','DELETE FROM','CREATE TABLE','ALTER TABLE','DROP TABLE','TRUNCATE TABLE','CREATE INDEX','UNIQUE','COUNT','SUM','AVG','MIN','MAX','CASE','WHEN','THEN','ELSE','END','AS','IN','BETWEEN','LIKE','EXISTS','UNION','WITH','EXPLAIN','SHOW TABLES','SHOW CREATE TABLE','DESCRIBE','COMMIT','ROLLBACK'];
 
 function createId(prefix = 'query') { return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? `${prefix}-${crypto.randomUUID()}` : `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`; }
-function valueText(value: unknown) { return value === null ? '(NULL)' : value === undefined ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value); }
+function valueText(value: unknown) {
+  if (value === null) return '(NULL)';
+  if (value === undefined) return '';
+  if (value && typeof value === 'object') {
+    const binary = value as { type?: unknown; base64?: unknown };
+    if (binary.type === 'binary' && typeof binary.base64 === 'string') {
+      try {
+        const bytes = Uint8Array.from(atob(binary.base64), character => character.charCodeAt(0));
+        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      } catch { return JSON.stringify(value); }
+    }
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
 function readStored(key: string): StoredQuery[] { if (typeof window === 'undefined') return []; try { const value = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(value) ? value : []; } catch { return []; } }
 function writeStored(key: string, values: StoredQuery[]) { if (typeof window !== 'undefined') localStorage.setItem(key, JSON.stringify(values.slice(0, MAX_HISTORY))); }
 function queryTitle(sql: string) { const text = sql.replace(/\s+/g, ' ').trim(); return text.length > 72 ? `${text.slice(0, 72)}…` : text || 'SQL sorgusu'; }
