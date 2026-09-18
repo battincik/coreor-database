@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CoreorConfirmModal, type CoreorConfirmation } from '@/components/ui/coreor-confirm-modal';
 
 const controlClass = 'h-8 rounded border border-zinc-800 bg-zinc-950 px-2 text-xs text-zinc-200 outline-none focus:border-cyan-500/60';
 
@@ -49,6 +50,7 @@ export function DatabaseUserManagerModal({ open, onClose, serverId, accountId, d
   const [roleName, setRoleName] = useState('');
   const [selectedRole, setSelectedRole] = useState('');
   const [makeDefaultRole, setMakeDefaultRole] = useState(true);
+  const [confirmation, setConfirmation] = useState<CoreorConfirmation | null>(null);
 
   const selectedDatabase = databases.find(database => database.name === privilegeDraft.database);
   const filteredUsers = useMemo(() => {
@@ -102,9 +104,18 @@ export function DatabaseUserManagerModal({ open, onClose, serverId, accountId, d
   };
 
   const removeUser = () => {
-    if (!selected || !serverId || !accountId || !window.confirm(`${selected.user}@${selected.host} hesabı silinsin mi?`)) return;
-    void run(() => dropDatabaseUser(serverId, selected.user, selected.host, accountId), 'Kullanıcı silindi.');
-    setSelected(null);
+    if (!selected || !serverId || !accountId) return;
+    const target = selected;
+    setConfirmation({
+      title: 'Veritabanı kullanıcısını sil',
+      description: `${target.user}@${target.host} hesabı veritabanı sunucusundan kalıcı olarak kaldırılacak. Bu işlem oturum ve yetkileri etkileyebilir.`,
+      confirmLabel: 'Kullanıcıyı sil',
+      tone: 'danger',
+      onConfirm: async () => {
+        await run(() => dropDatabaseUser(serverId, target.user, target.host, accountId), 'Kullanıcı silindi.');
+        setSelected(null);
+      }
+    });
   };
 
   const changePrivilege = (mode: 'grant' | 'revoke') => {
@@ -129,7 +140,8 @@ export function DatabaseUserManagerModal({ open, onClose, serverId, accountId, d
     void run(() => assignDatabaseRole(serverId, { role: role.user, roleHost: role.host, user: selected.user, host: selected.host, mode, makeDefault: makeDefaultRole }, accountId), mode === 'grant' ? 'Rol kullanıcıya atandı.' : 'Rol kullanıcıdan kaldırıldı.');
   };
 
-  return createPortal(
+  return <>
+    {createPortal(
     <div className="fixed inset-0 z-[320] flex items-center justify-center p-4">
       <button type="button" className="absolute inset-0 bg-black/75 backdrop-blur-sm" aria-label="Kapat" onClick={onClose} />
       <div className="relative z-10 flex h-[min(820px,92vh)] w-[min(1180px,96vw)] min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl">
@@ -153,5 +165,7 @@ export function DatabaseUserManagerModal({ open, onClose, serverId, accountId, d
       </div>
     </div>,
     document.body
-  );
+  )}
+    <CoreorConfirmModal action={confirmation} onClose={() => setConfirmation(null)} />
+  </>;
 }
