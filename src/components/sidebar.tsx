@@ -40,8 +40,9 @@ function objectKindColor(kind: DatabaseSchemaObject['kind']) {
 }
 
 function compactCount(value: number) {
-  if (!Number.isFinite(value)) return '—';
-  return new Intl.NumberFormat('tr-TR', { notation: value >= 1000 ? 'compact' : 'standard', maximumFractionDigits: 1 }).format(value);
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '—';
+  return new Intl.NumberFormat('tr-TR', { notation: numeric >= 1000 ? 'compact' : 'standard', maximumFractionDigits: 1 }).format(numeric);
 }
 
 function compactBytes(bytes: number | null | undefined) {
