@@ -19,6 +19,7 @@ Technical documentation for **Coreor Database**.
 ## Accounts and local-first design
 
 - [Coreor Account API integration](ACCOUNT_API.md)
+- [Secure local & zero-knowledge cloud vault](SECURE_VAULT.md)
 - [Security Model](../SECURITY_MODEL.md)
 - [Threat Model](THREAT_MODEL.md)
 

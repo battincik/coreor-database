@@ -29,4 +29,11 @@ dirs = "6"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 base64 = "0.22"
+ring = "0.17.14"
 urlencoding = "2.1"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security_Credentials"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "2.11.1"

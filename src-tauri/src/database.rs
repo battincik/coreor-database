@@ -12,10 +12,13 @@ pub type MssqlClient = Client<Compat<TcpStream>>;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Connection {
+    #[serde(default)]
+    pub server_id: Option<String>,
     pub engine: String,
     pub host: String,
     pub port: u16,
     pub username: String,
+    #[serde(default)]
     pub password: String,
     pub database: Option<String>,
     #[serde(default = "default_ssl_mode")]

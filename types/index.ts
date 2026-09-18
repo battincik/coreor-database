@@ -29,11 +29,14 @@ export type DatabaseApiAction =
   | 'query';
 
 export interface DatabaseConnectionPayload {
+  /** Stored profiles use this ID so Rust can resolve the password from the encrypted local vault. */
+  serverId?: string;
   engine: DatabaseEngine;
   host: string;
   port: number;
   username: string;
-  password: string;
+  /** Transient only: used for unsaved connection tests and immediately sealed when a profile is saved. */
+  password?: string;
   database?: string | null;
   sslMode: DatabaseSslMode;
   connectTimeoutMs?: number;
@@ -144,7 +147,11 @@ export interface DatabaseServerConfig {
   host?: string;
   port?: number;
   username?: string;
+  /** Transient only. Saved profiles never return a plaintext password to the UI. */
   password?: string;
+  /** Runtime-only marker; never persisted inside the encrypted profile payload. */
+  credentialRef?: string;
+  credentialState?: 'stored' | 'missing';
   databaseName?: string;
   databaseType?: DatabaseEngine;
   version?: string;

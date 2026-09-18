@@ -467,6 +467,8 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "dirs",
+ "ring",
+ "security-framework",
  "serde",
  "serde_json",
  "sqlx",
@@ -477,6 +479,7 @@ dependencies = [
  "tokio-util",
  "urlencoding",
  "uuid",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

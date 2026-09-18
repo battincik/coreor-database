@@ -22,14 +22,15 @@ async function requireServer(accountId: string | null | undefined, serverId: str
 
 function connectionPayload(server: DatabaseServerConfig, database?: string | null): DatabaseConnectionPayload {
   const engine = server.databaseType ?? 'mysql';
-  if (!server.host?.trim() || !server.username?.trim() || !server.password) throw new Error('Host, kullanıcı adı veya parola eksik.');
+  if (!server.host?.trim() || !server.username?.trim()) throw new Error('Host veya kullanıcı adı eksik.');
   const defaultPort = engine === 'postgresql' || engine === 'cockroachdb' ? 5432 : engine === 'mssql' ? 1433 : 3306;
   return {
+    serverId: server.id,
     engine,
     host: server.host.trim(),
     port: server.port ?? defaultPort,
     username: server.username.trim(),
-    password: server.password,
+    password: server.password || undefined,
     database,
     sslMode: server.sslMode ?? 'required',
     connectTimeoutMs: server.connectionTimeoutMs ?? 20_000,

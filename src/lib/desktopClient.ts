@@ -8,12 +8,40 @@ export interface DesktopDatabaseRequest {
   [key: string]: unknown;
 }
 
+export interface DesktopVaultPreferences {
+  localVaultVersion: number;
+  localProvider: 'os-secured-aes256gcm' | string;
+  cloudEnvelopeVersion: number;
+  cloudSyncEnabled: boolean;
+  rememberCloudKeyOnDevice: boolean;
+}
+
 export interface DesktopConfig {
   version: number;
   queryTimeoutMs: number;
   maxResultRows: number;
   maxPageSize: number;
+  vault: DesktopVaultPreferences;
   connections: unknown[];
+}
+
+export interface LocalVaultStatus {
+  encrypted: boolean;
+  localVaultVersion: number;
+  algorithm: string;
+  keyBackend: string;
+  keyAvailable: boolean;
+  connectionCount: number;
+  vaultPath: string;
+}
+
+export interface CloudVaultReadiness {
+  envelopeVersion: number;
+  payloadCipher: 'AES-256-GCM' | string;
+  vaultKeyBytes: number;
+  passwordKdf: 'Argon2id' | string;
+  zeroKnowledge: boolean;
+  masterPasswordStored: boolean;
 }
 
 function assertDesktopRuntime() {
@@ -42,4 +70,12 @@ export function writeDesktopConfig(config: DesktopConfig): Promise<void> {
 
 export function desktopConfigPath(): Promise<string> {
   return invokeDesktop<string>('config_path');
+}
+
+export function readLocalVaultStatus(): Promise<LocalVaultStatus> {
+  return invokeDesktop<LocalVaultStatus>('vault_status');
+}
+
+export function readCloudVaultReadiness(): Promise<CloudVaultReadiness> {
+  return invokeDesktop<CloudVaultReadiness>('cloud_vault_readiness');
 }

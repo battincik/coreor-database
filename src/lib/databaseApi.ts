@@ -92,15 +92,16 @@ function createServerId() {
 function createConnectionPayload(server: DatabaseServerConfig, databaseOverride?: string | null): DatabaseConnectionPayload {
   const engine = server.databaseType ?? 'mysql';
   const definition = databaseEngineDefinition(engine);
-  if (!server.host?.trim() || !server.username?.trim() || !server.password) {
-    throw new Error('Host, kullanıcı adı ve parola eksik.');
+  if (!server.host?.trim() || !server.username?.trim()) {
+    throw new Error('Host veya kullanıcı adı eksik.');
   }
   return {
+    serverId: server.id,
     engine,
     host: server.host.trim(),
     port: server.port ?? definition.defaultPort,
     username: server.username.trim(),
-    password: server.password,
+    password: server.password || undefined,
     database: databaseOverride === undefined ? server.databaseName?.trim() || undefined : databaseOverride,
     sslMode: server.sslMode ?? 'preferred',
     connectTimeoutMs: server.connectionTimeoutMs ?? 20_000,
