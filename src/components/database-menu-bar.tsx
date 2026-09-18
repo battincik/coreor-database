@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useContext, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Activity,
   Archive,
@@ -41,15 +42,19 @@ import {
   type OpenSettingsModalDetail
 } from '@/lib/databaseToolEvents';
 import { databaseEngineFamily, databaseEngineLabel } from '@/lib/databaseEngines';
-import { DatabaseUserManagerModal } from '@/components/database-user-manager-modal';
-import { DatabaseProcessCenterModal } from '@/components/database-process-center-modal';
-import { DatabaseImportExportModal } from '@/components/database-import-export-modal';
-import { DatabasePerformancePanelModal } from '@/components/database-performance-panel-modal';
-import { SqlNotebookModal } from '@/components/sql-notebook-modal';
-import { DatabaseSettingsModal, type DatabaseSettingsTab } from '@/components/database-settings-modal';
-import { DatabaseTransactionWorkspaceModal } from '@/components/database-transaction-workspace-modal';
-import { DatabaseAutomationCenterModal, type AutomationCenterTab } from '@/components/database-automation-center-modal';
-import { DatabaseIntelligenceCenterModal, type IntelligenceCenterTab } from '@/components/database-intelligence-center-modal';
+import type { DatabaseSettingsTab } from '@/components/database-settings-modal';
+import type { AutomationCenterTab } from '@/components/database-automation-center-modal';
+import type { IntelligenceCenterTab } from '@/components/database-intelligence-center-modal';
+
+const DatabaseUserManagerModal = dynamic(() => import('@/components/database-user-manager-modal').then(module => module.DatabaseUserManagerModal), { ssr: false });
+const DatabaseProcessCenterModal = dynamic(() => import('@/components/database-process-center-modal').then(module => module.DatabaseProcessCenterModal), { ssr: false });
+const DatabaseImportExportModal = dynamic(() => import('@/components/database-import-export-modal').then(module => module.DatabaseImportExportModal), { ssr: false });
+const DatabasePerformancePanelModal = dynamic(() => import('@/components/database-performance-panel-modal').then(module => module.DatabasePerformancePanelModal), { ssr: false });
+const SqlNotebookModal = dynamic(() => import('@/components/sql-notebook-modal').then(module => module.SqlNotebookModal), { ssr: false });
+const DatabaseSettingsModal = dynamic(() => import('@/components/database-settings-modal').then(module => module.DatabaseSettingsModal), { ssr: false });
+const DatabaseTransactionWorkspaceModal = dynamic(() => import('@/components/database-transaction-workspace-modal').then(module => module.DatabaseTransactionWorkspaceModal), { ssr: false });
+const DatabaseAutomationCenterModal = dynamic(() => import('@/components/database-automation-center-modal').then(module => module.DatabaseAutomationCenterModal), { ssr: false });
+const DatabaseIntelligenceCenterModal = dynamic(() => import('@/components/database-intelligence-center-modal').then(module => module.DatabaseIntelligenceCenterModal), { ssr: false });
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 
 interface DatabaseMenuBarProps { selectedDatabase: string | null; selectedTable: string | null; }
