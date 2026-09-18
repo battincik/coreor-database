@@ -669,7 +669,9 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                               const detail = database.tableDetails.find(item => item.tableName === table);
                               return { name: table, kind: detail?.tableType?.toUpperCase().includes('VIEW') ? 'view' : 'table' };
                             });
-                            const visibleObjects = normalizedSearch ? database.objectMatches : loaded || fallbackObjects;
+                            const visibleObjects = normalizedSearch
+                              ? [...database.objectMatches, ...fallbackObjects.filter(fallback => !database.objectMatches.some(object => object.kind === fallback.kind && object.name === fallback.name))]
+                              : loaded || fallbackObjects;
                             return (
                               <div className="ml-5 border-l border-zinc-900 pl-1">
                                 {objectLoading.has(key) && !loaded && <div className="flex h-7 items-center gap-2 px-2 text-[8px] text-zinc-700"><Activity className="h-3 w-3 animate-spin" />Nesneler yükleniyor…</div>}
