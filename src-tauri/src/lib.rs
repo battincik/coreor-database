@@ -54,8 +54,14 @@ fn write_config(app:tauri::AppHandle,config:DesktopConfig)->Result<(),String>{
 async fn database_request(app:tauri::AppHandle,state:State<'_,TransactionStore>,request:DatabaseRequest)->Result<Value,String>{
     let config=read_config(app)?;
     if transactions::is_transaction_action(&request.action){
-        return tokio::time::timeout(Duration::from_millis(config.query_timeout_ms),transactions::handle(request,&state,config.max_result_rows))
-            .await.map_err(|_|"Transaction işlemi zaman aşımına uğradı.".to_string())?;
+        let transaction_id=request.payload.get("transactionId").and_then(Value::as_str).map(ToOwned::to_owned);
+        match tokio::time::timeout(Duration::from_millis(config.query_timeout_ms),transactions::handle(request,&state,config.max_result_rows)).await {
+            Ok(result)=>return result,
+            Err(_)=>{
+                if let Some(id)=transaction_id { transactions::discard(&state,&id).await; }
+                return Err("Transaction işlemi zaman aşımına uğradı; güvenlik için transaction oturumu kapatıldı.".into());
+            }
+        }
     }
     tokio::time::timeout(Duration::from_millis(config.query_timeout_ms),database::execute_action(request,config.max_result_rows,config.max_page_size))
         .await.map_err(|_|"Veritabanı işlemi zaman aşımına uğradı.".to_string())?
