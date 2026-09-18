@@ -58,6 +58,7 @@ const DatabaseIntelligenceCenterModal = dynamic(() => import('@/components/datab
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 import { shortcutLabel } from '@/lib/shortcuts';
 import { useNativePlatform } from '@/lib/platformRuntime';
+import { DatabaseNotificationBell } from '@/components/database-notification-bell';
 
 interface DatabaseMenuBarProps { selectedDatabase: string | null; selectedTable: string | null; }
 
@@ -174,6 +175,7 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
       {activeServer?.readOnly && <span className="ml-1 shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[8px] text-amber-300">{t('topbar.readOnly')}</span>}
       <div className="min-w-8 flex-1 self-stretch" data-tauri-drag-region title="Pencereyi taşımak için sürükleyin" onDoubleClick={() => void windowAction('maximize')} />
       </div>
+      <DatabaseNotificationBell />
       {platform.os !== 'macos' && <div className="flex shrink-0 items-center border-l border-zinc-800 bg-black/15">
         <button type="button" className={windowButton} onClick={() => void windowAction('minimize')} title="Küçült" aria-label="Küçült"><Minus className="h-3.5 w-3.5" strokeWidth={1.7} /></button>
         <button type="button" className={windowButton} onClick={() => void windowAction('maximize')} title="Büyüt / geri yükle" aria-label="Büyüt veya geri yükle"><Square className="h-3 w-3" strokeWidth={1.7} /></button>

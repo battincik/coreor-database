@@ -81,7 +81,8 @@ export function workspaceCollectionFromNamespace(namespace: string): SyncableWor
     'schema-snapshots',
     'migration-drafts',
     'prepared-statements',
-    'approval-requests'
+    'approval-requests',
+    'notifications'
   ];
   return supported.includes(collection) ? collection : null;
 }

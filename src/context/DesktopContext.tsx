@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { initializeDatabaseAutomationStore } from '@/lib/databaseAutomation';
+import { initializeNotificationStore } from '@/lib/notificationStore';
 
 export interface DesktopUser {
   id: string;
@@ -29,8 +30,11 @@ export function DesktopProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    void initializeDatabaseAutomationStore()
-      .catch(error => console.error('Native automation store hazırlanamadı:', error))
+    void Promise.all([
+      initializeDatabaseAutomationStore(),
+      initializeNotificationStore()
+    ])
+      .catch(error => console.error('Native workspace hazırlanamadı:', error))
       .finally(() => { if (active) setNativeWorkspaceReady(true); });
     return () => { active = false; };
   }, []);

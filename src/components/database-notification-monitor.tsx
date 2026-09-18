@@ -11,8 +11,14 @@ import { getActivitiesServerSnapshot, getActivitiesSnapshot, subscribeActivities
 import { backupTasks } from '@/lib/databaseAutomation';
 import { calculateHealthScore, compareMetric, notificationRuleStore, performanceHistoryStore, type NotificationRule } from '@/lib/decentralizedIntelligence';
 import { dispatchCoreorToast, type CoreorToastVariant } from '@/components/ui/coreor-toast';
+import { publishCoreorNotification } from '@/lib/notificationStore';
 
 const COOLDOWN_KEY = 'coreor:notification-cooldowns:v1';
+
+function openArchivedNotification(id: string) {
+  window.dispatchEvent(new CustomEvent('coreor:open-notification', { detail: { id } }));
+}
+
 
 function readCooldowns() {
   if (typeof window === 'undefined') return {} as Record<string, number>;
@@ -65,11 +71,18 @@ export function DatabaseNotificationMonitor() {
     if (!preferences.liveNotifications || !latest || latest.id === lastActivityIdRef.current) return;
     lastActivityIdRef.current = latest.id;
     if (latest.level === 'error') {
-      dispatchCoreorToast({
-        variant: 'error',
+      const archived = publishCoreorNotification({
+        id: `activity-${latest.id}`,
+        severity: 'error',
+        source: 'sql',
         title: latest.title || 'SQL işlemi başarısız',
         description: latest.message || 'Veritabanı işlemi hata verdi.',
-        duration: 9000,
+        serverId: latest.serverId,
+        serverName: latest.serverName,
+        databaseName: latest.databaseName,
+        tableName: latest.tableName,
+        code: latest.errorCode || 'DATABASE_ERROR',
+        durationMs: latest.durationMs,
         metadata: [
           { label: 'Sunucu', value: latest.serverName || '—' },
           { label: 'Hedef', value: latest.databaseName || 'sunucu geneli' },
@@ -77,20 +90,45 @@ export function DatabaseNotificationMonitor() {
           { label: 'Kod', value: latest.errorCode || 'DATABASE_ERROR' }
         ]
       });
+      dispatchCoreorToast({
+        id: `toast-${archived.id}`,
+        variant: 'error',
+        title: archived.title,
+        description: archived.description,
+        duration: 6500,
+        metadata: archived.metadata,
+        onOpen: () => openArchivedNotification(archived.id)
+      });
       return;
     }
     if ((latest.durationMs || 0) >= 1500) {
-      dispatchCoreorToast({
-        variant: 'warning',
+      const archived = publishCoreorNotification({
+        id: `slow-${latest.id}`,
+        severity: 'warning',
+        source: 'sql',
         title: 'Yavaş SQL işlemi algılandı',
         description: latest.title || latest.sql.replace(/\s+/g, ' ').slice(0, 160),
-        duration: 7000,
+        serverId: latest.serverId,
+        serverName: latest.serverName,
+        databaseName: latest.databaseName,
+        tableName: latest.tableName,
+        code: 'SLOW_SQL',
+        durationMs: latest.durationMs,
         metadata: [
           { label: 'Sunucu', value: latest.serverName || '—' },
           { label: 'Süre', value: `${latest.durationMs} ms` },
           { label: 'Satır', value: latest.rowCount ?? latest.affectedRows ?? '—' },
           { label: 'Kaynak', value: 'Yerel SQL günlüğü' }
         ]
+      });
+      dispatchCoreorToast({
+        id: `toast-${archived.id}`,
+        variant: 'warning',
+        title: archived.title,
+        description: archived.description,
+        duration: 5200,
+        metadata: archived.metadata,
+        onOpen: () => openArchivedNotification(archived.id)
       });
     }
   }, [activities, preferences.liveNotifications]);
@@ -139,18 +177,31 @@ export function DatabaseNotificationMonitor() {
           const lastShown = cooldowns[key] || 0;
           if (now - lastShown < Math.max(30, rule.cooldownSeconds) * 1000) continue;
           cooldowns[key] = now;
-          dispatchCoreorToast({
-            id: `alert-${key}`,
-            variant: rule.severity as CoreorToastVariant,
+          const archived = publishCoreorNotification({
+            id: `alert-${key}-${snapshot.sampledAt}`,
+            severity: rule.severity as CoreorToastVariant,
+            source: 'performance',
             title: rule.name,
             description: ruleDescription(rule, value),
-            duration: 8500,
+            serverId: server.id,
+            serverName: server.name,
+            databaseName: server.databaseName || undefined,
+            code: rule.metric,
             metadata: [
               { label: 'Sunucu', value: server.name },
               { label: 'Motor', value: server.databaseType || 'mysql' },
               { label: 'Ölçüm', value: new Date(snapshot.sampledAt).toLocaleTimeString('tr-TR') },
               { label: 'Sağlık', value: `${health.score}/100` }
             ]
+          });
+          dispatchCoreorToast({
+            id: `toast-${archived.id}`,
+            variant: rule.severity as CoreorToastVariant,
+            title: archived.title,
+            description: archived.description,
+            duration: 6000,
+            metadata: archived.metadata,
+            onOpen: () => openArchivedNotification(archived.id)
           });
         }
         previousSnapshotRef.current = snapshot;
@@ -163,13 +214,25 @@ export function DatabaseNotificationMonitor() {
           if (now - lastShown >= Math.max(30, unreachableRule.cooldownSeconds) * 1000) {
             cooldowns[key] = now;
             writeCooldowns(cooldowns);
-            dispatchCoreorToast({
-              id: `alert-${key}`,
-              variant: unreachableRule.severity as CoreorToastVariant,
+            const archived = publishCoreorNotification({
+              id: `unreachable-${key}-${now}`,
+              severity: unreachableRule.severity as CoreorToastVariant,
+              source: 'connection',
               title: unreachableRule.name,
-              description: error instanceof Error ? error.message : 'Sunucu durumu alınamadı.',
-              persistent: true,
+              description: error instanceof Error ? error.message : String(error || 'Sunucu durumu alınamadı.'),
+              serverId: server.id,
+              serverName: server.name,
+              code: 'SERVER_UNREACHABLE',
               metadata: [{ label: 'Sunucu', value: server.name }, { label: 'Hedef', value: `${server.host}:${server.port}` }]
+            });
+            dispatchCoreorToast({
+              id: `toast-${archived.id}`,
+              variant: unreachableRule.severity as CoreorToastVariant,
+              title: archived.title,
+              description: archived.description,
+              duration: 8000,
+              metadata: archived.metadata,
+              onOpen: () => openArchivedNotification(archived.id)
             });
           }
         }
