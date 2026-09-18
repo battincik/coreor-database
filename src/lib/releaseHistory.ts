@@ -18,7 +18,7 @@ export interface ReleasePullRequest {
 export interface ReleaseHistoryResponse {
   repository: string;
   fetchedAt: string;
-  source: 'github' | 'fallback';
+  source: 'github' | 'fallback' | 'local';
   warning?: string;
   pullRequests: ReleasePullRequest[];
 }
