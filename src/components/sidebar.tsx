@@ -513,7 +513,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         persistent: false,
         variant: 'success',
         title: 'Veritabanı boyutu güncellendi',
-        description: `${database} • ${compactBytes(result.totalBytes) || '0 B'}`,
+        description: `${database} • ${compactBytes(result.totalBytes) || '0 B'}${result.measurementSource === 'innodb-tablespace' ? ' • fiziksel InnoDB' : ''}`,
         duration: 3500
       });
     } catch (error) {
@@ -557,7 +557,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         persistent: false,
         variant: 'success',
         title: 'Tablo boyutu güncellendi',
-        description: `${table} • ${compactBytes(result.totalBytes) || '0 B'}`,
+        description: `${table} • ${compactBytes(result.totalBytes) || '0 B'}${result.measurementSource === 'innodb-tablespace' ? ' • fiziksel InnoDB' : ''}`,
         duration: 3500
       });
     } catch (error) {

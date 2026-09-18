@@ -698,14 +698,19 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
     // allocation when the engine exposes it, while retaining the metadata
     // result as a fallback for MyISAM/TiDB/restricted accounts.
     if !is_pg(&c.engine) && !is_mssql(&c.engine) && c.engine!="tidb" {
-        let tablespace_pattern=match table {
-            Some(table_name)=>format!("{}/{}%",db,table_name),
-            None=>format!("{}/%",db)
+        let tablespace_prefix=match table {
+            Some(table_name)=>format!("{}/{}",db,table_name),
+            None=>format!("{}/",db)
         };
-        let pattern_literal=literal(&json!(tablespace_pattern),&c.engine);
+        let prefix_literal=literal(&json!(tablespace_prefix),&c.engine);
+        let tablespace_filter=if table.is_some() {
+            format!("(NAME={} OR LEFT(NAME,CHAR_LENGTH(CONCAT({},'#')))=CONCAT({},'#'))",prefix_literal,prefix_literal,prefix_literal)
+        }else{
+            format!("LEFT(NAME,CHAR_LENGTH({0}))={0}",prefix_literal)
+        };
         let tablespace_queries=[
-            format!("SELECT CAST(COALESCE(SUM(GREATEST(COALESCE(FILE_SIZE,0),COALESCE(ALLOCATED_SIZE,0))),0) AS CHAR) AS physicalBytes FROM information_schema.INNODB_TABLESPACES WHERE NAME LIKE {}",pattern_literal),
-            format!("SELECT CAST(COALESCE(SUM(GREATEST(COALESCE(FILE_SIZE,0),COALESCE(ALLOCATED_SIZE,0))),0) AS CHAR) AS physicalBytes FROM information_schema.INNODB_SYS_TABLESPACES WHERE NAME LIKE {}",pattern_literal)
+            format!("SELECT CAST(COALESCE(SUM(GREATEST(COALESCE(FILE_SIZE,0),COALESCE(ALLOCATED_SIZE,0))),0) AS CHAR) AS physicalBytes FROM information_schema.INNODB_TABLESPACES WHERE {}",tablespace_filter),
+            format!("SELECT CAST(COALESCE(SUM(GREATEST(COALESCE(FILE_SIZE,0),COALESCE(ALLOCATED_SIZE,0))),0) AS CHAR) AS physicalBytes FROM information_schema.INNODB_SYS_TABLESPACES WHERE {}",tablespace_filter)
         ];
         let mut physical_bytes=0u64;
         for physical_sql in tablespace_queries {
