@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Activity,
@@ -14,10 +14,9 @@ import {
   ShieldCheck,
   Table2,
   Wrench,
-  X,
-  XCircle
+  X
 } from 'lucide-react';
-import type { DatabaseCatalogItem, DatabaseEngine, DatabaseServerConfig } from 'types';
+import type { DatabaseEngine, DatabaseServerConfig } from 'types';
 import type { DatabaseMaintenanceOperation } from '@/lib/databaseWorkbenchTypes';
 import { runDatabaseMaintenanceStep } from '@/lib/databaseWorkbenchApi';
 import { fetchServerTables } from '@/lib/databaseApi';
@@ -26,6 +25,7 @@ import { publishCoreorNotification } from '@/lib/notificationStore';
 import { useModalEscape } from '@/lib/useModalEscape';
 import { Button } from '@/components/ui/button';
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
+import { DatabaseContext } from '@/context/DatabaseContext';
 
 interface DatabaseMaintenanceModalProps {
   open: boolean;
@@ -117,6 +117,7 @@ export function DatabaseMaintenanceModal({
   initialDatabase,
   initialTable
 }: DatabaseMaintenanceModalProps) {
+  const { loadServers } = useContext(DatabaseContext)!;
   const [databaseName, setDatabaseName] = useState(initialDatabase || '');
   const [scope, setScope] = useState<'database' | 'table'>(initialTable ? 'table' : 'database');
   const [tableName, setTableName] = useState(initialTable || '');
@@ -292,7 +293,10 @@ export function DatabaseMaintenanceModal({
       ])));
     }
 
-    try { await fetchServerTables(server.id, accountId); } catch { /* maintenance result stays valid even when catalog refresh fails */ }
+    try {
+      await fetchServerTables(server.id, accountId);
+      await loadServers();
+    } catch { /* maintenance result stays valid even when catalog refresh fails */ }
 
     publishCoreorNotification({
       id: `maintenance-${server.id}-${database.name}-${Date.now()}`,
