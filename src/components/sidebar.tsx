@@ -22,66 +22,67 @@ import { useAppPreferences } from '@/lib/appPreferences';
 import { recalculateDatabaseStorage, recalculateTableStorage } from '@/lib/databaseWorkbenchApi';
 import { useCoreorToast } from '@/components/ui/coreor-toast';
 import { publishCoreorNotification } from '@/lib/notificationStore';
+import { useLanguage } from '@/context/LanguageContext';
 
 const objectExplorerKey = (serverId: string, databaseName: string) => `${serverId}:${databaseName}`;
 
 type ObjectSearchType = 'all' | 'server' | 'database' | DatabaseSchemaObject['kind'];
 
-const OBJECT_SEARCH_TYPES: Array<{ value: ObjectSearchType; label: string; icon: typeof Database; color: string }> = [
-  { value: 'all', label: 'Hepsi', icon: Search, color: 'text-cyan-300' },
-  { value: 'server', label: 'Sunucu', icon: Server, color: 'text-emerald-400' },
-  { value: 'database', label: 'Veritabanı', icon: Database, color: 'text-sky-400' },
-  { value: 'table', label: 'Tablo', icon: Table2, color: 'text-cyan-400' },
-  { value: 'view', label: 'View', icon: View, color: 'text-violet-400' },
-  { value: 'procedure', label: 'Procedure', icon: Zap, color: 'text-amber-400' },
-  { value: 'function', label: 'Function', icon: FunctionSquare, color: 'text-fuchsia-400' },
-  { value: 'trigger', label: 'Trigger', icon: Activity, color: 'text-orange-400' },
-  { value: 'event', label: 'Event', icon: Sparkles, color: 'text-emerald-400' }
+const OBJECT_SEARCH_TYPES: Array<{ value: ObjectSearchType; labelKey: string; icon: typeof Database; color: string }> = [
+  { value: 'all', labelKey: 'common.all', icon: Search, color: 'text-cyan-300' },
+  { value: 'server', labelKey: 'statusGuide.server', icon: Server, color: 'text-emerald-400' },
+  { value: 'database', labelKey: 'database.database', icon: Database, color: 'text-sky-400' },
+  { value: 'table', labelKey: 'database.table', icon: Table2, color: 'text-cyan-400' },
+  { value: 'view', labelKey: 'database.view', icon: View, color: 'text-violet-400' },
+  { value: 'procedure', labelKey: 'database.procedure', icon: Zap, color: 'text-amber-400' },
+  { value: 'function', labelKey: 'database.function', icon: FunctionSquare, color: 'text-fuchsia-400' },
+  { value: 'trigger', labelKey: 'database.trigger', icon: Activity, color: 'text-orange-400' },
+  { value: 'event', labelKey: 'database.event', icon: Sparkles, color: 'text-emerald-400' }
 ];
 
 function objectKindColor(kind: DatabaseSchemaObject['kind']) {
   return OBJECT_SEARCH_TYPES.find(item => item.value === kind)?.color || 'text-zinc-500';
 }
 
-function compactCount(value: number) {
+function compactCountBase(value: number, locale: string) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return '—';
-  return new Intl.NumberFormat('tr-TR', { notation: numeric >= 1000 ? 'compact' : 'standard', maximumFractionDigits: 1 }).format(numeric);
+  return new Intl.NumberFormat(locale, { notation: numeric >= 1000 ? 'compact' : 'standard', maximumFractionDigits: 1 }).format(numeric);
 }
 
-function compactBytes(bytes: number | null | undefined) {
+function compactBytesBase(bytes: number | null | undefined, locale: string) {
   if (bytes === null || bytes === undefined) return null;
   const value = Number(bytes);
   if (!Number.isFinite(value) || value < 0) return null;
   if (value === 0) return '0 B';
-  if (value >= 1024 ** 3) return `${(value / 1024 ** 3).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} GB`;
-  if (value >= 1024 ** 2) return `${(value / 1024 ** 2).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} MB`;
-  return `${Math.max(1, Math.round(value / 1024)).toLocaleString('tr-TR')} KB`;
+  if (value >= 1024 ** 3) return `${(value / 1024 ** 3).toLocaleString(locale, { maximumFractionDigits: 1 })} GB`;
+  if (value >= 1024 ** 2) return `${(value / 1024 ** 2).toLocaleString(locale, { maximumFractionDigits: 1 })} MB`;
+  return `${Math.max(1, Math.round(value / 1024)).toLocaleString(locale)} KB`;
 }
 
-function compactSize(megabytes: string | number | null | undefined) {
+function compactSizeBase(megabytes: string | number | null | undefined, locale: string) {
   if (megabytes === null || megabytes === undefined) return null;
   const mb = Number(megabytes);
-  return Number.isFinite(mb) && mb >= 0 ? compactBytes(mb * 1024 * 1024) : null;
+  return Number.isFinite(mb) && mb >= 0 ? compactBytesBase(mb * 1024 * 1024, locale) : null;
 }
 
-function objectMetadataText(object: DatabaseSchemaObject, detail?: DatabaseTable) {
+function objectMetadataTextBase(object: DatabaseSchemaObject, detail: DatabaseTable | undefined, locale: string, rowsLabel: string) {
   if (object.kind === 'table') {
     const measured = Boolean(detail?.storageMeasuredAt);
     const rows = measured ? detail?.rows : object.rows ?? detail?.rows;
-    const size = measured ? compactSize(detail?.sizeMB) : compactBytes(object.sizeBytes) || compactSize(detail?.sizeMB);
+    const size = measured ? compactSizeBase(detail?.sizeMB, locale) : compactBytesBase(object.sizeBytes, locale) || compactSizeBase(detail?.sizeMB, locale);
     if (rows === undefined && !size) return null;
-    return [rows === undefined ? null : `${compactCount(rows)} satır`, size].filter(Boolean).join(' • ');
+    return [rows === undefined ? null : `${compactCountBase(rows, locale)} ${rowsLabel}`, size].filter(Boolean).join(' • ');
   }
   if (object.kind === 'view') {
     const rows = object.rows ?? detail?.rows;
-    const size = compactBytes(object.sizeBytes) || compactSize(detail?.sizeMB);
-    return [rows ? `${compactCount(rows)} satır` : null, size].filter(Boolean).join(' • ') || 'View';
+    const size = compactBytesBase(object.sizeBytes, locale) || compactSizeBase(detail?.sizeMB, locale);
+    return [rows ? `${compactCountBase(rows, locale)} ${rowsLabel}` : null, size].filter(Boolean).join(' • ') || 'View';
   }
   if (object.kind === 'trigger') return object.tableName ? `→ ${object.tableName}` : 'Trigger';
   if (object.kind === 'procedure') return object.comment?.trim() || 'Procedure';
   if (object.kind === 'function') return object.comment?.trim() || 'Function';
-  if (object.kind === 'event') return object.comment?.trim() || (object.updatedAt ? 'Zamanlanmış event' : 'Event');
+  if (object.kind === 'event') return object.comment?.trim() || (object.updatedAt ? 'Event' : 'Event');
   return null;
 }
 
@@ -161,6 +162,7 @@ function objectDropSql(engine: DatabaseEngine, databaseName: string, object: Dat
 }
 
 function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: CreateDatabaseState | null; onChange: (state: CreateDatabaseState) => void; onClose: () => void; onCreate: () => void | Promise<void> }) {
+  const { t } = useLanguage();
   useModalEscape(Boolean(state), onClose, Boolean(state?.busy));
   if (!state || typeof document === 'undefined') return null;
   const family = databaseEngineFamily(state.server.databaseType);
@@ -180,7 +182,7 @@ function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: Cr
             <Database className="h-4 w-4 text-cyan-300" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-semibold">Yeni veritabanı</h2>
+            <h2 className="text-sm font-semibold">{t('sidebar.createDatabaseTitle')}</h2>
             <p className="mt-0.5 truncate text-[9px] text-zinc-600">
               {state.server.name} • {databaseEngineLabel(state.server.databaseType)}
             </p>
@@ -192,9 +194,9 @@ function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: Cr
 
         <div className="space-y-4 p-5">
           <label className="block text-[10px] text-zinc-400">
-            Veritabanı adı
+            {t('server.databaseName')}
             <Input autoFocus value={state.name} onChange={event => onChange({ ...state, name: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono" placeholder="coreor_app" />
-            <span className="mt-1 block text-[8px] text-zinc-700">Harf, sayı, alt çizgi, tire ve $ kullanılabilir.</span>
+            <span className="mt-1 block text-[8px] text-zinc-700">{t('sidebar.databaseNameRules')}</span>
           </label>
 
           {(supportsCharset || supportsCollation || supportsOwner) && (
@@ -204,28 +206,28 @@ function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: Cr
                 <Input value={state.charset} onChange={event => onChange({ ...state, charset: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono text-[10px]" placeholder="utf8mb4" />
               </label>}
               {supportsCollation && <label className="text-[10px] text-zinc-400">
-                Collation <span className="text-zinc-700">(opsiyonel)</span>
-                <Input value={state.collation} onChange={event => onChange({ ...state, collation: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono text-[10px]" placeholder={family === 'mysql' ? 'utf8mb4_unicode_ci' : 'sunucu varsayılanı'} />
+                {t('database.collation')} <span className="text-zinc-700">({t('sidebar.optional')})</span>
+                <Input value={state.collation} onChange={event => onChange({ ...state, collation: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono text-[10px]" placeholder={family === 'mysql' ? 'utf8mb4_unicode_ci' : t('sidebar.serverDefault')} />
               </label>}
               {supportsOwner && <label className="text-[10px] text-zinc-400 sm:col-span-2">
-                Owner <span className="text-zinc-700">(opsiyonel)</span>
-                <Input value={state.owner} onChange={event => onChange({ ...state, owner: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono text-[10px]" placeholder="Mevcut kullanıcı" />
+                {t('sidebar.owner')} <span className="text-zinc-700">({t('sidebar.optional')})</span>
+                <Input value={state.owner} onChange={event => onChange({ ...state, owner: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono text-[10px]" placeholder={t('sidebar.currentUser')} />
               </label>}
             </div>
           )}
 
           <div className="rounded-xl border border-zinc-800 bg-black/20 px-3 py-2 text-[9px] leading-4 text-zinc-600">
-            {family === 'mysql' && 'UTF-8 tabanlı uygulamalar için utf8mb4 önerilir. Collation boş bırakılırsa sunucunun/charset’in varsayılanı kullanılır.'}
-            {family === 'postgresql' && state.server.databaseType !== 'cockroachdb' && 'Yeni PostgreSQL veritabanı UTF8 encoding ile oluşturulur. Owner boşsa mevcut bağlantı kullanıcısı sahip olur.'}
-            {state.server.databaseType === 'cockroachdb' && 'CockroachDB için taşınabilirlik amacıyla yalnız veritabanı adı kullanılır.'}
-            {family === 'mssql' && 'Collation boş bırakılırsa SQL Server örneğinin varsayılan collation değeri kullanılır.'}
+            {family === 'mysql' && t('sidebar.mysqlDatabaseHint')}
+            {family === 'postgresql' && state.server.databaseType !== 'cockroachdb' && t('sidebar.postgresDatabaseHint')}
+            {state.server.databaseType === 'cockroachdb' && t('sidebar.cockroachDatabaseHint')}
+            {family === 'mssql' && t('sidebar.mssqlDatabaseHint')}
           </div>
 
           {state.error && <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[10px] text-red-300">{state.error}</div>}
         </div>
 
         <footer className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3">
-          <Button variant="ghost" size="sm" disabled={state.busy} onClick={onClose}>İptal</Button>
+          <Button variant="ghost" size="sm" disabled={state.busy} onClick={onClose}>{t('common.cancel')}</Button>
           <Button size="sm" disabled={!validName || !optionsValid || state.busy} onClick={() => void onCreate()}>
             {state.busy && <Activity className="mr-1.5 h-3.5 w-3.5 animate-spin" />}Oluştur
           </Button>
@@ -238,6 +240,12 @@ function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: Cr
 
 export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatabase, selectedTable }: SidebarProps) {
   const { workspaceKey, user } = useDesktop();
+  const { t, language } = useLanguage();
+  const compactCount = useCallback((value: number) => compactCountBase(value, language), [language]);
+  const compactBytes = useCallback((value: number | null | undefined) => compactBytesBase(value, language), [language]);
+  const compactSize = useCallback((value: string | number | null | undefined) => compactSizeBase(value, language), [language]);
+  const objectMetadataText = useCallback((object: DatabaseSchemaObject, detail?: DatabaseTable) => objectMetadataTextBase(object, detail, language, t('query.rows')), [language, t]);
+  const objectSearchTypes = useMemo(() => objectSearchTypes.map(option => ({ ...option, label: t(option.labelKey) })), [t]);
   const context = useContext(DatabaseContext)!;
   const { openContextMenu } = useAppContextMenu();
   const toast = useCoreorToast();
@@ -309,7 +317,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     };
   }, [servers]);
 
-  const normalizedSearch = search.trim().toLocaleLowerCase('tr-TR');
+  const normalizedSearch = search.trim().toLocaleLowerCase(language);
   const loadObjects = async (server: DatabaseServerConfig, databaseName: string, force = false) => {
     if (!workspaceKey) return;
     const key = objectExplorerKey(server.id, databaseName);
@@ -353,7 +361,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
 
   const filteredServers = useMemo(
     () => servers.map(server => {
-      const serverOwnMatch = searchTypeEnabled('server') && (!normalizedSearch || `${server.name} ${server.host} ${databaseEngineLabel(server.databaseType)}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch));
+      const serverOwnMatch = searchTypeEnabled('server') && (!normalizedSearch || `${server.name} ${server.host} ${databaseEngineLabel(server.databaseType)}`.toLocaleLowerCase(language).includes(normalizedSearch));
       const databases = (server.databases || []).map(database => {
         const key = objectExplorerKey(server.id, database.name);
         const catalogObjects: DatabaseSchemaObject[] = database.tables.map(table => {
@@ -373,12 +381,12 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         }
         const objectMatches = mergedObjects.filter(object =>
           searchTypeEnabled(object.kind)
-          && (!normalizedSearch || `${server.name} ${database.name} ${object.kind} ${object.schema || ''} ${object.name} ${object.tableName || ''}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch))
+          && (!normalizedSearch || `${server.name} ${database.name} ${object.kind} ${object.schema || ''} ${object.name} ${object.tableName || ''}`.toLocaleLowerCase(language).includes(normalizedSearch))
         );
         const tableMatches = catalogObjects
-          .filter(object => object.kind === 'table' && searchTypeEnabled('table') && (!normalizedSearch || `${server.name} ${database.name} table ${object.name}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch)))
+          .filter(object => object.kind === 'table' && searchTypeEnabled('table') && (!normalizedSearch || `${server.name} ${database.name} table ${object.name}`.toLocaleLowerCase(language).includes(normalizedSearch)))
           .map(object => object.name);
-        const databaseOwnMatch = searchTypeEnabled('database') && (!normalizedSearch || `${server.name} ${database.name}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch));
+        const databaseOwnMatch = searchTypeEnabled('database') && (!normalizedSearch || `${server.name} ${database.name}`.toLocaleLowerCase(language).includes(normalizedSearch));
         return { ...database, tables: tableMatches, objectMatches, databaseOwnMatch };
       }).filter(database => database.databaseOwnMatch || database.objectMatches.length > 0);
       return { ...server, databases, serverOwnMatch };
@@ -939,10 +947,10 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   };
 
   const activeSearchTypeLabel = searchAll
-    ? 'Hepsi'
+    ? t('common.all')
     : searchTypes.size === 1
-      ? OBJECT_SEARCH_TYPES.find(item => searchTypes.has(item.value))?.label || 'Filtre'
-      : `${searchTypes.size} tür`;
+      ? objectSearchTypes.find(item => searchTypes.has(item.value))?.label || t('sidebar.filter')
+      : t('sidebar.selectedTypes', { count: searchTypes.size });
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-col border-r border-zinc-800 bg-zinc-950/96">
@@ -953,7 +961,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[11px] font-semibold text-zinc-100">Coreor Database</div>
-            <div className="text-[8px] text-zinc-600">v3.1.0 • Çoklu motor çalışma alanı</div>
+            <div className="text-[8px] text-zinc-600">v3.1.0 • {t('sidebar.multiEngineWorkspace')}</div>
           </div>
           <Button
             variant="ghost"
@@ -963,11 +971,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
               setEditingServer(null);
               setServerModalOpen(true);
             }}
-            title="Yeni sunucu"
+            title={t('sidebar.newServer')}
           >
             <Plus className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { const active=servers.find(server=>server.id===activeServerId); if(active) void refreshServer(active); else void loadServers(); }} title="Aktif sunucu kataloğunu yenile">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { const active=servers.find(server=>server.id===activeServerId); if(active) void refreshServer(active); else void loadServers(); }} title={t('sidebar.refreshActiveCatalog')}>
             <RefreshCw className={`h-3.5 w-3.5 ${isServersLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
@@ -984,8 +992,8 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           </div>
           {searchFilterOpen && (
             <div className="absolute right-0 top-[calc(100%+6px)] z-[350] w-56 overflow-hidden rounded-xl border border-zinc-700/90 bg-zinc-950/98 p-1.5 shadow-[0_18px_55px_rgba(0,0,0,.68)] backdrop-blur-xl">
-              <div className="mb-1 px-2 py-1 text-[8px] font-medium uppercase tracking-wider text-zinc-600">Arama kapsamı</div>
-              {OBJECT_SEARCH_TYPES.map(option => {
+              <div className="mb-1 px-2 py-1 text-[8px] font-medium uppercase tracking-wider text-zinc-600">{t('sidebar.searchScope')}</div>
+              {objectSearchTypes.map(option => {
                 const Icon = option.icon;
                 const checked = searchAll || searchTypes.has(option.value);
                 return <button key={option.value} type="button" className={`flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[9px] transition ${checked ? 'bg-white/[0.045] text-zinc-200' : 'text-zinc-500 hover:bg-white/[0.025] hover:text-zinc-300'}`} onClick={() => toggleSearchType(option.value)}>
@@ -994,7 +1002,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                   <span className={`flex h-4 w-4 items-center justify-center rounded border ${checked ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300' : 'border-zinc-800 text-transparent'}`}><Check className="h-2.5 w-2.5" /></span>
                 </button>;
               })}
-              <div className="mt-1 border-t border-zinc-800 px-2 pt-1.5 text-[7px] leading-4 text-zinc-700">Hepsi seçiliyken tüm nesne türleri aranır. Tür seçerek tekli veya çoklu filtre oluşturabilirsiniz.</div>
+              <div className="mt-1 border-t border-zinc-800 px-2 pt-1.5 text-[7px] leading-4 text-zinc-700">{t('sidebar.searchScopeHint')}</div>
             </div>
           )}
         </div>
@@ -1079,7 +1087,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                               : loaded?.length
                                 ? [...fallbackObjects, ...loaded.filter(object => !fallbackObjects.some(fallback => fallback.kind === object.kind && fallback.name === object.name))]
                                 : fallbackObjects;
-                            const sortedObjects = [...visibleObjects].sort((left, right) => left.name.localeCompare(right.name, 'tr', { sensitivity: 'base' }));
+                            const sortedObjects = [...visibleObjects].sort((left, right) => left.name.localeCompare(right.name, language, { sensitivity: 'base' }));
                             const renderObject = (object: DatabaseSchemaObject, Icon: typeof Table2) => {
                               const detail = database.tableDetails.find(item => item.tableName === object.name);
                               const metadata = objectMetadataText(object, detail);
