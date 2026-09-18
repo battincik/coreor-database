@@ -1,10 +1,13 @@
 [package]
 name = "coreor-database"
 version = "3.1.0"
-description = "Coreor Database desktop client"
-authors = ["Coreor"]
+description = "Cross-platform local-first database client"
+authors = ["Coreor Database contributors"]
 edition = "2021"
 rust-version = "1.88"
+license = "Apache-2.0"
+repository = "https://github.com/battincik/web.database.coreor.net"
+homepage = "https://github.com/battincik/web.database.coreor.net"
 
 [lib]
 name = "coreor_database_lib"
