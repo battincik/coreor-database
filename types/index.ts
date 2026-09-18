@@ -21,6 +21,7 @@ export type DatabaseApiAction =
   | 'table-info'
   | 'table-data'
   | 'update-cell'
+  | 'insert-row'
   | 'delete-rows'
   | 'alter-table'
   | 'query';
@@ -188,6 +189,23 @@ export interface TableCellUpdateResponse {
   affectedRows: number;
   changedRows?: number;
   value: unknown;
+  _meta?: DatabaseQueryMeta;
+}
+
+export interface TableRowInsertValue {
+  mode: 'value' | 'null' | 'default';
+  value?: unknown;
+}
+
+export interface TableRowInsertInput {
+  database: string;
+  table: string;
+  values: Record<string, TableRowInsertValue>;
+}
+
+export interface TableRowInsertResponse {
+  affectedRows: number;
+  insertId?: string | number | null;
   _meta?: DatabaseQueryMeta;
 }
 
