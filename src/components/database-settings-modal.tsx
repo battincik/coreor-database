@@ -2,7 +2,6 @@
 
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useSession } from 'next-auth/react';
 import {
   Accessibility,
   BellRing,
@@ -103,7 +102,6 @@ function Range({ value, min, max, step = 1, suffix = '', onChange }: { value: nu
 }
 
 export function DatabaseSettingsModal({ open, onClose, initialTab = 'account' }: DatabaseSettingsModalProps) {
-  const { data: session } = useSession();
   const { activeToken } = useAuth();
   const { preferences, setPreferences, resetPreferences } = useAppPreferences();
   const { servers, activeServerId, loadServers, isServersLoading } = useContext(DatabaseContext)!;
@@ -114,7 +112,7 @@ export function DatabaseSettingsModal({ open, onClose, initialTab = 'account' }:
   const activeServer = servers.find(server => server.id === activeServerId) || null;
   const totalDatabases = servers.reduce((sum, server) => sum + (server.databases?.length || 0), 0);
   const totalTables = servers.reduce((sum, server) => sum + (server.databases || []).reduce((value, database) => value + database.tableCount, 0), 0);
-  const user = session?.user as (NonNullable<typeof session>['user'] & { id?: string }) | undefined;
+  const user = user as (NonNullable<typeof session>['user'] & { id?: string }) | undefined;
   const device = useMemo(() => (typeof navigator === 'undefined' ? { platform: 'Sunucu', language: '—', online: true } : { platform: navigator.platform || 'Bilinmiyor', language: navigator.language, online: navigator.onLine }), [open]);
   if (!mounted || !open) return null;
   const activeTab = TABS.find(item => item.id === tab) || TABS[0];
