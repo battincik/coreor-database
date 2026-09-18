@@ -83,7 +83,7 @@ function MenuItems({ items, closeMenu }: { items: AppContextMenuItem[]; closeMen
             </button>
 
             {hasChildren && openSubmenuId === item.id && (
-              <div className="absolute left-[calc(100%-4px)] top-0 z-[210] rounded-md border border-zinc-800 bg-zinc-950 shadow-2xl">
+              <div className="absolute left-[calc(100%-4px)] top-0 z-10 rounded-xl border border-zinc-700/80 bg-zinc-950 shadow-[0_18px_55px_rgba(0,0,0,.62)]">
                 <MenuItems items={children} closeMenu={closeMenu} />
               </div>
             )}
@@ -163,12 +163,12 @@ export function AppContextMenuProvider({ children }: { children: React.ReactNode
           <div
             ref={menuRef}
             role="menu"
-            className="fixed z-[200] overflow-visible rounded-md border border-zinc-800 bg-zinc-950/98 shadow-2xl backdrop-blur"
+            className="fixed z-[1800] min-w-60 overflow-visible rounded-xl border border-zinc-700/80 bg-zinc-950/98 shadow-[0_18px_70px_rgba(0,0,0,.68)] backdrop-blur-xl"
             style={{ left: menuPosition.x, top: menuPosition.y }}
             onMouseDown={event => event.stopPropagation()}
             onContextMenu={event => event.preventDefault()}
           >
-            {menu.title && <div className="border-b border-zinc-800 px-3 py-2 text-[10px] font-medium uppercase tracking-wider text-zinc-600">{menu.title}</div>}
+            {menu.title && <div className="max-w-80 truncate border-b border-zinc-800 px-3 py-2 text-[10px] font-medium text-zinc-500">{menu.title}</div>}
             <MenuItems items={menu.items} closeMenu={closeContextMenu} />
           </div>,
           document.body
