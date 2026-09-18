@@ -252,6 +252,14 @@ fn literal(v:&Value,engine:&str)->String{
 }
 fn payload_str<'a>(p:&'a Map<String,Value>,key:&str)->Result<&'a str,String>{p.get(key).and_then(Value::as_str).ok_or_else(||format!("{} eksik.",key))}
 fn rows_of(v:&Value)->Vec<Value>{v.get("rows").and_then(Value::as_array).cloned().unwrap_or_default()}
+fn append_object_rows(target:&mut Vec<Value>,rows:Vec<Value>,kind:&str){
+    for row in rows {
+        if let Some(mut object)=row.as_object().cloned() {
+            object.insert("kind".into(),json!(kind));
+            target.push(Value::Object(object));
+        }
+    }
+}
 fn text_value(v:&Value)->Option<String>{
     if let Some(text)=v.as_str(){return Some(text.to_string())}
     let object=v.as_object()?;
@@ -416,15 +424,6 @@ async fn database_objects(c:&Connection,p:&Map<String,Value>,max:usize)->Result<
     let mut objects=Vec::new();
     let mut statements=Vec::new();
 
-    let mut append=|rows:Vec<Value>,kind:&str|{
-        for row in rows {
-            if let Some(mut object)=row.as_object().cloned() {
-                object.insert("kind".into(),json!(kind));
-                objects.push(Value::Object(object));
-            }
-        }
-    };
-
     if !is_pg(&c.engine)&&!is_mssql(&c.engine){
         let esc=db.replace("'","''");
         let table_sql=format!("SELECT TABLE_NAME AS name,TABLE_TYPE AS objectType,TABLE_COMMENT AS comment,CREATE_TIME AS createdAt,UPDATE_TIME AS updatedAt FROM information_schema.TABLES WHERE TABLE_SCHEMA='{}' ORDER BY TABLE_NAME",esc);
@@ -434,14 +433,14 @@ async fn database_objects(c:&Connection,p:&Map<String,Value>,max:usize)->Result<
         let table_rows=rows_of(&execute_on(&mut conn,&table_sql,limit).await.unwrap_or(json!({"rows":[]})));
         for row in table_rows {
             let kind=row.get("objectType").and_then(Value::as_str).map(|value|if value.eq_ignore_ascii_case("VIEW"){"view"}else{"table"}).unwrap_or("table");
-            append(vec![row],kind);
+            append_object_rows(&mut objects,vec![row],kind);
         }
         for row in rows_of(&execute_on(&mut conn,&routine_sql,limit).await.unwrap_or(json!({"rows":[]}))) {
             let kind=row.get("routineType").and_then(Value::as_str).map(|value|if value.eq_ignore_ascii_case("FUNCTION"){"function"}else{"procedure"}).unwrap_or("procedure");
-            append(vec![row],kind);
+            append_object_rows(&mut objects,vec![row],kind);
         }
-        append(rows_of(&execute_on(&mut conn,&trigger_sql,limit).await.unwrap_or(json!({"rows":[]}))),"trigger");
-        append(rows_of(&execute_on(&mut conn,&event_sql,limit).await.unwrap_or(json!({"rows":[]}))),"event");
+        append_object_rows(&mut objects,rows_of(&execute_on(&mut conn,&trigger_sql,limit).await.unwrap_or(json!({"rows":[]}))),"trigger");
+        append_object_rows(&mut objects,rows_of(&execute_on(&mut conn,&event_sql,limit).await.unwrap_or(json!({"rows":[]}))),"event");
         statements.push(json!({"label":"Object Explorer","sql":format!("information_schema objects • {}",db)}));
     }else if is_pg(&c.engine){
         let relation_sql="SELECT c.relname AS name,n.nspname AS schema,NULL::text AS comment,NULL::text AS definition,CASE WHEN c.relkind IN ('v','m') THEN 'view' ELSE 'table' END AS kind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind IN ('r','p','v','m') AND n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_toast%' ORDER BY n.nspname,c.relname";
