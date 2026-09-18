@@ -1,5 +1,5 @@
 'use client';
 
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
+export default function DesktopLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
