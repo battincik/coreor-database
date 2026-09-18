@@ -155,11 +155,23 @@ export function DatabasePanel({
     createQueryTab({ serverId: tab.serverId, databaseName: tab.databaseName, title: `${tab.title} kopya`, sql: tab.sql });
   }, [createQueryTab]);
 
-  const queryTabContextMenu = (event: React.MouseEvent, tab: EditorQueryTab) => openContextMenu(event, [
-    { id: 'rename', label: 'Sorguyu adlandır', icon: Pencil, onSelect: () => setRenameQueryTab(tab) },
-    { id: 'duplicate', label: 'Sekmeyi çoğalt', icon: Copy, onSelect: () => duplicateQueryTab(tab) },
-    { id: 'close', label: 'Sekmeyi kapat', icon: X, onSelect: () => closeQueryTab(tab.id) }
-  ], tab.title);
+  const queryTabContextMenu = (event: React.MouseEvent, tab: EditorQueryTab) => {
+    const index = queryTabs.findIndex(item => item.id === tab.id);
+    openContextMenu(event, [
+      { id: 'activate', label: 'Sekmeye geç', icon: Code, onSelect: () => setActiveTab(`query:${tab.id}`) },
+      { id: 'rename', label: 'Sorguyu adlandır', icon: Pencil, onSelect: () => setRenameQueryTab(tab) },
+      { id: 'duplicate', label: 'Sekmeyi çoğalt', icon: Copy, onSelect: () => duplicateQueryTab(tab) },
+      { id: 'new-same-db', label: 'Aynı veritabanında yeni sorgu', icon: Plus, onSelect: () => createQueryTab({ serverId: tab.serverId, databaseName: tab.databaseName }) },
+      { id: 'sep-copy', separator: true },
+      { id: 'copy-sql', label: 'SQL’i kopyala', icon: Copy, disabled: !tab.sql.trim(), onSelect: () => navigator.clipboard.writeText(tab.sql) },
+      { id: 'copy-db', label: 'Veritabanı adını kopyala', icon: Database, disabled: !tab.databaseName, onSelect: () => navigator.clipboard.writeText(tab.databaseName || '') },
+      { id: 'sep-close', separator: true },
+      { id: 'close', label: 'Sekmeyi kapat', icon: X, onSelect: () => closeQueryTab(tab.id) },
+      { id: 'close-others', label: 'Diğer sorgu sekmelerini kapat', icon: X, disabled: queryTabs.length < 2, onSelect: () => { setQueryTabs([tab]); setActiveTab(`query:${tab.id}`); } },
+      { id: 'close-right', label: 'Sağdaki sorgu sekmelerini kapat', icon: X, disabled: index < 0 || index === queryTabs.length - 1, onSelect: () => setQueryTabs(previous => previous.slice(0, index + 1)) },
+      { id: 'close-all', label: 'Tüm sorgu sekmelerini kapat', icon: Trash2, danger: true, disabled: !queryTabs.length, onSelect: () => { setQueryTabs([]); if (selectedTable) setActiveTab(lastTableView.current === 'data' ? 'table-data' : 'table'); else if (selectedDatabase) setActiveTab('database'); else setActiveTab('sql-editor'); } }
+    ], tab.title);
+  };
 
   useEffect(() => {
     if (preferences.rememberQueryWorkspace) {
@@ -304,8 +316,13 @@ export function DatabasePanel({
         sql: `SELECT TABLE_NAME, ENGINE, TABLE_ROWS, ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) AS size_mb\nFROM information_schema.TABLES\nWHERE TABLE_SCHEMA = ${toSqlLiteral(databaseName)}\nORDER BY DATA_LENGTH + INDEX_LENGTH DESC;`,
         runImmediately: true
       }) },
+      { id: 'objects', label: 'Şema nesnelerini incele', icon: Search, children: [
+        { id: 'objects-tables', label: 'Tablo ve view listesi', icon: TableIcon, onSelect: () => createQueryTab({ databaseName, title: `${databaseName} nesneleri`, sql: `SELECT TABLE_NAME, TABLE_TYPE, ENGINE, TABLE_ROWS, TABLE_COMMENT\nFROM information_schema.TABLES\nWHERE TABLE_SCHEMA = ${toSqlLiteral(databaseName)}\nORDER BY TABLE_TYPE, TABLE_NAME;`, runImmediately: true }) },
+        { id: 'objects-fk', label: 'Foreign key listesi', icon: Network, onSelect: () => createQueryTab({ databaseName, title: `${databaseName} foreign keys`, sql: `SELECT TABLE_NAME, CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME\nFROM information_schema.KEY_COLUMN_USAGE\nWHERE TABLE_SCHEMA = ${toSqlLiteral(databaseName)} AND REFERENCED_TABLE_NAME IS NOT NULL\nORDER BY TABLE_NAME, CONSTRAINT_NAME;`, runImmediately: true }) }
+      ] },
       { id: 'sep', separator: true },
       { id: 'copy', label: 'Veritabanı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(databaseName) },
+      { id: 'copy-quoted', label: 'Quoted veritabanı adını kopyala', icon: Code, onSelect: () => navigator.clipboard.writeText(quoteSqlIdentifier(databaseName)) },
       { id: 'refresh', label: 'Kataloğu yenile', icon: RefreshCw, onSelect: () => void loadCatalog() }
     ], databaseName);
   };
@@ -316,14 +333,25 @@ export function DatabasePanel({
       { id: 'data', label: 'Verileri aç', icon: TableIcon, onSelect: () => handleTableSelect(databaseName, tableName, 'data') },
       { id: 'structure', label: 'Yapıyı aç', icon: Database, onSelect: () => handleTableSelect(databaseName, tableName, 'structure') },
       { id: 'sep-1', separator: true },
-      { id: 'select', label: 'İlk 100 satırı sorgula', icon: Search, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} SELECT`, sql: `SELECT * FROM ${table}\nLIMIT 100;`, runImmediately: true }); } },
+      { id: 'select', label: 'Satırları sorgula', icon: Search, children: [
+        { id: 'select-10', label: 'İlk 10 satır', icon: Search, onSelect: () => createQueryTab({ databaseName, title: `${tableName} SELECT 10`, sql: `SELECT * FROM ${table}\nLIMIT 10;`, runImmediately: true }) },
+        { id: 'select-100', label: 'İlk 100 satır', icon: Search, onSelect: () => createQueryTab({ databaseName, title: `${tableName} SELECT`, sql: `SELECT * FROM ${table}\nLIMIT 100;`, runImmediately: true }) },
+        { id: 'select-1000', label: 'İlk 1.000 satır', icon: Search, onSelect: () => createQueryTab({ databaseName, title: `${tableName} SELECT 1000`, sql: `SELECT * FROM ${table}\nLIMIT 1000;`, runImmediately: true }) }
+      ] },
       { id: 'count', label: 'Satır sayısını sorgula', icon: Search, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} COUNT`, sql: `SELECT COUNT(*) AS totalRows FROM ${table};`, runImmediately: true }); } },
-      { id: 'describe', label: 'DESCRIBE çalıştır', icon: Code, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} DESCRIBE`, sql: `DESCRIBE ${table};`, runImmediately: true }); } },
-      { id: 'show-create', label: 'SHOW CREATE TABLE', icon: Code, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} CREATE`, sql: `SHOW CREATE TABLE ${table};`, runImmediately: true }); } },
+      { id: 'inspect', label: 'Tablo metadata', icon: Code, children: [
+        { id: 'describe', label: 'DESCRIBE çalıştır', icon: Code, onSelect: () => createQueryTab({ databaseName, title: `${tableName} DESCRIBE`, sql: `DESCRIBE ${table};`, runImmediately: true }) },
+        { id: 'show-create', label: 'SHOW CREATE TABLE', icon: Code, onSelect: () => createQueryTab({ databaseName, title: `${tableName} CREATE`, sql: `SHOW CREATE TABLE ${table};`, runImmediately: true }) },
+        { id: 'indexes', label: 'İndeksleri göster', icon: Search, onSelect: () => createQueryTab({ databaseName, title: `${tableName} indeksler`, sql: `SHOW INDEX FROM ${table};`, runImmediately: true }) }
+      ] },
       { id: 'sep-2', separator: true },
       { id: 'insert', label: 'Satır ekle', icon: Plus, disabled: Boolean(activeServer?.readOnly), onSelect: () => { setPendingInsertTarget({ databaseName, tableName }); handleTableSelect(databaseName, tableName, 'data'); } },
       { id: 'delete', label: 'DELETE taslağı', icon: Trash2, danger: true, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} DELETE`, sql: `-- Koşulu doğrulamadan çalıştırmayın.\nDELETE FROM ${table}\nWHERE \`primary_key\` = 0\nLIMIT 1;` }); } },
-      { id: 'copy', label: 'Tam tablo adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(table) }
+      { id: 'copy', label: 'Kopyala', icon: Copy, children: [
+        { id: 'copy-name', label: 'Tablo adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(tableName) },
+        { id: 'copy-qualified', label: 'Tam tablo adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(table) },
+        { id: 'copy-select', label: 'SELECT taslağı', icon: Code, onSelect: () => navigator.clipboard.writeText(`SELECT * FROM ${table}\nLIMIT 100;`) }
+      ] }
     ], `${databaseName}.${tableName}`);
   };
 
