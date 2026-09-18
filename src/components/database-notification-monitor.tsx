@@ -100,7 +100,7 @@ export function DatabaseNotificationMonitor() {
     let cancelled = false;
 
     const evaluate = async () => {
-      if (runningRef.current || cancelled) return;
+      if (runningRef.current || cancelled || document.visibilityState !== 'visible') return;
       runningRef.current = true;
       const rules = notificationRuleStore.list().filter(rule => rule.enabled);
       const cooldowns = readCooldowns();
@@ -178,9 +178,11 @@ export function DatabaseNotificationMonitor() {
       }
     };
 
+    const onVisibility = () => { if (document.visibilityState === 'visible') void evaluate(); };
     void evaluate();
-    const timer = window.setInterval(() => void evaluate(), preferences.performanceRefreshSeconds * 1000);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    const timer = window.setInterval(() => void evaluate(), Math.max(3, preferences.performanceRefreshSeconds) * 1000);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisibility); };
   }, [preferences.liveNotifications, preferences.performanceRefreshSeconds, server, workspaceKey]);
 
   return null;
