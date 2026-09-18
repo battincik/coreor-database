@@ -155,18 +155,36 @@ export function DatabasePanel({
     createQueryTab({ serverId: tab.serverId, databaseName: tab.databaseName, title: `${tab.title} kopya`, sql: tab.sql });
   }, [createQueryTab]);
 
+  useEffect(() => {
+    const close = (event: Event) => {
+      const id = (event as CustomEvent<{ id?: string }>).detail?.id;
+      if (id) closeQueryTab(id);
+    };
+    const duplicate = (event: Event) => {
+      const id = (event as CustomEvent<{ id?: string }>).detail?.id;
+      const tab = queryTabs.find(item => item.id === id);
+      if (tab) duplicateQueryTab(tab);
+    };
+    window.addEventListener('coreor:close-query-tab', close);
+    window.addEventListener('coreor:duplicate-query-tab', duplicate);
+    return () => {
+      window.removeEventListener('coreor:close-query-tab', close);
+      window.removeEventListener('coreor:duplicate-query-tab', duplicate);
+    };
+  }, [queryTabs, closeQueryTab, duplicateQueryTab]);
+
   const queryTabContextMenu = (event: React.MouseEvent, tab: EditorQueryTab) => {
     const index = queryTabs.findIndex(item => item.id === tab.id);
     openContextMenu(event, [
       { id: 'activate', label: 'Sekmeye geç', icon: Code, onSelect: () => setActiveTab(`query:${tab.id}`) },
       { id: 'rename', label: 'Sorguyu adlandır', icon: Pencil, onSelect: () => setRenameQueryTab(tab) },
-      { id: 'duplicate', label: 'Sekmeyi çoğalt', icon: Copy, onSelect: () => duplicateQueryTab(tab) },
+      { id: 'duplicate', label: 'Sekmeyi çoğalt', icon: Copy, shortcut: 'duplicateTab', onSelect: () => duplicateQueryTab(tab) },
       { id: 'new-same-db', label: 'Aynı veritabanında yeni sorgu', icon: Plus, onSelect: () => createQueryTab({ serverId: tab.serverId, databaseName: tab.databaseName }) },
       { id: 'sep-copy', separator: true },
       { id: 'copy-sql', label: 'SQL’i kopyala', icon: Copy, disabled: !tab.sql.trim(), onSelect: () => navigator.clipboard.writeText(tab.sql) },
       { id: 'copy-db', label: 'Veritabanı adını kopyala', icon: Database, disabled: !tab.databaseName, onSelect: () => navigator.clipboard.writeText(tab.databaseName || '') },
       { id: 'sep-close', separator: true },
-      { id: 'close', label: 'Sekmeyi kapat', icon: X, onSelect: () => closeQueryTab(tab.id) },
+      { id: 'close', label: 'Sekmeyi kapat', icon: X, shortcut: 'closeTab', onSelect: () => closeQueryTab(tab.id) },
       { id: 'close-others', label: 'Diğer sorgu sekmelerini kapat', icon: X, disabled: queryTabs.length < 2, onSelect: () => { setQueryTabs([tab]); setActiveTab(`query:${tab.id}`); } },
       { id: 'close-right', label: 'Sağdaki sorgu sekmelerini kapat', icon: X, disabled: index < 0 || index === queryTabs.length - 1, onSelect: () => setQueryTabs(previous => previous.slice(0, index + 1)) },
       { id: 'close-all', label: 'Tüm sorgu sekmelerini kapat', icon: Trash2, danger: true, disabled: !queryTabs.length, onSelect: () => { setQueryTabs([]); if (selectedTable) setActiveTab(lastTableView.current === 'data' ? 'table-data' : 'table'); else if (selectedDatabase) setActiveTab('database'); else setActiveTab('sql-editor'); } }
