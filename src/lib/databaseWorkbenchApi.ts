@@ -16,23 +16,23 @@ import type {
 import { readEncryptedServerProfiles } from '@/lib/secureVault';
 import { recordActivity } from '@/lib/activityConsole';
 import { desktopDatabaseRequest } from '@/lib/desktopClient';
-import { normalizeDatabaseClientError, readDatabaseApiResponse } from '@/lib/databaseErrorPresentation';
+import { normalizeDatabaseClientError } from '@/lib/databaseErrorPresentation';
 
 async function requireServer(accountId: string | null | undefined, serverId: string) {
-  if (!accountId) throw new Error('Veritabanı çalışma alanına erişmek için kullanıcı oturumu gerekli.');
   const servers = await readEncryptedServerProfiles(accountId);
   const server = servers.find(item => item.id === serverId);
-  if (!server) throw new Error('Sunucu profili şifreli kasada bulunamadı.');
+  if (!server) throw new Error('Sunucu profili yerel config içinde bulunamadı.');
   return server;
 }
 
 function connectionPayload(server: DatabaseServerConfig, database?: string | null): DatabaseConnectionPayload {
-  if (server.databaseType !== 'mysql' && server.databaseType !== 'mariadb') throw new Error('Desteklenmeyen veritabanı motoru.');
+  const engine = server.databaseType ?? 'mysql';
   if (!server.host?.trim() || !server.username?.trim() || !server.password) throw new Error('Host, kullanıcı adı veya parola eksik.');
+  const defaultPort = engine === 'postgresql' || engine === 'cockroachdb' ? 5432 : engine === 'mssql' ? 1433 : 3306;
   return {
-    engine: server.databaseType,
+    engine,
     host: server.host.trim(),
-    port: server.port ?? 3306,
+    port: server.port ?? defaultPort,
     username: server.username.trim(),
     password: server.password,
     database: database === undefined ? server.databaseName?.trim() || undefined : database,
