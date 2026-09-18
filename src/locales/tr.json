@@ -781,7 +781,9 @@
     "lastQuery": "Son sorgu",
     "loadingState": "Yükleme",
     "lastQueryEmpty": "Son sorgu —",
-    "limitedEngineMetrics": "{engine} için gelişmiş motor metrikleri henüz sınırlı."
+    "limitedEngineMetrics": "{engine} için gelişmiş motor metrikleri henüz sınırlı.",
+    "storageMetricDescription": "Seçili veritabanının veri + indeks boyutu. Sunucu toplamı ve InnoDB ayrılmış boş alanı ayrıntılarda gösterilir.",
+    "storageLogicalDescription": "Katalog/performance metadata üzerinden hesaplanan veritabanı veri + indeks toplamı. Fiziksel disk kapasitesi değildir."
   },
   "statusGuide": {
     "title": "Durum rehberi",
@@ -1833,5 +1835,9 @@
       "disabled": "DevTools kapalı",
       "operationsDescription": "Migration, yedekleme, prepared lab, karşılaştırma ve maskeleme."
     }
+  },
+  "errors": {
+    "contextMenuUnavailable": "Bu işlem şu anda kullanılamıyor.",
+    "contextMenuProvider": "useAppContextMenu, AppContextMenuProvider içinde kullanılmalıdır."
   }
 }

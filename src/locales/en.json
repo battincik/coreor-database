@@ -781,7 +781,9 @@
     "lastQuery": "Last query",
     "loadingState": "Loading",
     "lastQueryEmpty": "Last query —",
-    "limitedEngineMetrics": "Advanced engine metrics for {engine} are currently limited."
+    "limitedEngineMetrics": "Advanced engine metrics for {engine} are currently limited.",
+    "storageMetricDescription": "Data + index size for the selected database. Server total and InnoDB allocated free space are shown in details.",
+    "storageLogicalDescription": "Database data + index total calculated from catalog/performance metadata. This is not physical disk capacity."
   },
   "statusGuide": {
     "title": "Status guide",
@@ -1833,5 +1835,9 @@
       "disabled": "DevTools disabled",
       "operationsDescription": "Migration, backups, prepared lab, comparisons and masking."
     }
+  },
+  "errors": {
+    "contextMenuUnavailable": "This action is currently unavailable.",
+    "contextMenuProvider": "useAppContextMenu must be used inside AppContextMenuProvider."
   }
 }
