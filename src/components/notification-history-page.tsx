@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/context/LanguageContext';
 import { DatabaseMenuBar } from '@/components/database-menu-bar';
 import BottomBar from '@/components/BottomBar';
 import { AppContextMenuProvider } from '@/components/app-context-menu';
@@ -36,52 +37,53 @@ function severityClass(value: CoreorNotificationSeverity) {
   return 'border-cyan-500/25 bg-cyan-500/[0.06] text-cyan-300';
 }
 
-function notificationGuidance(notification: CoreorNotification) {
+function notificationGuidance(notification: CoreorNotification, t: (key: string) => string) {
   if (notification.code === 'SLOW_SQL') {
     return {
-      meaning: 'Sorgu, uygulamanın yavaş işlem eşiğini geçti. Bu tek başına hata değildir; sorgu veya sunucu beklenenden uzun yanıt vermiştir.',
-      cause: 'Büyük result set, eksik indeks, full scan, lock beklemesi, ağ gecikmesi veya yüksek sunucu yükü buna yol açabilir.',
-      action: 'SQL ve süreyi inceleyin; gerekiyorsa EXPLAIN/Execution Plan, indeksler, lock durumu ve Process Merkezi ile aynı zaman aralığını kontrol edin.'
+      meaning: t('notificationCenter.slowMeaning'),
+      cause: t('notificationCenter.slowCause'),
+      action: t('notificationCenter.slowAction')
     };
   }
   if (notification.source === 'storage') {
     return {
-      meaning: 'Coreor veritabanı veya tablo depolama metriklerini sunucudan yeniden okuyamadı.',
-      cause: 'Metadata erişim yetkisi, motor/sürüm farkı, artık bulunmayan nesne veya sürücünün döndürdüğü SQL hatası neden olabilir.',
-      action: 'Hata kodu ve teknik ayrıntıyı kontrol edin. Kataloğu yenileyip tekrar deneyin; erişim reddedildiyse metadata yetkilerini doğrulayın.'
+      meaning: t('notificationCenter.storageMeaning'),
+      cause: t('notificationCenter.storageCause'),
+      action: t('notificationCenter.storageAction')
     };
   }
   if (notification.source === 'performance') {
     return {
-      meaning: 'İzlenen performans metriği tanımlı eşik koşulunu karşıladı.',
-      cause: 'Bağlantı sayısı, çalışan thread, buffer kullanımı, replication gecikmesi veya health score gibi ölçümler eşik dışına çıkmış olabilir.',
-      action: 'Ölçüm ve eşik değerini teknik ayrıntılarda karşılaştırın; Performans ve Process Merkezi üzerinden aynı zaman aralığını inceleyin.'
+      meaning: t('notificationCenter.performanceMeaning'),
+      cause: t('notificationCenter.performanceCause'),
+      action: t('notificationCenter.performanceAction')
     };
   }
   if (notification.source === 'connection') {
     return {
-      meaning: 'Bağlantı veya sunucu erişimiyle ilgili bir olay kaydedildi.',
-      cause: 'Host/port, TLS, kimlik bilgileri, ağ erişimi veya sunucu tarafı bağlantı limiti etkili olabilir.',
-      action: 'Bağlantı profilini test edin; hata koduna göre host, port, TLS ve kullanıcı yetkilerini doğrulayın.'
+      meaning: t('notificationCenter.connectionMeaning'),
+      cause: t('notificationCenter.connectionCause'),
+      action: t('notificationCenter.connectionAction')
     };
   }
   if (notification.source === 'sql' && (notification.severity === 'error' || notification.severity === 'danger')) {
     return {
-      meaning: 'Bir SQL veya yapılandırılmış veritabanı işlemi sunucu/sürücü tarafından tamamlanamadı.',
-      cause: 'SQL sözdizimi, yetki, bulunamayan nesne, constraint, timeout veya motorun döndürdüğü başka bir hata olabilir.',
-      action: 'Hata kodunu ve teknik ayrıntıları inceleyin. İlgili SQL’i editörde hedef veritabanı ve kullanıcı yetkileriyle birlikte doğrulayın.'
+      meaning: t('notificationCenter.sqlMeaning'),
+      cause: t('notificationCenter.sqlCause'),
+      action: t('notificationCenter.sqlAction')
     };
   }
   return {
-    meaning: 'Bu kayıt Coreor Database tarafından önemli bir uygulama veya veritabanı olayını izlemek için oluşturuldu.',
-    cause: 'Kaynağa ve teknik metadata alanlarına göre olayın nedeni değişebilir.',
-    action: 'Sunucu, veritabanı, kod ve zaman bilgisini kullanarak ilgili çalışma alanını kontrol edin.'
+    meaning: t('notificationCenter.genericMeaning'),
+    cause: t('notificationCenter.genericCause'),
+    action: t('notificationCenter.genericAction')
   };
 }
 
 function Detail({ notification }: { notification: CoreorNotification | null }) {
-  if (!notification) return <div className="flex h-full items-center justify-center text-xs text-zinc-700">Detayını görmek için bir bildirim seçin.</div>;
-  const guidance = notificationGuidance(notification);
+  const { t } = useLanguage();
+  if (!notification) return <div className="flex h-full items-center justify-center text-xs text-zinc-700">{t('notificationCenter.selectForDetails')}</div>;
+  const guidance = notificationGuidance(notification, t);
   return (
     <div className="coreor-scrollbar h-full overflow-y-auto p-5">
       <div className="mx-auto max-w-4xl space-y-5">
@@ -105,14 +107,14 @@ function Detail({ notification }: { notification: CoreorNotification | null }) {
 
         <section className="grid gap-3 lg:grid-cols-3">
           {[
-            ['Bu bildirim ne anlama geliyor?', guidance.meaning],
-            ['Muhtemel neden', guidance.cause],
-            ['Ne kontrol etmeliyim?', guidance.action]
+            [t('notificationCenter.meaningTitle'), guidance.meaning],
+            [t('notificationCenter.likelyCause'), guidance.cause],
+            [t('notificationCenter.whatToCheck'), guidance.action]
           ].map(([title, text]) => <div key={title} className="rounded-2xl border border-zinc-800 bg-black/20 p-4"><div className="text-[9px] font-semibold text-zinc-300">{title}</div><p className="mt-2 text-[10px] leading-5 text-zinc-500">{text}</p></div>)}
         </section>
 
         {notification.metadata.length > 0 && <section className="rounded-2xl border border-zinc-800 bg-black/20">
-          <div className="border-b border-zinc-800 px-4 py-3 text-[11px] font-semibold">Teknik ayrıntılar</div>
+          <div className="border-b border-zinc-800 px-4 py-3 text-[11px] font-semibold">{t('notificationCenter.technicalDetails')}</div>
           <div className="grid gap-px bg-zinc-800 sm:grid-cols-2">
             {notification.metadata.map(item => <div key={item.label} className="bg-zinc-950 px-4 py-3"><div className="text-[8px] uppercase tracking-wider text-zinc-700">{item.label}</div><div className="mt-1 break-words font-mono text-[10px] text-zinc-300">{item.value}</div></div>)}
           </div>
@@ -127,6 +129,7 @@ function Detail({ notification }: { notification: CoreorNotification | null }) {
 }
 
 function NotificationHistoryContent() {
+  const { t } = useLanguage();
   const router = useRouter();
   const notifications = useSyncExternalStore(subscribeNotifications, getNotificationsSnapshot, getNotificationsServerSnapshot);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -171,11 +174,11 @@ function NotificationHistoryContent() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-zinc-950 text-zinc-100">
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-zinc-800 px-3">
-        <Button variant="ghost" size="sm" className="h-8 px-2 text-[10px]" onClick={() => router.push('/editor/')}><ArrowLeft className="mr-1.5 h-3.5 w-3.5" />Editöre dön</Button>
+        <Button variant="ghost" size="sm" className="h-8 px-2 text-[10px]" onClick={() => router.push('/editor/')}><ArrowLeft className="mr-1.5 h-3.5 w-3.5" />{t('notificationCenter.backToEditor', 'Back to editor')}</Button>
         <Bell className="h-4 w-4 text-cyan-400" />
-        <div className="min-w-0 flex-1"><div className="text-[12px] font-semibold">Bildirim merkezi</div><div className="text-[8px] text-zinc-600">{notifications.length} kayıt • {unread} okunmamış</div></div>
-        <Button variant="ghost" size="sm" className="h-8 text-[9px]" onClick={markAllNotificationsRead}><CheckCheck className="mr-1.5 h-3.5 w-3.5" />Tümünü okundu yap</Button>
-        <Button variant="ghost" size="sm" className="h-8 text-[9px] text-red-400" onClick={() => { clearNotifications(); setSelectedId(null); }}><Trash2 className="mr-1.5 h-3.5 w-3.5" />Geçmişi temizle</Button>
+        <div className="min-w-0 flex-1"><div className="text-[12px] font-semibold">{t('notificationCenter.title')}</div><div className="text-[8px] text-zinc-600">{notifications.length} kayıt • {unread} okunmamış</div></div>
+        <Button variant="ghost" size="sm" className="h-8 text-[9px]" onClick={markAllNotificationsRead}><CheckCheck className="mr-1.5 h-3.5 w-3.5" />{t('notificationCenter.markAllReadShort')}</Button>
+        <Button variant="ghost" size="sm" className="h-8 text-[9px] text-red-400" onClick={() => { clearNotifications(); setSelectedId(null); }}><Trash2 className="mr-1.5 h-3.5 w-3.5" />{t('notificationCenter.clearHistory')}</Button>
       </header>
 
       <div className="flex min-h-0 flex-1">
