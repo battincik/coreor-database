@@ -149,8 +149,8 @@ fn sql_literal(value: &Value) -> String {
         Value::Null => "NULL".into(),
         Value::Bool(v) => if *v { "TRUE".into() } else { "FALSE".into() },
         Value::Number(v) => v.to_string(),
-        Value::String(v) => format!("'{}'", v.replace('\\'', "''")),
-        _ => format!("'{}'", value.to_string().replace('\\'', "''")),
+        Value::String(v) => format!("'{}'", v.replace("'", "''")),
+        _ => format!("'{}'", value.to_string().replace("'", "''")),
     }
 }
 
@@ -233,11 +233,11 @@ async fn execute_action(request: DatabaseRequest, config: DesktopConfig) -> Resu
             let database = request.payload.get("database").and_then(Value::as_str).ok_or_else(|| "Veritabanı eksik.".to_string())?;
             let table = request.payload.get("table").and_then(Value::as_str).ok_or_else(|| "Tablo eksik.".to_string())?;
             if matches!(c.engine.as_str(), "postgresql" | "cockroachdb") {
-                let sql = format!("SELECT column_name AS \"Field\", data_type AS \"Type\", is_nullable AS \"Null\", column_default AS \"Default\", ordinal_position AS \"Ordinal_position\" FROM information_schema.columns WHERE table_schema='public' AND table_name='{}' ORDER BY ordinal_position", table.replace('\\'', "''"));
+                let sql = format!("SELECT column_name AS \"Field\", data_type AS \"Type\", is_nullable AS \"Null\", column_default AS \"Default\", ordinal_position AS \"Ordinal_position\" FROM information_schema.columns WHERE table_schema='public' AND table_name='{}' ORDER BY ordinal_position", table.replace("'", "''"));
                 let result = pg_query(&c, &sql, Some(database), config.max_result_rows).await?;
                 Ok(json!({ "table": { "name": table, "comment": "", "engine": c.engine, "collation": null, "charset": null, "autoIncrement": null, "rowFormat": null, "tableType": "BASE TABLE", "createTime": null, "updateTime": null }, "columns": result["rows"], "indexes": [], "foreignKeys": [], "checkConstraints": [], "partitions": [], "createSQL": "", "_meta": { "statements": [{ "label": "Tablo yapısı", "sql": sql }] } }))
             } else {
-                let sql = format!("SELECT COLUMN_NAME AS Field, COLUMN_TYPE AS Type, IS_NULLABLE AS `Null`, COLUMN_KEY AS `Key`, COLUMN_DEFAULT AS `Default`, EXTRA AS Extra, COLUMN_COMMENT AS Comment, COLLATION_NAME AS Collation, ORDINAL_POSITION AS Ordinal_position, DATA_TYPE AS Data_type, CHARACTER_MAXIMUM_LENGTH AS Character_maximum_length, NUMERIC_PRECISION AS Numeric_precision, NUMERIC_SCALE AS Numeric_scale, DATETIME_PRECISION AS Datetime_precision, CHARACTER_SET_NAME AS Character_set_name, GENERATION_EXPRESSION AS Generation_expression FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='{}' AND TABLE_NAME='{}' ORDER BY ORDINAL_POSITION", database.replace('\\'', "''"), table.replace('\\'', "''"));
+                let sql = format!("SELECT COLUMN_NAME AS Field, COLUMN_TYPE AS Type, IS_NULLABLE AS `Null`, COLUMN_KEY AS `Key`, COLUMN_DEFAULT AS `Default`, EXTRA AS Extra, COLUMN_COMMENT AS Comment, COLLATION_NAME AS Collation, ORDINAL_POSITION AS Ordinal_position, DATA_TYPE AS Data_type, CHARACTER_MAXIMUM_LENGTH AS Character_maximum_length, NUMERIC_PRECISION AS Numeric_precision, NUMERIC_SCALE AS Numeric_scale, DATETIME_PRECISION AS Datetime_precision, CHARACTER_SET_NAME AS Character_set_name, GENERATION_EXPRESSION AS Generation_expression FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='{}' AND TABLE_NAME='{}' ORDER BY ORDINAL_POSITION", database.replace("'", "''"), table.replace("'", "''"));
                 let result = mysql_query(&c, &sql, Some(database), config.max_result_rows).await?;
                 Ok(json!({ "table": { "name": table, "comment": "", "engine": c.engine, "collation": null, "charset": null, "autoIncrement": null, "rowFormat": null, "tableType": "BASE TABLE", "createTime": null, "updateTime": null }, "columns": result["rows"], "indexes": [], "foreignKeys": [], "checkConstraints": [], "partitions": [], "createSQL": "", "_meta": { "statements": [{ "label": "Tablo yapısı", "sql": sql }] } }))
             }
