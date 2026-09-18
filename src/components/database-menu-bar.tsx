@@ -22,7 +22,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { DatabaseContext } from '@/context/DatabaseContext';
-import { useAuth } from '@/context/AuthContext';
+import { useDesktop } from '@/context/DesktopContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { fetchServerTables, testStoredDatabaseConnection } from '@/lib/databaseApi';
 import {
@@ -52,7 +52,7 @@ import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-se
 interface DatabaseMenuBarProps { selectedDatabase: string | null; selectedTable: string | null; }
 
 export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMenuBarProps) {
-  const { activeToken } = useAuth();
+  const { workspaceKey } = useDesktop();
   const { t } = useLanguage();
   const { servers, databases, activeServerId, setActiveServerId, loadServers } = useContext(DatabaseContext)!;
   const activeServer = servers.find(server => server.id === activeServerId) ?? null;
@@ -99,11 +99,11 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
   }, []);
 
   const connect = async () => {
-    if (!activeServer || !activeToken || busy) return;
+    if (!activeServer || !workspaceKey || busy) return;
     setBusy(true); setStatus(null);
     try {
-      const result = await testStoredDatabaseConnection(activeServer.id, activeToken);
-      await fetchServerTables(activeServer.id, activeToken);
+      const result = await testStoredDatabaseConnection(activeServer.id, workspaceKey);
+      await fetchServerTables(activeServer.id, workspaceKey);
       await loadServers();
       setStatus({ tone: 'success', text: t('status.connectionReadyVersion', { version: result.connection?.version || databaseEngineLabel(activeServer.databaseType) }) });
     } catch (error) {
@@ -111,10 +111,10 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
     } finally { setBusy(false); }
   };
   const refreshCatalog = async () => {
-    if (!activeServer || !activeToken || busy) return;
+    if (!activeServer || !workspaceKey || busy) return;
     setBusy(true); setStatus(null);
     try {
-      await fetchServerTables(activeServer.id, activeToken);
+      await fetchServerTables(activeServer.id, workspaceKey);
       await loadServers();
       setStatus({ tone: 'success', text: t('status.catalogRefreshed') });
     } catch (error) {
@@ -147,14 +147,14 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
       {status && <button className={`ml-2 inline-flex min-w-0 shrink-0 items-center gap-1.5 truncate text-[10px] ${status.tone === 'success' ? 'text-emerald-400' : 'text-red-400'}`} onClick={() => setStatus(null)}>{status.tone === 'success' ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}<span className="max-w-64 truncate">{status.text}</span></button>}
       <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 pl-3 text-[10px] text-zinc-600"><span className="max-w-40 truncate text-zinc-400">{activeServer ? databaseEngineLabel(activeServer.databaseType) : t('topbar.noConnection')}</span>{activeServer?.readOnly && <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[8px] text-amber-300">{t('topbar.readOnly')}</span>}{selectedDatabase && <><span>›</span><span className="max-w-40 truncate">{selectedDatabase}</span></>}{selectedTable && <><span>›</span><span className="max-w-40 truncate text-cyan-400">{selectedTable}</span></>}</div>
     </div>
-    <DatabaseUserManagerModal open={usersOpen} onClose={() => setUsersOpen(false)} serverId={activeServerId} accountId={activeToken} databases={databases} />
-    <DatabaseProcessCenterModal open={processOpen} onClose={() => setProcessOpen(false)} serverId={activeServerId} accountId={activeToken} />
-    <DatabasePerformancePanelModal open={performanceOpen} onClose={() => setPerformanceOpen(false)} serverId={activeServerId} accountId={activeToken} selectedDatabase={selectedDatabase} />
-    <SqlNotebookModal open={notebookOpen} onClose={() => setNotebookOpen(false)} serverId={activeServerId} accountId={activeToken} databases={databases} selectedDatabase={selectedDatabase} />
-    <DatabaseImportExportModal open={transferOpen} onClose={() => setTransferOpen(false)} serverId={activeServerId} accountId={activeToken} databases={databases} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
+    <DatabaseUserManagerModal open={usersOpen} onClose={() => setUsersOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} />
+    <DatabaseProcessCenterModal open={processOpen} onClose={() => setProcessOpen(false)} serverId={activeServerId} accountId={workspaceKey} />
+    <DatabasePerformancePanelModal open={performanceOpen} onClose={() => setPerformanceOpen(false)} serverId={activeServerId} accountId={workspaceKey} selectedDatabase={selectedDatabase} />
+    <SqlNotebookModal open={notebookOpen} onClose={() => setNotebookOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} selectedDatabase={selectedDatabase} />
+    <DatabaseImportExportModal open={transferOpen} onClose={() => setTransferOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
     <DatabaseSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialTab={settingsTab} />
-    <DatabaseTransactionWorkspaceModal open={transactionOpen} onClose={() => setTransactionOpen(false)} serverId={activeServerId} accountId={activeToken} databases={databases} selectedDatabase={selectedDatabase} />
-    <DatabaseAutomationCenterModal open={automationOpen} onClose={() => setAutomationOpen(false)} initialTab={automationTab} servers={servers} activeServerId={activeServerId} accountId={activeToken} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
-    <DatabaseIntelligenceCenterModal open={intelligenceOpen} onClose={() => setIntelligenceOpen(false)} initialTab={intelligenceTab} servers={servers} activeServerId={activeServerId} accountId={activeToken} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
+    <DatabaseTransactionWorkspaceModal open={transactionOpen} onClose={() => setTransactionOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} selectedDatabase={selectedDatabase} />
+    <DatabaseAutomationCenterModal open={automationOpen} onClose={() => setAutomationOpen(false)} initialTab={automationTab} servers={servers} activeServerId={activeServerId} accountId={workspaceKey} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
+    <DatabaseIntelligenceCenterModal open={intelligenceOpen} onClose={() => setIntelligenceOpen(false)} initialTab={intelligenceTab} servers={servers} activeServerId={activeServerId} accountId={workspaceKey} selectedDatabase={selectedDatabase} selectedTable={selectedTable} />
   </>;
 }
