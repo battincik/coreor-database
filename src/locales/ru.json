@@ -1,1 +1,440 @@
-{"meta.nativeName":"Русский","meta.direction":"ltr","common.search":"Поиск","common.searchOptions":"Поиск параметров","common.select":"Выбрать","common.noResults":"Совпадений не найдено","common.optionsCount":"Вариантов: {count}","common.escapeToClose":"Нажмите ESC, чтобы закрыть","common.save":"Сохранить","common.cancel":"Отмена","common.create":"Создать","common.delete":"Удалить","common.edit":"Изменить","common.refresh":"Обновить","common.close":"Закрыть","common.confirm":"Подтвердить","common.yes":"Да","common.no":"Нет","common.loading":"Загрузка…","common.connected":"Подключено","common.offline":"Не в сети","common.ready":"Готово","common.error":"Ошибка","common.warning":"Предупреждение","common.success":"Успешно","common.copy":"Копировать","common.download":"Скачать","common.reset":"Сбросить","common.open":"Открыть","common.run":"Выполнить","common.apply":"Применить","common.add":"Добавить","common.remove":"Удалить","common.all":"Все","common.default":"По умолчанию","common.enabled":"Включено","common.disabled":"Отключено","app.settings":"Настройки","app.language":"Язык","app.account":"Учётная запись","app.organizations":"Организации","app.servers":"Серверы","app.appearance":"Оформление","app.accessibility":"Доступность","app.queryEditor":"Редактор запросов","app.security":"Безопасность","app.advanced":"Дополнительно","app.whatsNew":"Что нового","app.resetPreferences":"Сбросить настройки","nav.databases":"Базы данных","nav.tables":"Таблицы","nav.schema":"Схема","nav.query":"Запрос","nav.users":"Пользователи","nav.processes":"Процессы","nav.performance":"Производительность","nav.notebook":"Блокнот","nav.backup":"Резервное копирование","nav.operations":"Операции","nav.dataIntelligence":"Аналитика данных","nav.commandPalette":"Палитра команд","nav.transaction":"Транзакция","nav.importExport":"Импорт / Экспорт","sidebar.searchPlaceholder":"Поиск серверов, баз данных и таблиц","sidebar.noConnections":"Нет профилей подключения","sidebar.newServer":"Добавить сервер","sidebar.accountSettings":"Настройки аккаунта","sidebar.signOut":"Выйти","sidebar.activateServer":"Активировать сервер","sidebar.createDatabase":"Создать базу данных","sidebar.serverQuery":"Запрос на уровне сервера","sidebar.refreshCatalog":"Обновить каталог","sidebar.expandAll":"Развернуть всё","sidebar.collapseAll":"Свернуть всё","sidebar.editConnection":"Изменить подключение","query.run":"Выполнить","query.format":"Форматировать","query.history":"История","query.favorites":"Избранное","query.selectServer":"Выбрать сервер","query.selectDatabase":"Выбрать базу данных","query.serverScope":"Область сервера","query.dryRunEnabled":"Dry-run включён","query.snapshotEnabled":"Snapshot включён","query.readOnly":"Только чтение","query.results":"Результаты","query.rows":"строк","query.noResults":"Нет результатов","query.completed":"Запрос выполнен","query.affectedRows":"Затронуто строк: {count}","query.safeLimitWarning":"В запросе нет видимого ограничения строк; API применяет безопасный максимум.","query.autocomplete":"Автодополнение","query.errorStopped":"Служба языка SQL остановила запрос.","query.dangerousConfirm":"Этот запрос может изменить данные или схему.","query.applyChange":"Применить изменение","server.new":"Новый сервер базы данных","server.edit":"Изменить сервер базы данных","server.secureVault":"Зашифрованное хранилище браузера","server.profileNetwork":"Профиль и сеть","server.authentication":"Аутентификация","server.engineVersion":"Движок и версия","server.securityTimeout":"Безопасность и тайм-аут","server.name":"Имя сервера","server.host":"Хост или IP","server.port":"Порт","server.defaultDatabase":"База данных по умолчанию","server.username":"Имя пользователя","server.password":"Пароль","server.engine":"Движок базы данных","server.version":"Профиль версии","server.tls":"Политика TLS","server.timeout":"Тайм-аут подключения","server.readOnlyProfile":"Профиль только для чтения","server.readOnlyDescription":"Блокирует операции записи, изменения схемы и администрирования для этого подключения.","server.testConnection":"Проверить подключение","server.addServer":"Добавить сервер","server.updateServer":"Обновить сервер","server.connectionReady":"Подключение готово","server.connectionFailed":"Ошибка подключения","server.databaseName":"Имя базы данных","database.database":"База данных","database.table":"Таблица","database.column":"Столбец","database.index":"Индекс","database.foreignKey":"Внешний ключ","database.view":"Представление","database.procedure":"Хранимая процедура","database.function":"Функция","database.trigger":"Триггер","database.event":"Событие","database.connection":"Подключение","database.catalog":"Каталог","database.schema":"Схема","database.data":"Данные","database.structure":"Структура","database.rows":"Строки","database.primaryKey":"Первичный ключ","database.nullable":"Допускает NULL","database.dataType":"Тип данных","database.defaultValue":"Значение по умолчанию","database.collation":"Сопоставление","database.storage":"Хранилище","database.uptime":"Время работы","database.connections":"Подключения","database.bufferPool":"Буферный пул","database.traffic":"Трафик","database.slowQueries":"Медленные запросы","database.replication":"Репликация","settings.language.title":"Язык и регион","settings.language.description":"Выберите язык интерфейса инструментов базы данных и разработки.","settings.language.select":"Язык интерфейса","settings.language.current":"Текущий язык","settings.language.browser":"Язык браузера","settings.language.localStorage":"Хранится локально на этом устройстве","settings.language.instant":"Изменения применяются мгновенно","settings.language.fallback":"Отсутствующие ключи заменяются английскими","settings.language.rtl":"Для арабского поддерживается направление справа налево","settings.language.coverage":"Перевод учитывает терминологию программного обеспечения, SQL и баз данных","settings.language.restartNotRequired":"Перезапуск не требуется","settings.language.available":"Доступные языки","status.connection":"Состояние подключения","status.serverUptime":"Время работы сервера","status.coreorSession":"Сессия Coreor","status.target":"Активная цель","status.threadConnections":"Потоки и подключения","status.bufferPool":"Буферный пул","status.storage":"Логическое хранилище","status.networkTraffic":"Сетевой трафик","status.sqlPerformance":"Производительность SQL","status.lastQuery":"Последний запрос","notification.languageChanged":"Язык изменён на {language}.","notification.localOnly":"Настройка языка и переводы остаются на этом устройстве."}
+{
+  "meta": {
+    "direction": "ltr",
+    "nativeName": "Русский"
+  },
+  "common": {
+    "add": "Добавить",
+    "all": "Все",
+    "apply": "Применить",
+    "cancel": "Отмена",
+    "close": "Закрыть",
+    "confirm": "Подтвердить",
+    "connected": "Подключено",
+    "copy": "Копировать",
+    "create": "Создать",
+    "default": "По умолчанию",
+    "delete": "Удалить",
+    "disabled": "Отключено",
+    "download": "Скачать",
+    "edit": "Изменить",
+    "enabled": "Включено",
+    "error": "Ошибка",
+    "escapeToClose": "Нажмите ESC, чтобы закрыть",
+    "loading": "Загрузка…",
+    "no": "Нет",
+    "noResults": "Совпадений не найдено",
+    "offline": "Не в сети",
+    "open": "Открыть",
+    "optionsCount": "Вариантов: {count}",
+    "ready": "Готово",
+    "refresh": "Обновить",
+    "remove": "Удалить",
+    "reset": "Сбросить",
+    "run": "Выполнить",
+    "save": "Сохранить",
+    "search": "Поиск",
+    "searchOptions": "Поиск параметров",
+    "select": "Выбрать",
+    "success": "Успешно",
+    "warning": "Предупреждение",
+    "yes": "Да"
+  },
+  "app": {
+    "accessibility": "Доступность",
+    "account": "Учётная запись",
+    "advanced": "Дополнительно",
+    "appearance": "Оформление",
+    "language": "Язык",
+    "organizations": "Организации",
+    "queryEditor": "Редактор запросов",
+    "resetPreferences": "Сбросить настройки",
+    "security": "Безопасность",
+    "servers": "Серверы",
+    "settings": "Настройки",
+    "whatsNew": "Что нового"
+  },
+  "nav": {
+    "backup": "Резервное копирование",
+    "commandPalette": "Палитра команд",
+    "databases": "Базы данных",
+    "dataIntelligence": "Аналитика данных",
+    "importExport": "Импорт / Экспорт",
+    "notebook": "Блокнот",
+    "operations": "Операции",
+    "performance": "Производительность",
+    "processes": "Процессы",
+    "query": "Запрос",
+    "schema": "Схема",
+    "tables": "Таблицы",
+    "transaction": "Транзакция",
+    "users": "Пользователи"
+  },
+  "topbar": {
+    "backup": "Резервное копирование",
+    "command": "Команда",
+    "connect": "Подключиться",
+    "connectionSearch": "Поиск сервера, хоста или движка…",
+    "connectionSelect": "Выберите подключение",
+    "dataIntelligence": "Аналитика данных",
+    "noConnection": "Нет подключения",
+    "noSavedServer": "Нет сохранённых серверов.",
+    "notebook": "Блокнот",
+    "operations": "Операции",
+    "performance": "Производительность",
+    "processes": "Процессы",
+    "readOnly": "ТОЛЬКО ЧТЕНИЕ",
+    "refresh": "Обновить",
+    "schema": "Схема",
+    "settings": "Настройки",
+    "transaction": "Транзакция",
+    "transfer": "Передача",
+    "users": "Пользователи"
+  },
+  "sidebar": {
+    "accountSettings": "Настройки аккаунта",
+    "activateServer": "Активировать сервер",
+    "collapseAll": "Свернуть всё",
+    "createDatabase": "Создать базу данных",
+    "editConnection": "Изменить подключение",
+    "expandAll": "Развернуть всё",
+    "newServer": "Добавить сервер",
+    "noConnections": "Нет профилей подключения",
+    "refreshCatalog": "Обновить каталог",
+    "searchPlaceholder": "Поиск серверов, баз данных и таблиц",
+    "serverQuery": "Запрос на уровне сервера",
+    "signOut": "Выйти"
+  },
+  "query": {
+    "affectedRows": "Затронуто строк: {count}",
+    "applyChange": "Применить изменение",
+    "autocomplete": "Автодополнение",
+    "completed": "Запрос выполнен",
+    "dangerousConfirm": "Этот запрос может изменить данные или схему.",
+    "dryRunEnabled": "Dry-run включён",
+    "errorStopped": "Служба языка SQL остановила запрос.",
+    "favorites": "Избранное",
+    "format": "Форматировать",
+    "history": "История",
+    "noResults": "Нет результатов",
+    "readOnly": "Только чтение",
+    "results": "Результаты",
+    "rows": "строк",
+    "run": "Выполнить",
+    "safeLimitWarning": "В запросе нет видимого ограничения строк; API применяет безопасный максимум.",
+    "selectDatabase": "Выбрать базу данных",
+    "selectServer": "Выбрать сервер",
+    "serverScope": "Область сервера",
+    "snapshotEnabled": "Snapshot включён"
+  },
+  "server": {
+    "addServer": "Добавить сервер",
+    "authentication": "Аутентификация",
+    "connectionFailed": "Ошибка подключения",
+    "connectionReady": "Подключение готово",
+    "databaseName": "Имя базы данных",
+    "defaultDatabase": "База данных по умолчанию",
+    "edit": "Изменить сервер базы данных",
+    "engine": "Движок базы данных",
+    "engineVersion": "Движок и версия",
+    "host": "Хост или IP",
+    "name": "Имя сервера",
+    "new": "Новый сервер базы данных",
+    "password": "Пароль",
+    "port": "Порт",
+    "profileNetwork": "Профиль и сеть",
+    "readOnlyDescription": "Блокирует операции записи, изменения схемы и администрирования для этого подключения.",
+    "readOnlyProfile": "Профиль только для чтения",
+    "secureVault": "Зашифрованное хранилище браузера",
+    "securityTimeout": "Безопасность и тайм-аут",
+    "testConnection": "Проверить подключение",
+    "timeout": "Тайм-аут подключения",
+    "tls": "Политика TLS",
+    "updateServer": "Обновить сервер",
+    "username": "Имя пользователя",
+    "version": "Профиль версии"
+  },
+  "database": {
+    "bufferPool": "Буферный пул",
+    "catalog": "Каталог",
+    "collation": "Сопоставление",
+    "column": "Столбец",
+    "connection": "Подключение",
+    "connections": "Подключения",
+    "data": "Данные",
+    "database": "База данных",
+    "dataType": "Тип данных",
+    "defaultValue": "Значение по умолчанию",
+    "event": "Событие",
+    "foreignKey": "Внешний ключ",
+    "function": "Функция",
+    "index": "Индекс",
+    "nullable": "Допускает NULL",
+    "primaryKey": "Первичный ключ",
+    "procedure": "Хранимая процедура",
+    "replication": "Репликация",
+    "rows": "Строки",
+    "schema": "Схема",
+    "slowQueries": "Медленные запросы",
+    "storage": "Хранилище",
+    "structure": "Структура",
+    "table": "Таблица",
+    "traffic": "Трафик",
+    "trigger": "Триггер",
+    "uptime": "Время работы",
+    "view": "Представление"
+  },
+  "settings": {
+    "language": {
+      "available": "Доступные языки",
+      "browser": "Язык браузера",
+      "coverage": "Перевод учитывает терминологию программного обеспечения, SQL и баз данных",
+      "current": "Текущий язык",
+      "description": "Выберите язык интерфейса инструментов базы данных и разработки.",
+      "fallback": "Отсутствующие ключи заменяются английскими",
+      "instant": "Изменения применяются мгновенно",
+      "localStorage": "Хранится локально на этом устройстве",
+      "restartNotRequired": "Перезапуск не требуется",
+      "rtl": "Для арабского поддерживается направление справа налево",
+      "select": "Язык интерфейса",
+      "title": "Язык и регион"
+    }
+  },
+  "status": {
+    "bufferPool": "Буферный пул",
+    "catalogRefreshed": "Каталог обновлён",
+    "catalogRefreshFailed": "Не удалось обновить каталог.",
+    "connection": "Состояние подключения",
+    "connectionFailed": "Не удалось подключиться.",
+    "connectionReadyVersion": "Подключение {version} готово",
+    "coreorSession": "Сессия Coreor",
+    "lastQuery": "Последний запрос",
+    "networkTraffic": "Сетевой трафик",
+    "serverUptime": "Время работы сервера",
+    "sqlPerformance": "Производительность SQL",
+    "storage": "Логическое хранилище",
+    "target": "Активная цель",
+    "threadConnections": "Потоки и подключения"
+  },
+  "notification": {
+    "languageChanged": "Язык изменён на {language}.",
+    "localOnly": "Настройка языка и переводы остаются на этом устройстве."
+  },
+  "process": {
+    "center": "Центр процессов",
+    "killConnection": "Завершить подключение",
+    "killQuery": "Завершить запрос"
+  },
+  "performance": {
+    "activeConnections": "Активные подключения",
+    "bufferPoolUsage": "Использование буферного пула",
+    "logicalStorage": "Логическое хранилище",
+    "maxConnections": "Максимум подключений",
+    "qps": "QPS",
+    "replicationLag": "Задержка репликации",
+    "runningThreads": "Работающие потоки",
+    "slowQueries": "Медленные запросы"
+  },
+  "notebook": {
+    "runAll": "Выполнить всё",
+    "title": "SQL-блокнот"
+  },
+  "automation": {
+    "action": {
+      "analyzePlan": "Анализировать план выполнения",
+      "approve": "Одобрить",
+      "createTask": "Создать задачу",
+      "preview": "Предпросмотр",
+      "reject": "Отклонить",
+      "restoreDefaults": "Восстановить значения по умолчанию",
+      "run": "Выполнить",
+      "save": "Сохранить",
+      "saveMigration": "Сохранить миграцию",
+      "saveSet": "Сохранить набор"
+    },
+    "approvals": "Процессы согласования",
+    "backups": "Задания резервного копирования",
+    "changedRows": "Изменённые строки",
+    "compare": "Сравнить",
+    "dataCompare": "Сравнение данных",
+    "empty": {
+      "snapshots": "Снимков схемы пока нет."
+    },
+    "error": {
+      "compareFailed": "Не удалось сравнить данные.",
+      "maskPreview": "Не удалось создать предпросмотр маскирования.",
+      "planFailed": "Не удалось получить план выполнения.",
+      "preparedFailed": "Не удалось выполнить подготовленный запрос.",
+      "sessionRequired": "Требуются сервер и пользовательская сессия."
+    },
+    "indexAdvisor": "Рекомендации по индексам",
+    "migrations": "Миграции",
+    "onlySource": "Только в источнике",
+    "onlyTarget": "Только в цели",
+    "preparedStatements": "Подготовленные выражения",
+    "shortcut": {
+      "backupCenter": "Центр резервного копирования",
+      "commandPalette": "Палитра команд",
+      "formatSql": "Форматировать SQL",
+      "newQuery": "Новая вкладка запроса",
+      "operationsCenter": "Центр операций",
+      "refreshCatalog": "Обновить каталог"
+    },
+    "snapshots": "Снимки схемы",
+    "sourceDatabase": "Исходная база данных",
+    "sourceServer": "Исходный сервер",
+    "sourceTable": "Исходная таблица",
+    "status": {
+      "compareDone": "Первые 5 000 строк сравнены по первичному/уникальному ключу.",
+      "maskPreview": "Предпросмотр маскирования создан; исходные данные не изменены.",
+      "planReady": "План выполнения получен. Проверьте полные сканирования, большое число строк и признаки filesort.",
+      "preparedExecuted": "Набор параметров выполнен."
+    },
+    "tab": {
+      "migration": "Миграции",
+      "prepared": "Лаборатория подготовленных выражений",
+      "shortcuts": "Горячие клавиши"
+    },
+    "tableHistory": "История таблицы",
+    "targetDatabase": "Целевая база данных",
+    "targetServer": "Целевой сервер",
+    "targetTable": "Целевая таблица"
+  },
+  "transaction": {
+    "autocommit": "Autocommit",
+    "begin": "Начать транзакцию",
+    "commit": "Commit",
+    "rollback": "Rollback",
+    "rollbackAndClose": "Rollback и закрыть",
+    "workspace": "Рабочая область транзакций"
+  },
+  "intelligence": {
+    "action": {
+      "analyze5000": "Проанализировать первые 5 000 строк",
+      "generateData": "Создать данные",
+      "generateRules": "Создать правила из таблицы",
+      "maskPreview": "Предпросмотр с маскированием",
+      "openEditor": "Открыть в редакторе",
+      "readColumns": "Загрузить столбцы",
+      "refreshLive": "Обновить метрики в реальном времени",
+      "saveRules": "Сохранить правила"
+    },
+    "alertRules": "Правила оповещений",
+    "dataQuality": "Качество данных",
+    "empty": {
+      "profiles": "Пока нет SQL-записей для профилирования."
+    },
+    "healthScore": "Оценка состояния базы данных",
+    "masking": "Расширенное маскирование данных",
+    "profiler": "Профайлер запросов в реальном времени",
+    "select": {
+      "database": "Выберите базу данных",
+      "server": "Выберите сервер",
+      "table": "Выберите таблицу"
+    },
+    "slowQueries": "Центр медленных запросов",
+    "snippets": "Сниппеты запросов",
+    "tab": {
+      "alertsDescription": "Локальные пороги уведомлений в реальном времени",
+      "generator": "Тестовые данные",
+      "generatorDescription": "Подробный генератор, включая Snowflake",
+      "health": "Оценка состояния",
+      "healthDescription": "Оценка сервера и операций",
+      "masking": "Маскирование данных",
+      "maskingDescription": "Более 40 типов маскирования и предпросмотр",
+      "profiler": "Профайлер в реальном времени",
+      "profilerDescription": "Длительности и распределения локальных запросов",
+      "quality": "Качество данных",
+      "qualityDescription": "NULL, дубликаты, форматы и выбросы",
+      "slow": "Медленные запросы",
+      "slowDescription": "Отпечатки медленных запросов",
+      "snippets": "Библиотека сниппетов",
+      "snippetsDescription": "Локальные готовые пакеты запросов"
+    },
+    "testData": "Генератор тестовых данных"
+  },
+  "control": {
+    "dropdown": {
+      "close": "Закрыть раскрывающийся список",
+      "open": "Открыть раскрывающийся список"
+    },
+    "select": {
+      "clear": "Очистить выбор",
+      "close": "Закрыть список выбора",
+      "count": "Вариантов: {count}",
+      "empty": "Подходящие варианты не найдены.",
+      "escape": "Нажмите ESC, чтобы закрыть",
+      "open": "Открыть список выбора",
+      "placeholder": "Выберите вариант",
+      "search": "Поиск вариантов…"
+    }
+  },
+  "tooltip": {
+    "backup": "Задания резервного копирования mysqldump, pg_dump и SQL Server",
+    "dataIntelligence": "Профайлер, медленные запросы, состояние, маскирование, тестовые данные и сниппеты",
+    "hideDetails": "Скрыть подробности",
+    "moreInfo": "Подробнее",
+    "operations": "Снимки, миграции, индексы, подготовленные выражения, согласования и сравнение",
+    "showDetails": "Показать подробности"
+  },
+  "sql": {
+    "action": {
+      "clearQuery": "Очистить запрос",
+      "formatQuery": "Форматировать запрос",
+      "newQuery": "Новый запрос",
+      "runQuery": "Выполнить запрос",
+      "selectDraft": "Черновик SELECT"
+    },
+    "keyword": {
+      "alter": "ALTER",
+      "create": "CREATE",
+      "delete": "DELETE",
+      "drop": "DROP",
+      "insert": "INSERT",
+      "select": "SELECT",
+      "truncate": "TRUNCATE",
+      "update": "UPDATE"
+    },
+    "log": "Журнал SQL",
+    "parameters": "Параметры",
+    "result": {
+      "affectedRows": "Затронутые строки",
+      "duration": "Время выполнения",
+      "multi": "Несколько результатов",
+      "noResult": "Нет результатов"
+    },
+    "scope": {
+      "server": "Область сервера"
+    },
+    "statement": "Выражение"
+  },
+  "approval": {
+    "approved": "Одобрено",
+    "pending": "Ожидает",
+    "rejected": "Отклонено"
+  },
+  "grid": {
+    "columnMapping": "Сопоставление столбцов",
+    "copyRow": "Копировать строку",
+    "copyValue": "Копировать значение",
+    "deleteSelectedRows": "Удалить выбранные строки",
+    "editCell": "Изменить ячейку",
+    "exportCsv": "Экспорт CSV",
+    "exportJson": "Экспорт JSON",
+    "firstPage": "Первая страница",
+    "fitAll": "Подогнать все столбцы",
+    "followForeignKey": "Перейти по внешнему ключу",
+    "lastPage": "Последняя страница",
+    "nextPage": "Следующая страница",
+    "pageSize": "Размер страницы",
+    "previousPage": "Предыдущая страница",
+    "resetWidths": "Сбросить ширину столбцов"
+  },
+  "transfer": {
+    "chooseFile": "Выбрать файл",
+    "title": "Импорт / Экспорт"
+  },
+  "users": {
+    "management": "Управление пользователями"
+  }
+}

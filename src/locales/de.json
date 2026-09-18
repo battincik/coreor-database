@@ -1,1 +1,440 @@
-{"meta.nativeName":"Deutsch","meta.direction":"ltr","common.search":"Suchen","common.searchOptions":"Optionen durchsuchen","common.select":"Auswählen","common.noResults":"Keine passenden Ergebnisse","common.optionsCount":"{count} Optionen","common.escapeToClose":"ESC zum Schließen","common.save":"Speichern","common.cancel":"Abbrechen","common.create":"Erstellen","common.delete":"Löschen","common.edit":"Bearbeiten","common.refresh":"Aktualisieren","common.close":"Schließen","common.confirm":"Bestätigen","common.yes":"Ja","common.no":"Nein","common.loading":"Lädt…","common.connected":"Verbunden","common.offline":"Offline","common.ready":"Bereit","common.error":"Fehler","common.warning":"Warnung","common.success":"Erfolgreich","common.copy":"Kopieren","common.download":"Herunterladen","common.reset":"Zurücksetzen","common.open":"Öffnen","common.run":"Ausführen","common.apply":"Anwenden","common.add":"Hinzufügen","common.remove":"Entfernen","common.all":"Alle","common.default":"Standard","common.enabled":"Aktiviert","common.disabled":"Deaktiviert","app.settings":"Einstellungen","app.language":"Sprache","app.account":"Konto","app.organizations":"Organisationen","app.servers":"Server","app.appearance":"Darstellung","app.accessibility":"Barrierefreiheit","app.queryEditor":"Abfrageeditor","app.security":"Sicherheit","app.advanced":"Erweitert","app.whatsNew":"Neuigkeiten","app.resetPreferences":"Einstellungen zurücksetzen","nav.databases":"Datenbanken","nav.tables":"Tabellen","nav.schema":"Schema","nav.query":"Abfrage","nav.users":"Benutzer","nav.processes":"Prozesse","nav.performance":"Leistung","nav.notebook":"Notebook","nav.backup":"Sicherung","nav.operations":"Vorgänge","nav.dataIntelligence":"Datenintelligenz","nav.commandPalette":"Befehlspalette","nav.transaction":"Transaktion","nav.importExport":"Import / Export","sidebar.searchPlaceholder":"Server, Datenbanken und Tabellen suchen","sidebar.noConnections":"Keine Verbindungsprofile","sidebar.newServer":"Server hinzufügen","sidebar.accountSettings":"Kontoeinstellungen","sidebar.signOut":"Abmelden","sidebar.activateServer":"Server aktivieren","sidebar.createDatabase":"Datenbank erstellen","sidebar.serverQuery":"Serverweite Abfrage","sidebar.refreshCatalog":"Katalog aktualisieren","sidebar.expandAll":"Alle erweitern","sidebar.collapseAll":"Alle reduzieren","sidebar.editConnection":"Verbindung bearbeiten","query.run":"Ausführen","query.format":"Formatieren","query.history":"Verlauf","query.favorites":"Favoriten","query.selectServer":"Server auswählen","query.selectDatabase":"Datenbank auswählen","query.serverScope":"Serverbereich","query.dryRunEnabled":"Dry-run aktiviert","query.snapshotEnabled":"Snapshot aktiviert","query.readOnly":"Schreibgeschützt","query.results":"Ergebnisse","query.rows":"Zeilen","query.noResults":"Keine Ergebnisse","query.completed":"Abfrage abgeschlossen","query.affectedRows":"{count} Zeilen betroffen","query.safeLimitWarning":"Kein sichtbares Zeilenlimit; die API wendet ein sicheres Maximum an.","query.autocomplete":"Autovervollständigung","query.errorStopped":"Der SQL-Sprachdienst hat die Abfrage gestoppt.","query.dangerousConfirm":"Diese Abfrage kann Daten oder das Schema ändern.","query.applyChange":"Änderung anwenden","server.new":"Neuer Datenbankserver","server.edit":"Datenbankserver bearbeiten","server.secureVault":"Verschlüsselter Browser-Tresor","server.profileNetwork":"Profil und Netzwerk","server.authentication":"Authentifizierung","server.engineVersion":"Engine und Version","server.securityTimeout":"Sicherheit und Zeitüberschreitung","server.name":"Servername","server.host":"Host oder IP","server.port":"Port","server.defaultDatabase":"Standarddatenbank","server.username":"Benutzername","server.password":"Passwort","server.engine":"Datenbank-Engine","server.version":"Versionsprofil","server.tls":"TLS-Richtlinie","server.timeout":"Verbindungs-Timeout","server.readOnlyProfile":"Schreibgeschütztes Profil","server.readOnlyDescription":"Blockiert Schreib-, Schema- und Verwaltungsoperationen für diese Verbindung.","server.testConnection":"Verbindung testen","server.addServer":"Server hinzufügen","server.updateServer":"Server aktualisieren","server.connectionReady":"Verbindung bereit","server.connectionFailed":"Verbindung fehlgeschlagen","server.databaseName":"Datenbankname","database.database":"Datenbank","database.table":"Tabelle","database.column":"Spalte","database.index":"Index","database.foreignKey":"Fremdschlüssel","database.view":"View","database.procedure":"Gespeicherte Prozedur","database.function":"Funktion","database.trigger":"Trigger","database.event":"Ereignis","database.connection":"Verbindung","database.catalog":"Katalog","database.schema":"Schema","database.data":"Daten","database.structure":"Struktur","database.rows":"Zeilen","database.primaryKey":"Primärschlüssel","database.nullable":"NULL zulässig","database.dataType":"Datentyp","database.defaultValue":"Standardwert","database.collation":"Sortierung","database.storage":"Speicher","database.uptime":"Betriebszeit","database.connections":"Verbindungen","database.bufferPool":"Buffer Pool","database.traffic":"Datenverkehr","database.slowQueries":"Langsame Abfragen","database.replication":"Replikation","settings.language.title":"Sprache und Region","settings.language.description":"Wählen Sie die Oberflächensprache für Datenbank- und Entwicklungstools.","settings.language.select":"Oberflächensprache","settings.language.current":"Aktuelle Sprache","settings.language.browser":"Browsersprache","settings.language.localStorage":"Lokal auf diesem Gerät gespeichert","settings.language.instant":"Änderungen werden sofort angewendet","settings.language.fallback":"Fehlende Schlüssel fallen auf Englisch zurück","settings.language.rtl":"Rechts-nach-links-Layouts werden für Arabisch unterstützt","settings.language.coverage":"Für Software-, SQL- und Datenbankterminologie übersetzt","settings.language.restartNotRequired":"Kein Neustart erforderlich","settings.language.available":"Verfügbare Sprachen","status.connection":"Verbindungsstatus","status.serverUptime":"Server-Betriebszeit","status.coreorSession":"Coreor-Sitzung","status.target":"Aktives Ziel","status.threadConnections":"Threads und Verbindungen","status.bufferPool":"Buffer Pool","status.storage":"Logischer Speicher","status.networkTraffic":"Netzwerkverkehr","status.sqlPerformance":"SQL-Leistung","status.lastQuery":"Letzte Abfrage","notification.languageChanged":"Sprache zu {language} geändert.","notification.localOnly":"Spracheinstellung und Übersetzungen bleiben auf diesem Gerät."}
+{
+  "meta": {
+    "direction": "ltr",
+    "nativeName": "Deutsch"
+  },
+  "common": {
+    "add": "Hinzufügen",
+    "all": "Alle",
+    "apply": "Anwenden",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "confirm": "Bestätigen",
+    "connected": "Verbunden",
+    "copy": "Kopieren",
+    "create": "Erstellen",
+    "default": "Standard",
+    "delete": "Löschen",
+    "disabled": "Deaktiviert",
+    "download": "Herunterladen",
+    "edit": "Bearbeiten",
+    "enabled": "Aktiviert",
+    "error": "Fehler",
+    "escapeToClose": "ESC zum Schließen",
+    "loading": "Lädt…",
+    "no": "Nein",
+    "noResults": "Keine passenden Ergebnisse",
+    "offline": "Offline",
+    "open": "Öffnen",
+    "optionsCount": "{count} Optionen",
+    "ready": "Bereit",
+    "refresh": "Aktualisieren",
+    "remove": "Entfernen",
+    "reset": "Zurücksetzen",
+    "run": "Ausführen",
+    "save": "Speichern",
+    "search": "Suchen",
+    "searchOptions": "Optionen durchsuchen",
+    "select": "Auswählen",
+    "success": "Erfolgreich",
+    "warning": "Warnung",
+    "yes": "Ja"
+  },
+  "app": {
+    "accessibility": "Barrierefreiheit",
+    "account": "Konto",
+    "advanced": "Erweitert",
+    "appearance": "Darstellung",
+    "language": "Sprache",
+    "organizations": "Organisationen",
+    "queryEditor": "Abfrageeditor",
+    "resetPreferences": "Einstellungen zurücksetzen",
+    "security": "Sicherheit",
+    "servers": "Server",
+    "settings": "Einstellungen",
+    "whatsNew": "Neuigkeiten"
+  },
+  "nav": {
+    "backup": "Sicherung",
+    "commandPalette": "Befehlspalette",
+    "databases": "Datenbanken",
+    "dataIntelligence": "Datenintelligenz",
+    "importExport": "Import / Export",
+    "notebook": "Notebook",
+    "operations": "Vorgänge",
+    "performance": "Leistung",
+    "processes": "Prozesse",
+    "query": "Abfrage",
+    "schema": "Schema",
+    "tables": "Tabellen",
+    "transaction": "Transaktion",
+    "users": "Benutzer"
+  },
+  "topbar": {
+    "backup": "Sicherung",
+    "command": "Befehl",
+    "connect": "Verbinden",
+    "connectionSearch": "Server, Host oder Engine durchsuchen…",
+    "connectionSelect": "Verbindung auswählen",
+    "dataIntelligence": "Datenintelligenz",
+    "noConnection": "Keine Verbindung",
+    "noSavedServer": "Keine gespeicherten Server.",
+    "notebook": "Notebook",
+    "operations": "Operationen",
+    "performance": "Leistung",
+    "processes": "Prozesse",
+    "readOnly": "NUR LESEN",
+    "refresh": "Aktualisieren",
+    "schema": "Schema",
+    "settings": "Einstellungen",
+    "transaction": "Transaktion",
+    "transfer": "Übertragung",
+    "users": "Benutzer"
+  },
+  "sidebar": {
+    "accountSettings": "Kontoeinstellungen",
+    "activateServer": "Server aktivieren",
+    "collapseAll": "Alle reduzieren",
+    "createDatabase": "Datenbank erstellen",
+    "editConnection": "Verbindung bearbeiten",
+    "expandAll": "Alle erweitern",
+    "newServer": "Server hinzufügen",
+    "noConnections": "Keine Verbindungsprofile",
+    "refreshCatalog": "Katalog aktualisieren",
+    "searchPlaceholder": "Server, Datenbanken und Tabellen suchen",
+    "serverQuery": "Serverweite Abfrage",
+    "signOut": "Abmelden"
+  },
+  "query": {
+    "affectedRows": "{count} Zeilen betroffen",
+    "applyChange": "Änderung anwenden",
+    "autocomplete": "Autovervollständigung",
+    "completed": "Abfrage abgeschlossen",
+    "dangerousConfirm": "Diese Abfrage kann Daten oder das Schema ändern.",
+    "dryRunEnabled": "Dry-run aktiviert",
+    "errorStopped": "Der SQL-Sprachdienst hat die Abfrage gestoppt.",
+    "favorites": "Favoriten",
+    "format": "Formatieren",
+    "history": "Verlauf",
+    "noResults": "Keine Ergebnisse",
+    "readOnly": "Schreibgeschützt",
+    "results": "Ergebnisse",
+    "rows": "Zeilen",
+    "run": "Ausführen",
+    "safeLimitWarning": "Kein sichtbares Zeilenlimit; die API wendet ein sicheres Maximum an.",
+    "selectDatabase": "Datenbank auswählen",
+    "selectServer": "Server auswählen",
+    "serverScope": "Serverbereich",
+    "snapshotEnabled": "Snapshot aktiviert"
+  },
+  "server": {
+    "addServer": "Server hinzufügen",
+    "authentication": "Authentifizierung",
+    "connectionFailed": "Verbindung fehlgeschlagen",
+    "connectionReady": "Verbindung bereit",
+    "databaseName": "Datenbankname",
+    "defaultDatabase": "Standarddatenbank",
+    "edit": "Datenbankserver bearbeiten",
+    "engine": "Datenbank-Engine",
+    "engineVersion": "Engine und Version",
+    "host": "Host oder IP",
+    "name": "Servername",
+    "new": "Neuer Datenbankserver",
+    "password": "Passwort",
+    "port": "Port",
+    "profileNetwork": "Profil und Netzwerk",
+    "readOnlyDescription": "Blockiert Schreib-, Schema- und Verwaltungsoperationen für diese Verbindung.",
+    "readOnlyProfile": "Schreibgeschütztes Profil",
+    "secureVault": "Verschlüsselter Browser-Tresor",
+    "securityTimeout": "Sicherheit und Zeitüberschreitung",
+    "testConnection": "Verbindung testen",
+    "timeout": "Verbindungs-Timeout",
+    "tls": "TLS-Richtlinie",
+    "updateServer": "Server aktualisieren",
+    "username": "Benutzername",
+    "version": "Versionsprofil"
+  },
+  "database": {
+    "bufferPool": "Buffer Pool",
+    "catalog": "Katalog",
+    "collation": "Sortierung",
+    "column": "Spalte",
+    "connection": "Verbindung",
+    "connections": "Verbindungen",
+    "data": "Daten",
+    "database": "Datenbank",
+    "dataType": "Datentyp",
+    "defaultValue": "Standardwert",
+    "event": "Ereignis",
+    "foreignKey": "Fremdschlüssel",
+    "function": "Funktion",
+    "index": "Index",
+    "nullable": "NULL zulässig",
+    "primaryKey": "Primärschlüssel",
+    "procedure": "Gespeicherte Prozedur",
+    "replication": "Replikation",
+    "rows": "Zeilen",
+    "schema": "Schema",
+    "slowQueries": "Langsame Abfragen",
+    "storage": "Speicher",
+    "structure": "Struktur",
+    "table": "Tabelle",
+    "traffic": "Datenverkehr",
+    "trigger": "Trigger",
+    "uptime": "Betriebszeit",
+    "view": "View"
+  },
+  "settings": {
+    "language": {
+      "available": "Verfügbare Sprachen",
+      "browser": "Browsersprache",
+      "coverage": "Für Software-, SQL- und Datenbankterminologie übersetzt",
+      "current": "Aktuelle Sprache",
+      "description": "Wählen Sie die Oberflächensprache für Datenbank- und Entwicklungstools.",
+      "fallback": "Fehlende Schlüssel fallen auf Englisch zurück",
+      "instant": "Änderungen werden sofort angewendet",
+      "localStorage": "Lokal auf diesem Gerät gespeichert",
+      "restartNotRequired": "Kein Neustart erforderlich",
+      "rtl": "Rechts-nach-links-Layouts werden für Arabisch unterstützt",
+      "select": "Oberflächensprache",
+      "title": "Sprache und Region"
+    }
+  },
+  "status": {
+    "bufferPool": "Buffer Pool",
+    "catalogRefreshed": "Katalog aktualisiert",
+    "catalogRefreshFailed": "Katalog konnte nicht aktualisiert werden.",
+    "connection": "Verbindungsstatus",
+    "connectionFailed": "Verbindung konnte nicht hergestellt werden.",
+    "connectionReadyVersion": "{version}-Verbindung ist bereit",
+    "coreorSession": "Coreor-Sitzung",
+    "lastQuery": "Letzte Abfrage",
+    "networkTraffic": "Netzwerkverkehr",
+    "serverUptime": "Server-Betriebszeit",
+    "sqlPerformance": "SQL-Leistung",
+    "storage": "Logischer Speicher",
+    "target": "Aktives Ziel",
+    "threadConnections": "Threads und Verbindungen"
+  },
+  "notification": {
+    "languageChanged": "Sprache zu {language} geändert.",
+    "localOnly": "Spracheinstellung und Übersetzungen bleiben auf diesem Gerät."
+  },
+  "process": {
+    "center": "Prozesszentrum",
+    "killConnection": "Verbindung beenden",
+    "killQuery": "Abfrage beenden"
+  },
+  "performance": {
+    "activeConnections": "Aktive Verbindungen",
+    "bufferPoolUsage": "Buffer-Pool-Auslastung",
+    "logicalStorage": "Logischer Speicher",
+    "maxConnections": "Maximale Verbindungen",
+    "qps": "QPS",
+    "replicationLag": "Replikationsverzögerung",
+    "runningThreads": "Laufende Threads",
+    "slowQueries": "Langsame Abfragen"
+  },
+  "notebook": {
+    "runAll": "Alle ausführen",
+    "title": "SQL Notebook"
+  },
+  "automation": {
+    "action": {
+      "analyzePlan": "Ausführungsplan analysieren",
+      "approve": "Freigeben",
+      "createTask": "Aufgabe erstellen",
+      "preview": "Vorschau",
+      "reject": "Ablehnen",
+      "restoreDefaults": "Standardeinstellungen wiederherstellen",
+      "run": "Ausführen",
+      "save": "Speichern",
+      "saveMigration": "Migration speichern",
+      "saveSet": "Satz speichern"
+    },
+    "approvals": "Freigabe-Workflows",
+    "backups": "Sicherungsaufgaben",
+    "changedRows": "Geänderte Zeilen",
+    "compare": "Vergleichen",
+    "dataCompare": "Datenvergleich",
+    "empty": {
+      "snapshots": "Es gibt noch keine Schema-Snapshots."
+    },
+    "error": {
+      "compareFailed": "Die Daten konnten nicht verglichen werden.",
+      "maskPreview": "Die Maskierungsvorschau konnte nicht erstellt werden.",
+      "planFailed": "Der Ausführungsplan konnte nicht geladen werden.",
+      "preparedFailed": "Die vorbereitete Abfrage konnte nicht ausgeführt werden.",
+      "sessionRequired": "Ein Server und eine Benutzersitzung sind erforderlich."
+    },
+    "indexAdvisor": "Indexempfehlungen",
+    "migrations": "Migrationen",
+    "onlySource": "Nur in Quelle",
+    "onlyTarget": "Nur in Ziel",
+    "preparedStatements": "Prepared Statements",
+    "shortcut": {
+      "backupCenter": "Sicherungszentrum",
+      "commandPalette": "Befehlspalette",
+      "formatSql": "SQL formatieren",
+      "newQuery": "Neuer Abfrage-Tab",
+      "operationsCenter": "Betriebszentrum",
+      "refreshCatalog": "Katalog aktualisieren"
+    },
+    "snapshots": "Schema-Snapshots",
+    "sourceDatabase": "Quelldatenbank",
+    "sourceServer": "Quellserver",
+    "sourceTable": "Quelltabelle",
+    "status": {
+      "compareDone": "Die ersten 5.000 Zeilen wurden über den Primär-/Unique-Schlüssel verglichen.",
+      "maskPreview": "Maskierungsvorschau erstellt; Quelldaten wurden nicht verändert.",
+      "planReady": "Ausführungsplan geladen. Prüfen Sie Full Scans, hohe Zeilenzahlen und Filesort-Hinweise.",
+      "preparedExecuted": "Parametersatz ausgeführt."
+    },
+    "tab": {
+      "migration": "Migrationen",
+      "prepared": "Prepared-Statement-Labor",
+      "shortcuts": "Tastenkürzel"
+    },
+    "tableHistory": "Tabellenverlauf",
+    "targetDatabase": "Zieldatenbank",
+    "targetServer": "Zielserver",
+    "targetTable": "Zieltabelle"
+  },
+  "transaction": {
+    "autocommit": "Autocommit",
+    "begin": "Transaktion starten",
+    "commit": "Commit",
+    "rollback": "Rollback",
+    "rollbackAndClose": "Rollback und schließen",
+    "workspace": "Transaktionsarbeitsbereich"
+  },
+  "intelligence": {
+    "action": {
+      "analyze5000": "Die ersten 5.000 Zeilen analysieren",
+      "generateData": "Daten erzeugen",
+      "generateRules": "Regeln aus Tabelle erzeugen",
+      "maskPreview": "Maskierte Vorschau",
+      "openEditor": "Im Editor öffnen",
+      "readColumns": "Spalten laden",
+      "refreshLive": "Live-Metriken aktualisieren",
+      "saveRules": "Regeln speichern"
+    },
+    "alertRules": "Alarmregeln",
+    "dataQuality": "Datenqualität",
+    "empty": {
+      "profiles": "Es gibt noch keine SQL-Einträge zum Profilieren."
+    },
+    "healthScore": "Datenbank-Gesundheitswert",
+    "masking": "Erweiterte Datenmaskierung",
+    "profiler": "Live-Abfrageprofiler",
+    "select": {
+      "database": "Datenbank auswählen",
+      "server": "Server auswählen",
+      "table": "Tabelle auswählen"
+    },
+    "slowQueries": "Zentrum für langsame Abfragen",
+    "snippets": "Abfrage-Snippets",
+    "tab": {
+      "alertsDescription": "Lokale Echtzeit-Benachrichtigungsschwellen",
+      "generator": "Testdaten",
+      "generatorDescription": "Detaillierter Generator einschließlich Snowflake",
+      "health": "Gesundheitswert",
+      "healthDescription": "Server- und Betriebsbewertung",
+      "masking": "Datenmaskierung",
+      "maskingDescription": "Über 40 Maskierungstypen und Vorschau",
+      "profiler": "Live-Profiler",
+      "profilerDescription": "Lokale Abfragedauern und Verteilungen",
+      "quality": "Datenqualität",
+      "qualityDescription": "NULL, Duplikate, Formate und Ausreißer",
+      "slow": "Langsame Abfragen",
+      "slowDescription": "Fingerabdrücke langsamer Abfragen",
+      "snippets": "Snippet-Bibliothek",
+      "snippetsDescription": "Lokale, einsatzbereite Abfragepakete"
+    },
+    "testData": "Testdatengenerator"
+  },
+  "control": {
+    "dropdown": {
+      "close": "Dropdown schließen",
+      "open": "Dropdown öffnen"
+    },
+    "select": {
+      "clear": "Auswahl löschen",
+      "close": "Auswahlliste schließen",
+      "count": "{count} Optionen",
+      "empty": "Keine passenden Optionen gefunden.",
+      "escape": "ESC zum Schließen drücken",
+      "open": "Auswahlliste öffnen",
+      "placeholder": "Option auswählen",
+      "search": "Optionen durchsuchen…"
+    }
+  },
+  "tooltip": {
+    "backup": "mysqldump-, pg_dump- und SQL-Server-Sicherungsaufgaben",
+    "dataIntelligence": "Profiler, langsame Abfragen, Zustand, Maskierung, Testdaten und Snippets",
+    "hideDetails": "Details ausblenden",
+    "moreInfo": "Weitere Informationen",
+    "operations": "Snapshots, Migrationen, Indizes, Prepared Statements, Freigaben und Vergleich",
+    "showDetails": "Details anzeigen"
+  },
+  "sql": {
+    "action": {
+      "clearQuery": "Abfrage löschen",
+      "formatQuery": "Abfrage formatieren",
+      "newQuery": "Neue Abfrage",
+      "runQuery": "Abfrage ausführen",
+      "selectDraft": "SELECT-Entwurf"
+    },
+    "keyword": {
+      "alter": "ALTER",
+      "create": "CREATE",
+      "delete": "DELETE",
+      "drop": "DROP",
+      "insert": "INSERT",
+      "select": "SELECT",
+      "truncate": "TRUNCATE",
+      "update": "UPDATE"
+    },
+    "log": "SQL-Protokoll",
+    "parameters": "Parameter",
+    "result": {
+      "affectedRows": "Betroffene Zeilen",
+      "duration": "Ausführungszeit",
+      "multi": "Mehrere Ergebnisse",
+      "noResult": "Keine Ergebnisse"
+    },
+    "scope": {
+      "server": "Serverbereich"
+    },
+    "statement": "Statement"
+  },
+  "approval": {
+    "approved": "Freigegeben",
+    "pending": "Ausstehend",
+    "rejected": "Abgelehnt"
+  },
+  "grid": {
+    "columnMapping": "Spaltenzuordnung",
+    "copyRow": "Zeile kopieren",
+    "copyValue": "Wert kopieren",
+    "deleteSelectedRows": "Ausgewählte Zeilen löschen",
+    "editCell": "Zelle bearbeiten",
+    "exportCsv": "CSV exportieren",
+    "exportJson": "JSON exportieren",
+    "firstPage": "Erste Seite",
+    "fitAll": "Alle Spalten anpassen",
+    "followForeignKey": "Fremdschlüssel folgen",
+    "lastPage": "Letzte Seite",
+    "nextPage": "Nächste Seite",
+    "pageSize": "Seitengröße",
+    "previousPage": "Vorherige Seite",
+    "resetWidths": "Spaltenbreiten zurücksetzen"
+  },
+  "transfer": {
+    "chooseFile": "Datei auswählen",
+    "title": "Import / Export"
+  },
+  "users": {
+    "management": "Benutzerverwaltung"
+  }
+}

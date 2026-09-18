@@ -1,1 +1,440 @@
-{"meta.nativeName":"Português (Brasil)","meta.direction":"ltr","common.search":"Pesquisar","common.searchOptions":"Pesquisar opções","common.select":"Selecionar","common.noResults":"Nenhum resultado correspondente","common.optionsCount":"{count} opções","common.escapeToClose":"Pressione ESC para fechar","common.save":"Salvar","common.cancel":"Cancelar","common.create":"Criar","common.delete":"Excluir","common.edit":"Editar","common.refresh":"Atualizar","common.close":"Fechar","common.confirm":"Confirmar","common.yes":"Sim","common.no":"Não","common.loading":"Carregando…","common.connected":"Conectado","common.offline":"Offline","common.ready":"Pronto","common.error":"Erro","common.warning":"Aviso","common.success":"Sucesso","common.copy":"Copiar","common.download":"Baixar","common.reset":"Redefinir","common.open":"Abrir","common.run":"Executar","common.apply":"Aplicar","common.add":"Adicionar","common.remove":"Remover","common.all":"Todos","common.default":"Padrão","common.enabled":"Ativado","common.disabled":"Desativado","app.settings":"Configurações","app.language":"Idioma","app.account":"Conta","app.organizations":"Organizações","app.servers":"Servidores","app.appearance":"Aparência","app.accessibility":"Acessibilidade","app.queryEditor":"Editor de consultas","app.security":"Segurança","app.advanced":"Avançado","app.whatsNew":"Novidades","app.resetPreferences":"Redefinir preferências","nav.databases":"Bancos de dados","nav.tables":"Tabelas","nav.schema":"Esquema","nav.query":"Consulta","nav.users":"Usuários","nav.processes":"Processos","nav.performance":"Desempenho","nav.notebook":"Notebook","nav.backup":"Backup","nav.operations":"Operações","nav.dataIntelligence":"Inteligência de dados","nav.commandPalette":"Paleta de comandos","nav.transaction":"Transação","nav.importExport":"Importar / Exportar","sidebar.searchPlaceholder":"Pesquisar servidores, bancos e tabelas","sidebar.noConnections":"Nenhum perfil de conexão","sidebar.newServer":"Adicionar servidor","sidebar.accountSettings":"Configurações da conta","sidebar.signOut":"Sair","sidebar.activateServer":"Ativar servidor","sidebar.createDatabase":"Criar banco de dados","sidebar.serverQuery":"Consulta no servidor","sidebar.refreshCatalog":"Atualizar catálogo","sidebar.expandAll":"Expandir tudo","sidebar.collapseAll":"Recolher tudo","sidebar.editConnection":"Editar conexão","query.run":"Executar","query.format":"Formatar","query.history":"Histórico","query.favorites":"Favoritos","query.selectServer":"Selecionar servidor","query.selectDatabase":"Selecionar banco de dados","query.serverScope":"Escopo do servidor","query.dryRunEnabled":"Dry-run ativado","query.snapshotEnabled":"Snapshot ativado","query.readOnly":"Somente leitura","query.results":"Resultados","query.rows":"linhas","query.noResults":"Sem resultados","query.completed":"Consulta concluída","query.affectedRows":"{count} linhas afetadas","query.safeLimitWarning":"Não há limite visível de linhas; a API aplica um máximo seguro.","query.autocomplete":"Autocompletar","query.errorStopped":"O serviço de linguagem SQL interrompeu a consulta.","query.dangerousConfirm":"Esta consulta pode alterar dados ou o esquema.","query.applyChange":"Aplicar alteração","server.new":"Novo servidor de banco de dados","server.edit":"Editar servidor de banco de dados","server.secureVault":"Cofre criptografado do navegador","server.profileNetwork":"Perfil e rede","server.authentication":"Autenticação","server.engineVersion":"Mecanismo e versão","server.securityTimeout":"Segurança e tempo limite","server.name":"Nome do servidor","server.host":"Host ou IP","server.port":"Porta","server.defaultDatabase":"Banco de dados padrão","server.username":"Usuário","server.password":"Senha","server.engine":"Mecanismo de banco de dados","server.version":"Perfil de versão","server.tls":"Política TLS","server.timeout":"Tempo limite de conexão","server.readOnlyProfile":"Perfil somente leitura","server.readOnlyDescription":"Bloqueia operações de escrita, esquema e administração nesta conexão.","server.testConnection":"Testar conexão","server.addServer":"Adicionar servidor","server.updateServer":"Atualizar servidor","server.connectionReady":"Conexão pronta","server.connectionFailed":"Falha na conexão","server.databaseName":"Nome do banco de dados","database.database":"Banco de dados","database.table":"Tabela","database.column":"Coluna","database.index":"Índice","database.foreignKey":"Chave estrangeira","database.view":"View","database.procedure":"Stored procedure","database.function":"Função","database.trigger":"Trigger","database.event":"Evento","database.connection":"Conexão","database.catalog":"Catálogo","database.schema":"Esquema","database.data":"Dados","database.structure":"Estrutura","database.rows":"Linhas","database.primaryKey":"Chave primária","database.nullable":"Permite NULL","database.dataType":"Tipo de dado","database.defaultValue":"Valor padrão","database.collation":"Collation","database.storage":"Armazenamento","database.uptime":"Tempo ativo","database.connections":"Conexões","database.bufferPool":"Buffer pool","database.traffic":"Tráfego","database.slowQueries":"Consultas lentas","database.replication":"Replicação","settings.language.title":"Idioma e região","settings.language.description":"Escolha o idioma da interface usado pelas ferramentas de banco de dados e desenvolvimento.","settings.language.select":"Idioma da interface","settings.language.current":"Idioma atual","settings.language.browser":"Idioma do navegador","settings.language.localStorage":"Armazenado localmente neste dispositivo","settings.language.instant":"As alterações são aplicadas imediatamente","settings.language.fallback":"Chaves ausentes usam inglês","settings.language.rtl":"Layouts da direita para a esquerda são compatíveis com árabe","settings.language.coverage":"Traduzido para terminologia de software, SQL e bancos de dados","settings.language.restartNotRequired":"Não é necessário reiniciar","settings.language.available":"Idiomas disponíveis","status.connection":"Status da conexão","status.serverUptime":"Tempo ativo do servidor","status.coreorSession":"Sessão Coreor","status.target":"Destino ativo","status.threadConnections":"Threads e conexões","status.bufferPool":"Buffer pool","status.storage":"Armazenamento lógico","status.networkTraffic":"Tráfego de rede","status.sqlPerformance":"Desempenho SQL","status.lastQuery":"Última consulta","notification.languageChanged":"Idioma alterado para {language}.","notification.localOnly":"A preferência de idioma e as traduções permanecem neste dispositivo."}
+{
+  "meta": {
+    "direction": "ltr",
+    "nativeName": "Português (Brasil)"
+  },
+  "common": {
+    "add": "Adicionar",
+    "all": "Todos",
+    "apply": "Aplicar",
+    "cancel": "Cancelar",
+    "close": "Fechar",
+    "confirm": "Confirmar",
+    "connected": "Conectado",
+    "copy": "Copiar",
+    "create": "Criar",
+    "default": "Padrão",
+    "delete": "Excluir",
+    "disabled": "Desativado",
+    "download": "Baixar",
+    "edit": "Editar",
+    "enabled": "Ativado",
+    "error": "Erro",
+    "escapeToClose": "Pressione ESC para fechar",
+    "loading": "Carregando…",
+    "no": "Não",
+    "noResults": "Nenhum resultado correspondente",
+    "offline": "Offline",
+    "open": "Abrir",
+    "optionsCount": "{count} opções",
+    "ready": "Pronto",
+    "refresh": "Atualizar",
+    "remove": "Remover",
+    "reset": "Redefinir",
+    "run": "Executar",
+    "save": "Salvar",
+    "search": "Pesquisar",
+    "searchOptions": "Pesquisar opções",
+    "select": "Selecionar",
+    "success": "Sucesso",
+    "warning": "Aviso",
+    "yes": "Sim"
+  },
+  "app": {
+    "accessibility": "Acessibilidade",
+    "account": "Conta",
+    "advanced": "Avançado",
+    "appearance": "Aparência",
+    "language": "Idioma",
+    "organizations": "Organizações",
+    "queryEditor": "Editor de consultas",
+    "resetPreferences": "Redefinir preferências",
+    "security": "Segurança",
+    "servers": "Servidores",
+    "settings": "Configurações",
+    "whatsNew": "Novidades"
+  },
+  "nav": {
+    "backup": "Backup",
+    "commandPalette": "Paleta de comandos",
+    "databases": "Bancos de dados",
+    "dataIntelligence": "Inteligência de dados",
+    "importExport": "Importar / Exportar",
+    "notebook": "Notebook",
+    "operations": "Operações",
+    "performance": "Desempenho",
+    "processes": "Processos",
+    "query": "Consulta",
+    "schema": "Esquema",
+    "tables": "Tabelas",
+    "transaction": "Transação",
+    "users": "Usuários"
+  },
+  "topbar": {
+    "backup": "Backup",
+    "command": "Comando",
+    "connect": "Conectar",
+    "connectionSearch": "Pesquisar servidor, host ou mecanismo…",
+    "connectionSelect": "Selecionar conexão",
+    "dataIntelligence": "Inteligência de Dados",
+    "noConnection": "Sem conexão",
+    "noSavedServer": "Nenhum servidor salvo.",
+    "notebook": "Notebook",
+    "operations": "Operações",
+    "performance": "Desempenho",
+    "processes": "Processos",
+    "readOnly": "SOMENTE LEITURA",
+    "refresh": "Atualizar",
+    "schema": "Esquema",
+    "settings": "Configurações",
+    "transaction": "Transação",
+    "transfer": "Transferência",
+    "users": "Usuários"
+  },
+  "sidebar": {
+    "accountSettings": "Configurações da conta",
+    "activateServer": "Ativar servidor",
+    "collapseAll": "Recolher tudo",
+    "createDatabase": "Criar banco de dados",
+    "editConnection": "Editar conexão",
+    "expandAll": "Expandir tudo",
+    "newServer": "Adicionar servidor",
+    "noConnections": "Nenhum perfil de conexão",
+    "refreshCatalog": "Atualizar catálogo",
+    "searchPlaceholder": "Pesquisar servidores, bancos e tabelas",
+    "serverQuery": "Consulta no servidor",
+    "signOut": "Sair"
+  },
+  "query": {
+    "affectedRows": "{count} linhas afetadas",
+    "applyChange": "Aplicar alteração",
+    "autocomplete": "Autocompletar",
+    "completed": "Consulta concluída",
+    "dangerousConfirm": "Esta consulta pode alterar dados ou o esquema.",
+    "dryRunEnabled": "Dry-run ativado",
+    "errorStopped": "O serviço de linguagem SQL interrompeu a consulta.",
+    "favorites": "Favoritos",
+    "format": "Formatar",
+    "history": "Histórico",
+    "noResults": "Sem resultados",
+    "readOnly": "Somente leitura",
+    "results": "Resultados",
+    "rows": "linhas",
+    "run": "Executar",
+    "safeLimitWarning": "Não há limite visível de linhas; a API aplica um máximo seguro.",
+    "selectDatabase": "Selecionar banco de dados",
+    "selectServer": "Selecionar servidor",
+    "serverScope": "Escopo do servidor",
+    "snapshotEnabled": "Snapshot ativado"
+  },
+  "server": {
+    "addServer": "Adicionar servidor",
+    "authentication": "Autenticação",
+    "connectionFailed": "Falha na conexão",
+    "connectionReady": "Conexão pronta",
+    "databaseName": "Nome do banco de dados",
+    "defaultDatabase": "Banco de dados padrão",
+    "edit": "Editar servidor de banco de dados",
+    "engine": "Mecanismo de banco de dados",
+    "engineVersion": "Mecanismo e versão",
+    "host": "Host ou IP",
+    "name": "Nome do servidor",
+    "new": "Novo servidor de banco de dados",
+    "password": "Senha",
+    "port": "Porta",
+    "profileNetwork": "Perfil e rede",
+    "readOnlyDescription": "Bloqueia operações de escrita, esquema e administração nesta conexão.",
+    "readOnlyProfile": "Perfil somente leitura",
+    "secureVault": "Cofre criptografado do navegador",
+    "securityTimeout": "Segurança e tempo limite",
+    "testConnection": "Testar conexão",
+    "timeout": "Tempo limite de conexão",
+    "tls": "Política TLS",
+    "updateServer": "Atualizar servidor",
+    "username": "Usuário",
+    "version": "Perfil de versão"
+  },
+  "database": {
+    "bufferPool": "Buffer pool",
+    "catalog": "Catálogo",
+    "collation": "Collation",
+    "column": "Coluna",
+    "connection": "Conexão",
+    "connections": "Conexões",
+    "data": "Dados",
+    "database": "Banco de dados",
+    "dataType": "Tipo de dado",
+    "defaultValue": "Valor padrão",
+    "event": "Evento",
+    "foreignKey": "Chave estrangeira",
+    "function": "Função",
+    "index": "Índice",
+    "nullable": "Permite NULL",
+    "primaryKey": "Chave primária",
+    "procedure": "Stored procedure",
+    "replication": "Replicação",
+    "rows": "Linhas",
+    "schema": "Esquema",
+    "slowQueries": "Consultas lentas",
+    "storage": "Armazenamento",
+    "structure": "Estrutura",
+    "table": "Tabela",
+    "traffic": "Tráfego",
+    "trigger": "Trigger",
+    "uptime": "Tempo ativo",
+    "view": "View"
+  },
+  "settings": {
+    "language": {
+      "available": "Idiomas disponíveis",
+      "browser": "Idioma do navegador",
+      "coverage": "Traduzido para terminologia de software, SQL e bancos de dados",
+      "current": "Idioma atual",
+      "description": "Escolha o idioma da interface usado pelas ferramentas de banco de dados e desenvolvimento.",
+      "fallback": "Chaves ausentes usam inglês",
+      "instant": "As alterações são aplicadas imediatamente",
+      "localStorage": "Armazenado localmente neste dispositivo",
+      "restartNotRequired": "Não é necessário reiniciar",
+      "rtl": "Layouts da direita para a esquerda são compatíveis com árabe",
+      "select": "Idioma da interface",
+      "title": "Idioma e região"
+    }
+  },
+  "status": {
+    "bufferPool": "Buffer pool",
+    "catalogRefreshed": "Catálogo atualizado",
+    "catalogRefreshFailed": "Não foi possível atualizar o catálogo.",
+    "connection": "Status da conexão",
+    "connectionFailed": "Não foi possível conectar.",
+    "connectionReadyVersion": "A conexão {version} está pronta",
+    "coreorSession": "Sessão Coreor",
+    "lastQuery": "Última consulta",
+    "networkTraffic": "Tráfego de rede",
+    "serverUptime": "Tempo ativo do servidor",
+    "sqlPerformance": "Desempenho SQL",
+    "storage": "Armazenamento lógico",
+    "target": "Destino ativo",
+    "threadConnections": "Threads e conexões"
+  },
+  "notification": {
+    "languageChanged": "Idioma alterado para {language}.",
+    "localOnly": "A preferência de idioma e as traduções permanecem neste dispositivo."
+  },
+  "process": {
+    "center": "Central de processos",
+    "killConnection": "Encerrar conexão",
+    "killQuery": "Encerrar consulta"
+  },
+  "performance": {
+    "activeConnections": "Conexões ativas",
+    "bufferPoolUsage": "Uso do buffer pool",
+    "logicalStorage": "Armazenamento lógico",
+    "maxConnections": "Máximo de conexões",
+    "qps": "QPS",
+    "replicationLag": "Atraso de replicação",
+    "runningThreads": "Threads em execução",
+    "slowQueries": "Consultas lentas"
+  },
+  "notebook": {
+    "runAll": "Executar tudo",
+    "title": "SQL Notebook"
+  },
+  "automation": {
+    "action": {
+      "analyzePlan": "Analisar plano de execução",
+      "approve": "Aprovar",
+      "createTask": "Criar tarefa",
+      "preview": "Prévia",
+      "reject": "Rejeitar",
+      "restoreDefaults": "Restaurar padrões",
+      "run": "Executar",
+      "save": "Salvar",
+      "saveMigration": "Salvar migração",
+      "saveSet": "Salvar conjunto"
+    },
+    "approvals": "Fluxos de aprovação",
+    "backups": "Tarefas de backup",
+    "changedRows": "Linhas alteradas",
+    "compare": "Comparar",
+    "dataCompare": "Comparação de dados",
+    "empty": {
+      "snapshots": "Ainda não há snapshots de esquema."
+    },
+    "error": {
+      "compareFailed": "Não foi possível comparar os dados.",
+      "maskPreview": "Não foi possível gerar a prévia de mascaramento.",
+      "planFailed": "Não foi possível obter o plano de execução.",
+      "preparedFailed": "Não foi possível executar a consulta preparada.",
+      "sessionRequired": "É necessário um servidor e uma sessão de usuário."
+    },
+    "indexAdvisor": "Recomendações de índice",
+    "migrations": "Migrações",
+    "onlySource": "Somente na origem",
+    "onlyTarget": "Somente no destino",
+    "preparedStatements": "Prepared statements",
+    "shortcut": {
+      "backupCenter": "Central de backup",
+      "commandPalette": "Paleta de comandos",
+      "formatSql": "Formatar SQL",
+      "newQuery": "Nova aba de consulta",
+      "operationsCenter": "Central de operações",
+      "refreshCatalog": "Atualizar catálogo"
+    },
+    "snapshots": "Snapshots de esquema",
+    "sourceDatabase": "Banco de dados de origem",
+    "sourceServer": "Servidor de origem",
+    "sourceTable": "Tabela de origem",
+    "status": {
+      "compareDone": "As primeiras 5.000 linhas foram comparadas pela chave primária/única.",
+      "maskPreview": "Prévia de mascaramento gerada; os dados de origem não foram alterados.",
+      "planReady": "Plano de execução obtido. Verifique full scans, altas contagens de linhas e indicadores filesort.",
+      "preparedExecuted": "Conjunto de parâmetros executado."
+    },
+    "tab": {
+      "migration": "Migrações",
+      "prepared": "Laboratório de prepared statements",
+      "shortcuts": "Atalhos"
+    },
+    "tableHistory": "Histórico da tabela",
+    "targetDatabase": "Banco de dados de destino",
+    "targetServer": "Servidor de destino",
+    "targetTable": "Tabela de destino"
+  },
+  "transaction": {
+    "autocommit": "Autocommit",
+    "begin": "Iniciar transação",
+    "commit": "Commit",
+    "rollback": "Rollback",
+    "rollbackAndClose": "Rollback e fechar",
+    "workspace": "Área de trabalho de transação"
+  },
+  "intelligence": {
+    "action": {
+      "analyze5000": "Analisar as primeiras 5.000 linhas",
+      "generateData": "Gerar dados",
+      "generateRules": "Gerar regras a partir da tabela",
+      "maskPreview": "Prévia mascarada",
+      "openEditor": "Abrir no editor",
+      "readColumns": "Carregar colunas",
+      "refreshLive": "Atualizar métricas em tempo real",
+      "saveRules": "Salvar regras"
+    },
+    "alertRules": "Regras de alerta",
+    "dataQuality": "Qualidade dos dados",
+    "empty": {
+      "profiles": "Ainda não há registros SQL para analisar."
+    },
+    "healthScore": "Pontuação de integridade do banco de dados",
+    "masking": "Mascaramento avançado de dados",
+    "profiler": "Profiler de consultas em tempo real",
+    "select": {
+      "database": "Selecionar banco de dados",
+      "server": "Selecionar servidor",
+      "table": "Selecionar tabela"
+    },
+    "slowQueries": "Central de consultas lentas",
+    "snippets": "Snippets de consulta",
+    "tab": {
+      "alertsDescription": "Limites locais de notificação em tempo real",
+      "generator": "Dados de teste",
+      "generatorDescription": "Gerador detalhado, incluindo Snowflake",
+      "health": "Pontuação de integridade",
+      "healthDescription": "Pontuação do servidor e das operações",
+      "masking": "Mascaramento de dados",
+      "maskingDescription": "Mais de 40 tipos de mascaramento e prévia",
+      "profiler": "Profiler em tempo real",
+      "profilerDescription": "Durações e distribuições de consultas locais",
+      "quality": "Qualidade dos dados",
+      "qualityDescription": "NULL, duplicados, formatos e valores atípicos",
+      "slow": "Consultas lentas",
+      "slowDescription": "Impressões digitais de consultas lentas",
+      "snippets": "Biblioteca de snippets",
+      "snippetsDescription": "Pacotes locais de consultas prontas"
+    },
+    "testData": "Gerador de dados de teste"
+  },
+  "control": {
+    "dropdown": {
+      "close": "Fechar menu suspenso",
+      "open": "Abrir menu suspenso"
+    },
+    "select": {
+      "clear": "Limpar seleção",
+      "close": "Fechar lista de seleção",
+      "count": "{count} opções",
+      "empty": "Nenhuma opção correspondente encontrada.",
+      "escape": "Pressione ESC para fechar",
+      "open": "Abrir lista de seleção",
+      "placeholder": "Selecionar uma opção",
+      "search": "Pesquisar opções…"
+    }
+  },
+  "tooltip": {
+    "backup": "Tarefas de backup do mysqldump, pg_dump e SQL Server",
+    "dataIntelligence": "Profiler, consultas lentas, integridade, mascaramento, dados de teste e snippets",
+    "hideDetails": "Ocultar detalhes",
+    "moreInfo": "Mais informações",
+    "operations": "Snapshots, migrações, índices, prepared statements, aprovações e comparação",
+    "showDetails": "Mostrar detalhes"
+  },
+  "sql": {
+    "action": {
+      "clearQuery": "Limpar consulta",
+      "formatQuery": "Formatar consulta",
+      "newQuery": "Nova consulta",
+      "runQuery": "Executar consulta",
+      "selectDraft": "Rascunho SELECT"
+    },
+    "keyword": {
+      "alter": "ALTER",
+      "create": "CREATE",
+      "delete": "DELETE",
+      "drop": "DROP",
+      "insert": "INSERT",
+      "select": "SELECT",
+      "truncate": "TRUNCATE",
+      "update": "UPDATE"
+    },
+    "log": "Log SQL",
+    "parameters": "Parâmetros",
+    "result": {
+      "affectedRows": "Linhas afetadas",
+      "duration": "Tempo de execução",
+      "multi": "Vários resultados",
+      "noResult": "Sem resultados"
+    },
+    "scope": {
+      "server": "Escopo do servidor"
+    },
+    "statement": "Statement"
+  },
+  "approval": {
+    "approved": "Aprovado",
+    "pending": "Pendente",
+    "rejected": "Rejeitado"
+  },
+  "grid": {
+    "columnMapping": "Mapeamento de colunas",
+    "copyRow": "Copiar linha",
+    "copyValue": "Copiar valor",
+    "deleteSelectedRows": "Excluir linhas selecionadas",
+    "editCell": "Editar célula",
+    "exportCsv": "Exportar CSV",
+    "exportJson": "Exportar JSON",
+    "firstPage": "Primeira página",
+    "fitAll": "Ajustar todas as colunas",
+    "followForeignKey": "Seguir chave estrangeira",
+    "lastPage": "Última página",
+    "nextPage": "Próxima página",
+    "pageSize": "Tamanho da página",
+    "previousPage": "Página anterior",
+    "resetWidths": "Redefinir larguras das colunas"
+  },
+  "transfer": {
+    "chooseFile": "Escolher arquivo",
+    "title": "Importar / Exportar"
+  },
+  "users": {
+    "management": "Gerenciamento de usuários"
+  }
+}
