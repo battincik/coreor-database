@@ -83,7 +83,7 @@ export function DatabaseTransactionWorkspaceModal({ open, onClose, serverId, acc
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, transaction, sql, serverId, accountId, databaseName]);
+  });
 
   const columns = useMemo(() => result?.fields?.map(field => field.name) || Object.keys(result?.rows?.[0] || {}), [result]);
   const remainingSeconds = transaction ? Math.max(0, Math.ceil((new Date(transaction.expiresAt).getTime() - now) / 1000)) : 0;
