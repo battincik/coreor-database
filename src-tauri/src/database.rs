@@ -409,6 +409,66 @@ async fn schema_overview(c:&Connection,p:&Map<String,Value>,max:usize)->Result<V
     }))
 }
 
+async fn database_objects(c:&Connection,p:&Map<String,Value>,max:usize)->Result<Value,String>{
+    let db=payload_str(p,"database")?;
+    let limit=max.clamp(2_000,20_000);
+    let mut conn=open_native(c,Some(db)).await?;
+    let mut objects=Vec::new();
+    let mut statements=Vec::new();
+
+    let mut append=|rows:Vec<Value>,kind:&str|{
+        for row in rows {
+            if let Some(mut object)=row.as_object().cloned() {
+                object.insert("kind".into(),json!(kind));
+                objects.push(Value::Object(object));
+            }
+        }
+    };
+
+    if !is_pg(&c.engine)&&!is_mssql(&c.engine){
+        let esc=db.replace("'","''");
+        let table_sql=format!("SELECT TABLE_NAME AS name,TABLE_TYPE AS objectType,TABLE_COMMENT AS comment,CREATE_TIME AS createdAt,UPDATE_TIME AS updatedAt FROM information_schema.TABLES WHERE TABLE_SCHEMA='{}' ORDER BY TABLE_NAME",esc);
+        let routine_sql=format!("SELECT ROUTINE_NAME AS name,ROUTINE_TYPE AS routineType,ROUTINE_DEFINITION AS definition,CREATED AS createdAt,LAST_ALTERED AS updatedAt,ROUTINE_COMMENT AS comment FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA='{}' ORDER BY ROUTINE_TYPE,ROUTINE_NAME",esc);
+        let trigger_sql=format!("SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS tableName,ACTION_STATEMENT AS definition,CREATED AS createdAt FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA='{}' ORDER BY TRIGGER_NAME",esc);
+        let event_sql=format!("SELECT EVENT_NAME AS name,EVENT_DEFINITION AS definition,CREATED AS createdAt,LAST_ALTERED AS updatedAt,EVENT_COMMENT AS comment FROM information_schema.EVENTS WHERE EVENT_SCHEMA='{}' ORDER BY EVENT_NAME",esc);
+        let table_rows=rows_of(&execute_on(&mut conn,&table_sql,limit).await.unwrap_or(json!({"rows":[]})));
+        for row in table_rows {
+            let kind=row.get("objectType").and_then(Value::as_str).map(|value|if value.eq_ignore_ascii_case("VIEW"){"view"}else{"table"}).unwrap_or("table");
+            append(vec![row],kind);
+        }
+        for row in rows_of(&execute_on(&mut conn,&routine_sql,limit).await.unwrap_or(json!({"rows":[]}))) {
+            let kind=row.get("routineType").and_then(Value::as_str).map(|value|if value.eq_ignore_ascii_case("FUNCTION"){"function"}else{"procedure"}).unwrap_or("procedure");
+            append(vec![row],kind);
+        }
+        append(rows_of(&execute_on(&mut conn,&trigger_sql,limit).await.unwrap_or(json!({"rows":[]}))),"trigger");
+        append(rows_of(&execute_on(&mut conn,&event_sql,limit).await.unwrap_or(json!({"rows":[]}))),"event");
+        statements.push(json!({"label":"Object Explorer","sql":format!("information_schema objects • {}",db)}));
+    }else if is_pg(&c.engine){
+        let relation_sql="SELECT c.relname AS name,n.nspname AS schema,NULL::text AS comment,NULL::text AS definition,CASE WHEN c.relkind IN ('v','m') THEN 'view' ELSE 'table' END AS kind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind IN ('r','p','v','m') AND n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_toast%' ORDER BY n.nspname,c.relname";
+        let routine_sql="SELECT routine_name AS name,routine_schema AS schema,routine_definition AS definition,CASE WHEN routine_type='FUNCTION' THEN 'function' ELSE 'procedure' END AS kind FROM information_schema.routines WHERE routine_schema NOT IN ('pg_catalog','information_schema') ORDER BY routine_schema,routine_name";
+        let trigger_sql="SELECT trigger_name AS name,trigger_schema AS schema,event_object_table AS "tableName",action_statement AS definition,'trigger' AS kind FROM information_schema.triggers WHERE trigger_schema NOT IN ('pg_catalog','information_schema') ORDER BY trigger_schema,trigger_name";
+        for sql in [relation_sql,routine_sql,trigger_sql] {
+            for row in rows_of(&execute_on(&mut conn,sql,limit).await.unwrap_or(json!({"rows":[]}))) {
+                if let Some(mut object)=row.as_object().cloned() {
+                    let kind=object.remove("kind").and_then(|value|value.as_str().map(str::to_string)).unwrap_or_else(||"table".into());
+                    object.insert("kind".into(),json!(kind));objects.push(Value::Object(object));
+                }
+            }
+        }
+        statements.push(json!({"label":"Object Explorer","sql":"PostgreSQL catalog objects"}));
+    }else{
+        let sql="SELECT o.name AS name,SCHEMA_NAME(o.schema_id) AS [schema],CASE WHEN o.type='U' THEN 'table' WHEN o.type='V' THEN 'view' WHEN o.type='P' THEN 'procedure' WHEN o.type IN ('FN','IF','TF','FS','FT') THEN 'function' WHEN o.type='TR' THEN 'trigger' ELSE 'table' END AS kind,OBJECT_DEFINITION(o.object_id) AS definition,o.create_date AS createdAt,o.modify_date AS updatedAt,OBJECT_NAME(o.parent_object_id) AS tableName FROM sys.objects o WHERE o.is_ms_shipped=0 AND o.type IN ('U','V','P','FN','IF','TF','FS','FT','TR') ORDER BY kind,SCHEMA_NAME(o.schema_id),o.name";
+        for row in rows_of(&execute_on(&mut conn,sql,limit).await.unwrap_or(json!({"rows":[]}))) {
+            if let Some(mut object)=row.as_object().cloned() {
+                let kind=object.remove("kind").and_then(|value|value.as_str().map(str::to_string)).unwrap_or_else(||"table".into());
+                object.insert("kind".into(),json!(kind));objects.push(Value::Object(object));
+            }
+        }
+        statements.push(json!({"label":"Object Explorer","sql":"sys.objects"}));
+    }
+    Ok(json!({"supported":true,"objects":objects,"_meta":{"statements":statements}}))
+}
+
 async fn table_data(c:&Connection,p:&Map<String,Value>,max_page:usize)->Result<Value,String>{
     let db=payload_str(p,"database")?;let table=payload_str(p,"table")?;let page=p.get("page").and_then(Value::as_u64).unwrap_or(1).max(1);let size=p.get("pageSize").and_then(Value::as_u64).unwrap_or(50).clamp(10,max_page as u64);
     let (where_sql,filters)=build_filters(p,&c.engine)?;let (sort_sql,sorts)=build_sorts(p,&c.engine)?;let qt=qualified(db,table,&c.engine)?;
@@ -614,6 +674,8 @@ pub async fn execute_action(request:DatabaseRequest,max_rows:usize,max_page:usiz
  "catalog"=>catalog(&c,max_rows).await,
  "table-data"=>table_data(&c,&p,max_page).await,
  "table-info"=>table_info(&c,&p,max_rows).await,
+ "schema-overview"=>schema_overview(&c,&p,max_rows).await,
+ "database-objects"=>database_objects(&c,&p,max_rows).await,
  "update-cell"=>update_cell(&c,&p).await,
  "insert-row"=>insert_row(&c,&p).await,
  "delete-rows"=>delete_rows(&c,&p).await,
