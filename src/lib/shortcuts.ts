@@ -1,6 +1,7 @@
 'use client';
 
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { getNativePlatformSnapshot } from '@/lib/platformRuntime';
 
 export type CoreorPlatform = 'mac' | 'windows' | 'linux';
 
@@ -43,11 +44,10 @@ export const SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
 };
 
 export function detectPlatform(): CoreorPlatform {
-  if (typeof navigator === 'undefined') return 'windows';
-  const source = `${navigator.platform || ''} ${navigator.userAgent || ''}`.toLowerCase();
-  if (source.includes('mac') || source.includes('iphone') || source.includes('ipad')) return 'mac';
-  if (source.includes('win')) return 'windows';
-  return 'linux';
+  const platform = getNativePlatformSnapshot().os;
+  if (platform === 'macos') return 'mac';
+  if (platform === 'linux') return 'linux';
+  return 'windows';
 }
 
 export function primaryModifier(event: KeyboardEvent | ReactKeyboardEvent) {
