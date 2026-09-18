@@ -8,8 +8,8 @@ import { Providers } from './providers';
 import { AppPreferenceBridge } from '@/components/app-preference-bridge';
 
 export const metadata: Metadata = {
-  title: 'Coreor.net - Database',
-  description: 'Coreor.net - Database'
+  title: 'Coreor Database',
+  description: 'Native desktop database client powered by Tauri and Rust'
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
