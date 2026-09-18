@@ -1,5 +1,3 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
 /node_modules
 /.pnp
@@ -10,46 +8,36 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
+# build/test output
 /coverage
-
-# next.js
 /.next/
 /out/
-
-# production
 /build
+/src-tauri/target/
 
-# misc
+# OS/editor
 .DS_Store
-*.pem
+Thumbs.db
 
-# debug
+# local application/developer data
+config.json
+*.local.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
-# local desktop configuration
-config.json
-*.local.json
-
-# tauri
-/src-tauri/target/
-
-# vercel
-.vercel
-
-# typescript
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
 
-# environment files are not used by desktop client, never commit them
+# Local DB usage does not require environment files.
+# Never commit account-provider, signing or release secrets.
 .env*
-!.env.example.disabled
-
-# Generated Tauri platform icons (source: src-tauri/icons/app-icon.svg)
-src-tauri/icons/*.png
-src-tauri/icons/*.icns
-src-tauri/icons/*.ico
-!src-tauri/icons/app-icon.svg
