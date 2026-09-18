@@ -247,6 +247,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
 
   const searchAll = searchTypes.has('all');
   const searchTypeEnabled = (type: ObjectSearchType) => searchAll || searchTypes.has(type);
+  const searchObjectKindsEnabled = searchAll || ['table', 'view', 'procedure', 'function', 'trigger', 'event'].some(type => searchTypes.has(type as ObjectSearchType));
   const advancedTypeSelected = !searchAll && ['view', 'procedure', 'function', 'trigger', 'event'].some(type => searchTypes.has(type as ObjectSearchType));
   const objectFilterActive = Boolean(normalizedSearch) || !searchAll;
 
@@ -741,7 +742,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                   <div className="ml-4 border-l border-zinc-800 pl-1.5">
                     {(server.databases || []).map(database => {
                       const databaseKey = `${server.id}:${database.name}`;
-                      const databaseOpen = expandedDatabases.has(databaseKey) || objectFilterActive;
+                      const databaseOpen = expandedDatabases.has(databaseKey) || (objectFilterActive && searchObjectKindsEnabled);
                       const selected = active && selectedDatabase === database.name;
                       return (
                         <div key={database.name}>
