@@ -1,55 +1,80 @@
-# Coreor Database Masaüstü
+# Coreor Database
 
-Coreor Database; Next.js statik arayüz, Tauri 2 ve Rust ile hazırlanmış bağımsız Windows veritabanı istemcisidir.
+Coreor Database; Windows, macOS ve Linux için hazırlanmış, local-first çalışan cross-platform masaüstü veritabanı istemcisidir. Arayüz Next.js static export olarak Tauri içinde render edilir; veritabanı erişimi, config ve uzun süreli işlemler Rust katmanında yürütülür.
 
-## Mimari
+## Çalışma mimarisi
 
 ```text
-Next.js statik UI (WebView)
+Next.js statik renderer
         |
         | Tauri IPC
         v
-Rust native veritabanı katmanı
+Rust masaüstü çekirdeği
         |
-        +-- MySQL / MariaDB / TiDB (sqlx)
-        +-- PostgreSQL / CockroachDB (sqlx)
-        +-- Microsoft SQL Server (Tiberius)
+        +-- native config / platform servisleri
+        +-- transaction state
+        +-- database motorları
+        |
+        +-- MySQL / MariaDB / TiDB
+        +-- PostgreSQL / CockroachDB
+        +-- Microsoft SQL Server
 ```
 
-Web veritabanı backend'i, Next.js API route'u, auth/session servisi ve zorunlu `.env` yoktur.
+Next.js API backend'i, Node.js database driver'ı ve veritabanı erişimi için zorunlu `.env` yoktur. Bağlantı profilleri kurulu uygulamada yerel kalır; veritabanı trafiği doğrudan kullanıcının cihazından çıkar.
 
-Bağlantı profilleri ve uygulama ayarları Tauri uygulama config dizininde yerel olarak tutulur. Veritabanı trafiği doğrudan kullanıcının bilgisayarından çıkar.
+Coreor Account ileride cloud sync veya ekip özellikleri gibi çevrimiçi capability'ler ekleyebilir; oturum açmak yerel veritabanı kullanımı için zorunlu değildir.
 
-## Native özellikler
+## Desteklenen masaüstü platformları
 
-- Bağlantı testi
-- Veritabanı / tablo kataloğu
-- Tablo yapısı, indeksler, foreign key ve schema düzenleme
-- Filtreleme, sıralama ve pagination
-- Hücre güncelleme ve satır silme
-- SQL sorgu çalıştırma
-- Kalıcı transaction oturumları, commit / rollback
-- Process ve lock görüntüleme / sonlandırma
-- Kullanıcı, rol ve yetki yönetimi
-- Import / export
-- Performans snapshotları
-- Read-only profil koruması
-- MySQL, MariaDB, TiDB, PostgreSQL, CockroachDB ve MSSQL
+- Windows 10/11 — NSIS ve MSI
+- macOS 12+ — App ve DMG
+- Linux — DEB ve AppImage
+
+Tauri platform-specific config dosyaları host işletim sistemine uygun bundle hedeflerini otomatik seçer.
 
 ## Geliştirme
 
-```powershell
-npm install
+```bash
+npm ci
 npm run desktop:check
 npm run typecheck
-cargo check --manifest-path src-tauri/Cargo.toml
+cargo check --locked --manifest-path src-tauri/Cargo.toml
 npm run tauri:dev
 ```
 
-## Windows build
+İlk çalıştırmada gerekliyse `src-tauri/icons/app-icon.svg` kaynağından Windows, macOS ve Linux ikonları otomatik üretilir.
 
-```powershell
+## Build
+
+Bulunduğun işletim sistemi için:
+
+```bash
 npm run tauri:build
 ```
 
-Tauri bundle ayarları NSIS ve MSI hedeflerini üretir.
+Açık platform scriptleri:
+
+```bash
+npm run tauri:build:windows
+npm run tauri:build:macos
+npm run tauri:build:linux
+```
+
+Installer her platformun kendi işletim sisteminde üretilmelidir. GitHub Actions Windows, macOS ve Linux buildlerini ayrı ayrı doğrular ve paketler.
+
+## Kaynak kullanımı profili
+
+```bash
+npm run profile
+```
+
+Profiler Windows'ta native PowerShell process-tree ölçümünü, macOS/Linux'ta `ps` tabanlı ölçümü kullanır.
+
+## Temel kurallar
+
+- Local-first veritabanı erişimi
+- Desktop ile DB sunucusu arasında gizli Coreor proxy yok
+- Read-only politikası ve transaction state Rust katmanında
+- Cross-platform kısayollar ve pencere chrome'u
+- İşletim sisteminin native config/data/cache/log dizinleri
+- Opsiyonel hesap capability'leri yerel özellikleri kilitlemez
