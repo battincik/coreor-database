@@ -5,12 +5,15 @@ import {
   AlertTriangle,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Code2,
   Copy,
   Database,
   FileClock,
   History,
   Info,
+  GripHorizontal,
   Loader2,
   LockKeyhole,
   Play,
@@ -54,6 +57,7 @@ interface ResultSet { id: string; sql: string; label: string; result: QueryExecu
 const HISTORY_KEY = 'coreor:query-history:v3';
 const FAVORITES_KEY = 'coreor:query-favorites:v3';
 const MAX_HISTORY = 150;
+const RESULT_HEIGHT_KEY = 'coreor:query-result-height:v1';
 const SQL_KEYWORDS = ['SELECT','DISTINCT','FROM','WHERE','AND','OR','NOT','NULL','JOIN','LEFT JOIN','RIGHT JOIN','ON','GROUP BY','HAVING','ORDER BY','ASC','DESC','LIMIT','OFFSET','TOP','INSERT INTO','VALUES','UPDATE','SET','DELETE FROM','CREATE TABLE','ALTER TABLE','DROP TABLE','TRUNCATE TABLE','CREATE INDEX','UNIQUE','COUNT','SUM','AVG','MIN','MAX','CASE','WHEN','THEN','ELSE','END','AS','IN','BETWEEN','LIKE','EXISTS','UNION','WITH','EXPLAIN','SHOW TABLES','SHOW CREATE TABLE','DESCRIBE','COMMIT','ROLLBACK'];
 
 function createId(prefix = 'query') { return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? `${prefix}-${crypto.randomUUID()}` : `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`; }
@@ -127,6 +131,9 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   const [activeResultId, setActiveResultId] = useState<string | null>(null);
   const [dryRunPending, setDryRunPending] = useState<{ statement: string; preview: QueryExecutionResult; table: string } | null>(null);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(true);
+  const splitRef = useRef<HTMLDivElement | null>(null);
+  const [resultCollapsed, setResultCollapsed] = useState(false);
+  const [resultHeight, setResultHeight] = useState(300);
 
   const selectedServer = useMemo(() => servers.find(server => server.id === tab.serverId) ?? servers[0] ?? null, [servers, tab.serverId]);
   const databases = selectedServer?.databases || [];
@@ -136,7 +143,12 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   const serverOptions = useMemo<SearchSelectOption[]>(() => servers.map(server => ({ value: server.id, label: server.name, description: `${server.host}:${server.port}`, badge: databaseEngineDefinition(server.databaseType).label })), [servers]);
   const databaseOptions = useMemo<SearchSelectOption[]>(() => [{ value: '', label: 'Sunucu geneli' }, ...databases.map(database => ({ value: database.name, label: database.name, description: `${database.tableCount} tablo` }))], [databases]);
 
-  useEffect(() => { setHistory(readStored(HISTORY_KEY)); setFavorites(readStored(FAVORITES_KEY)); }, []);
+  useEffect(() => {
+    setHistory(readStored(HISTORY_KEY));
+    setFavorites(readStored(FAVORITES_KEY));
+    const storedHeight = Number(localStorage.getItem(RESULT_HEIGHT_KEY));
+    if (Number.isFinite(storedHeight) && storedHeight >= 120) setResultHeight(storedHeight);
+  }, []);
   useEffect(() => { setColumnCache({}); }, [selectedServer?.id, tab.databaseName]);
   useEffect(() => {
     if (!preferences.autocomplete || !selectedServer || !tab.databaseName || !accountId || (!suggestionsOpen && !tab.sql.trim())) return;
@@ -275,6 +287,27 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     { id: 'clear', label: 'Editörü temizle', icon: Trash2, onSelect: () => onChange({ sql: '', result: null, error: null }) }
   ]);
 
+  const startResultResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (resultCollapsed || !splitRef.current) return;
+    event.preventDefault();
+    const panel = splitRef.current;
+    const move = (pointerEvent: PointerEvent) => {
+      const rect = panel.getBoundingClientRect();
+      const maxHeight = Math.max(140, rect.height - 160);
+      setResultHeight(Math.min(maxHeight, Math.max(140, rect.bottom - pointerEvent.clientY)));
+    };
+    const stop = (pointerEvent: PointerEvent) => {
+      move(pointerEvent);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', stop);
+      const rect = panel.getBoundingClientRect();
+      const nextHeight = Math.min(Math.max(140, rect.height - 160), Math.max(140, rect.bottom - pointerEvent.clientY));
+      localStorage.setItem(RESULT_HEIGHT_KEY, String(Math.round(nextHeight)));
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop, { once: true });
+  };
+
   return <div className="flex h-full min-h-0 flex-col bg-zinc-950/30">
     <div className="coreor-hide-scrollbar flex min-h-10 shrink-0 items-center gap-1.5 overflow-x-auto border-b border-zinc-800 px-2 py-1">
       <Button size="sm" className="h-7 gap-1.5 text-[11px]" disabled={!selectedServer || !accountId || tab.isRunning || !tab.sql.trim() || Boolean(selectedServer?.readOnly && splitStatements(tab.sql).some(isWriteStatement))} onClick={runQuery}>{tab.isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : selectedServer?.readOnly ? <LockKeyhole className="h-3.5 w-3.5"/> : <Play className="h-3.5 w-3.5"/>}Çalıştır</Button>
@@ -293,13 +326,14 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     {dryRunPending && <div className="flex shrink-0 items-center gap-3 border-b border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-[10px] text-amber-100"><AlertTriangle className="h-4 w-4"/><div className="min-w-0 flex-1"><b>{dryRunPending.preview.rows.length.toLocaleString('tr-TR')} satır</b> etkilenebilir. Kaynak tablo: {dryRunPending.table}</div><Button size="sm" className="h-7" disabled={selectedServer?.readOnly} onClick={() => { const statement = dryRunPending.statement; setDryRunPending(null); void executeStatements([statement]); }}><ShieldCheck className="mr-1 h-3.5 w-3.5"/>Değişikliği uygula</Button><Button variant="ghost" size="sm" onClick={() => setDryRunPending(null)}>İptal</Button></div>}
 
     <div className={`grid min-h-0 flex-1 ${library ? 'grid-cols-[minmax(0,1fr)_300px]' : 'grid-cols-1'}`}>
-      <div className="grid min-h-0 grid-rows-[minmax(160px,.48fr)_minmax(170px,.52fr)]">
-        <div className="relative min-h-0 border-b border-zinc-800"><SqlEditor value={tab.sql} onChange={(sql, position) => { onChange({ sql }); setCursor(position); setSuggestionsOpen(preferences.autocomplete); setSuggestionIndex(0); }} onCursorChange={setCursor} onContextMenu={editorContextMenu} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); runQuery(); } else if (suggestionsOpen && suggestions.length && (event.key === 'Enter' || event.key === 'Tab')) { event.preventDefault(); insertSuggestion(suggestions[suggestionIndex] || suggestions[0]); } else if (suggestionsOpen && event.key === 'ArrowDown') { event.preventDefault(); setSuggestionIndex(value => (value + 1) % suggestions.length); } else if (suggestionsOpen && event.key === 'ArrowUp') { event.preventDefault(); setSuggestionIndex(value => (value - 1 + suggestions.length) % suggestions.length); } else if (event.key === 'Escape') setSuggestionsOpen(false); }}/>
+      <div ref={splitRef} className="flex min-h-0 flex-col">
+        <div className="relative min-h-[160px] flex-1"><SqlEditor value={tab.sql} onChange={(sql, position) => { onChange({ sql }); setCursor(position); setSuggestionsOpen(preferences.autocomplete); setSuggestionIndex(0); }} onCursorChange={setCursor} onContextMenu={editorContextMenu} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); runQuery(); } else if (suggestionsOpen && suggestions.length && (event.key === 'Enter' || event.key === 'Tab')) { event.preventDefault(); insertSuggestion(suggestions[suggestionIndex] || suggestions[0]); } else if (suggestionsOpen && event.key === 'ArrowDown') { event.preventDefault(); setSuggestionIndex(value => (value + 1) % suggestions.length); } else if (suggestionsOpen && event.key === 'ArrowUp') { event.preventDefault(); setSuggestionIndex(value => (value - 1 + suggestions.length) % suggestions.length); } else if (event.key === 'Escape') setSuggestionsOpen(false); }}/>
           {suggestionsOpen && suggestions.length > 0 && <div className="absolute bottom-3 left-3 z-30 max-h-80 w-[500px] overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-950 p-1 shadow-2xl">{suggestions.map((suggestion, index) => <button key={suggestion.id} onMouseDown={event => { event.preventDefault(); insertSuggestion(suggestion); }} className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left ${index === suggestionIndex ? 'bg-cyan-500/15' : 'hover:bg-zinc-900'}`}>{suggestionIcon(suggestion.kind)}<span className="min-w-0 flex-1 truncate font-mono text-[10px]">{suggestion.label}</span><span className="text-[9px] text-zinc-600">{suggestion.detail}</span></button>)}</div>}
         </div>
-        <div className="flex min-h-0 flex-col bg-black/20">
-          <div className="coreor-hide-scrollbar flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-zinc-800 px-2 text-[10px] text-zinc-500"><Terminal className="h-3.5 w-3.5"/>{resultSets.length > 1 ? resultSets.map(item => <button key={item.id} onClick={() => setActiveResultId(item.id)} className={`rounded px-2 py-1 ${activeSet?.id === item.id ? 'bg-cyan-500/10 text-cyan-300' : 'hover:bg-zinc-900'}`}>{item.label}{item.error ? ' • hata' : item.dryRun ? ' • ön izleme' : ''}</button>) : <span>{activeSet?.dryRun ? 'Dry-run sonucu' : 'Sonuç'}</span>}<span className="ml-auto">{activeResult?.rows?.length?.toLocaleString('tr-TR') || 0} satır</span></div>
-          {activeSet?.error || tab.error ? <div className="m-3 rounded border border-red-500/30 bg-red-500/10 p-3 font-mono text-[11px] text-red-300">{activeSet?.error || tab.error}</div> : activeResult?.rows?.length ? <ScrollArea className="min-h-0 flex-1"><div className="min-w-max"><Table size="sm" columnStorageKey={`query-result:${tab.id}:${columns.join('|')}`}><TableHeader><TableRow>{columns.map(column => <TableHead key={column} columnKey={column} className="sticky top-0 z-10 border bg-zinc-950">{column}</TableHead>)}</TableRow></TableHeader><TableBody>{activeResult.rows.map((row, rowIndex) => <TableRow key={rowIndex}>{columns.map(column => <TableCell key={column} className="truncate border font-mono text-[11px]" title={valueText(row[column])}>{valueText(row[column])}</TableCell>)}</TableRow>)}</TableBody></Table></div></ScrollArea> : activeResult ? <div className="flex flex-1 items-center justify-center text-xs text-zinc-500">{typeof activeResult.affectedRows === 'number' ? `${activeResult.affectedRows.toLocaleString('tr-TR')} satır etkilendi.` : 'Sorgu tamamlandı.'}</div> : <div className="flex flex-1 items-center justify-center text-xs text-zinc-600">Sonuçlar burada gösterilir.</div>}
+        <div className="flex min-h-0 shrink-0 flex-col border-t border-zinc-800 bg-black/20" style={{ height: resultCollapsed ? 36 : resultHeight }}>
+          {!resultCollapsed && <div role="separator" aria-orientation="horizontal" aria-label="Sonuç paneli yüksekliğini değiştir" className="group flex h-1.5 shrink-0 cursor-row-resize touch-none items-center justify-center bg-zinc-950 hover:bg-cyan-500/10" onPointerDown={startResultResize}><GripHorizontal className="h-3 w-3 text-zinc-800 transition group-hover:text-cyan-500" /></div>}
+          <div className="coreor-hide-scrollbar flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-zinc-800 px-2 text-[10px] text-zinc-500"><Terminal className="h-3.5 w-3.5"/>{resultSets.length > 1 ? resultSets.map(item => <button key={item.id} onClick={() => setActiveResultId(item.id)} className={`rounded px-2 py-1 ${activeSet?.id === item.id ? 'bg-cyan-500/10 text-cyan-300' : 'hover:bg-zinc-900'}`}>{item.label}{item.error ? ' • hata' : item.dryRun ? ' • ön izleme' : ''}</button>) : <span>{activeSet?.dryRun ? 'Dry-run sonucu' : 'Sonuç'}</span>}<span className="ml-auto shrink-0">{activeResult?.rows?.length?.toLocaleString('tr-TR') || 0} satır</span><button type="button" className="ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" onClick={() => setResultCollapsed(previous => !previous)} title={resultCollapsed ? 'Sonuç panelini aç' : 'Sonuç panelini tamamen daralt'} aria-label={resultCollapsed ? 'Sonuç panelini aç' : 'Sonuç panelini daralt'}>{resultCollapsed ? <ChevronUp className="h-3.5 w-3.5"/> : <ChevronDown className="h-3.5 w-3.5"/>}</button></div>
+          {!resultCollapsed && (activeSet?.error || tab.error ? <div className="m-3 rounded border border-red-500/30 bg-red-500/10 p-3 font-mono text-[11px] text-red-300">{activeSet?.error || tab.error}</div> : activeResult?.rows?.length ? <ScrollArea className="min-h-0 flex-1"><div className="min-w-max"><Table size="sm" columnStorageKey={`query-result:${tab.id}:${columns.join('|')}`}><TableHeader><TableRow>{columns.map(column => <TableHead key={column} columnKey={column} className="sticky top-0 z-10 border bg-zinc-950">{column}</TableHead>)}</TableRow></TableHeader><TableBody>{activeResult.rows.map((row, rowIndex) => <TableRow key={rowIndex}>{columns.map(column => <TableCell key={column} className="truncate border font-mono text-[11px]" title={valueText(row[column])}>{valueText(row[column])}</TableCell>)}</TableRow>)}</TableBody></Table></div></ScrollArea> : activeResult ? <div className="flex flex-1 items-center justify-center text-xs text-zinc-500">{typeof activeResult.affectedRows === 'number' ? `${activeResult.affectedRows.toLocaleString('tr-TR')} satır etkilendi.` : 'Sorgu tamamlandı.'}</div> : <div className="flex flex-1 items-center justify-center text-xs text-zinc-600">Sonuçlar burada gösterilir.</div>)}
         </div>
       </div>
       {library && <aside className="min-h-0 overflow-y-auto border-l border-zinc-800 p-2">{libraryItems.map(item => <button key={item.id} className="mb-1 w-full rounded-xl border border-zinc-800 p-3 text-left" onClick={() => { onChange({ sql: item.sql, databaseName: item.databaseName }); setLibrary(null); }}><div className="truncate text-[10px] font-medium">{item.title}</div><div className="mt-1 line-clamp-2 font-mono text-[8px] text-zinc-600">{item.sql}</div></button>)}</aside>}
