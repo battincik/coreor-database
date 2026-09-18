@@ -90,7 +90,7 @@ function createConnectionPayload(server: DatabaseServerConfig, databaseOverride?
     username: server.username.trim(),
     password: server.password,
     database: databaseOverride === undefined ? server.databaseName?.trim() || undefined : databaseOverride,
-    sslMode: server.sslMode ?? 'required',
+    sslMode: server.sslMode ?? 'preferred',
     connectTimeoutMs: server.connectionTimeoutMs ?? 20_000,
     readOnly: Boolean(server.readOnly)
   };
