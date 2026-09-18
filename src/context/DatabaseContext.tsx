@@ -112,8 +112,8 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       });
       if (!storedServers.length) setDatabases([]);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Şifreli sunucu kasası yüklenemedi.';
-      console.error('Şifreli sunucu kasası yüklenirken bir hata oluştu:', error);
+      const message = error instanceof Error ? error.message : 'Yerel bağlantı profilleri yüklenemedi.';
+      console.error('Yerel bağlantı profilleri yüklenirken bir hata oluştu:', error);
       setServers([]); setActiveServerId(null); setDatabases([]); setServersError(message);
     } finally { setIsServersLoading(false); }
   }, [activeToken, isReady]);
@@ -126,7 +126,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
   useEffect(() => { void loadServers(); }, [loadServers]);
 
   const persistServer = async (server: DatabaseServerConfig, loadInitialCatalog: boolean) => {
-    if (!activeToken) throw new Error('Sunucu kaydetmek için giriş yapmalısınız.');
+    if (!activeToken) throw new Error('Yerel çalışma alanı hazır değil.');
     setIsAddingServer(true);
     try {
       await createDatabaseServer(server, activeToken); setActiveServerId(server.id);
