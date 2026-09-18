@@ -29,6 +29,9 @@ import { desktopDatabaseRequest } from '@/lib/desktopClient';
 
 let profileMutationQueue: Promise<void> = Promise.resolve();
 const inFlightControllers = new Map<string, AbortController>();
+const tableInfoCache = new Map<string, { expiresAt: number; value: TableInfo }>();
+const tableInfoRequests = new Map<string, Promise<TableInfo>>();
+const TABLE_INFO_CACHE_MS = 15_000;
 
 export interface DatabaseServerCatalogItem extends DatabaseServerConfig {
   databases: DatabaseCatalogItem[];
@@ -296,8 +299,20 @@ export async function fetchServerTables(serverId: string, accountId?: string | n
 }
 
 export async function fetchTableInfo(serverId: string, databaseName: string, tableName: string, accountId?: string | null) {
-  const server = await requireServer(accountId, serverId);
-  return requestDatabaseApi<TableInfo>(server, 'table-info', { database: databaseName, table: tableName }, { requestKey: `table-info:${serverId}:${databaseName}:${tableName}`, connectionDatabase: databaseName });
+  const key = `${serverId}:${databaseName}:${tableName}`;
+  const cached = tableInfoCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const pending = tableInfoRequests.get(key);
+  if (pending) return pending;
+
+  const request = (async () => {
+    const server = await requireServer(accountId, serverId);
+    const value = await requestDatabaseApi<TableInfo>(server, 'table-info', { database: databaseName, table: tableName }, { requestKey: `table-info:${key}`, connectionDatabase: databaseName });
+    tableInfoCache.set(key, { expiresAt: Date.now() + TABLE_INFO_CACHE_MS, value });
+    return value;
+  })().finally(() => tableInfoRequests.delete(key));
+  tableInfoRequests.set(key, request);
+  return request;
 }
 
 export async function fetchSchemaOverview(serverId: string, databaseName: string, accountId?: string | null) {
@@ -327,7 +342,9 @@ export async function deleteTableRows(serverId: string, input: TableRowsDeleteIn
 }
 
 export async function mutateTableSchema(serverId: string, input: TableSchemaMutationInput, accountId?: string | null) {
-  return requestDatabaseApi<TableSchemaMutationResponse>(await requireServer(accountId, serverId), 'alter-table', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
+  const result = await requestDatabaseApi<TableSchemaMutationResponse>(await requireServer(accountId, serverId), 'alter-table', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
+  tableInfoCache.delete(`${serverId}:${input.database}:${input.table}`);
+  return result;
 }
 
 export async function executeDatabaseQuery(serverId: string, sql: string, accountId?: string | null, databaseName?: string | null) {
