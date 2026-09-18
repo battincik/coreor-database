@@ -31,6 +31,7 @@ import { TableSchemaEditor } from '@/components/table-schema-editor';
 import { TableDataView } from '@/components/table-data-view';
 import { QueryWorkspace } from '@/components/query-workspace';
 import { useAppContextMenu } from '@/components/app-context-menu';
+import { migrateLegacyWorkspaceCollection, readWorkspaceCollection, writeWorkspaceCollection } from '@/lib/nativeWorkspaceStore';
 import {
   OPEN_QUERY_TAB_EVENT,
   qualifiedSqlName,
@@ -49,27 +50,37 @@ function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function hydrateQueryTabs(): EditorQueryTab[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = window.localStorage.getItem(QUERY_TABS_STORAGE_KEY)
-      || window.sessionStorage.getItem(LEGACY_QUERY_TABS_STORAGE_KEY)
-      || '[]';
-    const parsed = JSON.parse(stored);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.slice(-20).map(item => ({
-      id: String(item.id || createId('query')),
-      title: String(item.title || 'Sorgu'),
-      serverId: typeof item.serverId === 'string' ? item.serverId : null,
-      databaseName: typeof item.databaseName === 'string' ? item.databaseName : null,
-      sql: String(item.sql || ''),
+function normalizeQueryTabs(items: unknown[]): EditorQueryTab[] {
+  return items.slice(-20).flatMap(item => {
+    if (!item || typeof item !== 'object') return [];
+    const value = item as Partial<EditorQueryTab>;
+    const now = new Date().toISOString();
+    return [{
+      id: String(value.id || createId('query')),
+      title: String(value.title || 'Sorgu'),
+      serverId: typeof value.serverId === 'string' ? value.serverId : null,
+      databaseName: typeof value.databaseName === 'string' ? value.databaseName : null,
+      sql: String(value.sql || ''),
       isRunning: false,
-      error: typeof item.error === 'string' ? item.error : null,
-      result: item.result && typeof item.result === 'object' ? item.result : null,
-      createdAt: String(item.createdAt || new Date().toISOString()),
-      updatedAt: String(item.updatedAt || new Date().toISOString())
-    }));
-  } catch { return []; }
+      error: typeof value.error === 'string' ? value.error : null,
+      result: value.result && typeof value.result === 'object' ? value.result : null,
+      createdAt: String(value.createdAt || now),
+      updatedAt: String(value.updatedAt || now)
+    }];
+  });
+}
+
+function serializableQueryTabs(tabs: EditorQueryTab[]) {
+  return tabs.slice(-20).map(tab => ({
+    ...tab,
+    isRunning: false,
+    runImmediately: false,
+    result: tab.result ? {
+      ...tab.result,
+      rows: tab.result.rows.slice(0, 250),
+      maximumRows: tab.result.maximumRows ?? tab.result.rows.length
+    } : null
+  }));
 }
 
 export function DatabasePanel({
@@ -192,41 +203,52 @@ export function DatabasePanel({
   };
 
   useEffect(() => {
-    if (preferences.rememberQueryWorkspace) {
-      const restored = hydrateQueryTabs();
-      setQueryTabs(restored);
-      const storedActiveTab = window.localStorage.getItem(QUERY_ACTIVE_TAB_STORAGE_KEY);
-      if (storedActiveTab && restored.some(tab => `query:${tab.id}` === storedActiveTab)) setActiveTab(storedActiveTab);
-    }
-    queryTabsHydrated.current = true;
+    let cancelled = false;
+
+    void (async () => {
+      if (preferences.rememberQueryWorkspace) {
+        await migrateLegacyWorkspaceCollection<EditorQueryTab>(
+          'query-tabs',
+          'global',
+          QUERY_TABS_STORAGE_KEY,
+          'local',
+          normalizeQueryTabs
+        );
+        await migrateLegacyWorkspaceCollection<EditorQueryTab>(
+          'query-tabs',
+          'global',
+          LEGACY_QUERY_TABS_STORAGE_KEY,
+          'session',
+          normalizeQueryTabs
+        );
+        const restored = normalizeQueryTabs(await readWorkspaceCollection<EditorQueryTab>('query-tabs', 'global'));
+        if (!cancelled) {
+          setQueryTabs(restored);
+          const storedActiveTab = window.localStorage.getItem(QUERY_ACTIVE_TAB_STORAGE_KEY);
+          if (storedActiveTab && restored.some(tab => `query:${tab.id}` === storedActiveTab)) setActiveTab(storedActiveTab);
+        }
+      }
+      if (!cancelled) queryTabsHydrated.current = true;
+    })().catch(error => {
+      console.error('Native query workspace yüklenemedi:', error);
+      if (!cancelled) queryTabsHydrated.current = true;
+    });
+
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
     if (!queryTabsHydrated.current) return;
     if (!preferences.rememberQueryWorkspace) {
+      void writeWorkspaceCollection<EditorQueryTab>('query-tabs', 'global', []);
       window.localStorage.removeItem(QUERY_TABS_STORAGE_KEY);
+      window.sessionStorage.removeItem(LEGACY_QUERY_TABS_STORAGE_KEY);
       window.localStorage.removeItem(QUERY_ACTIVE_TAB_STORAGE_KEY);
       return;
     }
+
     const timer = window.setTimeout(() => {
-      const serializable = queryTabs.map(tab => ({ ...tab, isRunning: false, runImmediately: false }));
-      try {
-        window.localStorage.setItem(QUERY_TABS_STORAGE_KEY, JSON.stringify(serializable));
-      } catch {
-        // Large result sets can exceed WebView localStorage quota. Keep the tab, SQL and
-        // a useful result snapshot instead of silently losing the whole workspace state.
-        try {
-          const compact = serializable.map(tab => ({
-            ...tab,
-            result: tab.result ? {
-              ...tab.result,
-              rows: tab.result.rows.slice(0, 250),
-              maximumRows: tab.result.maximumRows ?? tab.result.rows.length
-            } : null
-          }));
-          window.localStorage.setItem(QUERY_TABS_STORAGE_KEY, JSON.stringify(compact));
-        } catch { /* local persistence must not stop editor */ }
-      }
+      void writeWorkspaceCollection('query-tabs', 'global', serializableQueryTabs(queryTabs));
       try {
         if (activeTab.startsWith('query:')) window.localStorage.setItem(QUERY_ACTIVE_TAB_STORAGE_KEY, activeTab);
         else window.localStorage.removeItem(QUERY_ACTIVE_TAB_STORAGE_KEY);

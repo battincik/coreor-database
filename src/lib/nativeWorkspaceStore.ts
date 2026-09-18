@@ -37,7 +37,8 @@ export async function migrateLegacyWorkspaceCollection<T>(
   collection: SyncableWorkspaceCollection,
   scope: string,
   legacyKey: string,
-  kind: LegacyStorageKind
+  kind: LegacyStorageKind,
+  normalize?: (items: unknown[]) => T[]
 ) {
   if (typeof window === 'undefined') return;
   const storage = kind === 'local' ? window.localStorage : window.sessionStorage;
@@ -46,6 +47,7 @@ export async function migrateLegacyWorkspaceCollection<T>(
   let parsed: unknown;
   try { parsed = JSON.parse(raw); } catch { return; }
   if (!Array.isArray(parsed)) return;
-  await importLegacyWorkspaceCollection<T>(collection, scope, parsed as T[]);
+  const items = normalize ? normalize(parsed) : parsed as T[];
+  await importLegacyWorkspaceCollection<T>(collection, scope, items);
   storage.removeItem(legacyKey);
 }

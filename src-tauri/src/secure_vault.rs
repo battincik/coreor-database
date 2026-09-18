@@ -362,7 +362,7 @@ pub fn migrate_legacy_connections(app: &tauri::AppHandle, legacy_connections: Ve
 
 
 const SYNCABLE_WORKSPACE_COLLECTIONS: &[&str] = &[
-    "query-history", "query-favorites", "sql-notebooks", "activity-log",
+    "query-history", "query-favorites", "query-tabs", "sql-notebooks", "activity-log",
     "snippets", "schema-snapshots", "migration-drafts", "prepared-statements",
     "approval-requests",
 ];

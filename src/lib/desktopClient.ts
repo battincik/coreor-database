@@ -81,7 +81,7 @@ export function readCloudVaultReadiness(): Promise<CloudVaultReadiness> {
 }
 
 export type SyncableWorkspaceCollection =
-  | 'query-history' | 'query-favorites' | 'sql-notebooks' | 'activity-log'
+  | 'query-history' | 'query-favorites' | 'query-tabs' | 'sql-notebooks' | 'activity-log'
   | 'snippets' | 'schema-snapshots' | 'migration-drafts' | 'prepared-statements'
   | 'approval-requests';
 
