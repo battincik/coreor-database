@@ -9,12 +9,28 @@ import {
 
 type LegacyStorageKind = 'local' | 'session';
 
+const writeQueues = new Map<string, Promise<unknown>>();
+
+function queueKey(collection: SyncableWorkspaceCollection, scope: string) {
+  return `${collection}:${scope}`;
+}
+
 export function readWorkspaceCollection<T>(collection: SyncableWorkspaceCollection, scope = 'global') {
   return readNativeCollection<T>(collection, scope);
 }
 
 export function writeWorkspaceCollection<T>(collection: SyncableWorkspaceCollection, scope: string, items: T[]) {
-  return writeNativeCollection<T>(collection, scope, items);
+  const key = queueKey(collection, scope);
+  const previous = writeQueues.get(key) ?? Promise.resolve();
+  const next = previous
+    .catch(() => undefined)
+    .then(() => writeNativeCollection<T>(collection, scope, items));
+
+  writeQueues.set(key, next);
+  void next.finally(() => {
+    if (writeQueues.get(key) === next) writeQueues.delete(key);
+  });
+  return next;
 }
 
 export async function migrateLegacyWorkspaceCollection<T>(

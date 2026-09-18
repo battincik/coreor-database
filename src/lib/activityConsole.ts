@@ -40,6 +40,7 @@ const SENSITIVE_SQL_PATTERN = /\b(?:password|passwd|pwd|secret|token|access[_-]?
 let entries: ActivityEntry[] = [];
 let hydrated = false;
 let hydrationPromise: Promise<void> | null = null;
+let clearGeneration = 0;
 
 function createId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
@@ -76,9 +77,26 @@ function hydrate() {
   if (hydrated || typeof window === 'undefined') return;
   hydrated = true;
 
+  const generationAtStart = clearGeneration;
+  const legacyRaw = window.sessionStorage.getItem(STORAGE_KEY);
+  if (legacyRaw) {
+    try {
+      const parsed = JSON.parse(legacyRaw);
+      if (Array.isArray(parsed)) {
+        entries = parsed
+          .filter(entry => typeof entry?.id === 'string' && typeof entry?.sql === 'string' && entry.sql.trim())
+          .slice(-MAX_ENTRIES) as ActivityEntry[];
+      }
+    } catch {
+      // Bozuk legacy session kaydı native migration'ı engellemez.
+    }
+  }
+
   hydrationPromise = (async () => {
     await migrateLegacyWorkspaceCollection<ActivityEntry>('activity-log', 'global', STORAGE_KEY, 'session');
     const stored = await readWorkspaceCollection<ActivityEntry>('activity-log', 'global');
+    if (generationAtStart !== clearGeneration) return;
+
     const merged = new Map<string, ActivityEntry>();
     for (const entry of [...stored, ...entries]) {
       if (entry && typeof entry.id === 'string' && typeof entry.sql === 'string' && entry.sql.trim()) {
@@ -98,9 +116,8 @@ function hydrate() {
 
 function persist() {
   if (typeof window === 'undefined') return;
-  const snapshot = entries.slice(-MAX_ENTRIES);
   void (hydrationPromise ?? Promise.resolve())
-    .then(() => writeWorkspaceCollection('activity-log', 'global', snapshot))
+    .then(() => writeWorkspaceCollection('activity-log', 'global', entries.slice(-MAX_ENTRIES)))
     .catch(() => undefined);
 }
 
@@ -132,7 +149,9 @@ export function recordActivity(entry: NewActivityEntry) {
 
 export function clearActivities() {
   hydrate();
+  clearGeneration += 1;
   entries = [];
+  if (typeof window !== 'undefined') window.sessionStorage.removeItem(STORAGE_KEY);
   persist();
   notify();
 }
