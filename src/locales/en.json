@@ -1,1 +1,440 @@
-{"meta.nativeName":"English","meta.direction":"ltr","common.search":"Search","common.searchOptions":"Search options","common.select":"Select","common.noResults":"No matching results","common.optionsCount":"{count} options","common.escapeToClose":"Press ESC to close","common.save":"Save","common.cancel":"Cancel","common.create":"Create","common.delete":"Delete","common.edit":"Edit","common.refresh":"Refresh","common.close":"Close","common.confirm":"Confirm","common.yes":"Yes","common.no":"No","common.loading":"Loading…","common.connected":"Connected","common.offline":"Offline","common.ready":"Ready","common.error":"Error","common.warning":"Warning","common.success":"Success","common.copy":"Copy","common.download":"Download","common.reset":"Reset","common.open":"Open","common.run":"Run","common.apply":"Apply","common.add":"Add","common.remove":"Remove","common.all":"All","common.default":"Default","common.enabled":"Enabled","common.disabled":"Disabled","app.settings":"Settings","app.language":"Language","app.account":"Account","app.organizations":"Organizations","app.servers":"Servers","app.appearance":"Appearance","app.accessibility":"Accessibility","app.queryEditor":"Query editor","app.security":"Security","app.advanced":"Advanced","app.whatsNew":"What's new","app.resetPreferences":"Reset preferences","nav.databases":"Databases","nav.tables":"Tables","nav.schema":"Schema","nav.query":"Query","nav.users":"Users","nav.processes":"Processes","nav.performance":"Performance","nav.notebook":"Notebook","nav.backup":"Backup","nav.operations":"Operations","nav.dataIntelligence":"Data intelligence","nav.commandPalette":"Command palette","nav.transaction":"Transaction","nav.importExport":"Import / Export","sidebar.searchPlaceholder":"Search servers, databases and tables","sidebar.noConnections":"No connection profiles","sidebar.newServer":"Add server","sidebar.accountSettings":"Account settings","sidebar.signOut":"Sign out","sidebar.activateServer":"Activate server","sidebar.createDatabase":"Create database","sidebar.serverQuery":"Server-wide query","sidebar.refreshCatalog":"Refresh catalog","sidebar.expandAll":"Expand all","sidebar.collapseAll":"Collapse all","sidebar.editConnection":"Edit connection","query.run":"Run","query.format":"Format","query.history":"History","query.favorites":"Favorites","query.selectServer":"Select server","query.selectDatabase":"Select database","query.serverScope":"Server scope","query.dryRunEnabled":"Dry-run enabled","query.snapshotEnabled":"Snapshot enabled","query.readOnly":"Read-only","query.results":"Results","query.rows":"rows","query.noResults":"No results","query.completed":"Query completed","query.affectedRows":"{count} rows affected","query.safeLimitWarning":"No visible row limit; the API applies a safe maximum.","query.autocomplete":"Autocomplete","query.errorStopped":"The SQL language service stopped the query.","query.dangerousConfirm":"This query may change data or schema.","query.applyChange":"Apply change","server.new":"New database server","server.edit":"Edit database server","server.secureVault":"Encrypted browser vault","server.profileNetwork":"Profile and network","server.authentication":"Authentication","server.engineVersion":"Engine and version","server.securityTimeout":"Security and timeout","server.name":"Server name","server.host":"Host or IP","server.port":"Port","server.defaultDatabase":"Default database","server.username":"Username","server.password":"Password","server.engine":"Database engine","server.version":"Version profile","server.tls":"TLS policy","server.timeout":"Connection timeout","server.readOnlyProfile":"Read-only profile","server.readOnlyDescription":"Blocks write, schema and administrative operations for this connection.","server.testConnection":"Test connection","server.addServer":"Add server","server.updateServer":"Update server","server.connectionReady":"Connection ready","server.connectionFailed":"Connection failed","server.databaseName":"Database name","database.database":"Database","database.table":"Table","database.column":"Column","database.index":"Index","database.foreignKey":"Foreign key","database.view":"View","database.procedure":"Stored procedure","database.function":"Function","database.trigger":"Trigger","database.event":"Event","database.connection":"Connection","database.catalog":"Catalog","database.schema":"Schema","database.data":"Data","database.structure":"Structure","database.rows":"Rows","database.primaryKey":"Primary key","database.nullable":"Nullable","database.dataType":"Data type","database.defaultValue":"Default value","database.collation":"Collation","database.storage":"Storage","database.uptime":"Uptime","database.connections":"Connections","database.bufferPool":"Buffer pool","database.traffic":"Traffic","database.slowQueries":"Slow queries","database.replication":"Replication","settings.language.title":"Language and region","settings.language.description":"Choose the interface language used by database and development tools.","settings.language.select":"Interface language","settings.language.current":"Current language","settings.language.browser":"Browser language","settings.language.localStorage":"Stored locally on this device","settings.language.instant":"Changes apply instantly","settings.language.fallback":"Missing keys fall back to English","settings.language.rtl":"Right-to-left layouts are supported for Arabic","settings.language.coverage":"Translated for software, SQL and database terminology","settings.language.restartNotRequired":"No restart required","settings.language.available":"Available languages","status.connection":"Connection status","status.serverUptime":"Server uptime","status.coreorSession":"Coreor session","status.target":"Active target","status.threadConnections":"Threads and connections","status.bufferPool":"Buffer pool","status.storage":"Logical storage","status.networkTraffic":"Network traffic","status.sqlPerformance":"SQL performance","status.lastQuery":"Last query","notification.languageChanged":"Language changed to {language}.","notification.localOnly":"The language preference and translations stay on this device."}
+{
+  "meta": {
+    "direction": "ltr",
+    "nativeName": "English"
+  },
+  "common": {
+    "add": "Add",
+    "all": "All",
+    "apply": "Apply",
+    "cancel": "Cancel",
+    "close": "Close",
+    "confirm": "Confirm",
+    "connected": "Connected",
+    "copy": "Copy",
+    "create": "Create",
+    "default": "Default",
+    "delete": "Delete",
+    "disabled": "Disabled",
+    "download": "Download",
+    "edit": "Edit",
+    "enabled": "Enabled",
+    "error": "Error",
+    "escapeToClose": "Press ESC to close",
+    "loading": "Loading…",
+    "no": "No",
+    "noResults": "No matching results",
+    "offline": "Offline",
+    "open": "Open",
+    "optionsCount": "{count} options",
+    "ready": "Ready",
+    "refresh": "Refresh",
+    "remove": "Remove",
+    "reset": "Reset",
+    "run": "Run",
+    "save": "Save",
+    "search": "Search",
+    "searchOptions": "Search options",
+    "select": "Select",
+    "success": "Success",
+    "warning": "Warning",
+    "yes": "Yes"
+  },
+  "app": {
+    "accessibility": "Accessibility",
+    "account": "Account",
+    "advanced": "Advanced",
+    "appearance": "Appearance",
+    "language": "Language",
+    "organizations": "Organizations",
+    "queryEditor": "Query editor",
+    "resetPreferences": "Reset preferences",
+    "security": "Security",
+    "servers": "Servers",
+    "settings": "Settings",
+    "whatsNew": "What's new"
+  },
+  "nav": {
+    "backup": "Backup",
+    "commandPalette": "Command palette",
+    "databases": "Databases",
+    "dataIntelligence": "Data intelligence",
+    "importExport": "Import / Export",
+    "notebook": "Notebook",
+    "operations": "Operations",
+    "performance": "Performance",
+    "processes": "Processes",
+    "query": "Query",
+    "schema": "Schema",
+    "tables": "Tables",
+    "transaction": "Transaction",
+    "users": "Users"
+  },
+  "topbar": {
+    "backup": "Backup",
+    "command": "Command",
+    "connect": "Connect",
+    "connectionSearch": "Search server, host or engine…",
+    "connectionSelect": "Select connection",
+    "dataIntelligence": "Data Intelligence",
+    "noConnection": "No connection",
+    "noSavedServer": "No saved servers.",
+    "notebook": "Notebook",
+    "operations": "Operations",
+    "performance": "Performance",
+    "processes": "Processes",
+    "readOnly": "READ ONLY",
+    "refresh": "Refresh",
+    "schema": "Schema",
+    "settings": "Settings",
+    "transaction": "Transaction",
+    "transfer": "Transfer",
+    "users": "Users"
+  },
+  "sidebar": {
+    "accountSettings": "Account settings",
+    "activateServer": "Activate server",
+    "collapseAll": "Collapse all",
+    "createDatabase": "Create database",
+    "editConnection": "Edit connection",
+    "expandAll": "Expand all",
+    "newServer": "Add server",
+    "noConnections": "No connection profiles",
+    "refreshCatalog": "Refresh catalog",
+    "searchPlaceholder": "Search servers, databases and tables",
+    "serverQuery": "Server-wide query",
+    "signOut": "Sign out"
+  },
+  "query": {
+    "affectedRows": "{count} rows affected",
+    "applyChange": "Apply change",
+    "autocomplete": "Autocomplete",
+    "completed": "Query completed",
+    "dangerousConfirm": "This query may change data or schema.",
+    "dryRunEnabled": "Dry-run enabled",
+    "errorStopped": "The SQL language service stopped the query.",
+    "favorites": "Favorites",
+    "format": "Format",
+    "history": "History",
+    "noResults": "No results",
+    "readOnly": "Read-only",
+    "results": "Results",
+    "rows": "rows",
+    "run": "Run",
+    "safeLimitWarning": "No visible row limit; the API applies a safe maximum.",
+    "selectDatabase": "Select database",
+    "selectServer": "Select server",
+    "serverScope": "Server scope",
+    "snapshotEnabled": "Snapshot enabled"
+  },
+  "server": {
+    "addServer": "Add server",
+    "authentication": "Authentication",
+    "connectionFailed": "Connection failed",
+    "connectionReady": "Connection ready",
+    "databaseName": "Database name",
+    "defaultDatabase": "Default database",
+    "edit": "Edit database server",
+    "engine": "Database engine",
+    "engineVersion": "Engine and version",
+    "host": "Host or IP",
+    "name": "Server name",
+    "new": "New database server",
+    "password": "Password",
+    "port": "Port",
+    "profileNetwork": "Profile and network",
+    "readOnlyDescription": "Blocks write, schema and administrative operations for this connection.",
+    "readOnlyProfile": "Read-only profile",
+    "secureVault": "Encrypted browser vault",
+    "securityTimeout": "Security and timeout",
+    "testConnection": "Test connection",
+    "timeout": "Connection timeout",
+    "tls": "TLS policy",
+    "updateServer": "Update server",
+    "username": "Username",
+    "version": "Version profile"
+  },
+  "database": {
+    "bufferPool": "Buffer pool",
+    "catalog": "Catalog",
+    "collation": "Collation",
+    "column": "Column",
+    "connection": "Connection",
+    "connections": "Connections",
+    "data": "Data",
+    "database": "Database",
+    "dataType": "Data type",
+    "defaultValue": "Default value",
+    "event": "Event",
+    "foreignKey": "Foreign key",
+    "function": "Function",
+    "index": "Index",
+    "nullable": "Nullable",
+    "primaryKey": "Primary key",
+    "procedure": "Stored procedure",
+    "replication": "Replication",
+    "rows": "Rows",
+    "schema": "Schema",
+    "slowQueries": "Slow queries",
+    "storage": "Storage",
+    "structure": "Structure",
+    "table": "Table",
+    "traffic": "Traffic",
+    "trigger": "Trigger",
+    "uptime": "Uptime",
+    "view": "View"
+  },
+  "settings": {
+    "language": {
+      "available": "Available languages",
+      "browser": "Browser language",
+      "coverage": "Translated for software, SQL and database terminology",
+      "current": "Current language",
+      "description": "Choose the interface language used by database and development tools.",
+      "fallback": "Missing keys fall back to English",
+      "instant": "Changes apply instantly",
+      "localStorage": "Stored locally on this device",
+      "restartNotRequired": "No restart required",
+      "rtl": "Right-to-left layouts are supported for Arabic",
+      "select": "Interface language",
+      "title": "Language and region"
+    }
+  },
+  "status": {
+    "bufferPool": "Buffer pool",
+    "catalogRefreshed": "Catalog refreshed",
+    "catalogRefreshFailed": "Could not refresh catalog.",
+    "connection": "Connection status",
+    "connectionFailed": "Could not connect.",
+    "connectionReadyVersion": "{version} connection is ready",
+    "coreorSession": "Coreor session",
+    "lastQuery": "Last query",
+    "networkTraffic": "Network traffic",
+    "serverUptime": "Server uptime",
+    "sqlPerformance": "SQL performance",
+    "storage": "Logical storage",
+    "target": "Active target",
+    "threadConnections": "Threads and connections"
+  },
+  "notification": {
+    "languageChanged": "Language changed to {language}.",
+    "localOnly": "The language preference and translations stay on this device."
+  },
+  "process": {
+    "center": "Process center",
+    "killConnection": "Kill connection",
+    "killQuery": "Kill query"
+  },
+  "performance": {
+    "activeConnections": "Active connections",
+    "bufferPoolUsage": "Buffer pool usage",
+    "logicalStorage": "Logical storage",
+    "maxConnections": "Maximum connections",
+    "qps": "QPS",
+    "replicationLag": "Replication lag",
+    "runningThreads": "Running threads",
+    "slowQueries": "Slow queries"
+  },
+  "notebook": {
+    "runAll": "Run all",
+    "title": "SQL Notebook"
+  },
+  "automation": {
+    "action": {
+      "analyzePlan": "Analyze execution plan",
+      "approve": "Approve",
+      "createTask": "Create task",
+      "preview": "Preview",
+      "reject": "Reject",
+      "restoreDefaults": "Restore defaults",
+      "run": "Run",
+      "save": "Save",
+      "saveMigration": "Save migration",
+      "saveSet": "Save set"
+    },
+    "approvals": "Approval workflows",
+    "backups": "Backup jobs",
+    "changedRows": "Changed rows",
+    "compare": "Compare",
+    "dataCompare": "Data comparison",
+    "empty": {
+      "snapshots": "There are no schema snapshots yet."
+    },
+    "error": {
+      "compareFailed": "Data could not be compared.",
+      "maskPreview": "The masking preview could not be generated.",
+      "planFailed": "Could not retrieve the execution plan.",
+      "preparedFailed": "The prepared query could not be executed.",
+      "sessionRequired": "A server and user session are required."
+    },
+    "indexAdvisor": "Index recommendations",
+    "migrations": "Migrations",
+    "onlySource": "Only in source",
+    "onlyTarget": "Only in target",
+    "preparedStatements": "Prepared statements",
+    "shortcut": {
+      "backupCenter": "Backup center",
+      "commandPalette": "Command palette",
+      "formatSql": "Format SQL",
+      "newQuery": "New query tab",
+      "operationsCenter": "Operations center",
+      "refreshCatalog": "Refresh catalog"
+    },
+    "snapshots": "Schema snapshots",
+    "sourceDatabase": "Source database",
+    "sourceServer": "Source server",
+    "sourceTable": "Source table",
+    "status": {
+      "compareDone": "The first 5,000 rows were compared using the primary/unique key.",
+      "maskPreview": "Masking preview generated; source data was not changed.",
+      "planReady": "Execution plan received. Check full scans, high row counts and filesort indicators.",
+      "preparedExecuted": "Parameter set executed."
+    },
+    "tab": {
+      "migration": "Migrations",
+      "prepared": "Prepared statement lab",
+      "shortcuts": "Shortcuts"
+    },
+    "tableHistory": "Table history",
+    "targetDatabase": "Target database",
+    "targetServer": "Target server",
+    "targetTable": "Target table"
+  },
+  "transaction": {
+    "autocommit": "Autocommit",
+    "begin": "Begin transaction",
+    "commit": "Commit",
+    "rollback": "Rollback",
+    "rollbackAndClose": "Rollback and close",
+    "workspace": "Transaction workspace"
+  },
+  "intelligence": {
+    "action": {
+      "analyze5000": "Analyze the first 5,000 rows",
+      "generateData": "Generate data",
+      "generateRules": "Generate rules from table",
+      "maskPreview": "Masked preview",
+      "openEditor": "Open in editor",
+      "readColumns": "Load columns",
+      "refreshLive": "Refresh live metrics",
+      "saveRules": "Save rules"
+    },
+    "alertRules": "Alert rules",
+    "dataQuality": "Data quality",
+    "empty": {
+      "profiles": "There are no SQL records to profile yet."
+    },
+    "healthScore": "Database health score",
+    "masking": "Advanced data masking",
+    "profiler": "Live query profiler",
+    "select": {
+      "database": "Select database",
+      "server": "Select server",
+      "table": "Select table"
+    },
+    "slowQueries": "Slow query center",
+    "snippets": "Query snippets",
+    "tab": {
+      "alertsDescription": "Real-time local notification thresholds",
+      "generator": "Test data",
+      "generatorDescription": "Detailed generator including Snowflake",
+      "health": "Health score",
+      "healthDescription": "Server and operations score",
+      "masking": "Data masking",
+      "maskingDescription": "40+ masking types and preview",
+      "profiler": "Live profiler",
+      "profilerDescription": "Local query durations and distributions",
+      "quality": "Data quality",
+      "qualityDescription": "NULL, duplicates, formats and outliers",
+      "slow": "Slow queries",
+      "slowDescription": "Slow-query fingerprints",
+      "snippets": "Snippet library",
+      "snippetsDescription": "Local ready-to-use query packs"
+    },
+    "testData": "Test data generator"
+  },
+  "control": {
+    "dropdown": {
+      "close": "Close dropdown",
+      "open": "Open dropdown"
+    },
+    "select": {
+      "clear": "Clear selection",
+      "close": "Close selection list",
+      "count": "{count} options",
+      "empty": "No matching options found.",
+      "escape": "Press ESC to close",
+      "open": "Open selection list",
+      "placeholder": "Select an option",
+      "search": "Search options…"
+    }
+  },
+  "tooltip": {
+    "backup": "mysqldump, pg_dump and SQL Server backup jobs",
+    "dataIntelligence": "Profiler, slow queries, health, masking, test data and snippets",
+    "hideDetails": "Hide details",
+    "moreInfo": "More information",
+    "operations": "Snapshots, migrations, indexes, prepared statements, approvals and comparison",
+    "showDetails": "Show details"
+  },
+  "sql": {
+    "action": {
+      "clearQuery": "Clear query",
+      "formatQuery": "Format query",
+      "newQuery": "New query",
+      "runQuery": "Run query",
+      "selectDraft": "SELECT draft"
+    },
+    "keyword": {
+      "alter": "ALTER",
+      "create": "CREATE",
+      "delete": "DELETE",
+      "drop": "DROP",
+      "insert": "INSERT",
+      "select": "SELECT",
+      "truncate": "TRUNCATE",
+      "update": "UPDATE"
+    },
+    "log": "SQL log",
+    "parameters": "Parameters",
+    "result": {
+      "affectedRows": "Affected rows",
+      "duration": "Execution time",
+      "multi": "Multiple results",
+      "noResult": "No results"
+    },
+    "scope": {
+      "server": "Server scope"
+    },
+    "statement": "Statement"
+  },
+  "approval": {
+    "approved": "Approved",
+    "pending": "Pending",
+    "rejected": "Rejected"
+  },
+  "grid": {
+    "columnMapping": "Column mapping",
+    "copyRow": "Copy row",
+    "copyValue": "Copy value",
+    "deleteSelectedRows": "Delete selected rows",
+    "editCell": "Edit cell",
+    "exportCsv": "Export CSV",
+    "exportJson": "Export JSON",
+    "firstPage": "First page",
+    "fitAll": "Fit all columns",
+    "followForeignKey": "Follow foreign key",
+    "lastPage": "Last page",
+    "nextPage": "Next page",
+    "pageSize": "Page size",
+    "previousPage": "Previous page",
+    "resetWidths": "Reset column widths"
+  },
+  "transfer": {
+    "chooseFile": "Choose file",
+    "title": "Import / Export"
+  },
+  "users": {
+    "management": "User management"
+  }
+}

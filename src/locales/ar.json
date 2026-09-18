@@ -1,1 +1,440 @@
-{"meta.nativeName":"العربية","meta.direction":"rtl","common.search":"بحث","common.searchOptions":"البحث في الخيارات","common.select":"اختيار","common.noResults":"لا توجد نتائج مطابقة","common.optionsCount":"{count} خيار","common.escapeToClose":"اضغط ESC للإغلاق","common.save":"حفظ","common.cancel":"إلغاء","common.create":"إنشاء","common.delete":"حذف","common.edit":"تعديل","common.refresh":"تحديث","common.close":"إغلاق","common.confirm":"تأكيد","common.yes":"نعم","common.no":"لا","common.loading":"جارٍ التحميل…","common.connected":"متصل","common.offline":"غير متصل","common.ready":"جاهز","common.error":"خطأ","common.warning":"تحذير","common.success":"نجاح","common.copy":"نسخ","common.download":"تنزيل","common.reset":"إعادة ضبط","common.open":"فتح","common.run":"تشغيل","common.apply":"تطبيق","common.add":"إضافة","common.remove":"إزالة","common.all":"الكل","common.default":"افتراضي","common.enabled":"مفعّل","common.disabled":"معطّل","app.settings":"الإعدادات","app.language":"اللغة","app.account":"الحساب","app.organizations":"المؤسسات","app.servers":"الخوادم","app.appearance":"المظهر","app.accessibility":"إمكانية الوصول","app.queryEditor":"محرر الاستعلامات","app.security":"الأمان","app.advanced":"متقدم","app.whatsNew":"ما الجديد","app.resetPreferences":"إعادة ضبط التفضيلات","nav.databases":"قواعد البيانات","nav.tables":"الجداول","nav.schema":"المخطط","nav.query":"استعلام","nav.users":"المستخدمون","nav.processes":"العمليات","nav.performance":"الأداء","nav.notebook":"دفتر الملاحظات","nav.backup":"النسخ الاحتياطي","nav.operations":"العمليات","nav.dataIntelligence":"ذكاء البيانات","nav.commandPalette":"لوحة الأوامر","nav.transaction":"المعاملة","nav.importExport":"استيراد / تصدير","sidebar.searchPlaceholder":"البحث في الخوادم وقواعد البيانات والجداول","sidebar.noConnections":"لا توجد ملفات اتصال","sidebar.newServer":"إضافة خادم","sidebar.accountSettings":"إعدادات الحساب","sidebar.signOut":"تسجيل الخروج","sidebar.activateServer":"تفعيل الخادم","sidebar.createDatabase":"إنشاء قاعدة بيانات","sidebar.serverQuery":"استعلام على مستوى الخادم","sidebar.refreshCatalog":"تحديث الكتالوج","sidebar.expandAll":"توسيع الكل","sidebar.collapseAll":"طي الكل","sidebar.editConnection":"تعديل الاتصال","query.run":"تشغيل","query.format":"تنسيق","query.history":"السجل","query.favorites":"المفضلة","query.selectServer":"اختر الخادم","query.selectDatabase":"اختر قاعدة البيانات","query.serverScope":"نطاق الخادم","query.dryRunEnabled":"Dry-run مفعّل","query.snapshotEnabled":"Snapshot مفعّل","query.readOnly":"للقراءة فقط","query.results":"النتائج","query.rows":"صفوف","query.noResults":"لا توجد نتائج","query.completed":"اكتمل الاستعلام","query.affectedRows":"تأثر {count} صفًا","query.safeLimitWarning":"لا يوجد حد صفوف ظاهر؛ تطبق الواجهة حدًا آمنًا.","query.autocomplete":"الإكمال التلقائي","query.errorStopped":"أوقفت خدمة لغة SQL الاستعلام.","query.dangerousConfirm":"قد يغير هذا الاستعلام البيانات أو المخطط.","query.applyChange":"تطبيق التغيير","server.new":"خادم قاعدة بيانات جديد","server.edit":"تعديل خادم قاعدة البيانات","server.secureVault":"خزنة متصفح مشفرة","server.profileNetwork":"الملف الشخصي والشبكة","server.authentication":"المصادقة","server.engineVersion":"المحرك والإصدار","server.securityTimeout":"الأمان والمهلة","server.name":"اسم الخادم","server.host":"المضيف أو IP","server.port":"المنفذ","server.defaultDatabase":"قاعدة البيانات الافتراضية","server.username":"اسم المستخدم","server.password":"كلمة المرور","server.engine":"محرك قاعدة البيانات","server.version":"ملف الإصدار","server.tls":"سياسة TLS","server.timeout":"مهلة الاتصال","server.readOnlyProfile":"ملف للقراءة فقط","server.readOnlyDescription":"يمنع عمليات الكتابة والمخطط والإدارة لهذا الاتصال.","server.testConnection":"اختبار الاتصال","server.addServer":"إضافة الخادم","server.updateServer":"تحديث الخادم","server.connectionReady":"الاتصال جاهز","server.connectionFailed":"فشل الاتصال","server.databaseName":"اسم قاعدة البيانات","database.database":"قاعدة بيانات","database.table":"جدول","database.column":"عمود","database.index":"فهرس","database.foreignKey":"مفتاح أجنبي","database.view":"عرض","database.procedure":"إجراء مخزن","database.function":"دالة","database.trigger":"مشغّل","database.event":"حدث","database.connection":"اتصال","database.catalog":"كتالوج","database.schema":"مخطط","database.data":"بيانات","database.structure":"بنية","database.rows":"صفوف","database.primaryKey":"مفتاح أساسي","database.nullable":"يسمح بـ NULL","database.dataType":"نوع البيانات","database.defaultValue":"القيمة الافتراضية","database.collation":"الترتيب","database.storage":"التخزين","database.uptime":"مدة التشغيل","database.connections":"الاتصالات","database.bufferPool":"Buffer pool","database.traffic":"حركة المرور","database.slowQueries":"الاستعلامات البطيئة","database.replication":"النسخ المتماثل","settings.language.title":"اللغة والمنطقة","settings.language.description":"اختر لغة الواجهة المستخدمة في أدوات قواعد البيانات والتطوير.","settings.language.select":"لغة الواجهة","settings.language.current":"اللغة الحالية","settings.language.browser":"لغة المتصفح","settings.language.localStorage":"تُحفظ محليًا على هذا الجهاز","settings.language.instant":"تُطبق التغييرات فورًا","settings.language.fallback":"تعود المفاتيح المفقودة إلى الإنجليزية","settings.language.rtl":"يتم دعم التخطيط من اليمين إلى اليسار للعربية","settings.language.coverage":"ترجمة مناسبة لمصطلحات البرمجيات وSQL وقواعد البيانات","settings.language.restartNotRequired":"لا حاجة لإعادة التشغيل","settings.language.available":"اللغات المتاحة","status.connection":"حالة الاتصال","status.serverUptime":"مدة تشغيل الخادم","status.coreorSession":"جلسة Coreor","status.target":"الهدف النشط","status.threadConnections":"الخيوط والاتصالات","status.bufferPool":"Buffer pool","status.storage":"التخزين المنطقي","status.networkTraffic":"حركة الشبكة","status.sqlPerformance":"أداء SQL","status.lastQuery":"آخر استعلام","notification.languageChanged":"تم تغيير اللغة إلى {language}.","notification.localOnly":"يبقى تفضيل اللغة والترجمات على هذا الجهاز."}
+{
+  "meta": {
+    "direction": "rtl",
+    "nativeName": "العربية"
+  },
+  "common": {
+    "add": "إضافة",
+    "all": "الكل",
+    "apply": "تطبيق",
+    "cancel": "إلغاء",
+    "close": "إغلاق",
+    "confirm": "تأكيد",
+    "connected": "متصل",
+    "copy": "نسخ",
+    "create": "إنشاء",
+    "default": "افتراضي",
+    "delete": "حذف",
+    "disabled": "معطّل",
+    "download": "تنزيل",
+    "edit": "تعديل",
+    "enabled": "مفعّل",
+    "error": "خطأ",
+    "escapeToClose": "اضغط ESC للإغلاق",
+    "loading": "جارٍ التحميل…",
+    "no": "لا",
+    "noResults": "لا توجد نتائج مطابقة",
+    "offline": "غير متصل",
+    "open": "فتح",
+    "optionsCount": "{count} خيار",
+    "ready": "جاهز",
+    "refresh": "تحديث",
+    "remove": "إزالة",
+    "reset": "إعادة ضبط",
+    "run": "تشغيل",
+    "save": "حفظ",
+    "search": "بحث",
+    "searchOptions": "البحث في الخيارات",
+    "select": "اختيار",
+    "success": "نجاح",
+    "warning": "تحذير",
+    "yes": "نعم"
+  },
+  "app": {
+    "accessibility": "إمكانية الوصول",
+    "account": "الحساب",
+    "advanced": "متقدم",
+    "appearance": "المظهر",
+    "language": "اللغة",
+    "organizations": "المؤسسات",
+    "queryEditor": "محرر الاستعلامات",
+    "resetPreferences": "إعادة ضبط التفضيلات",
+    "security": "الأمان",
+    "servers": "الخوادم",
+    "settings": "الإعدادات",
+    "whatsNew": "ما الجديد"
+  },
+  "nav": {
+    "backup": "النسخ الاحتياطي",
+    "commandPalette": "لوحة الأوامر",
+    "databases": "قواعد البيانات",
+    "dataIntelligence": "ذكاء البيانات",
+    "importExport": "استيراد / تصدير",
+    "notebook": "دفتر الملاحظات",
+    "operations": "العمليات",
+    "performance": "الأداء",
+    "processes": "العمليات",
+    "query": "استعلام",
+    "schema": "المخطط",
+    "tables": "الجداول",
+    "transaction": "المعاملة",
+    "users": "المستخدمون"
+  },
+  "topbar": {
+    "backup": "نسخ احتياطي",
+    "command": "أمر",
+    "connect": "اتصال",
+    "connectionSearch": "ابحث عن خادم أو مضيف أو محرك…",
+    "connectionSelect": "اختر اتصالًا",
+    "dataIntelligence": "ذكاء البيانات",
+    "noConnection": "لا يوجد اتصال",
+    "noSavedServer": "لا توجد خوادم محفوظة.",
+    "notebook": "دفتر الملاحظات",
+    "operations": "العمليات",
+    "performance": "الأداء",
+    "processes": "العمليات الجارية",
+    "readOnly": "للقراءة فقط",
+    "refresh": "تحديث",
+    "schema": "المخطط",
+    "settings": "الإعدادات",
+    "transaction": "معاملة",
+    "transfer": "نقل",
+    "users": "المستخدمون"
+  },
+  "sidebar": {
+    "accountSettings": "إعدادات الحساب",
+    "activateServer": "تفعيل الخادم",
+    "collapseAll": "طي الكل",
+    "createDatabase": "إنشاء قاعدة بيانات",
+    "editConnection": "تعديل الاتصال",
+    "expandAll": "توسيع الكل",
+    "newServer": "إضافة خادم",
+    "noConnections": "لا توجد ملفات اتصال",
+    "refreshCatalog": "تحديث الكتالوج",
+    "searchPlaceholder": "البحث في الخوادم وقواعد البيانات والجداول",
+    "serverQuery": "استعلام على مستوى الخادم",
+    "signOut": "تسجيل الخروج"
+  },
+  "query": {
+    "affectedRows": "تأثر {count} صفًا",
+    "applyChange": "تطبيق التغيير",
+    "autocomplete": "الإكمال التلقائي",
+    "completed": "اكتمل الاستعلام",
+    "dangerousConfirm": "قد يغير هذا الاستعلام البيانات أو المخطط.",
+    "dryRunEnabled": "Dry-run مفعّل",
+    "errorStopped": "أوقفت خدمة لغة SQL الاستعلام.",
+    "favorites": "المفضلة",
+    "format": "تنسيق",
+    "history": "السجل",
+    "noResults": "لا توجد نتائج",
+    "readOnly": "للقراءة فقط",
+    "results": "النتائج",
+    "rows": "صفوف",
+    "run": "تشغيل",
+    "safeLimitWarning": "لا يوجد حد صفوف ظاهر؛ تطبق الواجهة حدًا آمنًا.",
+    "selectDatabase": "اختر قاعدة البيانات",
+    "selectServer": "اختر الخادم",
+    "serverScope": "نطاق الخادم",
+    "snapshotEnabled": "Snapshot مفعّل"
+  },
+  "server": {
+    "addServer": "إضافة الخادم",
+    "authentication": "المصادقة",
+    "connectionFailed": "فشل الاتصال",
+    "connectionReady": "الاتصال جاهز",
+    "databaseName": "اسم قاعدة البيانات",
+    "defaultDatabase": "قاعدة البيانات الافتراضية",
+    "edit": "تعديل خادم قاعدة البيانات",
+    "engine": "محرك قاعدة البيانات",
+    "engineVersion": "المحرك والإصدار",
+    "host": "المضيف أو IP",
+    "name": "اسم الخادم",
+    "new": "خادم قاعدة بيانات جديد",
+    "password": "كلمة المرور",
+    "port": "المنفذ",
+    "profileNetwork": "الملف الشخصي والشبكة",
+    "readOnlyDescription": "يمنع عمليات الكتابة والمخطط والإدارة لهذا الاتصال.",
+    "readOnlyProfile": "ملف للقراءة فقط",
+    "secureVault": "خزنة متصفح مشفرة",
+    "securityTimeout": "الأمان والمهلة",
+    "testConnection": "اختبار الاتصال",
+    "timeout": "مهلة الاتصال",
+    "tls": "سياسة TLS",
+    "updateServer": "تحديث الخادم",
+    "username": "اسم المستخدم",
+    "version": "ملف الإصدار"
+  },
+  "database": {
+    "bufferPool": "Buffer pool",
+    "catalog": "كتالوج",
+    "collation": "الترتيب",
+    "column": "عمود",
+    "connection": "اتصال",
+    "connections": "الاتصالات",
+    "data": "بيانات",
+    "database": "قاعدة بيانات",
+    "dataType": "نوع البيانات",
+    "defaultValue": "القيمة الافتراضية",
+    "event": "حدث",
+    "foreignKey": "مفتاح أجنبي",
+    "function": "دالة",
+    "index": "فهرس",
+    "nullable": "يسمح بـ NULL",
+    "primaryKey": "مفتاح أساسي",
+    "procedure": "إجراء مخزن",
+    "replication": "النسخ المتماثل",
+    "rows": "صفوف",
+    "schema": "مخطط",
+    "slowQueries": "الاستعلامات البطيئة",
+    "storage": "التخزين",
+    "structure": "بنية",
+    "table": "جدول",
+    "traffic": "حركة المرور",
+    "trigger": "مشغّل",
+    "uptime": "مدة التشغيل",
+    "view": "عرض"
+  },
+  "settings": {
+    "language": {
+      "available": "اللغات المتاحة",
+      "browser": "لغة المتصفح",
+      "coverage": "ترجمة مناسبة لمصطلحات البرمجيات وSQL وقواعد البيانات",
+      "current": "اللغة الحالية",
+      "description": "اختر لغة الواجهة المستخدمة في أدوات قواعد البيانات والتطوير.",
+      "fallback": "تعود المفاتيح المفقودة إلى الإنجليزية",
+      "instant": "تُطبق التغييرات فورًا",
+      "localStorage": "تُحفظ محليًا على هذا الجهاز",
+      "restartNotRequired": "لا حاجة لإعادة التشغيل",
+      "rtl": "يتم دعم التخطيط من اليمين إلى اليسار للعربية",
+      "select": "لغة الواجهة",
+      "title": "اللغة والمنطقة"
+    }
+  },
+  "status": {
+    "bufferPool": "Buffer pool",
+    "catalogRefreshed": "تم تحديث الكتالوج",
+    "catalogRefreshFailed": "تعذر تحديث الكتالوج.",
+    "connection": "حالة الاتصال",
+    "connectionFailed": "تعذر الاتصال.",
+    "connectionReadyVersion": "اتصال {version} جاهز",
+    "coreorSession": "جلسة Coreor",
+    "lastQuery": "آخر استعلام",
+    "networkTraffic": "حركة الشبكة",
+    "serverUptime": "مدة تشغيل الخادم",
+    "sqlPerformance": "أداء SQL",
+    "storage": "التخزين المنطقي",
+    "target": "الهدف النشط",
+    "threadConnections": "الخيوط والاتصالات"
+  },
+  "notification": {
+    "languageChanged": "تم تغيير اللغة إلى {language}.",
+    "localOnly": "يبقى تفضيل اللغة والترجمات على هذا الجهاز."
+  },
+  "process": {
+    "center": "مركز العمليات",
+    "killConnection": "إنهاء الاتصال",
+    "killQuery": "إنهاء الاستعلام"
+  },
+  "performance": {
+    "activeConnections": "الاتصالات النشطة",
+    "bufferPoolUsage": "استخدام Buffer pool",
+    "logicalStorage": "التخزين المنطقي",
+    "maxConnections": "الحد الأقصى للاتصالات",
+    "qps": "QPS",
+    "replicationLag": "تأخر النسخ المتماثل",
+    "runningThreads": "الخيوط قيد التشغيل",
+    "slowQueries": "الاستعلامات البطيئة"
+  },
+  "notebook": {
+    "runAll": "تشغيل الكل",
+    "title": "دفتر SQL"
+  },
+  "automation": {
+    "action": {
+      "analyzePlan": "تحليل خطة التنفيذ",
+      "approve": "موافقة",
+      "createTask": "إنشاء مهمة",
+      "preview": "معاينة",
+      "reject": "رفض",
+      "restoreDefaults": "استعادة الإعدادات الافتراضية",
+      "run": "تشغيل",
+      "save": "حفظ",
+      "saveMigration": "حفظ الترحيل",
+      "saveSet": "حفظ المجموعة"
+    },
+    "approvals": "مسارات الموافقة",
+    "backups": "مهام النسخ الاحتياطي",
+    "changedRows": "الصفوف المتغيرة",
+    "compare": "مقارنة",
+    "dataCompare": "مقارنة البيانات",
+    "empty": {
+      "snapshots": "لا توجد لقطات للمخطط بعد."
+    },
+    "error": {
+      "compareFailed": "تعذرت مقارنة البيانات.",
+      "maskPreview": "تعذر إنشاء معاينة الإخفاء.",
+      "planFailed": "تعذر الحصول على خطة التنفيذ.",
+      "preparedFailed": "تعذر تنفيذ الاستعلام المحضّر.",
+      "sessionRequired": "يلزم خادم وجلسة مستخدم."
+    },
+    "indexAdvisor": "توصيات الفهارس",
+    "migrations": "الترحيلات",
+    "onlySource": "في المصدر فقط",
+    "onlyTarget": "في الهدف فقط",
+    "preparedStatements": "العبارات المحضّرة",
+    "shortcut": {
+      "backupCenter": "مركز النسخ الاحتياطي",
+      "commandPalette": "لوحة الأوامر",
+      "formatSql": "تنسيق SQL",
+      "newQuery": "علامة تبويب استعلام جديدة",
+      "operationsCenter": "مركز العمليات",
+      "refreshCatalog": "تحديث الكتالوج"
+    },
+    "snapshots": "لقطات المخطط",
+    "sourceDatabase": "قاعدة البيانات المصدر",
+    "sourceServer": "الخادم المصدر",
+    "sourceTable": "الجدول المصدر",
+    "status": {
+      "compareDone": "تمت مقارنة أول 5,000 صف باستخدام المفتاح الأساسي/الفريد.",
+      "maskPreview": "تم إنشاء معاينة الإخفاء؛ لم تتغير بيانات المصدر.",
+      "planReady": "تم الحصول على خطة التنفيذ. تحقق من المسح الكامل وعدد الصفوف المرتفع ومؤشرات filesort.",
+      "preparedExecuted": "تم تنفيذ مجموعة المعاملات."
+    },
+    "tab": {
+      "migration": "الترحيلات",
+      "prepared": "مختبر العبارات المحضّرة",
+      "shortcuts": "الاختصارات"
+    },
+    "tableHistory": "سجل الجدول",
+    "targetDatabase": "قاعدة البيانات الهدف",
+    "targetServer": "الخادم الهدف",
+    "targetTable": "الجدول الهدف"
+  },
+  "transaction": {
+    "autocommit": "Autocommit",
+    "begin": "بدء معاملة",
+    "commit": "Commit",
+    "rollback": "Rollback",
+    "rollbackAndClose": "Rollback وإغلاق",
+    "workspace": "مساحة عمل المعاملات"
+  },
+  "intelligence": {
+    "action": {
+      "analyze5000": "تحليل أول 5,000 صف",
+      "generateData": "إنشاء البيانات",
+      "generateRules": "إنشاء القواعد من الجدول",
+      "maskPreview": "معاينة مخفية",
+      "openEditor": "فتح في المحرر",
+      "readColumns": "تحميل الأعمدة",
+      "refreshLive": "تحديث المقاييس المباشرة",
+      "saveRules": "حفظ القواعد"
+    },
+    "alertRules": "قواعد التنبيه",
+    "dataQuality": "جودة البيانات",
+    "empty": {
+      "profiles": "لا توجد سجلات SQL لتحليلها بعد."
+    },
+    "healthScore": "درجة صحة قاعدة البيانات",
+    "masking": "إخفاء البيانات المتقدم",
+    "profiler": "محلل الاستعلامات المباشر",
+    "select": {
+      "database": "اختر قاعدة البيانات",
+      "server": "اختر الخادم",
+      "table": "اختر الجدول"
+    },
+    "slowQueries": "مركز الاستعلامات البطيئة",
+    "snippets": "مقتطفات الاستعلام",
+    "tab": {
+      "alertsDescription": "حدود الإشعارات المحلية الفورية",
+      "generator": "بيانات الاختبار",
+      "generatorDescription": "مولد تفصيلي يتضمن Snowflake",
+      "health": "درجة الصحة",
+      "healthDescription": "درجة الخادم والعمليات",
+      "masking": "إخفاء البيانات",
+      "maskingDescription": "أكثر من 40 نوعًا للإخفاء مع المعاينة",
+      "profiler": "المحلل المباشر",
+      "profilerDescription": "مدد الاستعلامات المحلية وتوزيعاتها",
+      "quality": "جودة البيانات",
+      "qualityDescription": "NULL والتكرارات والتنسيقات والقيم الشاذة",
+      "slow": "الاستعلامات البطيئة",
+      "slowDescription": "بصمات الاستعلامات البطيئة",
+      "snippets": "مكتبة المقتطفات",
+      "snippetsDescription": "حزم استعلامات محلية جاهزة للاستخدام"
+    },
+    "testData": "مولد بيانات الاختبار"
+  },
+  "control": {
+    "dropdown": {
+      "close": "إغلاق القائمة المنسدلة",
+      "open": "فتح القائمة المنسدلة"
+    },
+    "select": {
+      "clear": "مسح التحديد",
+      "close": "إغلاق قائمة الاختيار",
+      "count": "{count} خيار",
+      "empty": "لم يتم العثور على خيارات مطابقة.",
+      "escape": "اضغط ESC للإغلاق",
+      "open": "فتح قائمة الاختيار",
+      "placeholder": "اختر خيارًا",
+      "search": "ابحث في الخيارات…"
+    }
+  },
+  "tooltip": {
+    "backup": "مهام النسخ الاحتياطي عبر mysqldump وpg_dump وSQL Server",
+    "dataIntelligence": "المحلل، والاستعلامات البطيئة، والصحة، والإخفاء، وبيانات الاختبار، والمقتطفات",
+    "hideDetails": "إخفاء التفاصيل",
+    "moreInfo": "مزيد من المعلومات",
+    "operations": "اللقطات، والترحيلات، والفهارس، والعبارات المحضّرة، والموافقات، والمقارنة",
+    "showDetails": "إظهار التفاصيل"
+  },
+  "sql": {
+    "action": {
+      "clearQuery": "مسح الاستعلام",
+      "formatQuery": "تنسيق الاستعلام",
+      "newQuery": "استعلام جديد",
+      "runQuery": "تشغيل الاستعلام",
+      "selectDraft": "مسودة SELECT"
+    },
+    "keyword": {
+      "alter": "ALTER",
+      "create": "CREATE",
+      "delete": "DELETE",
+      "drop": "DROP",
+      "insert": "INSERT",
+      "select": "SELECT",
+      "truncate": "TRUNCATE",
+      "update": "UPDATE"
+    },
+    "log": "سجل SQL",
+    "parameters": "المعاملات",
+    "result": {
+      "affectedRows": "الصفوف المتأثرة",
+      "duration": "وقت التنفيذ",
+      "multi": "نتائج متعددة",
+      "noResult": "لا توجد نتائج"
+    },
+    "scope": {
+      "server": "نطاق الخادم"
+    },
+    "statement": "العبارة"
+  },
+  "approval": {
+    "approved": "مقبول",
+    "pending": "قيد الانتظار",
+    "rejected": "مرفوض"
+  },
+  "grid": {
+    "columnMapping": "ربط الأعمدة",
+    "copyRow": "نسخ الصف",
+    "copyValue": "نسخ القيمة",
+    "deleteSelectedRows": "حذف الصفوف المحددة",
+    "editCell": "تعديل الخلية",
+    "exportCsv": "تصدير CSV",
+    "exportJson": "تصدير JSON",
+    "firstPage": "الصفحة الأولى",
+    "fitAll": "ملاءمة جميع الأعمدة",
+    "followForeignKey": "تتبع المفتاح الأجنبي",
+    "lastPage": "الصفحة الأخيرة",
+    "nextPage": "الصفحة التالية",
+    "pageSize": "حجم الصفحة",
+    "previousPage": "الصفحة السابقة",
+    "resetWidths": "إعادة ضبط عرض الأعمدة"
+  },
+  "transfer": {
+    "chooseFile": "اختيار ملف",
+    "title": "استيراد / تصدير"
+  },
+  "users": {
+    "management": "إدارة المستخدمين"
+  }
+}

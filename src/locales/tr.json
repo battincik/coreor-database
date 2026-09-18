@@ -1,1 +1,440 @@
-{"meta.nativeName":"Türkçe","meta.direction":"ltr","common.search":"Ara","common.searchOptions":"Seçenek ara","common.select":"Seçim yapın","common.noResults":"Eşleşen sonuç bulunamadı","common.optionsCount":"{count} seçenek","common.escapeToClose":"ESC ile kapat","common.save":"Kaydet","common.cancel":"İptal","common.create":"Oluştur","common.delete":"Sil","common.edit":"Düzenle","common.refresh":"Yenile","common.close":"Kapat","common.confirm":"Onayla","common.yes":"Evet","common.no":"Hayır","common.loading":"Yükleniyor…","common.connected":"Bağlı","common.offline":"Çevrimdışı","common.ready":"Hazır","common.error":"Hata","common.warning":"Uyarı","common.success":"Başarılı","common.copy":"Kopyala","common.download":"İndir","common.reset":"Sıfırla","common.open":"Aç","common.run":"Çalıştır","common.apply":"Uygula","common.add":"Ekle","common.remove":"Kaldır","common.all":"Tümü","common.default":"Varsayılan","common.enabled":"Etkin","common.disabled":"Devre dışı","app.settings":"Ayarlar","app.language":"Dil","app.account":"Hesap","app.organizations":"Organizasyonlar","app.servers":"Sunucular","app.appearance":"Görünüm","app.accessibility":"Erişilebilirlik","app.queryEditor":"Sorgu editörü","app.security":"Güvenlik","app.advanced":"Gelişmiş","app.whatsNew":"Yenilikler","app.resetPreferences":"Tercihleri sıfırla","nav.databases":"Veritabanları","nav.tables":"Tablolar","nav.schema":"Şema","nav.query":"Sorgu","nav.users":"Kullanıcılar","nav.processes":"Processler","nav.performance":"Performans","nav.notebook":"Notebook","nav.backup":"Yedekleme","nav.operations":"Operasyonlar","nav.dataIntelligence":"Veri Zekâsı","nav.commandPalette":"Komut paleti","nav.transaction":"Transaction","nav.importExport":"İçe / Dışa Aktarma","sidebar.searchPlaceholder":"Sunucu, veritabanı ve tablo ara","sidebar.noConnections":"Bağlantı profili yok","sidebar.newServer":"Sunucu ekle","sidebar.accountSettings":"Hesap ayarları","sidebar.signOut":"Çıkış yap","sidebar.activateServer":"Sunucuyu etkinleştir","sidebar.createDatabase":"Yeni veritabanı oluştur","sidebar.serverQuery":"Sunucu geneli sorgu","sidebar.refreshCatalog":"Kataloğu yenile","sidebar.expandAll":"Hepsini genişlet","sidebar.collapseAll":"Hepsini daralt","sidebar.editConnection":"Bağlantıyı düzenle","query.run":"Çalıştır","query.format":"Biçimlendir","query.history":"Geçmiş","query.favorites":"Favoriler","query.selectServer":"Sunucu seç","query.selectDatabase":"Veritabanı seç","query.serverScope":"Sunucu geneli","query.dryRunEnabled":"Dry-run açık","query.snapshotEnabled":"Snapshot açık","query.readOnly":"Salt-okunur","query.results":"Sonuçlar","query.rows":"satır","query.noResults":"Sonuç yok","query.completed":"Sorgu tamamlandı","query.affectedRows":"{count} satır etkilendi","query.safeLimitWarning":"Sorguda görünür bir satır sınırı yok; API güvenli üst sınır uygular.","query.autocomplete":"Otomatik tamamlama","query.errorStopped":"SQL dil servisi sorguyu durdurdu.","query.dangerousConfirm":"Bu sorgu veri veya şema değişikliği oluşturabilir.","query.applyChange":"Değişikliği uygula","server.new":"Yeni veritabanı sunucusu","server.edit":"Veritabanı sunucusunu düzenle","server.secureVault":"Şifreli tarayıcı kasası","server.profileNetwork":"Profil ve ağ","server.authentication":"Kimlik doğrulama","server.engineVersion":"Motor ve sürüm","server.securityTimeout":"Güvenlik ve zaman aşımı","server.name":"Sunucu adı","server.host":"Host veya IP","server.port":"Port","server.defaultDatabase":"Varsayılan veritabanı","server.username":"Kullanıcı adı","server.password":"Parola","server.engine":"Veritabanı motoru","server.version":"Sürüm profili","server.tls":"TLS politikası","server.timeout":"Bağlantı zaman aşımı","server.readOnlyProfile":"Salt-okunur profil","server.readOnlyDescription":"Bu bağlantıda yazma, şema ve yönetim işlemlerini engeller.","server.testConnection":"Bağlantıyı test et","server.addServer":"Sunucuyu ekle","server.updateServer":"Sunucuyu güncelle","server.connectionReady":"Bağlantı hazır","server.connectionFailed":"Bağlantı başarısız","server.databaseName":"Veritabanı adı","database.database":"Veritabanı","database.table":"Tablo","database.column":"Sütun","database.index":"İndeks","database.foreignKey":"Yabancı anahtar","database.view":"View","database.procedure":"Stored procedure","database.function":"Function","database.trigger":"Tetikleyici","database.event":"Olay","database.connection":"Bağlantı","database.catalog":"Katalog","database.schema":"Şema","database.data":"Veri","database.structure":"Yapı","database.rows":"Satırlar","database.primaryKey":"Birincil anahtar","database.nullable":"NULL olabilir","database.dataType":"Veri tipi","database.defaultValue":"Varsayılan değer","database.collation":"Karşılaştırma düzeni","database.storage":"Depolama","database.uptime":"Uptime","database.connections":"Bağlantılar","database.bufferPool":"Buffer pool","database.traffic":"Trafik","database.slowQueries":"Yavaş sorgular","database.replication":"Replikasyon","settings.language.title":"Dil ve bölge","settings.language.description":"Veritabanı ve geliştirme araçlarında kullanılacak arayüz dilini seçin.","settings.language.select":"Arayüz dili","settings.language.current":"Geçerli dil","settings.language.browser":"Tarayıcı dili","settings.language.localStorage":"Bu cihazda yerel olarak saklanır","settings.language.instant":"Değişiklikler anında uygulanır","settings.language.fallback":"Eksik anahtarlar İngilizceye döner","settings.language.rtl":"Arapça için sağdan sola yerleşim desteklenir","settings.language.coverage":"Yazılım, SQL ve veritabanı terminolojisine göre çevrildi","settings.language.restartNotRequired":"Yeniden başlatma gerekmez","settings.language.available":"Kullanılabilir diller","status.connection":"Bağlantı durumu","status.serverUptime":"Sunucu uptime","status.coreorSession":"Coreor oturumu","status.target":"Aktif hedef","status.threadConnections":"Thread ve bağlantılar","status.bufferPool":"Buffer pool","status.storage":"Mantıksal depolama","status.networkTraffic":"Ağ trafiği","status.sqlPerformance":"SQL performansı","status.lastQuery":"Son sorgu","notification.languageChanged":"Dil {language} olarak değiştirildi.","notification.localOnly":"Dil tercihi ve çeviriler bu cihazda kalır."}
+{
+  "meta": {
+    "direction": "ltr",
+    "nativeName": "Türkçe"
+  },
+  "common": {
+    "add": "Ekle",
+    "all": "Tümü",
+    "apply": "Uygula",
+    "cancel": "İptal",
+    "close": "Kapat",
+    "confirm": "Onayla",
+    "connected": "Bağlı",
+    "copy": "Kopyala",
+    "create": "Oluştur",
+    "default": "Varsayılan",
+    "delete": "Sil",
+    "disabled": "Devre dışı",
+    "download": "İndir",
+    "edit": "Düzenle",
+    "enabled": "Etkin",
+    "error": "Hata",
+    "escapeToClose": "ESC ile kapat",
+    "loading": "Yükleniyor…",
+    "no": "Hayır",
+    "noResults": "Eşleşen sonuç bulunamadı",
+    "offline": "Çevrimdışı",
+    "open": "Aç",
+    "optionsCount": "{count} seçenek",
+    "ready": "Hazır",
+    "refresh": "Yenile",
+    "remove": "Kaldır",
+    "reset": "Sıfırla",
+    "run": "Çalıştır",
+    "save": "Kaydet",
+    "search": "Ara",
+    "searchOptions": "Seçenek ara",
+    "select": "Seçim yapın",
+    "success": "Başarılı",
+    "warning": "Uyarı",
+    "yes": "Evet"
+  },
+  "app": {
+    "accessibility": "Erişilebilirlik",
+    "account": "Hesap",
+    "advanced": "Gelişmiş",
+    "appearance": "Görünüm",
+    "language": "Dil",
+    "organizations": "Organizasyonlar",
+    "queryEditor": "Sorgu editörü",
+    "resetPreferences": "Tercihleri sıfırla",
+    "security": "Güvenlik",
+    "servers": "Sunucular",
+    "settings": "Ayarlar",
+    "whatsNew": "Yenilikler"
+  },
+  "nav": {
+    "backup": "Yedekleme",
+    "commandPalette": "Komut paleti",
+    "databases": "Veritabanları",
+    "dataIntelligence": "Veri Zekâsı",
+    "importExport": "İçe / Dışa Aktarma",
+    "notebook": "Notebook",
+    "operations": "Operasyonlar",
+    "performance": "Performans",
+    "processes": "Processler",
+    "query": "Sorgu",
+    "schema": "Şema",
+    "tables": "Tablolar",
+    "transaction": "Transaction",
+    "users": "Kullanıcılar"
+  },
+  "topbar": {
+    "backup": "Yedekleme",
+    "command": "Komut",
+    "connect": "Bağlan",
+    "connectionSearch": "Sunucu, host veya motor ara…",
+    "connectionSelect": "Bağlantı seç",
+    "dataIntelligence": "Veri Zekâsı",
+    "noConnection": "Bağlantı yok",
+    "noSavedServer": "Kayıtlı sunucu yok.",
+    "notebook": "Notebook",
+    "operations": "Operasyonlar",
+    "performance": "Performans",
+    "processes": "Processler",
+    "readOnly": "READ ONLY",
+    "refresh": "Yenile",
+    "schema": "Şema",
+    "settings": "Ayarlar",
+    "transaction": "Transaction",
+    "transfer": "Aktarım",
+    "users": "Kullanıcılar"
+  },
+  "sidebar": {
+    "accountSettings": "Hesap ayarları",
+    "activateServer": "Sunucuyu etkinleştir",
+    "collapseAll": "Hepsini daralt",
+    "createDatabase": "Yeni veritabanı oluştur",
+    "editConnection": "Bağlantıyı düzenle",
+    "expandAll": "Hepsini genişlet",
+    "newServer": "Sunucu ekle",
+    "noConnections": "Bağlantı profili yok",
+    "refreshCatalog": "Kataloğu yenile",
+    "searchPlaceholder": "Sunucu, veritabanı ve tablo ara",
+    "serverQuery": "Sunucu geneli sorgu",
+    "signOut": "Çıkış yap"
+  },
+  "query": {
+    "affectedRows": "{count} satır etkilendi",
+    "applyChange": "Değişikliği uygula",
+    "autocomplete": "Otomatik tamamlama",
+    "completed": "Sorgu tamamlandı",
+    "dangerousConfirm": "Bu sorgu veri veya şema değişikliği oluşturabilir.",
+    "dryRunEnabled": "Dry-run açık",
+    "errorStopped": "SQL dil servisi sorguyu durdurdu.",
+    "favorites": "Favoriler",
+    "format": "Biçimlendir",
+    "history": "Geçmiş",
+    "noResults": "Sonuç yok",
+    "readOnly": "Salt-okunur",
+    "results": "Sonuçlar",
+    "rows": "satır",
+    "run": "Çalıştır",
+    "safeLimitWarning": "Sorguda görünür bir satır sınırı yok; API güvenli üst sınır uygular.",
+    "selectDatabase": "Veritabanı seç",
+    "selectServer": "Sunucu seç",
+    "serverScope": "Sunucu geneli",
+    "snapshotEnabled": "Snapshot açık"
+  },
+  "server": {
+    "addServer": "Sunucuyu ekle",
+    "authentication": "Kimlik doğrulama",
+    "connectionFailed": "Bağlantı başarısız",
+    "connectionReady": "Bağlantı hazır",
+    "databaseName": "Veritabanı adı",
+    "defaultDatabase": "Varsayılan veritabanı",
+    "edit": "Veritabanı sunucusunu düzenle",
+    "engine": "Veritabanı motoru",
+    "engineVersion": "Motor ve sürüm",
+    "host": "Host veya IP",
+    "name": "Sunucu adı",
+    "new": "Yeni veritabanı sunucusu",
+    "password": "Parola",
+    "port": "Port",
+    "profileNetwork": "Profil ve ağ",
+    "readOnlyDescription": "Bu bağlantıda yazma, şema ve yönetim işlemlerini engeller.",
+    "readOnlyProfile": "Salt-okunur profil",
+    "secureVault": "Şifreli tarayıcı kasası",
+    "securityTimeout": "Güvenlik ve zaman aşımı",
+    "testConnection": "Bağlantıyı test et",
+    "timeout": "Bağlantı zaman aşımı",
+    "tls": "TLS politikası",
+    "updateServer": "Sunucuyu güncelle",
+    "username": "Kullanıcı adı",
+    "version": "Sürüm profili"
+  },
+  "database": {
+    "bufferPool": "Buffer pool",
+    "catalog": "Katalog",
+    "collation": "Karşılaştırma düzeni",
+    "column": "Sütun",
+    "connection": "Bağlantı",
+    "connections": "Bağlantılar",
+    "data": "Veri",
+    "database": "Veritabanı",
+    "dataType": "Veri tipi",
+    "defaultValue": "Varsayılan değer",
+    "event": "Olay",
+    "foreignKey": "Yabancı anahtar",
+    "function": "Function",
+    "index": "İndeks",
+    "nullable": "NULL olabilir",
+    "primaryKey": "Birincil anahtar",
+    "procedure": "Stored procedure",
+    "replication": "Replikasyon",
+    "rows": "Satırlar",
+    "schema": "Şema",
+    "slowQueries": "Yavaş sorgular",
+    "storage": "Depolama",
+    "structure": "Yapı",
+    "table": "Tablo",
+    "traffic": "Trafik",
+    "trigger": "Tetikleyici",
+    "uptime": "Uptime",
+    "view": "View"
+  },
+  "settings": {
+    "language": {
+      "available": "Kullanılabilir diller",
+      "browser": "Tarayıcı dili",
+      "coverage": "Yazılım, SQL ve veritabanı terminolojisine göre çevrildi",
+      "current": "Geçerli dil",
+      "description": "Veritabanı ve geliştirme araçlarında kullanılacak arayüz dilini seçin.",
+      "fallback": "Eksik anahtarlar İngilizceye döner",
+      "instant": "Değişiklikler anında uygulanır",
+      "localStorage": "Bu cihazda yerel olarak saklanır",
+      "restartNotRequired": "Yeniden başlatma gerekmez",
+      "rtl": "Arapça için sağdan sola yerleşim desteklenir",
+      "select": "Arayüz dili",
+      "title": "Dil ve bölge"
+    }
+  },
+  "status": {
+    "bufferPool": "Buffer pool",
+    "catalogRefreshed": "Katalog yenilendi",
+    "catalogRefreshFailed": "Katalog yenilenemedi.",
+    "connection": "Bağlantı durumu",
+    "connectionFailed": "Bağlantı kurulamadı.",
+    "connectionReadyVersion": "{version} bağlantısı hazır",
+    "coreorSession": "Coreor oturumu",
+    "lastQuery": "Son sorgu",
+    "networkTraffic": "Ağ trafiği",
+    "serverUptime": "Sunucu uptime",
+    "sqlPerformance": "SQL performansı",
+    "storage": "Mantıksal depolama",
+    "target": "Aktif hedef",
+    "threadConnections": "Thread ve bağlantılar"
+  },
+  "notification": {
+    "languageChanged": "Dil {language} olarak değiştirildi.",
+    "localOnly": "Dil tercihi ve çeviriler bu cihazda kalır."
+  },
+  "process": {
+    "center": "Process merkezi",
+    "killConnection": "Bağlantıyı sonlandır",
+    "killQuery": "Sorguyu sonlandır"
+  },
+  "performance": {
+    "activeConnections": "Aktif bağlantılar",
+    "bufferPoolUsage": "Buffer pool kullanımı",
+    "logicalStorage": "Mantıksal depolama",
+    "maxConnections": "Maksimum bağlantı",
+    "qps": "QPS",
+    "replicationLag": "Replikasyon gecikmesi",
+    "runningThreads": "Çalışan threadler",
+    "slowQueries": "Yavaş sorgular"
+  },
+  "notebook": {
+    "runAll": "Tümünü çalıştır",
+    "title": "SQL Notebook"
+  },
+  "automation": {
+    "action": {
+      "analyzePlan": "Execution plan analiz et",
+      "approve": "Onayla",
+      "createTask": "Görev oluştur",
+      "preview": "Ön izleme",
+      "reject": "Reddet",
+      "restoreDefaults": "Varsayılanlara dön",
+      "run": "Çalıştır",
+      "save": "Kaydet",
+      "saveMigration": "Migration kaydet",
+      "saveSet": "Seti kaydet"
+    },
+    "approvals": "Onay akışları",
+    "backups": "Yedekleme görevleri",
+    "changedRows": "Değişen satırlar",
+    "compare": "Karşılaştır",
+    "dataCompare": "Veri karşılaştırma",
+    "empty": {
+      "snapshots": "Henüz şema snapshot’ı yok."
+    },
+    "error": {
+      "compareFailed": "Veri karşılaştırılamadı.",
+      "maskPreview": "Maskeleme ön izlemesi üretilemedi.",
+      "planFailed": "Execution plan alınamadı.",
+      "preparedFailed": "Prepared sorgu çalıştırılamadı.",
+      "sessionRequired": "Sunucu ve kullanıcı oturumu gerekli."
+    },
+    "indexAdvisor": "İndeks önerileri",
+    "migrations": "Migrationlar",
+    "onlySource": "Yalnız kaynakta",
+    "onlyTarget": "Yalnız hedefte",
+    "preparedStatements": "Prepared statement",
+    "shortcut": {
+      "backupCenter": "Yedekleme merkezi",
+      "commandPalette": "Komut paleti",
+      "formatSql": "SQL biçimlendir",
+      "newQuery": "Yeni sorgu sekmesi",
+      "operationsCenter": "Operasyon merkezi",
+      "refreshCatalog": "Kataloğu yenile"
+    },
+    "snapshots": "Şema snapshotları",
+    "sourceDatabase": "Kaynak veritabanı",
+    "sourceServer": "Kaynak sunucu",
+    "sourceTable": "Kaynak tablo",
+    "status": {
+      "compareDone": "İlk 5.000 satır primary/unique anahtar üzerinden karşılaştırıldı.",
+      "maskPreview": "Maskeleme ön izlemesi üretildi; kaynak veri değiştirilmedi.",
+      "planReady": "Execution plan alındı. Full scan, yüksek rows ve filesort işaretlerini kontrol edin.",
+      "preparedExecuted": "Parametre seti çalıştırıldı."
+    },
+    "tab": {
+      "migration": "Migration",
+      "prepared": "Prepared lab",
+      "shortcuts": "Kısayollar"
+    },
+    "tableHistory": "Tablo geçmişi",
+    "targetDatabase": "Hedef veritabanı",
+    "targetServer": "Hedef sunucu",
+    "targetTable": "Hedef tablo"
+  },
+  "transaction": {
+    "autocommit": "Autocommit",
+    "begin": "Transaction başlat",
+    "commit": "Commit",
+    "rollback": "Rollback",
+    "rollbackAndClose": "Rollback ve kapat",
+    "workspace": "Transaction çalışma alanı"
+  },
+  "intelligence": {
+    "action": {
+      "analyze5000": "İlk 5.000 satırı analiz et",
+      "generateData": "Veri üret",
+      "generateRules": "Tablodan kural üret",
+      "maskPreview": "Maskeli ön izleme",
+      "openEditor": "Editörde aç",
+      "readColumns": "Kolonları oku",
+      "refreshLive": "Canlı ölçümü yenile",
+      "saveRules": "Kuralları kaydet"
+    },
+    "alertRules": "Alarm kuralları",
+    "dataQuality": "Veri kalitesi",
+    "empty": {
+      "profiles": "Henüz profillenecek SQL kaydı yok."
+    },
+    "healthScore": "Veritabanı sağlık skoru",
+    "masking": "Gelişmiş veri maskeleme",
+    "profiler": "Canlı sorgu profiler",
+    "select": {
+      "database": "Veritabanı seç",
+      "server": "Sunucu seç",
+      "table": "Tablo seç"
+    },
+    "slowQueries": "Slow query merkezi",
+    "snippets": "Sorgu snippetleri",
+    "tab": {
+      "alertsDescription": "Anlık yerel bildirim eşikleri",
+      "generator": "Test verisi",
+      "generatorDescription": "Snowflake dahil ayrıntılı üretici",
+      "health": "Sağlık skoru",
+      "healthDescription": "Sunucu ve operasyon puanı",
+      "masking": "Veri maskeleme",
+      "maskingDescription": "40+ maskeleme tipi ve ön izleme",
+      "profiler": "Canlı profiler",
+      "profilerDescription": "Yerel sorgu süreleri ve dağılımları",
+      "quality": "Data quality",
+      "qualityDescription": "NULL, duplicate, format ve outlier",
+      "slow": "Slow query",
+      "slowDescription": "Yavaş sorgu parmak izleri",
+      "snippets": "Snippet kütüphanesi",
+      "snippetsDescription": "Yerel hazır sorgu paketleri"
+    },
+    "testData": "Test verisi üreticisi"
+  },
+  "control": {
+    "dropdown": {
+      "close": "Açılır listeyi kapat",
+      "open": "Açılır listeyi aç"
+    },
+    "select": {
+      "clear": "Seçimi temizle",
+      "close": "Seçim listesini kapat",
+      "count": "{count} seçenek",
+      "empty": "Eşleşen seçenek bulunamadı.",
+      "escape": "ESC ile kapat",
+      "open": "Seçim listesini aç",
+      "placeholder": "Seçim yapın",
+      "search": "Seçenek ara…"
+    }
+  },
+  "tooltip": {
+    "backup": "mysqldump, pg_dump ve SQL Server yedek görevleri",
+    "dataIntelligence": "Profiler, slow query, sağlık, maskeleme, test verisi ve snippetler",
+    "hideDetails": "Ayrıntıları gizle",
+    "moreInfo": "Daha fazla bilgi",
+    "operations": "Snapshot, migration, indeks, prepared, onay ve karşılaştırma",
+    "showDetails": "Ayrıntıları göster"
+  },
+  "sql": {
+    "action": {
+      "clearQuery": "Sorguyu temizle",
+      "formatQuery": "Sorguyu biçimlendir",
+      "newQuery": "Yeni sorgu",
+      "runQuery": "Sorguyu çalıştır",
+      "selectDraft": "SELECT taslağı"
+    },
+    "keyword": {
+      "alter": "ALTER",
+      "create": "CREATE",
+      "delete": "DELETE",
+      "drop": "DROP",
+      "insert": "INSERT",
+      "select": "SELECT",
+      "truncate": "TRUNCATE",
+      "update": "UPDATE"
+    },
+    "log": "SQL günlüğü",
+    "parameters": "Parametreler",
+    "result": {
+      "affectedRows": "Etkilenen satır",
+      "duration": "Çalışma süresi",
+      "multi": "Çoklu sonuç",
+      "noResult": "Sonuç yok"
+    },
+    "scope": {
+      "server": "Sunucu geneli"
+    },
+    "statement": "Statement"
+  },
+  "approval": {
+    "approved": "Onaylandı",
+    "pending": "Bekleyen",
+    "rejected": "Reddedildi"
+  },
+  "grid": {
+    "columnMapping": "Kolon eşleştirme",
+    "copyRow": "Satırı kopyala",
+    "copyValue": "Değeri kopyala",
+    "deleteSelectedRows": "Seçili satırları sil",
+    "editCell": "Hücreyi düzenle",
+    "exportCsv": "CSV dışa aktar",
+    "exportJson": "JSON dışa aktar",
+    "firstPage": "İlk sayfa",
+    "fitAll": "Tümünü fit et",
+    "followForeignKey": "Foreign key'i takip et",
+    "lastPage": "Son sayfa",
+    "nextPage": "Sonraki sayfa",
+    "pageSize": "Sayfa boyutu",
+    "previousPage": "Önceki sayfa",
+    "resetWidths": "Genişlikleri sıfırla"
+  },
+  "transfer": {
+    "chooseFile": "Dosya seç",
+    "title": "İçe / Dışa Aktarma"
+  },
+  "users": {
+    "management": "Kullanıcı yönetimi"
+  }
+}
