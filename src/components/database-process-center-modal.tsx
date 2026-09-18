@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { CoreorConfirmModal, type CoreorConfirmation } from '@/components/ui/coreor-confirm-modal';
 
 interface DatabaseProcessCenterModalProps {
   open: boolean;
@@ -34,6 +35,7 @@ export function DatabaseProcessCenterModal({ open, onClose, serverId, accountId 
   const [filter, setFilter] = useState('');
   const [minimumSeconds, setMinimumSeconds] = useState(0);
   const [killingId, setKillingId] = useState<number | null>(null);
+  const [confirmation, setConfirmation] = useState<CoreorConfirmation | null>(null);
 
   const load = async () => {
     if (!serverId || !accountId) return;
@@ -46,9 +48,11 @@ export function DatabaseProcessCenterModal({ open, onClose, serverId, accountId 
   useEffect(() => { if (open) void load(); }, [open, serverId, accountId]);
   useEffect(() => {
     if (!open || !preferences.autoRefreshProcesses) return;
-    const timer = window.setInterval(() => void load(), 5000);
-    return () => window.clearInterval(timer);
-  }, [open, preferences.autoRefreshProcesses, serverId, accountId]);
+    const refresh = () => { if (document.visibilityState === 'visible') void load(); };
+    const timer = window.setInterval(refresh, Math.max(3, preferences.performanceRefreshSeconds) * 1000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
+  }, [open, preferences.autoRefreshProcesses, preferences.performanceRefreshSeconds, serverId, accountId]);
 
   const processes = useMemo(() => {
     const query = filter.trim().toLocaleLowerCase('tr-TR');
@@ -57,17 +61,25 @@ export function DatabaseProcessCenterModal({ open, onClose, serverId, accountId 
 
   if (!open || typeof document === 'undefined') return null;
 
-  const kill = async (id: number, type: 'query' | 'connection') => {
+  const kill = (id: number, type: 'query' | 'connection') => {
     if (!serverId || !accountId || id === data.currentConnectionId) return;
     const label = type === 'query' ? 'sorgu' : 'bağlantı';
-    if (!window.confirm(`${id} numaralı ${label} sonlandırılsın mı?`)) return;
-    setKillingId(id); setError(null);
-    try { await killDatabaseProcess(serverId, id, type, accountId); await load(); }
-    catch (failure) { setError(failure instanceof Error ? failure.message : 'Process sonlandırılamadı.'); }
-    finally { setKillingId(null); }
+    setConfirmation({
+      title: type === 'query' ? 'Sorguyu sonlandır' : 'Bağlantıyı sonlandır',
+      description: `${id} numaralı ${label} sunucuda sonlandırılacak. Devam eden işlem rollback olabilir veya istemci bağlantısı kesilebilir.`,
+      confirmLabel: 'Sonlandır',
+      tone: 'danger',
+      onConfirm: async () => {
+        setKillingId(id); setError(null);
+        try { await killDatabaseProcess(serverId, id, type, accountId); await load(); }
+        catch (failure) { setError(failure instanceof Error ? failure.message : 'Process sonlandırılamadı.'); throw failure; }
+        finally { setKillingId(null); }
+      }
+    });
   };
 
-  return createPortal(
+  return <>
+    {createPortal(
     <div className="fixed inset-0 z-[325] flex items-center justify-center p-4">
       <button type="button" className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} aria-label="Kapat" />
       <div className="relative z-10 flex h-[min(780px,92vh)] w-[min(1280px,96vw)] min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl">
@@ -84,5 +96,7 @@ export function DatabaseProcessCenterModal({ open, onClose, serverId, accountId 
         </Tabs>
       </div>
     </div>, document.body
-  );
+  )}
+    <CoreorConfirmModal action={confirmation} onClose={() => setConfirmation(null)} />
+  </>;
 }
