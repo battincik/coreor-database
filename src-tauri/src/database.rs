@@ -1,7 +1,7 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-use sqlx::{Column, Connection as SqlxConnection, Row, TypeInfo};
+use sqlx::{Column, Connection as SqlxConnection, Row};
 use std::time::Duration;
 use tiberius::{AuthMethod, Client, Config, EncryptionLevel};
 use tokio::net::TcpStream;
@@ -93,13 +93,9 @@ fn mysql_cell(row: &sqlx::mysql::MySqlRow, i: usize) -> Value {
     if let Ok(v) = row.try_get::<Option<NaiveDate>, _>(i) { return v.map(|x| json!(x.to_string())).unwrap_or(Value::Null); }
     if let Ok(v) = row.try_get::<Option<NaiveTime>, _>(i) { return v.map(|x| json!(x.to_string())).unwrap_or(Value::Null); }
     if let Ok(v) = row.try_get::<Option<Vec<u8>>, _>(i) {
-        let type_name=row.column(i).type_info().name().to_ascii_uppercase();
-        let explicitly_binary=type_name.contains("BLOB")||type_name.contains("BINARY");
-        return v.map(|bytes| {
-            if !explicitly_binary {
-                if let Ok(text)=String::from_utf8(bytes.clone()) { return Value::String(text); }
-            }
-            json!({"type":"binary","base64":base64::Engine::encode(&base64::engine::general_purpose::STANDARD,bytes)})
+        return v.map(|bytes| match String::from_utf8(bytes.clone()) {
+            Ok(text) => Value::String(text),
+            Err(_) => json!({"type":"binary","base64":base64::Engine::encode(&base64::engine::general_purpose::STANDARD,bytes)})
         }).unwrap_or(Value::Null);
     }
     Value::Null
@@ -231,6 +227,14 @@ fn literal(v:&Value,engine:&str)->String{
 }
 fn payload_str<'a>(p:&'a Map<String,Value>,key:&str)->Result<&'a str,String>{p.get(key).and_then(Value::as_str).ok_or_else(||format!("{} eksik.",key))}
 fn rows_of(v:&Value)->Vec<Value>{v.get("rows").and_then(Value::as_array).cloned().unwrap_or_default()}
+fn text_value(v:&Value)->Option<String>{
+    if let Some(text)=v.as_str(){return Some(text.to_string())}
+    let object=v.as_object()?;
+    if object.get("type").and_then(Value::as_str)!=Some("binary"){return None}
+    let encoded=object.get("base64").and_then(Value::as_str)?;
+    let bytes=base64::Engine::decode(&base64::engine::general_purpose::STANDARD,encoded).ok()?;
+    String::from_utf8(bytes).ok()
+}
 fn num(v:Option<&Value>)->u64{v.and_then(Value::as_u64).or_else(||v.and_then(Value::as_i64).map(|x|x.max(0) as u64)).or_else(||v.and_then(Value::as_str).and_then(|x|x.parse().ok())).unwrap_or(0)}
 
 fn build_filters(payload:&Map<String,Value>,engine:&str)->Result<(String,Vec<Value>),String>{
@@ -272,7 +276,7 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
 
         for row in db_rows {
             let Some(object)=row.as_object() else { continue };
-            let Some(name)=object.get("Database").or_else(||object.get("database")).or_else(||object.values().next()).and_then(Value::as_str) else { continue };
+            let Some(name)=object.get("Database").or_else(||object.get("database")).or_else(||object.values().next()).and_then(text_value) else { continue };
             let normalized_name=name.to_ascii_lowercase();
             if ["information_schema","performance_schema","metrics_schema","mysql","sys"].contains(&normalized_name.as_str()) { continue; }
 
@@ -282,11 +286,11 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
                 escaped
             );
 
-            let tables=match execute_sql(c,&table_sql,Some(name),max).await {
+            let tables=match execute_sql(c,&table_sql,Some(&name),max).await {
                 Ok(result)=>rows_of(&result),
                 Err(_)=>{
-                    let fallback=format!("SHOW FULL TABLES FROM {}",ident(name,&c.engine)?);
-                    rows_of(&execute_sql(c,&fallback,Some(name),max).await?)
+                    let fallback=format!("SHOW FULL TABLES FROM {}",ident(&name,&c.engine)?);
+                    rows_of(&execute_sql(c,&fallback,Some(&name),max).await?)
                 }
             };
 
@@ -301,8 +305,8 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
                 let table_name=table_object.get("tableName")
                     .or_else(||table_object.get("TABLE_NAME"))
                     .or_else(||table_object.values().next())
-                    .and_then(Value::as_str)
-                    .unwrap_or("");
+                    .and_then(text_value)
+                    .unwrap_or_default();
                 if table_name.is_empty(){continue}
 
                 let rows=num(table_object.get("tableRows").or_else(||table_object.get("TABLE_ROWS")));
