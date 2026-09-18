@@ -2,7 +2,7 @@
 
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, Braces, ChevronDown, ChevronRight, Circle, Code2, Database, Download, FileCode2, FunctionSquare, Gauge, HardDrive, KeyRound, LogOut, MoreHorizontal, Network, Plus, RefreshCw, Search, Server, Settings2, ShieldCheck, Sparkles, Table2, Trash2, UserRound, View, Wifi, WifiOff, Wrench, X, Zap } from 'lucide-react';
+import { Activity, Braces, ChevronDown, ChevronRight, Circle, Code2, Copy, Database, Download, FileCode2, FunctionSquare, Gauge, HardDrive, KeyRound, LogOut, MoreHorizontal, Network, Plus, RefreshCw, Search, Server, Settings2, ShieldCheck, Sparkles, Table2, Trash2, UserRound, View, Wifi, WifiOff, Wrench, X, Zap } from 'lucide-react';
 import type { DatabaseEngine, DatabaseServerConfig, SidebarProps } from 'types';
 import { DatabaseContext } from '@/context/DatabaseContext';
 import { useDesktop } from '@/context/DesktopContext';
@@ -205,6 +205,12 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         { id: 'sep1', separator: true },
         { id: 'expand', label: 'Hepsini genişlet', icon: ChevronDown, onSelect: () => expandAll(server) },
         { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: collapseAll },
+        { id: 'copy-connection', label: 'Bağlantı bilgisini kopyala', icon: Copy, children: [
+          { id: 'copy-host', label: 'Host', icon: Copy, onSelect: () => navigator.clipboard.writeText(server.host || '') },
+          { id: 'copy-host-port', label: 'Host:port', icon: Copy, onSelect: () => navigator.clipboard.writeText(`${server.host}:${server.port}`) },
+          { id: 'copy-user', label: 'Kullanıcı adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(server.username || '') },
+          { id: 'copy-summary', label: 'Bağlantı özeti', icon: Copy, onSelect: () => navigator.clipboard.writeText(`${server.name} • ${databaseEngineLabel(server.databaseType)} • ${server.host}:${server.port} • ${server.username}`) }
+        ] },
         {
           id: 'edit',
           label: 'Bağlantıyı düzenle',
@@ -301,6 +307,8 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           }
         },
         { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: () => toggle(setExpandedDatabases, `${server.id}:${database}`, false) },
+        { id: 'copy-db', label: 'Veritabanı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(database) },
+        { id: 'copy-db-quoted', label: 'Quoted veritabanı adını kopyala', icon: Code2, onSelect: () => navigator.clipboard.writeText(quoteDatabaseIdentifier(database, server.databaseType || 'mysql')) },
         { id: 'refresh', label: 'Yenile', icon: RefreshCw, onSelect: () => void refreshServer(server) },
         { id: 'sep-danger', separator: true },
         {
@@ -395,6 +403,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
             ['repair', 'Onarım taslağı']
           ].map(([operation, label]) => ({ id: `maintenance-${operation}`, label, icon: Gauge, onSelect: () => openSql(server, database, `${table} bakım`, maintenanceSql(engine, database, table, operation as 'analyze' | 'check' | 'optimize' | 'repair')) }))
         },
+        { id: 'copy-table', label: 'Kopyala', icon: Copy, children: [
+          { id: 'copy-table-name', label: 'Tablo adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(table) },
+          { id: 'copy-qualified', label: 'Tam tablo adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(qualified) },
+          { id: 'copy-select', label: 'SELECT taslağı', icon: Code2, onSelect: () => navigator.clipboard.writeText(`SELECT * FROM ${qualified}\nLIMIT 100;`) }
+        ] },
         { id: 'sep3', separator: true },
         { id: 'expand', label: 'Hepsini genişlet', icon: ChevronDown, onSelect: () => expandAll(server) },
         { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: collapseAll },
