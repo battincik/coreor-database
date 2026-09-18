@@ -1,7 +1,7 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-use sqlx::{Column, Connection as SqlxConnection, Row};
+use sqlx::{Column, Connection as SqlxConnection, Row, TypeInfo};
 use std::time::Duration;
 use tiberius::{AuthMethod, Client, Config, EncryptionLevel};
 use tokio::net::TcpStream;
@@ -93,9 +93,13 @@ fn mysql_cell(row: &sqlx::mysql::MySqlRow, i: usize) -> Value {
     if let Ok(v) = row.try_get::<Option<NaiveDate>, _>(i) { return v.map(|x| json!(x.to_string())).unwrap_or(Value::Null); }
     if let Ok(v) = row.try_get::<Option<NaiveTime>, _>(i) { return v.map(|x| json!(x.to_string())).unwrap_or(Value::Null); }
     if let Ok(v) = row.try_get::<Option<Vec<u8>>, _>(i) {
-        return v.map(|bytes| match String::from_utf8(bytes.clone()) {
-            Ok(text) => Value::String(text),
-            Err(_) => json!({"type":"binary","base64":base64::Engine::encode(&base64::engine::general_purpose::STANDARD,bytes)})
+        let type_name=row.column(i).type_info().name().to_ascii_uppercase();
+        let explicitly_binary=type_name.contains("BLOB")||type_name.contains("BINARY");
+        return v.map(|bytes| {
+            if !explicitly_binary {
+                if let Ok(text)=String::from_utf8(bytes.clone()) { return Value::String(text); }
+            }
+            json!({"type":"binary","base64":base64::Engine::encode(&base64::engine::general_purpose::STANDARD,bytes)})
         }).unwrap_or(Value::Null);
     }
     Value::Null
