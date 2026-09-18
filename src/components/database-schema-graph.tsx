@@ -10,6 +10,7 @@ import { fetchTableInfo, mutateTableSchema } from '@/lib/databaseApi';
 import { Button } from '@/components/ui/button';
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-state';
+import { CoreorConfirmModal, type CoreorConfirmation } from '@/components/ui/coreor-confirm-modal';
 
 interface DatabaseSchemaGraphProps {
   serverId: string;
@@ -235,6 +236,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
   const [onUpdate, setOnUpdate] = useState<NonNullable<TableForeignKeyDefinition['onUpdate']>>('RESTRICT');
   const [savingLink, setSavingLink] = useState(false);
   const [selectedEdge, setSelectedEdge] = useState<GraphEdge | null>(null);
+  const [confirmation, setConfirmation] = useState<CoreorConfirmation | null>(null);
 
   const edges = useMemo(() => buildEdges(tableInfo), [tableInfo]);
   const bounds = useMemo(() => {
@@ -404,16 +406,25 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     finally { setSavingLink(false); }
   };
 
-  const removeSelectedEdge = async () => {
-    if (!selectedEdge || !accountId || !window.confirm(`${selectedEdge.name} foreign key bağlantısı kaldırılsın mı?`)) return;
-    setSavingLink(true); setError(null);
-    try {
-      await mutateTableSchema(serverId, { database: databaseName, table: selectedEdge.source.table, mutation: { kind: 'drop-foreign-key', constraintName: selectedEdge.name } }, accountId);
-      const refreshed = await fetchTableInfo(serverId, databaseName, selectedEdge.source.table, accountId);
-      setTableInfo(previous => ({ ...previous, [selectedEdge.source.table]: refreshed }));
-      setSelectedEdge(null); setMessage('Foreign key bağlantısı kaldırıldı.'); await onCatalogRefresh?.();
-    } catch (failure) { setError(failure instanceof Error ? failure.message : 'Foreign key kaldırılamadı.'); }
-    finally { setSavingLink(false); }
+  const removeSelectedEdge = () => {
+    if (!selectedEdge || !accountId) return;
+    const edge = selectedEdge;
+    setConfirmation({
+      title: 'Foreign key bağlantısını kaldır',
+      description: `${edge.name} constraint'i ${edge.source.table} tablosundan kaldırılacak. İlişkisel kural sunucuda kalıcı olarak değişir.`,
+      confirmLabel: 'Bağlantıyı kaldır',
+      tone: 'danger',
+      onConfirm: async () => {
+        setSavingLink(true); setError(null);
+        try {
+          await mutateTableSchema(serverId, { database: databaseName, table: edge.source.table, mutation: { kind: 'drop-foreign-key', constraintName: edge.name } }, accountId);
+          const refreshed = await fetchTableInfo(serverId, databaseName, edge.source.table, accountId);
+          setTableInfo(previous => ({ ...previous, [edge.source.table]: refreshed }));
+          setSelectedEdge(null); setMessage('Foreign key bağlantısı kaldırıldı.'); await onCatalogRefresh?.();
+        } catch (failure) { setError(failure instanceof Error ? failure.message : 'Foreign key kaldırılamadı.'); throw failure; }
+        finally { setSavingLink(false); }
+      }
+    });
   };
 
   if (!database) return <EmptyState icon={Database} title="Veritabanı seçilmedi" description="ER diyagramını görmek için bir veritabanı seçin." />;
@@ -500,5 +511,6 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
         {source && target && source.table === target.table && <div className="absolute left-4 top-4 z-30 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-950/90 px-3 py-2 text-[10px] text-amber-200"><AlertTriangle className="h-4 w-4" />Self-reference için hedef tablo farklı seçilmelidir.</div>}
       </div>
     </div>
+    <CoreorConfirmModal action={confirmation} onClose={() => setConfirmation(null)} />
   </div>;
 }
