@@ -796,7 +796,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                             return (
                               <div className="ml-5 border-l border-zinc-900 pl-1">
                                 {objectLoading.has(key) && !loaded && <div className="flex h-7 items-center gap-2 px-2 text-[8px] text-zinc-700"><Activity className="h-3 w-3 animate-spin" />Nesneler yükleniyor…</div>}
-                                {preferences.objectExplorerGrouped ? objectGroupDefinitions.filter(group => searchTypeEnabled(group.kind)).map(group => {
+                                {preferences.objectExplorerGrouped ? objectGroupDefinitions.filter(group => searchTypeEnabled(group.kind) && (!normalizedSearch || sortedObjects.some(object => object.kind === group.kind))).map(group => {
                                   const GroupIcon = group.icon;
                                   const items = sortedObjects.filter(object => object.kind === group.kind);
                                   const groupKey = `${key}:${group.kind}`;
