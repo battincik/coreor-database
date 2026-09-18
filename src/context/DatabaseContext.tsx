@@ -174,7 +174,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       databases: normalizeCatalog(existing?.databases ?? server.databases), createdAt: existing?.createdAt ?? server.createdAt,
       updatedAt: new Date().toISOString()
     };
-    await persistServer(nextServer, false);
+    await persistServer(nextServer, true);
   };
 
   const removeServer = async (serverId: string) => {
