@@ -44,7 +44,7 @@ export function DatabaseNotificationBell() {
     markNotificationRead(id);
     setOpen(false);
     router.push(`/editor/notifications/?id=${encodeURIComponent(id)}`);
-  }, [openNotification]);
+  }, [router]);
 
   useEffect(() => {
     const externalOpen = (event: Event) => {
@@ -66,7 +66,7 @@ export function DatabaseNotificationBell() {
       document.removeEventListener('mousedown', outside);
       window.removeEventListener('keydown', keydown);
     };
-  }, [router]);
+  }, [openNotification]);
 
   return (
     <div ref={rootRef} className="relative flex shrink-0 items-stretch border-l border-zinc-800/70">
