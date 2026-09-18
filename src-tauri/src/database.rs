@@ -26,7 +26,7 @@ pub struct Connection {
     pub read_only: bool,
 }
 
-fn default_ssl_mode() -> String { "required".into() }
+fn default_ssl_mode() -> String { "preferred".into() }
 fn default_connect_timeout() -> u64 { 20_000 }
 
 #[derive(Debug, Deserialize)]
