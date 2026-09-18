@@ -795,8 +795,8 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           { id: 'copy-select', label: 'SELECT taslağı', icon: Code2, onSelect: () => navigator.clipboard.writeText(`SELECT * FROM ${qualified}\nLIMIT 100;`) }
         ] },
         { id: 'sep3', separator: true },
-        { id: 'expand', label: 'Hepsini genişlet', icon: ChevronDown, onSelect: () => expandAll(server) },
-        { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: collapseAll },
+        { id: 'expand', label: 'Bu veritabanını genişlet', icon: ChevronDown, onSelect: () => expandDatabase(server, database) },
+        { id: 'collapse', label: 'Bu veritabanını daralt', icon: ChevronRight, onSelect: () => collapseDatabase(server, database) },
         { id: 'recalculate-size', label: 'Boyutu yeniden hesapla', icon: HardDrive, onSelect: () => void recalculateTableSize(server, database, table) },
         { id: 'refresh', label: 'Yenile', icon: RefreshCw, onSelect: () => void refreshServer(server) }
       ],

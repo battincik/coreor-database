@@ -158,9 +158,53 @@ const ERROR_GUIDANCE: Record<string, ErrorGuidance> = {
 };
 
 function safeDetail(message: string | undefined) {
-  const normalized = message?.replace(/\s+/g, ' ').trim();
-  if (!normalized || normalized.length > 320) return undefined;
-  return normalized;
+  const normalized = message
+    ?.replace(/(password|passwd|pwd|secret|token|authorization)\s*[:=]\s*[^\s,;]+/gi, '$1=[gizlendi]')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!normalized) return undefined;
+  return normalized.length > 480 ? `${normalized.slice(0, 477)}…` : normalized;
+}
+
+function extractNativeError(error: unknown, depth = 0): { message?: string; code?: string; status?: number } {
+  if (depth > 3 || error === null || error === undefined) return {};
+  if (typeof error === 'string') return { message: safeDetail(error) };
+  if (error instanceof Error) {
+    const candidate = error as Error & { code?: unknown; status?: unknown };
+    return {
+      message: safeDetail(candidate.message),
+      code: typeof candidate.code === 'string' ? candidate.code : undefined,
+      status: typeof candidate.status === 'number' ? candidate.status : undefined
+    };
+  }
+  if (typeof error !== 'object') return { message: safeDetail(String(error)) };
+
+  const value = error as Record<string, unknown>;
+  const code = ['code', 'errorCode', 'kind']
+    .map(key => value[key])
+    .find(candidate => typeof candidate === 'string') as string | undefined;
+  const status = ['status', 'statusCode']
+    .map(key => value[key])
+    .find(candidate => typeof candidate === 'number') as number | undefined;
+
+  for (const key of ['message', 'error', 'reason', 'detail', 'details', 'cause']) {
+    if (!(key in value)) continue;
+    const nested = extractNativeError(value[key], depth + 1);
+    if (nested.message) {
+      return {
+        message: nested.message,
+        code: code || nested.code,
+        status: status ?? nested.status
+      };
+    }
+  }
+
+  try {
+    const serialized = JSON.stringify(value);
+    return { message: safeDetail(serialized), code, status };
+  } catch {
+    return { code, status };
+  }
 }
 
 function guidanceFor(code: string, status: number, serverMessage?: string): ErrorGuidance {
@@ -204,38 +248,31 @@ export function createDatabaseClientError(payload: DatabaseErrorPayload | null, 
 
 export function normalizeDatabaseClientError(error: unknown) {
   if (error instanceof DatabaseClientError) return error;
-  if (typeof error === 'string') {
-    const detail = safeDetail(error);
-    return new DatabaseClientError(
-      detail || 'Native veritabanı işlemi tamamlanamadı.',
-      'DATABASE_NATIVE_ERROR',
-      0,
-      undefined,
-      false
-    );
-  }
-  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
-    const candidate = error as { message: string; code?: unknown; status?: unknown };
-    const code = typeof candidate.code === 'string' ? candidate.code : 'DATABASE_NATIVE_ERROR';
-    const status = typeof candidate.status === 'number' ? candidate.status : 0;
-    const guidance = guidanceFor(code, status, candidate.message);
-    return new DatabaseClientError(guidance.message, code, status, guidance.hint, Boolean(guidance.retryable));
-  }
   if (error instanceof DOMException && error.name === 'AbortError') {
     return new DatabaseClientError('İstek iptal edildi.', 'DATABASE_REQUEST_ABORTED', 0, 'İşlemi tekrar başlatabilirsiniz.', true);
   }
-  if (error instanceof TypeError) {
-    const guidance = ERROR_GUIDANCE.DATABASE_API_UNREACHABLE;
-    return new DatabaseClientError(guidance.message, 'DATABASE_API_UNREACHABLE', 0, guidance.hint, true);
-  }
-  if (error instanceof Error) {
-    const candidate = error as Error & { code?: string; status?: number };
-    const code = candidate.code || 'DATABASE_CLIENT_ERROR';
-    const status = candidate.status || 0;
-    const guidance = guidanceFor(code, status, candidate.message);
+
+  const native = extractNativeError(error);
+  if (native.message) {
+    const code = native.code || 'DATABASE_NATIVE_ERROR';
+    const status = native.status || 0;
+    const guidance = guidanceFor(code, status, native.message);
+
+    // Unknown native errors should preserve the driver's useful text instead of
+    // replacing it with a generic client-side message.
+    if (!ERROR_GUIDANCE[code] && status === 0) {
+      return new DatabaseClientError(native.message, code, status, undefined, false);
+    }
     return new DatabaseClientError(guidance.message, code, status, guidance.hint, Boolean(guidance.retryable));
   }
-  return new DatabaseClientError('Bilinmeyen bir veritabanı hatası oluştu.', 'DATABASE_CLIENT_ERROR', 0, 'İşlemi tekrar deneyin.', true);
+
+  return new DatabaseClientError(
+    'Native veritabanı işlemi tamamlanamadı ancak sürücü ayrıntı döndürmedi.',
+    'DATABASE_NATIVE_ERROR',
+    0,
+    'İşlemi tekrar deneyin; sorun sürerse bildirim merkezindeki teknik ayrıntıları kontrol edin.',
+    true
+  );
 }
 
 export async function readDatabaseApiResponse<T>(response: Response) {
