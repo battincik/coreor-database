@@ -17,6 +17,7 @@ import {
   XCircle
 } from 'lucide-react';
 import type { DatabaseCatalogItem, QueryExecutionResult } from 'types';
+import { matchesShortcut } from '@/lib/shortcuts';
 import type { DatabaseTransactionState } from '@/lib/databaseTransactionTypes';
 import {
   beginDatabaseTransaction,
@@ -74,7 +75,7 @@ export function DatabaseTransactionWorkspaceModal({ open, onClose, serverId, acc
   useEffect(() => {
     if (!open) return;
     const handler = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      if (matchesShortcut(event, 'runQuery')) {
         event.preventDefault();
         void runSql();
       }
@@ -82,7 +83,7 @@ export function DatabaseTransactionWorkspaceModal({ open, onClose, serverId, acc
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  });
+  }, [open, transaction, sql, serverId, accountId, databaseName]);
 
   const columns = useMemo(() => result?.fields?.map(field => field.name) || Object.keys(result?.rows?.[0] || {}), [result]);
   const remainingSeconds = transaction ? Math.max(0, Math.ceil((new Date(transaction.expiresAt).getTime() - now) / 1000)) : 0;
