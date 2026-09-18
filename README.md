@@ -1,4 +1,16 @@
-# Coreor Database
+<p align="center">
+  <img src="public/logo.png" width="112" alt="Coreor Database" />
+</p>
+
+<h1 align="center">Coreor Database</h1>
+
+<p align="center">
+  Cross-platform, local-first database client powered by Tauri and Rust.
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a>
+</p>
 
 Coreor Database is a cross-platform, local-first database client built with **Tauri 2, Rust, React and Next.js**.
 
