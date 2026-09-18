@@ -262,6 +262,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const refreshServer = async (server: DatabaseServerConfig) => {
     if (!workspaceKey) return;
     await fetchServerTables(server.id, workspaceKey);
+    setDatabaseObjects(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => !key.startsWith(`${server.id}:`))));
     await loadServers();
   };
   const runDangerous = (server: DatabaseServerConfig, database: string, table: string, sql: string, title: string, description: string, label: string) =>
@@ -553,6 +554,18 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     { kind: 'event' as const, label: 'Events', icon: Sparkles }
   ];
 
+  const objectGroupMenu = (event: React.MouseEvent, server: DatabaseServerConfig, database: string, kind: DatabaseSchemaObject['kind']) => {
+    const definition = objectGroupDefinitions.find(item => item.kind === kind);
+    const label = definition?.label || kind;
+    openContextMenu(event, [
+      { id: 'new', label: `Yeni ${label.slice(0, -1) || label}`, icon: Plus, disabled: Boolean(server.readOnly), disabledReason: server.readOnly ? 'Bağlantı salt-okunur.' : undefined, onSelect: () => openSql(server, database, `Yeni ${kind}`, objectTemplate(server.databaseType || 'mysql', database, kind)) },
+      { id: 'query', label: 'Yeni SQL sorgusu', icon: Code2, shortcut: 'newQuery', onSelect: () => openSql(server, database, `${database} sorgu`, '') },
+      { id: 'sep', separator: true },
+      { id: 'refresh', label: 'Nesne listesini yenile', icon: RefreshCw, shortcut: 'refresh', onSelect: () => void loadObjects(server, database, true) },
+      { id: 'copy-db', label: 'Veritabanı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(database) }
+    ], `${database} • ${label}`);
+  };
+
   return (
     <aside className="flex h-full min-h-0 w-full flex-col border-r border-zinc-800 bg-zinc-950/96">
       <header className="shrink-0 border-b border-zinc-800 p-2">
@@ -582,7 +595,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         </div>
         <div className="relative mt-2">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" />
-          <Input value={search} onChange={event => setSearch(event.target.value)} className="h-8 rounded-xl border-zinc-800 bg-black/30 pl-8 pr-8 text-[10px]" placeholder="Sunucu, veritabanı veya tablo ara…" />
+          <Input value={search} onChange={event => setSearch(event.target.value)} className="h-8 rounded-xl border-zinc-800 bg-black/30 pl-8 pr-8 text-[10px]" placeholder="Sunucu, DB, tablo, view, routine, trigger ara…" />
           {search && (
             <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600" onClick={() => setSearch('')}>
               <X className="h-3.5 w-3.5" />
@@ -630,7 +643,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                       return (
                         <div key={database.name}>
                           <div className={`group flex h-8 items-center gap-1 px-1 ${selected ? 'bg-cyan-500/[0.05]' : 'hover:bg-white/[0.02]'}`} onContextMenu={event => databaseMenu(event, server, database.name)}>
-                            <button type="button" className="flex h-6 w-6 items-center justify-center" onClick={() => toggle(setExpandedDatabases, databaseKey)}>
+                            <button type="button" className="flex h-6 w-6 items-center justify-center" onClick={() => { const opening = !expandedDatabases.has(databaseKey); toggle(setExpandedDatabases, databaseKey); if (opening) void loadObjects(server, database.name); }}>
                               {databaseOpen ? <ChevronDown className="h-3 w-3 text-cyan-400" /> : <ChevronRight className="h-3 w-3 text-zinc-700" />}
                             </button>
                             <button
@@ -647,26 +660,63 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                               <span className="text-[7px] tabular-nums text-zinc-700">{database.tableCount}</span>
                             </button>
                           </div>
-                          {databaseOpen && (
-                            <div className="ml-5 border-l border-zinc-900 pl-1">
-                              {database.tables.map(table => (
-                                <button
-                                  key={table}
-                                  type="button"
-                                  className={`group flex h-7 w-full min-w-0 items-center gap-2 rounded px-2 text-left ${active && selectedDatabase === database.name && selectedTable === table ? 'bg-cyan-500/10 text-cyan-200' : 'text-zinc-500 hover:bg-white/[0.025] hover:text-zinc-300'}`}
-                                  onClick={() => {
-                                    setActiveServerId(server.id);
-                                    onDatabaseSelect(database.name);
-                                    onTableSelect(table);
-                                  }}
-                                  onContextMenu={event => tableMenu(event, server, database.name, table)}
-                                >
-                                  <Table2 className="h-3 w-3 shrink-0" />
-                                  <span className="min-w-0 flex-1 truncate text-[9px]">{table}</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
+                          {databaseOpen && (() => {
+                            const key = objectKey(server.id, database.name);
+                            const loaded = databaseObjects[key];
+                            const fallbackObjects: DatabaseSchemaObject[] = database.tables.map(table => {
+                              const detail = database.tableDetails.find(item => item.tableName === table);
+                              return { name: table, kind: detail?.tableType?.toUpperCase().includes('VIEW') ? 'view' : 'table' };
+                            });
+                            const visibleObjects = normalizedSearch ? database.objectMatches : loaded || fallbackObjects;
+                            return (
+                              <div className="ml-5 border-l border-zinc-900 pl-1">
+                                {objectLoading.has(key) && !loaded && <div className="flex h-7 items-center gap-2 px-2 text-[8px] text-zinc-700"><Activity className="h-3 w-3 animate-spin" />Nesneler yükleniyor…</div>}
+                                {objectGroupDefinitions.map(group => {
+                                  const GroupIcon = group.icon;
+                                  const items = visibleObjects.filter(object => object.kind === group.kind);
+                                  const groupKey = `${key}:${group.kind}`;
+                                  const groupOpen = expandedObjectGroups.has(groupKey) || Boolean(search);
+                                  return (
+                                    <div key={group.kind}>
+                                      <div className="group flex h-7 items-center gap-1 rounded hover:bg-white/[0.02]" onContextMenu={event => objectGroupMenu(event, server, database.name, group.kind)}>
+                                        <button type="button" className="flex h-6 w-6 items-center justify-center" onClick={() => toggle(setExpandedObjectGroups, groupKey)}>
+                                          {groupOpen ? <ChevronDown className="h-3 w-3 text-zinc-500" /> : <ChevronRight className="h-3 w-3 text-zinc-700" />}
+                                        </button>
+                                        <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => toggle(setExpandedObjectGroups, groupKey)}>
+                                          <GroupIcon className="h-3 w-3 shrink-0 text-zinc-600" />
+                                          <span className="min-w-0 flex-1 truncate text-[9px] font-medium text-zinc-500">{group.label}</span>
+                                          <span className="pr-2 text-[7px] tabular-nums text-zinc-700">{items.length}</span>
+                                        </button>
+                                      </div>
+                                      {groupOpen && (
+                                        <div className="ml-5 border-l border-zinc-900/80 pl-1">
+                                          {items.length ? items.map(object => (
+                                            <button
+                                              key={`${object.kind}:${object.schema || ''}:${object.name}`}
+                                              type="button"
+                                              className={`group flex h-7 w-full min-w-0 items-center gap-2 rounded px-2 text-left ${active && selectedDatabase === database.name && selectedTable === object.name && (object.kind === 'table' || object.kind === 'view') ? 'bg-cyan-500/10 text-cyan-200' : 'text-zinc-500 hover:bg-white/[0.025] hover:text-zinc-300'}`}
+                                              onClick={() => {
+                                                setActiveServerId(server.id); onDatabaseSelect(database.name);
+                                                if (object.kind === 'table' || object.kind === 'view') onTableSelect(object.name);
+                                                else if (object.kind === 'procedure') openSql(server, database.name, `${object.name} çağır`, `CALL ${objectQualifiedName(server.databaseType || 'mysql', database.name, object)}();`);
+                                                else if (object.kind === 'function') openSql(server, database.name, `${object.name} çalıştır`, `SELECT ${objectQualifiedName(server.databaseType || 'mysql', database.name, object)}();`);
+                                                else openSql(server, database.name, `${object.name} tanımı`, objectDefinitionSql(server.databaseType || 'mysql', database.name, object), true);
+                                              }}
+                                              onContextMenu={event => objectMenu(event, server, database.name, object)}
+                                            >
+                                              <GroupIcon className="h-3 w-3 shrink-0" />
+                                              <span className="min-w-0 flex-1 truncate text-[9px]">{object.schema && object.schema !== database.name ? `${object.schema}.` : ''}{object.name}</span>
+                                              {object.tableName && <span className="max-w-20 truncate text-[7px] text-zinc-700">{object.tableName}</span>}
+                                            </button>
+                                          )) : <div className="px-2 py-1.5 text-[8px] text-zinc-800">Nesne yok</div>}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
                         </div>
                       );
                     })}
