@@ -210,7 +210,7 @@ const Table = React.forwardRef<HTMLTableElement, TableProps>(({
       if (width) applyWidth(index, width, false);
     });
     updateTableWidth();
-  }, [children, storageKey, headers, applyWidth, updateTableWidth]);
+  }, [columnStorageKey, storageKey, headers, applyWidth, updateTableWidth]);
 
   React.useEffect(() => {
     const handler = (event: Event) => {
