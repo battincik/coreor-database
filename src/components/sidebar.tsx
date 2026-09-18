@@ -406,7 +406,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: () => toggle(setExpandedDatabases, `${server.id}:${database}`, false) },
         { id: 'copy-db', label: 'Veritabanı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(database) },
         { id: 'copy-db-quoted', label: 'Quoted veritabanı adını kopyala', icon: Code2, onSelect: () => navigator.clipboard.writeText(quoteDatabaseIdentifier(database, server.databaseType || 'mysql')) },
-        { id: 'refresh', label: 'Yenile', icon: RefreshCw, onSelect: () => void refreshServer(server) },
+        { id: 'refresh', label: 'Yenile', icon: RefreshCw, shortcut: 'refresh', onSelect: () => void refreshServer(server) },
         { id: 'sep-danger', separator: true },
         {
           id: 'drop-database',
@@ -458,7 +458,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           }
         },
         { id: 'query', label: 'SELECT sorgusu', icon: Code2, onSelect: () => openSql(server, database, `${table} SELECT`, `SELECT * FROM ${qualified}\nLIMIT 100;`) },
-        { id: 'insert-row', label: 'Satır ekle', icon: Plus, disabled: Boolean(server.readOnly), onSelect: () => { setActiveServerId(server.id); onDatabaseSelect(database); onTableSelect(table); window.dispatchEvent(new CustomEvent('coreor:request-insert-table-row', { detail: { databaseName: database, tableName: table } })); } },
+        { id: 'ddl', label: 'DDL / metadata göster', icon: FileCode2, onSelect: () => openSql(server, database, `${table} DDL`, objectDefinitionSql(engine, database, { name: table, kind: 'table' }), true) },
+        { id: 'copy-ddl', label: 'CREATE TABLE kopyala', icon: Copy, disabled: databaseEngineFamily(engine) !== 'mysql', disabledReason: 'Doğrudan SHOW CREATE TABLE bu motor ailesinde kullanılamıyor.', onSelect: async () => { if (!workspaceKey) return; const result = await executeDatabaseQuery(server.id, objectDefinitionSql(engine, database, { name: table, kind: 'table' }), workspaceKey, database); const text = result.rows.flatMap(row => Object.values(row)).filter(value => typeof value === 'string').map(String).at(-1) || ''; if (text) await navigator.clipboard.writeText(text); } },
+        { id: 'dependencies', label: 'Bağımlılıkları sorgula', icon: Network, onSelect: () => openSql(server, database, `${table} bağımlılıklar`, objectDependencySql(engine, database, { name: table, kind: 'table' }), true) },
+        { id: 'rename', label: 'Rename taslağı', icon: Wrench, disabled: Boolean(server.readOnly), disabledReason: server.readOnly ? 'Bağlantı salt-okunur.' : undefined, onSelect: () => openSql(server, database, `${table} rename`, objectRenameTemplate(engine, database, { name: table, kind: 'table' })) },
+        { id: 'insert-row', label: 'Satır ekle', icon: Plus, shortcut: 'insertRow', disabled: Boolean(server.readOnly), disabledReason: server.readOnly ? 'Bağlantı salt-okunur.' : undefined, onSelect: label: 'Satır ekle', icon: Plus, disabled: Boolean(server.readOnly), onSelect: () => { setActiveServerId(server.id); onDatabaseSelect(database); onTableSelect(table); window.dispatchEvent(new CustomEvent('coreor:request-insert-table-row', { detail: { databaseName: database, tableName: table } })); } },
         {
           id: 'new',
           label: 'Yeni oluştur',
