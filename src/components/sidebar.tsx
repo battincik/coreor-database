@@ -494,7 +494,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       sql,
       confirmLabel: label,
       onConfirm: async () => {
-        if (!workspaceKey) throw new Error('Yerel çalışma alanı hazır değil.');
+        if (!workspaceKey) throw new Error(t('sidebar.workspaceNotReady'));
         await executeDatabaseQuery(server.id, sql, workspaceKey, database);
         await refreshServer(server);
         if (/DROP\s+TABLE/i.test(sql)) onTableSelect(null);
@@ -505,7 +505,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
 
   const recalculateDatabaseSize = useCallback(async (server: DatabaseServerConfig, database: string) => {
     if (!workspaceKey) return;
-    const toastId = toast.show({ title: 'Veritabanı boyutu hesaplanıyor', description: database, loading: true, persistent: true });
+    const toastId = toast.show({ title: t('sidebar.storage.databaseCalculating'), description: database, loading: true, persistent: true });
     try {
       const result = await recalculateDatabaseStorage(server.id, database, workspaceKey);
       await loadServers();
@@ -513,8 +513,8 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         loading: false,
         persistent: false,
         variant: 'success',
-        title: 'Veritabanı boyutu güncellendi',
-        description: `${database} • ${compactBytes(result.totalBytes) || '0 B'} • ${result.tableResults?.length || 0} tablo • ${result.rowCountSource === 'exact-count' ? 'satırlar kesin sayıldı' : 'satırlar metadata tahmini'}${result.failedTables?.length ? ` • ${result.failedTables.length} tablo ölçülemedi` : ''}${result.measurementSource === 'innodb-tablespace' ? ' • fiziksel InnoDB' : ''}`,
+        title: t('sidebar.storage.databaseUpdated'),
+        description: t('sidebar.storage.databaseResult', { database, size: compactBytes(result.totalBytes) || '0 B', tables: result.tableResults?.length || 0, rowMode: result.rowCountSource === 'exact-count' ? t('sidebar.storage.rowsExact') : t('sidebar.storage.rowsEstimated'), failed: result.failedTables?.length ? t('sidebar.storage.failedTables', { count: result.failedTables.length }) : '', source: result.measurementSource === 'innodb-tablespace' ? t('sidebar.storage.physicalInnoDb') : '' }),
         duration: result.failedTables?.length ? 5000 : 3500
       });
     } catch (error) {
@@ -523,23 +523,23 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         id: `storage-database-${server.id}-${database}`,
         severity: 'error',
         source: 'storage',
-        title: 'Veritabanı boyutu hesaplanamadı',
+        title: t('sidebar.storage.databaseFailed'),
         description: message,
         serverId: server.id,
         serverName: server.name,
         databaseName: database,
         code: (error as Error & { code?: string })?.code || 'STORAGE_RECALCULATION_FAILED',
         metadata: [
-          { label: 'Kapsam', value: 'Veritabanı' },
-          { label: 'Veritabanı', value: database },
-          { label: 'Motor', value: server.databaseType || 'mysql' }
+          { label: t('sidebar.storage.scope'), value: t('database.database') },
+          { label: t('database.database'), value: database },
+          { label: t('bottomBar.engine'), value: server.databaseType || 'mysql' }
         ]
       });
       toast.update(toastId, {
         loading: false,
         persistent: false,
         variant: 'error',
-        title: 'Boyut hesaplanamadı',
+        title: t('sidebar.storage.calculationFailed'),
         description: message,
         duration: 5000,
         onOpen: () => window.dispatchEvent(new CustomEvent('coreor:open-notification', { detail: { id: notification.id } }))
@@ -549,7 +549,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
 
   const recalculateTableSize = useCallback(async (server: DatabaseServerConfig, database: string, table: string) => {
     if (!workspaceKey) return;
-    const toastId = toast.show({ title: 'Tablo boyutu hesaplanıyor', description: `${database}.${table}`, loading: true, persistent: true });
+    const toastId = toast.show({ title: t('sidebar.storage.tableCalculating'), description: `${database}.${table}`, loading: true, persistent: true });
     try {
       const result = await recalculateTableStorage(server.id, database, table, workspaceKey);
       await loadServers();
@@ -557,8 +557,8 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         loading: false,
         persistent: false,
         variant: 'success',
-        title: 'Tablo boyutu güncellendi',
-        description: `${table} • ${compactBytes(result.totalBytes) || '0 B'} • ${Number(result.rows || 0).toLocaleString('tr-TR')} satır${result.rowCountSource === 'exact-count' ? ' • kesin' : ''}${result.measurementSource === 'innodb-tablespace' ? ' • fiziksel InnoDB' : ''}`,
+        title: t('sidebar.storage.tableUpdated'),
+        description: t('sidebar.storage.tableResult', { table, size: compactBytes(result.totalBytes) || '0 B', rows: Number(result.rows || 0).toLocaleString(language), exact: result.rowCountSource === 'exact-count' ? t('sidebar.storage.exact') : '', source: result.measurementSource === 'innodb-tablespace' ? t('sidebar.storage.physicalInnoDb') : '' }),
         duration: 3500
       });
     } catch (error) {
@@ -567,7 +567,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         id: `storage-table-${server.id}-${database}-${table}`,
         severity: 'error',
         source: 'storage',
-        title: 'Tablo boyutu hesaplanamadı',
+        title: t('sidebar.storage.tableFailed'),
         description: message,
         serverId: server.id,
         serverName: server.name,
@@ -575,16 +575,16 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         tableName: table,
         code: (error as Error & { code?: string })?.code || 'STORAGE_RECALCULATION_FAILED',
         metadata: [
-          { label: 'Kapsam', value: 'Tablo' },
-          { label: 'Tablo', value: `${database}.${table}` },
-          { label: 'Motor', value: server.databaseType || 'mysql' }
+          { label: t('sidebar.storage.scope'), value: t('database.table') },
+          { label: t('database.table'), value: `${database}.${table}` },
+          { label: t('bottomBar.engine'), value: server.databaseType || 'mysql' }
         ]
       });
       toast.update(toastId, {
         loading: false,
         persistent: false,
         variant: 'error',
-        title: 'Boyut hesaplanamadı',
+        title: t('sidebar.storage.calculationFailed'),
         description: message,
         duration: 5000,
         onOpen: () => window.dispatchEvent(new CustomEvent('coreor:open-notification', { detail: { id: notification.id } }))
@@ -595,7 +595,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const recalculateServerSizes = useCallback(async (server: DatabaseServerConfig) => {
     if (!workspaceKey) return;
     const databases = server.databases || [];
-    const toastId = toast.show({ title: 'Sunucu boyutları hesaplanıyor', description: `${databases.length} veritabanı sırayla güncelleniyor.`, loading: true, persistent: true });
+    const toastId = toast.show({ title: t('sidebar.storage.serverCalculating'), description: `${databases.length} veritabanı sırayla güncelleniyor.`, loading: true, persistent: true });
     try {
       for (const database of databases) {
         await recalculateDatabaseStorage(server.id, database.name, workspaceKey);
@@ -605,7 +605,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         loading: false,
         persistent: false,
         variant: 'success',
-        title: 'Sunucu boyutları güncellendi',
+        title: t('sidebar.storage.serverUpdated'),
         description: `${server.name} • ${databases.length} veritabanı`,
         duration: 3500
       });
@@ -615,22 +615,22 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         id: `storage-server-${server.id}`,
         severity: 'error',
         source: 'storage',
-        title: 'Sunucu boyutları hesaplanamadı',
+        title: t('sidebar.storage.serverFailed'),
         description: message,
         serverId: server.id,
         serverName: server.name,
         code: (error as Error & { code?: string })?.code || 'STORAGE_RECALCULATION_FAILED',
         metadata: [
-          { label: 'Kapsam', value: 'Sunucu' },
-          { label: 'Sunucu', value: server.name },
-          { label: 'Motor', value: server.databaseType || 'mysql' }
+          { label: t('sidebar.storage.scope'), value: t('statusGuide.server') },
+          { label: t('statusGuide.server'), value: server.name },
+          { label: t('bottomBar.engine'), value: server.databaseType || 'mysql' }
         ]
       });
       toast.update(toastId, {
         loading: false,
         persistent: false,
         variant: 'error',
-        title: 'Boyut hesaplama tamamlanamadı',
+        title: t('sidebar.storage.serverCalculationFailed'),
         description: message,
         duration: 5000,
         onOpen: () => window.dispatchEvent(new CustomEvent('coreor:open-notification', { detail: { id: notification.id } }))
@@ -642,23 +642,23 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     openContextMenu(
       event,
       [
-        { id: 'activate', label: 'Sunucuyu etkinleştir', icon: Server, onSelect: () => setActiveServerId(server.id) },
-        { id: 'create-db', label: 'Yeni veritabanı oluştur', icon: Plus, onSelect: () => setCreateDatabase({ server, name: '', charset: databaseEngineFamily(server.databaseType) === 'mysql' ? 'utf8mb4' : 'UTF8', collation: '', owner: '', busy: false, error: null }) },
-        { id: 'query', label: 'Sunucu geneli sorgu', icon: Code2, onSelect: () => openSql(server, null, `${server.name} sorgu`, '') },
-        { id: 'refresh', label: 'Bütün kataloğu yenile', icon: RefreshCw, onSelect: () => void refreshServer(server) },
-        { id: 'recalculate-sizes', label: 'Tüm boyutları yeniden hesapla', icon: HardDrive, onSelect: () => void recalculateServerSizes(server) },
+        { id: 'activate', label: t('sidebar.menu.activateServer'), icon: Server, onSelect: () => setActiveServerId(server.id) },
+        { id: 'create-db', label: t('sidebar.menu.createDatabase'), icon: Plus, onSelect: () => setCreateDatabase({ server, name: '', charset: databaseEngineFamily(server.databaseType) === 'mysql' ? 'utf8mb4' : 'UTF8', collation: '', owner: '', busy: false, error: null }) },
+        { id: 'query', label: t('sidebar.menu.serverQuery'), icon: Code2, onSelect: () => openSql(server, null, `${server.name} sorgu`, '') },
+        { id: 'refresh', label: t('sidebar.menu.refreshCatalog'), icon: RefreshCw, onSelect: () => void refreshServer(server) },
+        { id: 'recalculate-sizes', label: t('sidebar.menu.recalculateAllSizes'), icon: HardDrive, onSelect: () => void recalculateServerSizes(server) },
         { id: 'sep1', separator: true },
-        { id: 'expand', label: 'Hepsini genişlet', icon: ChevronDown, onSelect: () => expandServer(server) },
-        { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: () => collapseServer(server) },
-        { id: 'copy-connection', label: 'Bağlantı bilgisini kopyala', icon: Copy, children: [
+        { id: 'expand', label: t('sidebar.expandAll'), icon: ChevronDown, onSelect: () => expandServer(server) },
+        { id: 'collapse', label: t('sidebar.collapseAll'), icon: ChevronRight, onSelect: () => collapseServer(server) },
+        { id: 'copy-connection', label: t('sidebar.menu.copyConnection'), icon: Copy, children: [
           { id: 'copy-host', label: 'Host', icon: Copy, onSelect: () => navigator.clipboard.writeText(server.host || '') },
           { id: 'copy-host-port', label: 'Host:port', icon: Copy, onSelect: () => navigator.clipboard.writeText(`${server.host}:${server.port}`) },
-          { id: 'copy-user', label: 'Kullanıcı adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(server.username || '') },
-          { id: 'copy-summary', label: 'Bağlantı özeti', icon: Copy, onSelect: () => navigator.clipboard.writeText(`${server.name} • ${databaseEngineLabel(server.databaseType)} • ${server.host}:${server.port} • ${server.username}`) }
+          { id: 'copy-user', label: t('server.username'), icon: Copy, onSelect: () => navigator.clipboard.writeText(server.username || '') },
+          { id: 'copy-summary', label: t('server.connectionSummary'), icon: Copy, onSelect: () => navigator.clipboard.writeText(`${server.name} • ${databaseEngineLabel(server.databaseType)} • ${server.host}:${server.port} • ${server.username}`) }
         ] },
         {
           id: 'edit',
-          label: 'Bağlantıyı düzenle',
+          label: t('sidebar.editConnection'),
           icon: Settings2,
           onSelect: () => {
             setEditingServer(server);
@@ -667,13 +667,13 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         },
         {
           id: 'remove-profile',
-          label: 'Bağlantı profilini kaldır',
+          label: t('sidebar.menu.removeConnectionProfile'),
           icon: Trash2,
           danger: true,
           onSelect: () => setProfileConfirmation({
-            title: 'Bağlantı profilini kaldır',
+            title: t('sidebar.profile.removeTitle'),
             description: `"${server.name}" profili yalnızca bu bilgisayardaki Coreor bağlantı kasasından kaldırılacak. MySQL sunucusu, veritabanları ve tablolar silinmez.`,
-            confirmLabel: 'Profili kaldır',
+            confirmLabel: t('sidebar.profile.removeConfirm'),
             tone: 'danger',
             onConfirm: () => removeServer(server.id)
           })
@@ -688,7 +688,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       [
         {
           id: 'open',
-          label: 'Veritabanını aç',
+          label: t('sidebar.menu.openDatabase'),
           icon: Database,
           onSelect: () => {
             setActiveServerId(server.id);
@@ -696,10 +696,10 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
             onTableSelect(null);
           }
         },
-        { id: 'query', label: 'Yeni SQL sorgusu', icon: Code2, onSelect: () => openSql(server, database, `${database} sorgu`, '') },
+        { id: 'query', label: t('sidebar.menu.newSqlQuery'), icon: Code2, onSelect: () => openSql(server, database, `${database} sorgu`, '') },
         {
           id: 'schema',
-          label: 'Şema grafiğini aç',
+          label: t('sidebar.menu.openSchemaGraph'),
           icon: Network,
           onSelect: () => {
             setActiveServerId(server.id);
@@ -710,7 +710,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         },
         {
           id: 'new',
-          label: 'Yeni oluştur',
+          label: t('sidebar.menu.createNew'),
           icon: Plus,
           children: [
             ['table', 'Tablo', Table2],
@@ -724,16 +724,16 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         },
         {
           id: 'routines',
-          label: 'Rutinleri yürüt',
+          label: t('sidebar.menu.runRoutines'),
           icon: Braces,
           children: [
-            { id: 'call', label: 'Procedure çağır', icon: Zap, onSelect: () => openSql(server, database, 'Procedure çağır', databaseEngineFamily(server.databaseType) === 'postgresql' ? 'CALL procedure_name();' : 'CALL procedure_name();') },
-            { id: 'function', label: 'Function çalıştır', icon: FunctionSquare, onSelect: () => openSql(server, database, 'Function çalıştır', 'SELECT function_name();') }
+            { id: 'call', label: t('sidebar.menu.callProcedure'), icon: Zap, onSelect: () => openSql(server, database, 'Procedure çağır', databaseEngineFamily(server.databaseType) === 'postgresql' ? 'CALL procedure_name();' : 'CALL procedure_name();') },
+            { id: 'function', label: t('sidebar.menu.runFunction'), icon: FunctionSquare, onSelect: () => openSql(server, database, 'Function çalıştır', 'SELECT function_name();') }
           ]
         },
         {
           id: 'export',
-          label: 'Veritabanını SQL olarak dışa aktar',
+          label: t('sidebar.menu.exportDatabaseSql'),
           icon: Download,
           onSelect: () => {
             setActiveServerId(server.id);
@@ -742,18 +742,18 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           }
         },
         { id: 'sep2', separator: true },
-        { id: 'expand', label: 'Bütün nesne gruplarını genişlet', icon: ChevronDown, onSelect: () => expandDatabase(server, database) },
-        { id: 'collapse', label: 'Bütün nesne gruplarını daralt', icon: ChevronRight, onSelect: () => collapseDatabase(server, database) },
-        { id: 'copy-db', label: 'Veritabanı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(database) },
-        { id: 'copy-db-quoted', label: 'Quoted veritabanı adını kopyala', icon: Code2, onSelect: () => navigator.clipboard.writeText(quoteDatabaseIdentifier(database, server.databaseType || 'mysql')) },
-        { id: 'recalculate-size', label: 'Boyutu yeniden hesapla', icon: HardDrive, onSelect: () => void recalculateDatabaseSize(server, database) },
-        { id: 'maintenance-center', label: 'Bakım merkezi…', icon: Wrench, onSelect: () => {
+        { id: 'expand', label: t('sidebar.menu.expandObjectGroups'), icon: ChevronDown, onSelect: () => expandDatabase(server, database) },
+        { id: 'collapse', label: t('sidebar.menu.collapseObjectGroups'), icon: ChevronRight, onSelect: () => collapseDatabase(server, database) },
+        { id: 'copy-db', label: t('sidebar.menu.copyDatabaseName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(database) },
+        { id: 'copy-db-quoted', label: t('sidebar.menu.copyQuotedDatabaseName'), icon: Code2, onSelect: () => navigator.clipboard.writeText(quoteDatabaseIdentifier(database, server.databaseType || 'mysql')) },
+        { id: 'recalculate-size', label: t('sidebar.menu.recalculateSize'), icon: HardDrive, onSelect: () => void recalculateDatabaseSize(server, database) },
+        { id: 'maintenance-center', label: t('sidebar.menu.maintenanceCenter'), icon: Wrench, onSelect: () => {
           setActiveServerId(server.id);
           onDatabaseSelect(database);
           onTableSelect(null);
           window.dispatchEvent(new CustomEvent(OPEN_MAINTENANCE_CENTER_EVENT, { detail: { serverId: server.id, databaseName: database, tableName: null } }));
         } },
-        { id: 'refresh', label: 'Yenile', icon: RefreshCw, shortcut: 'refresh', onSelect: () => void refreshServer(server) },
+        { id: 'refresh', label: t('common.refresh'), icon: RefreshCw, shortcut: 'refresh', onSelect: () => void refreshServer(server) },
         { id: 'sep-danger', separator: true },
         {
           id: 'drop-database',
@@ -762,12 +762,12 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           danger: true,
           onSelect: () => setConfirmation({
             title: `${database} veritabanını sil`,
-            description: 'Bu işlem veritabanını, bütün tablolarını ve içindeki verileri sunucudan kalıcı olarak siler.',
+            description: t('sidebar.menu.dropDatabaseDescription'),
             expectedText: database,
             sql: `DROP DATABASE ${quoteDatabaseIdentifier(database, server.databaseType || 'mysql')};`,
-            confirmLabel: 'Veritabanını kalıcı olarak sil',
+            confirmLabel: t('sidebar.menu.dropDatabaseConfirm'),
             onConfirm: async () => {
-              if (!workspaceKey) throw new Error('Yerel çalışma alanı hazır değil.');
+              if (!workspaceKey) throw new Error(t('sidebar.workspaceNotReady'));
               await executeDatabaseQuery(server.id, `DROP DATABASE ${quoteDatabaseIdentifier(database, server.databaseType || 'mysql')};`, workspaceKey, null);
               if (selectedDatabase === database) { onTableSelect(null); onDatabaseSelect(null); }
               await refreshServer(server);
@@ -786,7 +786,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       [
         {
           id: 'data',
-          label: 'Verileri aç',
+          label: t('sidebar.menu.openData'),
           icon: Table2,
           onSelect: () => {
             setActiveServerId(server.id);
@@ -796,7 +796,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         },
         {
           id: 'structure',
-          label: 'Yapıyı aç',
+          label: t('sidebar.menu.openStructure'),
           icon: Wrench,
           onSelect: () => {
             setActiveServerId(server.id);
@@ -804,15 +804,15 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
             onTableSelect(table);
           }
         },
-        { id: 'query', label: 'SELECT sorgusu', icon: Code2, onSelect: () => openSql(server, database, `${table} SELECT`, `SELECT * FROM ${qualified}\nLIMIT 100;`) },
-        { id: 'ddl', label: 'DDL / metadata göster', icon: FileCode2, onSelect: () => openSql(server, database, `${table} DDL`, objectDefinitionSql(engine, database, { name: table, kind: 'table' }), true) },
+        { id: 'query', label: t('sidebar.menu.selectQuery'), icon: Code2, onSelect: () => openSql(server, database, `${table} SELECT`, `SELECT * FROM ${qualified}\nLIMIT 100;`) },
+        { id: 'ddl', label: t('sidebar.menu.showDdlMetadata'), icon: FileCode2, onSelect: () => openSql(server, database, `${table} DDL`, objectDefinitionSql(engine, database, { name: table, kind: 'table' }), true) },
         { id: 'copy-ddl', label: 'CREATE TABLE kopyala', icon: Copy, disabled: databaseEngineFamily(engine) !== 'mysql', disabledReason: 'Doğrudan SHOW CREATE TABLE bu motor ailesinde kullanılamıyor.', onSelect: async () => { if (!workspaceKey) return; const result = await executeDatabaseQuery(server.id, objectDefinitionSql(engine, database, { name: table, kind: 'table' }), workspaceKey, database); const text = result.rows.flatMap(row => Object.values(row)).filter(value => typeof value === 'string').map(String).at(-1) || ''; if (text) await navigator.clipboard.writeText(text); } },
-        { id: 'dependencies', label: 'Bağımlılıkları sorgula', icon: Network, onSelect: () => openSql(server, database, `${table} bağımlılıklar`, objectDependencySql(engine, database, { name: table, kind: 'table' }), true) },
-        { id: 'rename', label: 'Rename taslağı', icon: Wrench, disabled: Boolean(server.readOnly), disabledReason: server.readOnly ? 'Bağlantı salt-okunur.' : undefined, onSelect: () => openSql(server, database, `${table} rename`, objectRenameTemplate(engine, database, { name: table, kind: 'table' })) },
-        { id: 'insert-row', label: 'Satır ekle', icon: Plus, shortcut: 'insertRow', disabled: Boolean(server.readOnly), disabledReason: server.readOnly ? 'Bağlantı salt-okunur.' : undefined, onSelect: () => { setActiveServerId(server.id); onDatabaseSelect(database); onTableSelect(table); window.dispatchEvent(new CustomEvent('coreor:request-insert-table-row', { detail: { databaseName: database, tableName: table } })); } },
+        { id: 'dependencies', label: t('sidebar.menu.queryDependencies'), icon: Network, onSelect: () => openSql(server, database, `${table} bağımlılıklar`, objectDependencySql(engine, database, { name: table, kind: 'table' }), true) },
+        { id: 'rename', label: t('sidebar.menu.renameDraft'), icon: Wrench, disabled: Boolean(server.readOnly), disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : undefined, onSelect: () => openSql(server, database, `${table} rename`, objectRenameTemplate(engine, database, { name: table, kind: 'table' })) },
+        { id: 'insert-row', label: t('sidebar.menu.insertRow'), icon: Plus, shortcut: 'insertRow', disabled: Boolean(server.readOnly), disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : undefined, onSelect: () => { setActiveServerId(server.id); onDatabaseSelect(database); onTableSelect(table); window.dispatchEvent(new CustomEvent('coreor:request-insert-table-row', { detail: { databaseName: database, tableName: table } })); } },
         {
           id: 'new',
-          label: 'Yeni oluştur',
+          label: t('sidebar.menu.createNew'),
           icon: Plus,
           children: [
             ['table', 'Tablo', Table2],
@@ -824,14 +824,14 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
             ['index', 'İndeks', KeyRound]
           ].map(([type, label, icon]) => ({ id: `new-${type}`, label: String(label), icon: icon as typeof Plus, onSelect: () => openSql(server, database, `Yeni ${label}`, objectTemplate(engine, database, String(type))) }))
         },
-        { id: 'routines', label: 'Rutinleri yürüt', icon: Braces, onSelect: () => openSql(server, database, `${table} rutin`, `CALL routine_name(${quoteDatabaseIdentifier('parameter', engine)});`) },
+        { id: 'routines', label: t('sidebar.menu.runRoutines'), icon: Braces, onSelect: () => openSql(server, database, `${table} rutin`, `CALL routine_name(${quoteDatabaseIdentifier('parameter', engine)});`) },
         { id: 'sep1', separator: true },
-        { id: 'truncate', label: 'Boş tablo — bütün veriyi sil', icon: Trash2, danger: true, onSelect: () => runDangerous(server, database, table, `TRUNCATE TABLE ${qualified};`, `${table} tablosunu boşalt`, 'Tablodaki bütün satırlar tek işlemde kalıcı olarak silinecek.', 'Tabloyu boşalt') },
-        { id: 'drop', label: 'Düşür — tabloyu sil', icon: Trash2, danger: true, onSelect: () => runDangerous(server, database, table, `DROP TABLE ${qualified};`, `${table} tablosunu düşür`, 'Tablo yapısı, verileri, indeksleri ve bağlı nesneleri kalıcı olarak silinebilir.', 'Tabloyu sil') },
+        { id: 'truncate', label: t('sidebar.menu.emptyTable'), icon: Trash2, danger: true, onSelect: () => runDangerous(server, database, table, `TRUNCATE TABLE ${qualified};`, `${table} tablosunu boşalt`, t('sidebar.menu.emptyTableDescription'), t('sidebar.menu.emptyTableConfirm')) },
+        { id: 'drop', label: t('sidebar.menu.dropTable'), icon: Trash2, danger: true, onSelect: () => runDangerous(server, database, table, `DROP TABLE ${qualified};`, `${table} tablosunu düşür`, t('sidebar.menu.dropTableDescription'), t('sidebar.menu.dropTableConfirm')) },
         { id: 'sep2', separator: true },
         {
           id: 'export',
-          label: 'SQL olarak dışa aktar',
+          label: t('sidebar.menu.exportSql'),
           icon: Download,
           onSelect: () => {
             setActiveServerId(server.id);
@@ -842,7 +842,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         },
         {
           id: 'maintenance',
-          label: 'Bakım merkezi…',
+          label: t('sidebar.menu.maintenanceCenter'),
           icon: Wrench,
           onSelect: () => {
             setActiveServerId(server.id);
@@ -851,16 +851,16 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
             window.dispatchEvent(new CustomEvent(OPEN_MAINTENANCE_CENTER_EVENT, { detail: { serverId: server.id, databaseName: database, tableName: table } }));
           }
         },
-        { id: 'copy-table', label: 'Kopyala', icon: Copy, children: [
-          { id: 'copy-table-name', label: 'Tablo adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(table) },
-          { id: 'copy-qualified', label: 'Tam tablo adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(qualified) },
+        { id: 'copy-table', label: t('common.copy'), icon: Copy, children: [
+          { id: 'copy-table-name', label: t('sidebar.menu.tableName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(table) },
+          { id: 'copy-qualified', label: t('sidebar.menu.fullTableName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(qualified) },
           { id: 'copy-select', label: 'SELECT taslağı', icon: Code2, onSelect: () => navigator.clipboard.writeText(`SELECT * FROM ${qualified}\nLIMIT 100;`) }
         ] },
         { id: 'sep3', separator: true },
-        { id: 'expand', label: 'Bu veritabanını genişlet', icon: ChevronDown, onSelect: () => expandDatabase(server, database) },
-        { id: 'collapse', label: 'Bu veritabanını daralt', icon: ChevronRight, onSelect: () => collapseDatabase(server, database) },
-        { id: 'recalculate-size', label: 'Boyutu yeniden hesapla', icon: HardDrive, onSelect: () => void recalculateTableSize(server, database, table) },
-        { id: 'refresh', label: 'Yenile', icon: RefreshCw, onSelect: () => void refreshServer(server) }
+        { id: 'expand', label: t('sidebar.menu.expandDatabase'), icon: ChevronDown, onSelect: () => expandDatabase(server, database) },
+        { id: 'collapse', label: t('sidebar.menu.collapseDatabase'), icon: ChevronRight, onSelect: () => collapseDatabase(server, database) },
+        { id: 'recalculate-size', label: t('sidebar.menu.recalculateSize'), icon: HardDrive, onSelect: () => void recalculateTableSize(server, database, table) },
+        { id: 'refresh', label: t('common.refresh'), icon: RefreshCw, onSelect: () => void refreshServer(server) }
       ],
       `${database}.${table}`
     );
@@ -884,21 +884,21 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           else openSql(server, database, `${object.name} tanımı`, objectDefinitionSql(engine, database, object), true);
         }
       },
-      { id: 'new-query', label: 'Yeni sorgu', icon: Code2, shortcut: 'newQuery', onSelect: () => openSql(server, database, `${object.name} sorgu`, '') },
-      { id: 'definition', label: 'DDL / tanımı göster', icon: FileCode2, onSelect: () => openSql(server, database, `${object.name} DDL`, objectDefinitionSql(engine, database, object), true) },
+      { id: 'new-query', label: t('sidebar.menu.newQuery'), icon: Code2, shortcut: 'newQuery', onSelect: () => openSql(server, database, `${object.name} sorgu`, '') },
+      { id: 'definition', label: t('sidebar.menu.showDefinition'), icon: FileCode2, onSelect: () => openSql(server, database, `${object.name} DDL`, objectDefinitionSql(engine, database, object), true) },
       { id: 'copy-definition', label: 'CREATE / DDL kopyala', icon: Copy, disabled: databaseEngineFamily(engine) !== 'mysql' && object.kind === 'table', disabledReason: 'Bu motor tablo CREATE DDL’sini doğrudan katalog fonksiyonuyla vermiyor.', onSelect: async () => {
         if (!workspaceKey) return;
         const result = await executeDatabaseQuery(server.id, objectDefinitionSql(engine, database, object), workspaceKey, database);
         const text = result.rows.flatMap(row => Object.values(row)).filter(value => typeof value === 'string').map(String).at(-1) || object.definition || '';
         if (text) await navigator.clipboard.writeText(text);
       } },
-      { id: 'dependencies', label: 'Bağımlılıkları sorgula', icon: Network, onSelect: () => openSql(server, database, `${object.name} bağımlılıklar`, objectDependencySql(engine, database, object), true) },
+      { id: 'dependencies', label: t('sidebar.menu.queryDependencies'), icon: Network, onSelect: () => openSql(server, database, `${object.name} bağımlılıklar`, objectDependencySql(engine, database, object), true) },
       { id: 'sep-edit', separator: true },
-      { id: 'rename', label: 'Rename taslağı', icon: Wrench, disabled: Boolean(server.readOnly) || !canRename, disabledReason: server.readOnly ? 'Bağlantı salt-okunur.' : 'Bu nesne türünde güvenli rename motor/sürüme göre değişiyor.', onSelect: () => openSql(server, database, `${object.name} rename`, objectRenameTemplate(engine, database, object)) },
-      { id: 'copy', label: 'Kopyala', icon: Copy, children: [
-        { id: 'copy-name', label: 'Nesne adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(object.name) },
-        { id: 'copy-qualified', label: 'Tam nesne adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(qualified) },
-        ...(object.tableName ? [{ id: 'copy-parent', label: 'Bağlı tablo adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(object.tableName || '') }] : [])
+      { id: 'rename', label: t('sidebar.menu.renameDraft'), icon: Wrench, disabled: Boolean(server.readOnly) || !canRename, disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : t('sidebar.menu.renameUnavailable'), onSelect: () => openSql(server, database, `${object.name} rename`, objectRenameTemplate(engine, database, object)) },
+      { id: 'copy', label: t('common.copy'), icon: Copy, children: [
+        { id: 'copy-name', label: t('sidebar.menu.objectName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(object.name) },
+        { id: 'copy-qualified', label: t('sidebar.menu.fullObjectName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(qualified) },
+        ...(object.tableName ? [{ id: 'copy-parent', label: t('sidebar.menu.relatedTableName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(object.tableName || '') }] : [])
       ] },
       { id: 'sep-danger', separator: true },
       {
@@ -907,7 +907,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         icon: Trash2,
         danger: true,
         disabled: Boolean(server.readOnly),
-        disabledReason: server.readOnly ? 'Bağlantı salt-okunur.' : undefined,
+        disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : undefined,
         onSelect: () => runDangerous(server, database, object.name, objectDropSql(engine, database, object), `${object.name} nesnesini sil`, `${object.kind} nesnesi sunucudan kalıcı olarak kaldırılacak.`, 'Nesneyi sil')
       }
     ], `${object.kind.toUpperCase()} • ${object.schema ? `${object.schema}.` : ''}${object.name}`);
@@ -926,11 +926,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     const definition = objectGroupDefinitions.find(item => item.kind === kind);
     const label = definition?.label || kind;
     openContextMenu(event, [
-      { id: 'new', label: `Yeni ${label.slice(0, -1) || label}`, icon: Plus, disabled: Boolean(server.readOnly), disabledReason: server.readOnly ? 'Bağlantı salt-okunur.' : undefined, onSelect: () => openSql(server, database, `Yeni ${kind}`, objectTemplate(server.databaseType || 'mysql', database, kind)) },
-      { id: 'query', label: 'Yeni SQL sorgusu', icon: Code2, shortcut: 'newQuery', onSelect: () => openSql(server, database, `${database} sorgu`, '') },
+      { id: 'new', label: `Yeni ${label.slice(0, -1) || label}`, icon: Plus, disabled: Boolean(server.readOnly), disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : undefined, onSelect: () => openSql(server, database, `Yeni ${kind}`, objectTemplate(server.databaseType || 'mysql', database, kind)) },
+      { id: 'query', label: t('sidebar.menu.newSqlQuery'), icon: Code2, shortcut: 'newQuery', onSelect: () => openSql(server, database, `${database} sorgu`, '') },
       { id: 'sep', separator: true },
-      { id: 'refresh', label: 'Nesne listesini yenile', icon: RefreshCw, shortcut: 'refresh', onSelect: () => void loadObjects(server, database, true) },
-      { id: 'copy-db', label: 'Veritabanı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(database) }
+      { id: 'refresh', label: t('sidebar.menu.refreshObjects'), icon: RefreshCw, shortcut: 'refresh', onSelect: () => void loadObjects(server, database, true) },
+      { id: 'copy-db', label: t('sidebar.menu.copyDatabaseName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(database) }
     ], `${database} • ${label}`);
   };
 
@@ -983,8 +983,8 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" />
           <Input ref={searchRef} value={search} onChange={event => setSearch(event.target.value)} className="h-8 rounded-xl border-zinc-800 bg-black/30 pl-8 pr-[7.3rem] text-[10px]" placeholder="Nesne ara…" />
           <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
-            {search && <button type="button" className="flex h-6 w-6 items-center justify-center rounded-md text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" title="Aramayı temizle" onClick={() => setSearch('')}><X className="h-3 w-3" /></button>}
-            <button type="button" aria-expanded={searchFilterOpen} className={`flex h-6 max-w-24 items-center gap-1.5 rounded-lg border px-2 text-[8px] font-medium transition ${searchAll ? 'border-zinc-800 bg-zinc-900/80 text-zinc-500 hover:text-zinc-300' : 'border-cyan-500/25 bg-cyan-500/10 text-cyan-300'}`} onClick={() => setSearchFilterOpen(previous => !previous)} title="Arama türlerini filtrele">
+            {search && <button type="button" className="flex h-6 w-6 items-center justify-center rounded-md text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" title={t('sidebar.clearSearch')} onClick={() => setSearch('')}><X className="h-3 w-3" /></button>}
+            <button type="button" aria-expanded={searchFilterOpen} className={`flex h-6 max-w-24 items-center gap-1.5 rounded-lg border px-2 text-[8px] font-medium transition ${searchAll ? 'border-zinc-800 bg-zinc-900/80 text-zinc-500 hover:text-zinc-300' : 'border-cyan-500/25 bg-cyan-500/10 text-cyan-300'}`} onClick={() => setSearchFilterOpen(previous => !previous)} title={t('sidebar.filterSearchTypes')}>
               <ListFilter className="h-3 w-3 shrink-0" />
               <span className="truncate">{activeSearchTypeLabel}</span>
               <ChevronDown className={`h-2.5 w-2.5 shrink-0 transition-transform ${searchFilterOpen ? 'rotate-180' : ''}`} />
@@ -1069,7 +1069,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                               <Database className="h-3 w-3 shrink-0 text-sky-400" />
                               <span className="min-w-0 flex-1 truncate text-[9px] text-zinc-400">{database.name}</span>
                               <span className="flex shrink-0 items-center gap-1.5 text-[9px] tabular-nums text-zinc-500">
-                                <span>{database.objectMatches.length.toLocaleString('tr-TR')} nesne</span>
+                                <span>{database.objectMatches.length.toLocaleString(language)} nesne</span>
                                 <span className="text-zinc-800">•</span>
                                 <span className="font-mono text-blue-300/75">{compactSize(database.totalSizeMB)}</span>
                               </span>
