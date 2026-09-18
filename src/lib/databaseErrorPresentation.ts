@@ -204,6 +204,23 @@ export function createDatabaseClientError(payload: DatabaseErrorPayload | null, 
 
 export function normalizeDatabaseClientError(error: unknown) {
   if (error instanceof DatabaseClientError) return error;
+  if (typeof error === 'string') {
+    const detail = safeDetail(error);
+    return new DatabaseClientError(
+      detail || 'Native veritabanı işlemi tamamlanamadı.',
+      'DATABASE_NATIVE_ERROR',
+      0,
+      undefined,
+      false
+    );
+  }
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
+    const candidate = error as { message: string; code?: unknown; status?: unknown };
+    const code = typeof candidate.code === 'string' ? candidate.code : 'DATABASE_NATIVE_ERROR';
+    const status = typeof candidate.status === 'number' ? candidate.status : 0;
+    const guidance = guidanceFor(code, status, candidate.message);
+    return new DatabaseClientError(guidance.message, code, status, guidance.hint, Boolean(guidance.retryable));
+  }
   if (error instanceof DOMException && error.name === 'AbortError') {
     return new DatabaseClientError('İstek iptal edildi.', 'DATABASE_REQUEST_ABORTED', 0, 'İşlemi tekrar başlatabilirsiniz.', true);
   }

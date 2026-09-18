@@ -662,27 +662,27 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
         if let Some(table)=table {
             let table_literal=literal(&json!(table),&c.engine);
             (format!(
-                "SELECT COALESCE(pg_relation_size(c.oid),0)::bigint AS \"dataBytes\",COALESCE(GREATEST(pg_total_relation_size(c.oid)-pg_relation_size(c.oid),0),0)::bigint AS \"indexBytes\",0::bigint AS \"freeBytes\",COALESCE(pg_total_relation_size(c.oid),0)::bigint AS \"totalBytes\",GREATEST(c.reltuples,0)::bigint AS rows FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname={} AND c.relkind IN ('r','p','m') LIMIT 1",
+                "SELECT COALESCE(pg_relation_size(c.oid),0)::bigint AS \"dataBytes\",COALESCE(GREATEST(pg_total_relation_size(c.oid)-pg_relation_size(c.oid),0),0)::bigint AS \"indexBytes\",0::bigint AS \"freeBytes\",COALESCE(pg_total_relation_size(c.oid),0)::bigint AS \"totalBytes\",GREATEST(c.reltuples,0)::bigint AS \"rows\" FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname={} AND c.relkind IN ('r','p','m') LIMIT 1",
                 table_literal
             ),Some(db))
         }else{
-            ("SELECT pg_database_size(current_database())::bigint AS \"dataBytes\",0::bigint AS \"indexBytes\",0::bigint AS \"freeBytes\",pg_database_size(current_database())::bigint AS \"totalBytes\",NULL::bigint AS rows".into(),Some(db))
+            ("SELECT pg_database_size(current_database())::bigint AS \"dataBytes\",0::bigint AS \"indexBytes\",0::bigint AS \"freeBytes\",pg_database_size(current_database())::bigint AS \"totalBytes\",NULL::bigint AS \"rows\"".into(),Some(db))
         }
     }else if is_mssql(&c.engine){
         if let Some(table)=table {
             let object_name=literal(&json!(format!("dbo.{}",table)),&c.engine);
             (format!(
-                "SELECT COALESCE(SUM(ps.in_row_data_page_count+ps.lob_used_page_count+ps.row_overflow_used_page_count),0)*8192 AS dataBytes,(COALESCE(SUM(ps.reserved_page_count),0)-COALESCE(SUM(ps.in_row_data_page_count+ps.lob_used_page_count+ps.row_overflow_used_page_count),0))*8192 AS indexBytes,0 AS freeBytes,COALESCE(SUM(ps.reserved_page_count),0)*8192 AS totalBytes,COALESCE(SUM(CASE WHEN ps.index_id IN (0,1) THEN ps.row_count ELSE 0 END),0) AS rows FROM sys.dm_db_partition_stats ps WHERE ps.object_id=OBJECT_ID({})",
+                "SELECT COALESCE(SUM(ps.in_row_data_page_count+ps.lob_used_page_count+ps.row_overflow_used_page_count),0)*8192 AS dataBytes,(COALESCE(SUM(ps.reserved_page_count),0)-COALESCE(SUM(ps.in_row_data_page_count+ps.lob_used_page_count+ps.row_overflow_used_page_count),0))*8192 AS indexBytes,0 AS freeBytes,COALESCE(SUM(ps.reserved_page_count),0)*8192 AS totalBytes,COALESCE(SUM(CASE WHEN ps.index_id IN (0,1) THEN ps.row_count ELSE 0 END),0) AS [rows] FROM sys.dm_db_partition_stats ps WHERE ps.object_id=OBJECT_ID({})",
                 object_name
             ),Some(db))
         }else{
-            ("SELECT COALESCE(SUM(size),0)*8192 AS dataBytes,0 AS indexBytes,0 AS freeBytes,COALESCE(SUM(size),0)*8192 AS totalBytes,NULL AS rows FROM sys.database_files".into(),Some(db))
+            ("SELECT COALESCE(SUM(size),0)*8192 AS dataBytes,0 AS indexBytes,0 AS freeBytes,COALESCE(SUM(size),0)*8192 AS totalBytes,NULL AS [rows] FROM sys.database_files".into(),Some(db))
         }
     }else{
         let db_literal=literal(&json!(db),&c.engine);
         let table_clause=table.map(|table|format!(" AND TABLE_NAME={}",literal(&json!(table),&c.engine))).unwrap_or_default();
         (format!(
-            "SELECT COALESCE(SUM(DATA_LENGTH),0) AS dataBytes,COALESCE(SUM(INDEX_LENGTH),0) AS indexBytes,COALESCE(SUM(DATA_FREE),0) AS freeBytes,COALESCE(SUM(DATA_LENGTH),0)+COALESCE(SUM(INDEX_LENGTH),0) AS totalBytes,COALESCE(SUM(TABLE_ROWS),0) AS rows FROM information_schema.TABLES WHERE TABLE_SCHEMA={}{}",
+            "SELECT COALESCE(SUM(DATA_LENGTH),0) AS dataBytes,COALESCE(SUM(INDEX_LENGTH),0) AS indexBytes,COALESCE(SUM(DATA_FREE),0) AS freeBytes,COALESCE(SUM(DATA_LENGTH),0)+COALESCE(SUM(INDEX_LENGTH),0) AS totalBytes,COALESCE(SUM(TABLE_ROWS),0) AS `rows` FROM information_schema.TABLES WHERE TABLE_SCHEMA={}{}",
             db_literal,table_clause
         ),None)
     };
@@ -704,7 +704,7 @@ async fn storage_recalculate(c:&Connection,p:&Map<String,Value>)->Result<Value,S
 async fn workbench(c:&Connection,action:&str,p:&Map<String,Value>,max:usize)->Result<Value,String>{
  match action{
  "process-list"=>{
-   let sql=if is_pg(&c.engine){"SELECT pid AS id,usename AS user,COALESCE(client_addr::text,'') AS host,datname AS database,state AS command,EXTRACT(EPOCH FROM(now()-query_start))::bigint AS seconds,wait_event AS state,query AS info FROM pg_stat_activity ORDER BY query_start NULLS LAST"}else if is_mssql(&c.engine){"SELECT r.session_id AS id,s.login_name AS [user],s.host_name AS host,DB_NAME(r.database_id) AS [database],r.command,DATEDIFF(SECOND,r.start_time,SYSDATETIME()) AS seconds,r.status AS state,t.text AS info FROM sys.dm_exec_requests r JOIN sys.dm_exec_sessions s ON s.session_id=r.session_id CROSS APPLY sys.dm_exec_sql_text(r.sql_handle)t"}else{"SELECT ID AS id,USER AS user,HOST AS host,DB AS database,COMMAND AS command,TIME AS seconds,STATE AS state,INFO AS info FROM information_schema.PROCESSLIST ORDER BY TIME DESC"};
+   let sql=if is_pg(&c.engine){"SELECT pid AS id,usename AS user,COALESCE(client_addr::text,'') AS host,datname AS database,state AS command,EXTRACT(EPOCH FROM(now()-query_start))::bigint AS seconds,wait_event AS state,query AS info FROM pg_stat_activity ORDER BY query_start NULLS LAST"}else if is_mssql(&c.engine){"SELECT r.session_id AS id,s.login_name AS [user],s.host_name AS host,DB_NAME(r.database_id) AS [database],r.command,DATEDIFF(SECOND,r.start_time,SYSDATETIME()) AS seconds,r.status AS state,t.text AS info FROM sys.dm_exec_requests r JOIN sys.dm_exec_sessions s ON s.session_id=r.session_id CROSS APPLY sys.dm_exec_sql_text(r.sql_handle)t"}else{"SELECT ID AS id,USER AS `user`,HOST AS host,DB AS `database`,COMMAND AS command,TIME AS seconds,STATE AS state,INFO AS info FROM information_schema.PROCESSLIST ORDER BY TIME DESC"};
    let processes=rows_of(&execute_sql(c,sql,None,max).await?);
    if !is_pg(&c.engine)&&!is_mssql(&c.engine){
      let current=rows_of(&execute_sql(c,"SELECT CONNECTION_ID() AS currentConnectionId",None,1).await.unwrap_or(json!({"rows":[]}))).first().and_then(|x|x.get("currentConnectionId")).map(|x|num(Some(x)));

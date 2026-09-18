@@ -27,6 +27,7 @@ import { readLocalServerProfiles, writeLocalServerProfiles } from '@/lib/localPr
 import { recordActivity } from '@/lib/activityConsole';
 import { databaseEngineDefinition, databaseEngineLabel } from '@/lib/databaseEngines';
 import { desktopDatabaseRequest } from '@/lib/desktopClient';
+import { normalizeDatabaseClientError } from '@/lib/databaseErrorPresentation';
 
 let profileMutationQueue: Promise<void> = Promise.resolve();
 const inFlightControllers = new Map<string, AbortController>();
@@ -203,9 +204,12 @@ async function requestDatabaseApi<T>(
       aborted.code = 'REQUEST_SUPERSEDED';
       throw aborted;
     }
-    const normalizedError = error instanceof TypeError
-      ? Object.assign(new Error('Yerel veritabanı köprüsü erişilemedi. Uygulama sunucusunu ve ağ erişimini kontrol edin.'), { code: 'DATABASE_API_UNREACHABLE' }) as DatabaseRequestError
-      : error instanceof Error ? error as DatabaseRequestError : new Error('Bilinmeyen veritabanı hatası.') as DatabaseRequestError;
+    const normalized = normalizeDatabaseClientError(error);
+    const normalizedError = Object.assign(new Error(normalized.message), {
+      code: normalized.code,
+      status: normalized.status,
+      retryable: normalized.retryable
+    }) as DatabaseRequestError;
     recordStatements({
       statements: normalizedError.queryMeta?.statements?.length ? normalizedError.queryMeta.statements : fallbackStatements(action, payload, server),
       action, level: 'error', server, databaseName, tableName,
