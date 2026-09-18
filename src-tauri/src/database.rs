@@ -445,7 +445,7 @@ async fn database_objects(c:&Connection,p:&Map<String,Value>,max:usize)->Result<
     }else if is_pg(&c.engine){
         let relation_sql="SELECT c.relname AS name,n.nspname AS schema,NULL::text AS comment,NULL::text AS definition,CASE WHEN c.relkind IN ('v','m') THEN 'view' ELSE 'table' END AS kind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind IN ('r','p','v','m') AND n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_toast%' ORDER BY n.nspname,c.relname";
         let routine_sql="SELECT routine_name AS name,routine_schema AS schema,routine_definition AS definition,CASE WHEN routine_type='FUNCTION' THEN 'function' ELSE 'procedure' END AS kind FROM information_schema.routines WHERE routine_schema NOT IN ('pg_catalog','information_schema') ORDER BY routine_schema,routine_name";
-        let trigger_sql="SELECT trigger_name AS name,trigger_schema AS schema,event_object_table AS "tableName",action_statement AS definition,'trigger' AS kind FROM information_schema.triggers WHERE trigger_schema NOT IN ('pg_catalog','information_schema') ORDER BY trigger_schema,trigger_name";
+        let trigger_sql="SELECT trigger_name AS name,trigger_schema AS schema,event_object_table AS \"tableName\",action_statement AS definition,'trigger' AS kind FROM information_schema.triggers WHERE trigger_schema NOT IN ('pg_catalog','information_schema') ORDER BY trigger_schema,trigger_name";
         for sql in [relation_sql,routine_sql,trigger_sql] {
             for row in rows_of(&execute_on(&mut conn,sql,limit).await.unwrap_or(json!({"rows":[]}))) {
                 if let Some(mut object)=row.as_object().cloned() {
