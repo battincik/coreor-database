@@ -37,4 +37,4 @@ jobs:
         run: cargo check --locked --manifest-path src-tauri/Cargo.toml
 
       - name: Tauri native compile
-        run: npm run tauri:build -- --no-bundle --locked
+        run: npm run tauri:build -- --no-bundle
