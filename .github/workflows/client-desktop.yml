@@ -1,0 +1,35 @@
+name: Client Desktop Build
+
+on:
+  push:
+    branches: [client]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-desktop:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Install frontend dependencies
+        run: npm install
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Native Rust check
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+      - name: Static frontend build
+        run: npm run build:web
+      - name: Tauri Windows bundles
+        run: npx tauri build --bundles nsis,msi
