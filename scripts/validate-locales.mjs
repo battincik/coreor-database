@@ -1,4 +1,4 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -24,49 +24,24 @@ async function readJson(path) {
   return value;
 }
 
-async function readLocale(code) {
-  return readJson(join(localeDirectory, `${code}.json`));
+function flatten(value, prefix = '', output = {}) {
+  for (const [key, child] of Object.entries(value)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (typeof child === 'string') output[path] = child;
+    else if (child && typeof child === 'object' && !Array.isArray(child)) flatten(child, path, output);
+    else throw new Error(`${path}: locale değeri string veya nesne olmalıdır.`);
+  }
+  return output;
 }
 
 function placeholders(value) {
   return [...String(value).matchAll(placeholderPattern)].map(match => match[1]).sort();
 }
 
-const localeFiles = await readdir(localeDirectory);
-const catalogFiles = localeFiles
-  .filter(file => /^workbench(?:-\d+)?\.json$/.test(file))
-  .sort((left, right) => left.localeCompare(right, 'en', { numeric: true }));
-const catalog = {};
-for (const file of catalogFiles) Object.assign(catalog, await readJson(join(localeDirectory, file)));
+const dictionaries = new Map();
+for (const code of supportedLocales) dictionaries.set(code, flatten(await readJson(join(localeDirectory, `${code}.json`))));
 
 const problems = [];
-for (const [key, values] of Object.entries(catalog)) {
-  if (!values || Array.isArray(values) || typeof values !== 'object') {
-    problems.push(`${key}: workbench çevirisi locale nesnesi olmalıdır.`);
-    continue;
-  }
-  for (const code of supportedLocales) {
-    const value = values[code];
-    if (typeof value !== 'string' || !value.trim()) problems.push(`${key}: ${code} çevirisi eksik veya boş.`);
-  }
-  const expectedPlaceholders = placeholders(values.en ?? '');
-  for (const code of supportedLocales) {
-    const actualPlaceholders = placeholders(values[code] ?? '');
-    if (expectedPlaceholders.join('|') !== actualPlaceholders.join('|')) {
-      problems.push(`${key}: ${code} yer tutucuları İngilizceyle eşleşmiyor.`);
-    }
-  }
-}
-
-const dictionaries = new Map();
-for (const code of supportedLocales) {
-  const base = await readLocale(code);
-  const workbench = Object.fromEntries(
-    Object.entries(catalog).map(([key, values]) => [key, values[code] ?? values.en ?? values.tr ?? key])
-  );
-  dictionaries.set(code, { ...base, ...workbench });
-}
-
 const reference = dictionaries.get('en');
 const referenceKeys = Object.keys(reference).sort();
 
@@ -87,7 +62,7 @@ for (const code of supportedLocales) {
     const expectedPlaceholders = placeholders(reference[key]);
     const actualPlaceholders = placeholders(value);
     if (expectedPlaceholders.join('|') !== actualPlaceholders.join('|')) {
-      problems.push(`${code}: ${key} yer tutucuları farklı. Beklenen {${expectedPlaceholders.join('}, {')}}, bulunan {${actualPlaceholders.join('}, {')}}.`);
+      problems.push(`${code}: ${key} yer tutucuları İngilizceyle eşleşmiyor.`);
     }
   }
 
@@ -113,7 +88,6 @@ if (problems.length) {
   process.exit(1);
 }
 
-console.log(`✓ ${supportedLocales.length} dil paketi doğrulandı.`);
-console.log(`✓ ${catalogFiles.length} workbench sözlük dosyasında ${Object.keys(catalog).length} bağlamsal anahtar doğrulandı.`);
+console.log(`✓ ${supportedLocales.length} nested JSON dil paketi doğrulandı.`);
 console.log(`✓ Her pakette ${referenceKeys.length} ortak çeviri anahtarı bulunuyor.`);
 console.log('✓ Yer tutucular, yazım yönleri ve SQL anahtar kelimeleri uyumlu.');

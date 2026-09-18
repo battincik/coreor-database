@@ -13,20 +13,12 @@ import japanese from '@/locales/ja.json';
 import korean from '@/locales/ko.json';
 import hindi from '@/locales/hi.json';
 import arabic from '@/locales/ar.json';
-import workbench1 from '@/locales/workbench.json';
-import workbench2 from '@/locales/workbench-2.json';
-import workbench3 from '@/locales/workbench-3.json';
-import workbench4 from '@/locales/workbench-4.json';
-import workbench5 from '@/locales/workbench-5.json';
-import workbench6 from '@/locales/workbench-6.json';
-import workbench7 from '@/locales/workbench-7.json';
-import workbench8 from '@/locales/workbench-8.json';
 
 export type LocaleCode = 'tr' | 'en' | 'es' | 'zh-CN' | 'hi' | 'ar' | 'pt-BR' | 'fr' | 'de' | 'ru' | 'ja' | 'ko';
 export type LocaleDirection = 'ltr' | 'rtl';
 export type TranslationValues = Record<string, string | number>;
 export type TranslationDictionary = Record<string, string>;
-type WorkbenchCatalog = Record<string, Partial<Record<LocaleCode, string>>>;
+export type LocaleTree = { [key: string]: string | LocaleTree };
 
 export interface SupportedLanguage {
   code: LocaleCode;
@@ -52,43 +44,41 @@ export const SUPPORTED_LANGUAGES: SupportedLanguage[] = [
   { code: 'ko', nativeName: '한국어', englishName: 'Korean', direction: 'ltr', region: '대한민국', searchTerms: ['korean', '한국어', 'korece'] }
 ];
 
-const BASE_LANGUAGE_DICTIONARIES: Record<LocaleCode, TranslationDictionary> = {
-  tr: turkish,
-  en: english,
-  es: spanish,
-  'zh-CN': simplifiedChinese,
-  hi: hindi,
-  ar: arabic,
-  'pt-BR': portugueseBrazil,
-  fr: french,
-  de: german,
-  ru: russian,
-  ja: japanese,
-  ko: korean
+function flattenLocaleTree(tree: LocaleTree, prefix = '', output: TranslationDictionary = {}): TranslationDictionary {
+  for (const [key, value] of Object.entries(tree)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (typeof value === 'string') {
+      output[path] = value;
+      continue;
+    }
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      flattenLocaleTree(value, path, output);
+    }
+  }
+  return output;
+}
+
+const RAW_LANGUAGE_DICTIONARIES: Record<LocaleCode, LocaleTree> = {
+  tr: turkish as LocaleTree,
+  en: english as LocaleTree,
+  es: spanish as LocaleTree,
+  'zh-CN': simplifiedChinese as LocaleTree,
+  hi: hindi as LocaleTree,
+  ar: arabic as LocaleTree,
+  'pt-BR': portugueseBrazil as LocaleTree,
+  fr: french as LocaleTree,
+  de: german as LocaleTree,
+  ru: russian as LocaleTree,
+  ja: japanese as LocaleTree,
+  ko: korean as LocaleTree
 };
 
-const WORKBENCH_CATALOG: WorkbenchCatalog = Object.assign(
-  {},
-  workbench1 as WorkbenchCatalog,
-  workbench2 as WorkbenchCatalog,
-  workbench3 as WorkbenchCatalog,
-  workbench4 as WorkbenchCatalog,
-  workbench5 as WorkbenchCatalog,
-  workbench6 as WorkbenchCatalog,
-  workbench7 as WorkbenchCatalog,
-  workbench8 as WorkbenchCatalog
-);
-
-function createWorkbenchDictionary(locale: LocaleCode): TranslationDictionary {
-  return Object.fromEntries(
-    Object.entries(WORKBENCH_CATALOG).map(([key, values]) => [key, values[locale] ?? values.en ?? values.tr ?? key])
-  );
-}
+const ENGLISH_DICTIONARY = flattenLocaleTree(RAW_LANGUAGE_DICTIONARIES.en);
 
 export const LANGUAGE_DICTIONARIES = Object.fromEntries(
   SUPPORTED_LANGUAGES.map(({ code }) => [
     code,
-    { ...BASE_LANGUAGE_DICTIONARIES.en, ...BASE_LANGUAGE_DICTIONARIES[code], ...createWorkbenchDictionary(code) }
+    { ...ENGLISH_DICTIONARY, ...flattenLocaleTree(RAW_LANGUAGE_DICTIONARIES[code]) }
   ])
 ) as Record<LocaleCode, TranslationDictionary>;
 
