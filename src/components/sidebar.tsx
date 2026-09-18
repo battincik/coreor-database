@@ -184,7 +184,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       sql,
       confirmLabel: label,
       onConfirm: async () => {
-        if (!activeToken) throw new Error('Oturum bulunamadı.');
+        if (!activeToken) throw new Error('Yerel çalışma alanı hazır değil.');
         await executeDatabaseQuery(server.id, sql, activeToken, database);
         await refreshServer(server);
         if (/DROP\s+TABLE/i.test(sql)) onTableSelect(null);
@@ -548,9 +548,9 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
               <Plus className="h-3.5 w-3.5" />
               Yeni sunucu ekle
             </button>
-            <button type="button" className="flex h-9 w-full items-center gap-2 border-t border-zinc-800 px-3 text-[10px] text-red-400 hover:bg-red-500/[0.06]" onClick={() => setProfileOpen(false)}>
+            <button type="button" className="flex h-9 w-full items-center gap-2 border-t border-zinc-800 px-3 text-[10px] text-red-400 hover:bg-red-500/[0.06]" onClick={() => { setProfileOpen(false); void import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().close()); }}>
               <LogOut className="h-3.5 w-3.5" />
-              Çıkış yap
+              Uygulamayı kapat
             </button>
           </div>
         )}
