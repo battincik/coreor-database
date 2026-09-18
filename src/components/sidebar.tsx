@@ -54,6 +54,8 @@ function maintenanceSql(engine: DatabaseEngine, database: string, table: string,
   return operation === 'analyze' ? `UPDATE STATISTICS ${target};` : operation === 'check' ? `DBCC CHECKTABLE ('${table}') WITH NO_INFOMSGS;` : `ALTER INDEX ALL ON ${target} REORGANIZE;`;
 }
 
+function sqlText(value: string) { return `'${value.replaceAll("'", "''")}'`; }
+
 function objectQualifiedName(engine: DatabaseEngine, databaseName: string, object: DatabaseSchemaObject) {
   const schema = object.schema || databaseName;
   return `${quoteDatabaseIdentifier(schema, engine)}.${quoteDatabaseIdentifier(object.name, engine)}`;
@@ -68,9 +70,9 @@ function objectDefinitionSql(engine: DatabaseEngine, databaseName: string, objec
   }
   if (family === 'mssql') return `SELECT OBJECT_DEFINITION(OBJECT_ID(N'${(object.schema || 'dbo').replaceAll("'", "''")}.${object.name.replaceAll("'", "''")}')) AS definition;`;
   if (object.kind === 'view') return `SELECT pg_get_viewdef('${(object.schema || 'public').replaceAll("'", "''")}.${object.name.replaceAll("'", "''")}'::regclass, true) AS definition;`;
-  if (object.kind === 'trigger' && object.tableName) return `SELECT pg_get_triggerdef(t.oid, true) AS definition\nFROM pg_trigger t\nJOIN pg_class c ON c.oid=t.tgrelid\nJOIN pg_namespace n ON n.oid=c.relnamespace\nWHERE n.nspname=${JSON.stringify(object.schema || 'public')} AND c.relname=${JSON.stringify(object.tableName)} AND t.tgname=${JSON.stringify(object.name)};`;
-  if (object.kind === 'procedure' || object.kind === 'function') return `SELECT pg_get_functiondef(p.oid) AS definition\nFROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace\nWHERE n.nspname=${JSON.stringify(object.schema || 'public')} AND p.proname=${JSON.stringify(object.name)};`;
-  return `-- PostgreSQL tablo DDL'si yapı ekranındaki kolon/index/FK metadata'sından incelenebilir.\nSELECT * FROM information_schema.columns\nWHERE table_schema=${JSON.stringify(object.schema || 'public')} AND table_name=${JSON.stringify(object.name)}\nORDER BY ordinal_position;`;
+  if (object.kind === 'trigger' && object.tableName) return `SELECT pg_get_triggerdef(t.oid, true) AS definition\nFROM pg_trigger t\nJOIN pg_class c ON c.oid=t.tgrelid\nJOIN pg_namespace n ON n.oid=c.relnamespace\nWHERE n.nspname=${sqlText(object.schema || 'public')} AND c.relname=${sqlText(object.tableName)} AND t.tgname=${sqlText(object.name)};`;
+  if (object.kind === 'procedure' || object.kind === 'function') return `SELECT pg_get_functiondef(p.oid) AS definition\nFROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace\nWHERE n.nspname=${sqlText(object.schema || 'public')} AND p.proname=${sqlText(object.name)};`;
+  return `-- PostgreSQL tablo DDL'si yapı ekranındaki kolon/index/FK metadata'sından incelenebilir.\nSELECT * FROM information_schema.columns\nWHERE table_schema=${sqlText(object.schema || 'public')} AND table_name=${sqlText(object.name)}\nORDER BY ordinal_position;`;
 }
 
 function objectDependencySql(engine: DatabaseEngine, databaseName: string, object: DatabaseSchemaObject) {
