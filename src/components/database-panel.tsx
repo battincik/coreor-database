@@ -211,6 +211,19 @@ export function DatabasePanel({
     return () => window.removeEventListener(OPEN_QUERY_TAB_EVENT, handler);
   }, [createQueryTab]);
 
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ databaseName: string; tableName: string }>).detail;
+      if (!detail?.databaseName || !detail?.tableName) return;
+      setPendingInsertTarget(detail);
+      if (selectedDatabase !== detail.databaseName) onDatabaseSelect(detail.databaseName);
+      onTableSelect(detail.tableName);
+      setActiveTab('table-data');
+    };
+    window.addEventListener('coreor:request-insert-table-row', handler);
+    return () => window.removeEventListener('coreor:request-insert-table-row', handler);
+  }, [selectedDatabase, onDatabaseSelect, onTableSelect, setActiveTab]);
+
   const loadCatalog = useCallback(async () => {
     if (!activeServerId || !workspaceKey || catalogLoading) return;
     setCatalogLoading(true); setCatalogError(null);
