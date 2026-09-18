@@ -168,5 +168,20 @@
     text-rendering: geometricPrecision;
   }
   .coreor-console-text { font-size: var(--coreor-console-font-size) !important; }
+  .coreor-sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(113, 113, 122, .42) transparent;
+  }
+  .coreor-sidebar-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+  .coreor-sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+  .coreor-sidebar-scroll::-webkit-scrollbar-thumb {
+    min-height: 28px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: rgba(113, 113, 122, .42);
+    background-clip: padding-box;
+  }
+  .coreor-sidebar-scroll::-webkit-scrollbar-thumb:hover { background: rgba(161, 161, 170, .62); background-clip: padding-box; }
+  .coreor-sidebar-scroll::-webkit-scrollbar-corner { background: transparent; }
   :root[data-compact='false'] .coreor-compact-row { min-height: 2.25rem; padding-top: .375rem; padding-bottom: .375rem; }
 }
