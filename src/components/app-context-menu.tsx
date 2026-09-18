@@ -179,6 +179,7 @@ function MenuItems({ items, closeMenu, onBack, autoFocus = false }: { items: App
       {submenu && activeSubmenuChildren.length > 0 && typeof document !== 'undefined' && createPortal(
         <div
           ref={submenuRef}
+          data-coreor-context-menu="true"
           className={`fixed z-[1810] ${MENU_SURFACE_CLASS}`}
           style={{
             left: submenuPosition.x,
@@ -273,6 +274,7 @@ export function AppContextMenuProvider({ children }: { children: React.ReactNode
           <div
             ref={menuRef}
             role="menu"
+            data-coreor-context-menu="true"
             className={`fixed z-[1800] ${MENU_SURFACE_CLASS}`}
             style={{ left: menuPosition.x, top: menuPosition.y }}
             onMouseDown={event => event.stopPropagation()}

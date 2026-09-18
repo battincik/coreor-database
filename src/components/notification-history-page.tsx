@@ -134,6 +134,18 @@ function NotificationHistoryContent() {
   const [filter, setFilter] = useState<'all' | 'unread' | 'warning' | 'error'>('all');
 
   useEffect(() => {
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      // Modal Escape handlers run in capture phase and stop propagation first.
+      // If only a context menu is open, let the first Escape close that menu.
+      if (document.querySelector('[data-coreor-context-menu="true"]')) return;
+      router.push('/editor/');
+    };
+    window.addEventListener('keydown', onEscape);
+    return () => window.removeEventListener('keydown', onEscape);
+  }, [router]);
+
+  useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('id');
     const next = id && notifications.some(item => item.id === id) ? id : notifications[0]?.id || null;
     setSelectedId(current => current || next);
