@@ -7,6 +7,7 @@ import {
   Copy,
   Database,
   Network,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
@@ -21,6 +22,8 @@ import { useDesktop } from '@/context/DesktopContext';
 import { fetchServerTables, fetchTableInfo } from '@/lib/databaseApi';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { CoreorInputModal } from '@/components/ui/coreor-input-modal';
+import { useAppPreferences } from '@/lib/appPreferences';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-state';
 import { DatabaseCatalogView } from '@/components/database-catalog-view';
 import { DatabaseSchemaGraph } from '@/components/database-schema-graph';
@@ -36,7 +39,9 @@ import {
   type OpenQueryTabDetail
 } from '@/lib/queryWorkspaceEvents';
 
-const QUERY_TABS_STORAGE_KEY = 'coreor:query-tabs:v1';
+const QUERY_TABS_STORAGE_KEY = 'coreor:query-tabs:v2';
+const QUERY_ACTIVE_TAB_STORAGE_KEY = 'coreor:query-active-tab:v2';
+const LEGACY_QUERY_TABS_STORAGE_KEY = 'coreor:query-tabs:v1';
 type TableView = 'data' | 'structure';
 
 function createId(prefix: string) {
@@ -47,7 +52,10 @@ function createId(prefix: string) {
 function hydrateQueryTabs(): EditorQueryTab[] {
   if (typeof window === 'undefined') return [];
   try {
-    const parsed = JSON.parse(window.sessionStorage.getItem(QUERY_TABS_STORAGE_KEY) || '[]');
+    const stored = window.localStorage.getItem(QUERY_TABS_STORAGE_KEY)
+      || window.sessionStorage.getItem(LEGACY_QUERY_TABS_STORAGE_KEY)
+      || '[]';
+    const parsed = JSON.parse(stored);
     if (!Array.isArray(parsed)) return [];
     return parsed.slice(-20).map(item => ({
       id: String(item.id || createId('query')),
@@ -56,8 +64,8 @@ function hydrateQueryTabs(): EditorQueryTab[] {
       databaseName: typeof item.databaseName === 'string' ? item.databaseName : null,
       sql: String(item.sql || ''),
       isRunning: false,
-      error: null,
-      result: null,
+      error: typeof item.error === 'string' ? item.error : null,
+      result: item.result && typeof item.result === 'object' ? item.result : null,
       createdAt: String(item.createdAt || new Date().toISOString()),
       updatedAt: String(item.updatedAt || new Date().toISOString())
     }));
@@ -85,6 +93,7 @@ export function DatabasePanel({
   } = useContext(DatabaseContext)!;
   const { workspaceKey } = useDesktop();
   const { openContextMenu } = useAppContextMenu();
+  const { preferences } = useAppPreferences();
   const activeServer = useMemo(() => servers.find(server => server.id === activeServerId) ?? null, [servers, activeServerId]);
 
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -92,6 +101,7 @@ export function DatabasePanel({
   const [tableInfoLoading, setTableInfoLoading] = useState(false);
   const [tableInfoError, setTableInfoError] = useState<string | null>(null);
   const [queryTabs, setQueryTabs] = useState<EditorQueryTab[]>([]);
+  const [renameQueryTab, setRenameQueryTab] = useState<EditorQueryTab | null>(null);
   const queryTabsHydrated = useRef(false);
   const lastTableView = useRef<TableView>('data');
 
@@ -144,20 +154,38 @@ export function DatabasePanel({
     createQueryTab({ serverId: tab.serverId, databaseName: tab.databaseName, title: `${tab.title} kopya`, sql: tab.sql });
   }, [createQueryTab]);
 
+  const queryTabContextMenu = (event: React.MouseEvent, tab: EditorQueryTab) => openContextMenu(event, [
+    { id: 'rename', label: 'Sorguyu adlandır', icon: Pencil, onSelect: () => setRenameQueryTab(tab) },
+    { id: 'duplicate', label: 'Sekmeyi çoğalt', icon: Copy, onSelect: () => duplicateQueryTab(tab) },
+    { id: 'close', label: 'Sekmeyi kapat', icon: X, onSelect: () => closeQueryTab(tab.id) }
+  ], tab.title);
+
   useEffect(() => {
-    setQueryTabs(hydrateQueryTabs());
+    if (preferences.rememberQueryWorkspace) {
+      const restored = hydrateQueryTabs();
+      setQueryTabs(restored);
+      const storedActiveTab = window.localStorage.getItem(QUERY_ACTIVE_TAB_STORAGE_KEY);
+      if (storedActiveTab && restored.some(tab => `query:${tab.id}` === storedActiveTab)) setActiveTab(storedActiveTab);
+    }
     queryTabsHydrated.current = true;
   }, []);
 
   useEffect(() => {
     if (!queryTabsHydrated.current) return;
-    try {
-      window.sessionStorage.setItem(
-        QUERY_TABS_STORAGE_KEY,
-        JSON.stringify(queryTabs.map(({ result: _result, error: _error, isRunning: _isRunning, runImmediately: _runImmediately, ...tab }) => tab))
-      );
-    } catch { /* session persistence must not stop editor */ }
-  }, [queryTabs]);
+    if (!preferences.rememberQueryWorkspace) {
+      window.localStorage.removeItem(QUERY_TABS_STORAGE_KEY);
+      window.localStorage.removeItem(QUERY_ACTIVE_TAB_STORAGE_KEY);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      try {
+        const serializable = queryTabs.map(tab => ({ ...tab, isRunning: false, runImmediately: false }));
+        window.localStorage.setItem(QUERY_TABS_STORAGE_KEY, JSON.stringify(serializable));
+        if (activeTab.startsWith('query:')) window.localStorage.setItem(QUERY_ACTIVE_TAB_STORAGE_KEY, activeTab);
+      } catch { /* local persistence must not stop editor */ }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [queryTabs, activeTab, preferences.rememberQueryWorkspace]);
 
   useEffect(() => {
     const handler = (event: Event) => createQueryTab((event as CustomEvent<OpenQueryTabDetail>).detail || {});
@@ -290,7 +318,7 @@ export function DatabasePanel({
               <TabsTrigger value="table" className="h-8 max-w-64 px-3 text-xs" icon={<TableIcon className="h-3.5 w-3.5" />}><span className="truncate">Yapı: {selectedTable}</span></TabsTrigger>
               <TabsTrigger value="table-data" className="h-8 max-w-64 px-3 text-xs" icon={<TableIcon className="h-3.5 w-3.5" />}><span className="truncate">Veri: {selectedTable}</span></TabsTrigger>
             </>}
-            {queryTabs.map(tab => <div key={tab.id} className="flex h-8 items-center border-r border-zinc-800"><TabsTrigger value={`query:${tab.id}`} className="h-8 max-w-52 border-r-0 px-2 text-xs" icon={<Code className="h-3.5 w-3.5" />}><span className="truncate">{tab.title}</span></TabsTrigger><button type="button" className="mr-1 flex h-5 w-5 items-center justify-center rounded text-zinc-600 hover:bg-zinc-800 hover:text-white" onClick={event => { event.stopPropagation(); closeQueryTab(tab.id); }} title="Sorgu sekmesini kapat"><X className="h-3 w-3" /></button></div>)}
+            {queryTabs.map(tab => <div key={tab.id} className="flex h-8 items-center border-r border-zinc-800" onContextMenu={event => queryTabContextMenu(event, tab)}><TabsTrigger value={`query:${tab.id}`} className="h-8 max-w-52 border-r-0 px-2 text-xs" icon={<Code className="h-3.5 w-3.5" />}><span className="truncate">{tab.title}</span></TabsTrigger><button type="button" className="mr-1 flex h-5 w-5 items-center justify-center rounded text-zinc-600 hover:bg-zinc-800 hover:text-white" onClick={event => { event.stopPropagation(); closeQueryTab(tab.id); }} title="Sorgu sekmesini kapat"><X className="h-3 w-3" /></button></div>)}
           </TabsList>
           <Button type="button" variant="ghost" size="icon" className="ml-1 h-7 w-7 shrink-0" onClick={() => createQueryTab({ databaseName: selectedDatabase || null })} title="Yeni sorgu sekmesi"><Plus className="h-3.5 w-3.5" /></Button>
         </div>
@@ -313,6 +341,19 @@ export function DatabasePanel({
 
         {queryTabs.map(tab => <TabsContent key={tab.id} value={`query:${tab.id}`} className="m-0 min-h-0 flex-1 overflow-hidden p-0"><QueryWorkspace tab={tab} servers={servers} accountId={workspaceKey} onChange={patch => updateQueryTab(tab.id, patch)} onDuplicate={() => duplicateQueryTab(tab)} /></TabsContent>)}
       </Tabs>
+      <CoreorInputModal
+        open={Boolean(renameQueryTab)}
+        title="Sorguyu adlandır"
+        description="Bu ad sekmede ve geri yüklenen sorgu oturumunda kullanılacak."
+        initialValue={renameQueryTab?.title || ''}
+        placeholder="Örn. Kullanıcı raporu"
+        confirmLabel="Adı kaydet"
+        onClose={() => setRenameQueryTab(null)}
+        onConfirm={title => {
+          if (!renameQueryTab) return;
+          updateQueryTab(renameQueryTab.id, { title, updatedAt: new Date().toISOString() });
+        }}
+      />
     </div>
   );
 }
