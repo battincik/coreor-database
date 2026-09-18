@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { Check, Database, Globe2, HardDrive, Languages, Search, X } from 'lucide-react';
 import { SUPPORTED_LANGUAGES, useLanguage } from '@/context/LanguageContext';
 
-export function LanguageSwitcher() {
+export function LanguageSwitcher({ placement = 'floating' }: { placement?: 'floating' | 'inline' }) {
   const { language, currentLanguage, setLanguage, t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -58,7 +58,7 @@ export function LanguageSwitcher() {
         type="button"
         data-i18n-ignore
         onClick={() => setOpen(true)}
-        className="fixed bottom-10 right-3 z-[320] flex h-8 items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-950/95 px-2.5 text-[9px] font-medium text-zinc-400 shadow-xl backdrop-blur hover:border-cyan-500/35 hover:text-cyan-200"
+        className={placement === 'floating' ? "fixed bottom-10 right-3 z-[320] flex h-8 items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-950/95 px-2.5 text-[9px] font-medium text-zinc-400 shadow-xl backdrop-blur hover:border-cyan-500/35 hover:text-cyan-200" : "flex h-full shrink-0 items-center gap-1.5 px-2.5 text-[9px] font-medium text-zinc-500 transition hover:bg-white/[0.045] hover:text-cyan-200"}
         title={`${t('settings.language.title')} • Ctrl/⌘ + Shift + L`}
         aria-label={t('settings.language.title')}
       >
