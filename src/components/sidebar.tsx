@@ -21,6 +21,7 @@ import { databaseEngineDefinition, databaseEngineFamily, databaseEngineLabel, qu
 import { useAppPreferences } from '@/lib/appPreferences';
 import { recalculateDatabaseStorage, recalculateTableStorage } from '@/lib/databaseWorkbenchApi';
 import { useCoreorToast } from '@/components/ui/coreor-toast';
+import { publishCoreorNotification } from '@/lib/notificationStore';
 
 const objectExplorerKey = (serverId: string, databaseName: string) => `${serverId}:${databaseName}`;
 
@@ -516,13 +517,31 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         duration: 3500
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const notification = publishCoreorNotification({
+        id: `storage-database-${server.id}-${database}`,
+        severity: 'error',
+        source: 'storage',
+        title: 'Veritabanı boyutu hesaplanamadı',
+        description: message,
+        serverId: server.id,
+        serverName: server.name,
+        databaseName: database,
+        code: (error as Error & { code?: string })?.code || 'STORAGE_RECALCULATION_FAILED',
+        metadata: [
+          { label: 'Kapsam', value: 'Veritabanı' },
+          { label: 'Veritabanı', value: database },
+          { label: 'Motor', value: server.databaseType || 'mysql' }
+        ]
+      });
       toast.update(toastId, {
         loading: false,
         persistent: false,
         variant: 'error',
         title: 'Boyut hesaplanamadı',
-        description: error instanceof Error ? error.message : String(error),
-        duration: 5000
+        description: message,
+        duration: 5000,
+        onOpen: () => window.dispatchEvent(new CustomEvent('coreor:open-notification', { detail: { id: notification.id } }))
       });
     }
   }, [workspaceKey, loadServers, toast]);
@@ -542,13 +561,32 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         duration: 3500
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const notification = publishCoreorNotification({
+        id: `storage-table-${server.id}-${database}-${table}`,
+        severity: 'error',
+        source: 'storage',
+        title: 'Tablo boyutu hesaplanamadı',
+        description: message,
+        serverId: server.id,
+        serverName: server.name,
+        databaseName: database,
+        tableName: table,
+        code: (error as Error & { code?: string })?.code || 'STORAGE_RECALCULATION_FAILED',
+        metadata: [
+          { label: 'Kapsam', value: 'Tablo' },
+          { label: 'Tablo', value: `${database}.${table}` },
+          { label: 'Motor', value: server.databaseType || 'mysql' }
+        ]
+      });
       toast.update(toastId, {
         loading: false,
         persistent: false,
         variant: 'error',
         title: 'Boyut hesaplanamadı',
-        description: error instanceof Error ? error.message : String(error),
-        duration: 5000
+        description: message,
+        duration: 5000,
+        onOpen: () => window.dispatchEvent(new CustomEvent('coreor:open-notification', { detail: { id: notification.id } }))
       });
     }
   }, [workspaceKey, loadServers, toast]);
@@ -571,13 +609,30 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         duration: 3500
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const notification = publishCoreorNotification({
+        id: `storage-server-${server.id}`,
+        severity: 'error',
+        source: 'storage',
+        title: 'Sunucu boyutları hesaplanamadı',
+        description: message,
+        serverId: server.id,
+        serverName: server.name,
+        code: (error as Error & { code?: string })?.code || 'STORAGE_RECALCULATION_FAILED',
+        metadata: [
+          { label: 'Kapsam', value: 'Sunucu' },
+          { label: 'Sunucu', value: server.name },
+          { label: 'Motor', value: server.databaseType || 'mysql' }
+        ]
+      });
       toast.update(toastId, {
         loading: false,
         persistent: false,
         variant: 'error',
         title: 'Boyut hesaplama tamamlanamadı',
-        description: error instanceof Error ? error.message : String(error),
-        duration: 5000
+        description: message,
+        duration: 5000,
+        onOpen: () => window.dispatchEvent(new CustomEvent('coreor:open-notification', { detail: { id: notification.id } }))
       });
     }
   }, [workspaceKey, loadServers, toast]);

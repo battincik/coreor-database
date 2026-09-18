@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { CoreorConfirmModal, type CoreorConfirmation } from '@/components/ui/coreor-confirm-modal';
 import { useAppContextMenu } from '@/components/app-context-menu';
 import { openQueryTab } from '@/lib/queryWorkspaceEvents';
+import { publishCoreorNotification } from '@/lib/notificationStore';
 
 interface DatabaseProcessCenterModalProps {
   open: boolean;
@@ -46,7 +47,20 @@ export function DatabaseProcessCenterModal({ open, onClose, serverId, accountId 
     if (!serverId || !accountId) return;
     setLoading(true); setError(null);
     try { setData(await fetchDatabaseProcessCenter(serverId, accountId)); }
-    catch (failure) { setError(failure instanceof Error ? failure.message : 'Process merkezi yüklenemedi.'); }
+    catch (failure) {
+      const message = failure instanceof Error ? failure.message : 'Process merkezi yüklenemedi.';
+      setError(message);
+      publishCoreorNotification({
+        id: `process-center-${serverId}`,
+        severity: 'error',
+        source: 'system',
+        title: 'Process merkezi okunamadı',
+        description: message,
+        serverId,
+        code: (failure as Error & { code?: string })?.code || 'PROCESS_CENTER_FAILED',
+        metadata: [{ label: 'Kapsam', value: 'Process / lock görünümü' }]
+      });
+    }
     finally { setLoading(false); }
   };
 

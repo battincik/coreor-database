@@ -30,8 +30,52 @@ function severityClass(value: CoreorNotificationSeverity) {
   return 'border-cyan-500/25 bg-cyan-500/[0.06] text-cyan-300';
 }
 
+function notificationGuidance(notification: CoreorNotification) {
+  if (notification.code === 'SLOW_SQL') {
+    return {
+      meaning: 'Sorgu, uygulamanın yavaş işlem eşiğini geçti. Bu tek başına hata değildir; sorgu veya sunucu beklenenden uzun yanıt vermiştir.',
+      cause: 'Büyük result set, eksik indeks, full scan, lock beklemesi, ağ gecikmesi veya yüksek sunucu yükü buna yol açabilir.',
+      action: 'SQL ve süreyi inceleyin; gerekiyorsa EXPLAIN/Execution Plan, indeksler, lock durumu ve Process Merkezi ile aynı zaman aralığını kontrol edin.'
+    };
+  }
+  if (notification.source === 'storage') {
+    return {
+      meaning: 'Coreor veritabanı veya tablo depolama metriklerini sunucudan yeniden okuyamadı.',
+      cause: 'Metadata erişim yetkisi, motor/sürüm farkı, artık bulunmayan nesne veya sürücünün döndürdüğü SQL hatası neden olabilir.',
+      action: 'Hata kodu ve teknik ayrıntıyı kontrol edin. Kataloğu yenileyip tekrar deneyin; erişim reddedildiyse metadata yetkilerini doğrulayın.'
+    };
+  }
+  if (notification.source === 'performance') {
+    return {
+      meaning: 'İzlenen performans metriği tanımlı eşik koşulunu karşıladı.',
+      cause: 'Bağlantı sayısı, çalışan thread, buffer kullanımı, replication gecikmesi veya health score gibi ölçümler eşik dışına çıkmış olabilir.',
+      action: 'Ölçüm ve eşik değerini teknik ayrıntılarda karşılaştırın; Performans ve Process Merkezi üzerinden aynı zaman aralığını inceleyin.'
+    };
+  }
+  if (notification.source === 'connection') {
+    return {
+      meaning: 'Bağlantı veya sunucu erişimiyle ilgili bir olay kaydedildi.',
+      cause: 'Host/port, TLS, kimlik bilgileri, ağ erişimi veya sunucu tarafı bağlantı limiti etkili olabilir.',
+      action: 'Bağlantı profilini test edin; hata koduna göre host, port, TLS ve kullanıcı yetkilerini doğrulayın.'
+    };
+  }
+  if (notification.source === 'sql' && (notification.severity === 'error' || notification.severity === 'danger')) {
+    return {
+      meaning: 'Bir SQL veya yapılandırılmış veritabanı işlemi sunucu/sürücü tarafından tamamlanamadı.',
+      cause: 'SQL sözdizimi, yetki, bulunamayan nesne, constraint, timeout veya motorun döndürdüğü başka bir hata olabilir.',
+      action: 'Hata kodunu ve teknik ayrıntıları inceleyin. İlgili SQL’i editörde hedef veritabanı ve kullanıcı yetkileriyle birlikte doğrulayın.'
+    };
+  }
+  return {
+    meaning: 'Bu kayıt Coreor Database tarafından önemli bir uygulama veya veritabanı olayını izlemek için oluşturuldu.',
+    cause: 'Kaynağa ve teknik metadata alanlarına göre olayın nedeni değişebilir.',
+    action: 'Sunucu, veritabanı, kod ve zaman bilgisini kullanarak ilgili çalışma alanını kontrol edin.'
+  };
+}
+
 function Detail({ notification }: { notification: CoreorNotification | null }) {
   if (!notification) return <div className="flex h-full items-center justify-center text-xs text-zinc-700">Detayını görmek için bir bildirim seçin.</div>;
+  const guidance = notificationGuidance(notification);
   return (
     <div className="coreor-scrollbar h-full overflow-y-auto p-5">
       <div className="mx-auto max-w-4xl space-y-5">
@@ -51,6 +95,14 @@ function Detail({ notification }: { notification: CoreorNotification | null }) {
             ['Veritabanı', notification.databaseName || 'Sunucu geneli'],
             ['Kod', notification.code || '—']
           ].map(([label, value]) => <div key={label} className="rounded-xl border border-zinc-800 bg-black/20 p-3"><div className="text-[8px] uppercase tracking-wider text-zinc-700">{label}</div><div className="mt-1 break-all text-[10px] text-zinc-300">{value}</div></div>)}
+        </section>
+
+        <section className="grid gap-3 lg:grid-cols-3">
+          {[
+            ['Bu bildirim ne anlama geliyor?', guidance.meaning],
+            ['Muhtemel neden', guidance.cause],
+            ['Ne kontrol etmeliyim?', guidance.action]
+          ].map(([title, text]) => <div key={title} className="rounded-2xl border border-zinc-800 bg-black/20 p-4"><div className="text-[9px] font-semibold text-zinc-300">{title}</div><p className="mt-2 text-[10px] leading-5 text-zinc-500">{text}</p></div>)}
         </section>
 
         {notification.metadata.length > 0 && <section className="rounded-2xl border border-zinc-800 bg-black/20">
