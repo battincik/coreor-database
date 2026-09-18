@@ -30,6 +30,34 @@ fn default_query_timeout()->u64{120_000}
 fn default_max_rows()->usize{50_000}
 fn default_page_size()->usize{10_000}
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PlatformInfo {
+    os: String,
+    arch: String,
+    family: String,
+    app_version: String,
+    config_dir: String,
+    data_dir: String,
+    cache_dir: String,
+    log_dir: String,
+}
+
+#[tauri::command]
+fn platform_info(app: tauri::AppHandle) -> Result<PlatformInfo, String> {
+    let path = app.path();
+    Ok(PlatformInfo {
+        os: std::env::consts::OS.to_string(),
+        arch: std::env::consts::ARCH.to_string(),
+        family: std::env::consts::FAMILY.to_string(),
+        app_version: app.package_info().version.to_string(),
+        config_dir: path.app_config_dir().map_err(|e| e.to_string())?.to_string_lossy().into_owned(),
+        data_dir: path.app_data_dir().map_err(|e| e.to_string())?.to_string_lossy().into_owned(),
+        cache_dir: path.app_cache_dir().map_err(|e| e.to_string())?.to_string_lossy().into_owned(),
+        log_dir: path.app_log_dir().map_err(|e| e.to_string())?.to_string_lossy().into_owned(),
+    })
+}
+
 fn config_file(app:&tauri::AppHandle)->Result<PathBuf,String>{
     let dir=app.path().app_config_dir().map_err(|e|e.to_string())?;
     fs::create_dir_all(&dir).map_err(|e|e.to_string())?;
@@ -72,7 +100,7 @@ async fn database_request(app:tauri::AppHandle,state:State<'_,TransactionStore>,
 pub fn run(){
     tauri::Builder::default()
         .manage(TransactionStore::default())
-        .invoke_handler(tauri::generate_handler![config_path,read_config,write_config,database_request])
+        .invoke_handler(tauri::generate_handler![platform_info,config_path,read_config,write_config,database_request])
         .run(tauri::generate_context!())
         .expect("Coreor Database başlatılamadı");
 }
