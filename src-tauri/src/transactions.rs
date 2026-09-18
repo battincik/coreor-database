@@ -1,4 +1,4 @@
-use crate::database::{open_native, execute_on, Connection, DatabaseRequest, NativeConnection};
+use crate::database::{open_native, execute_on, is_mutating, Connection, DatabaseRequest, NativeConnection};
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -41,6 +41,7 @@ struct TxSession {
     last_activity_at: DateTime<Utc>,
     statements: Vec<TxStatement>,
     connection: NativeConnection,
+    read_only: bool,
 }
 
 impl TxSession {
@@ -74,12 +75,18 @@ pub async fn handle(request:DatabaseRequest,store:&TransactionStore,max_rows:usi
     match request.action.as_str(){
         "transaction-begin"=>{
             let c:Connection=request.connection.ok_or("Transaction bağlantısı eksik.")?;
-            if c.read_only{return Err("Salt okunur bağlantıda transaction yazma çalışma alanı açılamaz.".into())}
             let db=request.payload.get("database").and_then(Value::as_str).map(ToOwned::to_owned).or(c.database.clone());
             let mut conn=open_native(&c,db.as_deref()).await?;
             execute_on(&mut conn,"BEGIN",1).await?;
+            if c.read_only {
+                match c.engine.as_str() {
+                    "postgresql" | "cockroachdb" => { execute_on(&mut conn,"SET TRANSACTION READ ONLY",1).await?; }
+                    "mysql" | "mariadb" | "tidb" => { execute_on(&mut conn,"SET TRANSACTION READ ONLY",1).await?; }
+                    _ => {}
+                }
+            }
             let now=Utc::now();let id=Uuid::new_v4().to_string();
-            let session=TxSession{id:id.clone(),database:db,started_at:now,last_activity_at:now,statements:Vec::new(),connection:conn};
+            let session=TxSession{id:id.clone(),database:db,started_at:now,last_activity_at:now,statements:Vec::new(),connection:conn,read_only:c.read_only};
             let public=session.public();store.0.lock().await.insert(id,session);
             Ok(json!({"transaction":public}))
         }
@@ -88,6 +95,7 @@ pub async fn handle(request:DatabaseRequest,store:&TransactionStore,max_rows:usi
             let sql=request.payload.get("sql").and_then(Value::as_str).ok_or("SQL eksik.")?.trim().to_string();
             if sql.is_empty(){return Err("SQL boş olamaz.".into())}
             let mut map=store.0.lock().await;let s=map.get_mut(&id).ok_or("Transaction bulunamadı veya süresi doldu.")?;
+            if s.read_only && is_mutating(&sql){return Err("Bu transaction salt okunur; yazma sorgusu engellendi.".into())}
             if s.statements.len()>=MAX_TX_STATEMENTS{return Err("Transaction statement sınırına ulaştı.".into())}
             let started=std::time::Instant::now();let result=execute_on(&mut s.connection,&sql,max_rows).await;
             let duration=started.elapsed().as_millis() as u64;s.last_activity_at=Utc::now();
