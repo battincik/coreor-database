@@ -126,13 +126,16 @@ function automaticPositions(tableNames: string[], tableInfo: Record<string, Tabl
 
   const isolated = tableNames.filter(table => !(neighbors.get(table)?.size));
   if (isolated.length > 8) {
+    const connected = tableNames.filter(table => neighbors.get(table)?.size);
+    const connectedMaxX = connected.length ? Math.max(...connected.map(table => result[table]?.x || 72)) : -CARD_WIDTH - 160;
+    const startX = connectedMaxX + CARD_WIDTH + 220;
     const rowsPerColumn = Math.max(5, Math.ceil(Math.sqrt(isolated.length)));
     isolated.forEach((table, index) => {
       const column = Math.floor(index / rowsPerColumn);
       const row = index % rowsPerColumn;
       let y = 72;
       for (let i = 0; i < row; i += 1) y += nodeHeight(tableInfo[isolated[column * rowsPerColumn + i]]) + 96;
-      result[table] = { x: 72 + column * (CARD_WIDTH + 160), y };
+      result[table] = { x: startX + column * (CARD_WIDTH + 160), y };
     });
   }
   return result;
@@ -432,18 +435,24 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
             const sourcePosition = positions[edge.source.table];
             const targetPosition = positions[edge.target.table];
             if (!sourcePosition || !targetPosition || !tableInfo[edge.target.table]) return null;
-            const sourceOnLeft = sourcePosition.x <= targetPosition.x;
-            const sourceX = sourceOnLeft ? sourcePosition.x + CARD_WIDTH : sourcePosition.x;
             const sourceY = sourcePosition.y + endpointY(tableInfo[edge.source.table], edge.source.column);
-            const targetX = sourceOnLeft ? targetPosition.x : targetPosition.x + CARD_WIDTH;
             const targetY = targetPosition.y + endpointY(tableInfo[edge.target.table], edge.target.column);
-            const horizontalDistance = Math.abs(targetX - sourceX);
-            const midpointX = sourceX + (targetX - sourceX) / 2;
-            const laneOffset = ((edge.id.split('').reduce((sum, character) => sum + character.charCodeAt(0), 0) % 5) - 2) * 7;
-            const routeX = midpointX + laneOffset;
-            const path = horizontalDistance > 70
-              ? `M ${sourceX} ${sourceY} H ${routeX} V ${targetY} H ${targetX}`
-              : `M ${sourceX} ${sourceY} C ${sourceX + (sourceOnLeft ? 72 : -72)} ${sourceY}, ${targetX + (sourceOnLeft ? -72 : 72)} ${targetY}, ${targetX} ${targetY}`;
+            const laneOffset = ((edge.id.split('').reduce((sum, character) => sum + character.charCodeAt(0), 0) % 7) - 3) * 8;
+            const sameColumn = Math.abs(sourcePosition.x - targetPosition.x) < 20;
+            let sourceX: number;
+            let targetX: number;
+            let routeX: number;
+            if (sameColumn) {
+              sourceX = sourcePosition.x + CARD_WIDTH;
+              targetX = targetPosition.x + CARD_WIDTH;
+              routeX = Math.max(sourcePosition.x, targetPosition.x) + CARD_WIDTH + 72 + Math.abs(laneOffset);
+            } else {
+              const sourceOnLeft = sourcePosition.x < targetPosition.x;
+              sourceX = sourceOnLeft ? sourcePosition.x + CARD_WIDTH : sourcePosition.x;
+              targetX = sourceOnLeft ? targetPosition.x : targetPosition.x + CARD_WIDTH;
+              routeX = sourceX + (targetX - sourceX) / 2 + laneOffset;
+            }
+            const path = `M ${sourceX} ${sourceY} H ${routeX} V ${targetY} H ${targetX}`;
             const active = selectedEdge?.id === edge.id;
             return <path data-schema-edge="true" key={edge.id} d={path} fill="none" stroke={active ? 'rgba(250,204,21,.95)' : 'rgba(34,211,238,.48)'} strokeWidth={active ? 3 : 1.6} markerEnd="url(#coreor-schema-arrow)" className="pointer-events-auto cursor-pointer" onPointerDown={event => event.stopPropagation()} onClick={() => { setSelectedEdge(edge); setSource(null); setTarget(null); }} />;
           })}
