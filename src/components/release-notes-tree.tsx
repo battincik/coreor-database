@@ -193,25 +193,21 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
   const [openMajors, setOpenMajors] = useState<Set<string>>(new Set());
   const [openReleases, setOpenReleases] = useState<Set<number>>(new Set());
 
-  const load = useCallback(async (fresh = false) => {
+  const load = useCallback(async (_fresh = false) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/release-history${fresh ? '?fresh=1' : ''}`, { cache: 'no-store' });
-      if (!response.ok) throw new Error(`Sürüm geçmişi alınamadı (${response.status}).`);
-      const payload = (await response.json()) as ReleaseHistoryResponse;
-      setData(payload);
-      const first = payload.pullRequests[0];
-      if (first) {
-        setOpenMajors(new Set([majorOf(first.version)]));
-        setOpenReleases(new Set([first.number]));
-      }
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Sürüm geçmişi alınamadı.');
+      const response: ReleaseHistoryResponse = {
+        repository: 'battincik/web.database.coreor.net',
+        fetchedAt: new Date().toISOString(),
+        source: 'local',
+        pullRequests: []
+      };
+      setData(response);
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     void load(false);
