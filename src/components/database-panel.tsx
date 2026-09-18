@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import type { DatabasePanelProps, EditorQueryTab, TableForeignKeyInfo } from 'types';
 import { DatabaseContext } from '@/context/DatabaseContext';
-import { useAuth } from '@/context/AuthContext';
+import { useDesktop } from '@/context/DesktopContext';
 import { fetchServerTables, fetchTableInfo } from '@/lib/databaseApi';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -83,7 +83,7 @@ export function DatabasePanel({
     isServersLoading,
     serversError
   } = useContext(DatabaseContext)!;
-  const { activeToken } = useAuth();
+  const { workspaceKey } = useDesktop();
   const { openContextMenu } = useAppContextMenu();
   const activeServer = useMemo(() => servers.find(server => server.id === activeServerId) ?? null, [servers, activeServerId]);
 
@@ -166,42 +166,42 @@ export function DatabasePanel({
   }, [createQueryTab]);
 
   const loadCatalog = useCallback(async () => {
-    if (!activeServerId || !activeToken || catalogLoading) return;
+    if (!activeServerId || !workspaceKey || catalogLoading) return;
     setCatalogLoading(true); setCatalogError(null);
     try {
-      const response = await fetchServerTables(activeServerId, activeToken);
+      const response = await fetchServerTables(activeServerId, workspaceKey);
       setDatabases(response.databases || []);
       await loadServers();
     } catch (error) {
       const code = (error as Error & { code?: string }).code;
       if (code !== 'REQUEST_SUPERSEDED') setCatalogError(error instanceof Error ? error.message : 'Veritabanı kataloğu yüklenemedi.');
     } finally { setCatalogLoading(false); }
-  }, [activeServerId, activeToken, catalogLoading, setDatabases, loadServers]);
+  }, [activeServerId, workspaceKey, catalogLoading, setDatabases, loadServers]);
 
   useEffect(() => {
     const server = servers.find(item => item.id === activeServerId) ?? null;
     const cached = server?.databases || [];
     setDatabases(cached);
     setCatalogError(null);
-    if (server && cached.length === 0 && activeToken) void loadCatalog();
-  }, [activeServerId, activeToken]);
+    if (server && cached.length === 0 && workspaceKey) void loadCatalog();
+  }, [activeServerId, workspaceKey]);
 
   const loadSelectedTableInfo = useCallback(async () => {
-    if (!selectedDatabase || !selectedTable || !activeServerId || !activeToken) {
+    if (!selectedDatabase || !selectedTable || !activeServerId || !workspaceKey) {
       setTableInfo(null);
       return;
     }
     setTableInfoLoading(true); setTableInfoError(null);
-    try { setTableInfo(await fetchTableInfo(activeServerId, selectedDatabase, selectedTable, activeToken)); }
+    try { setTableInfo(await fetchTableInfo(activeServerId, selectedDatabase, selectedTable, workspaceKey)); }
     catch (error) {
       const code = (error as Error & { code?: string }).code;
       if (code !== 'REQUEST_SUPERSEDED') setTableInfoError(error instanceof Error ? error.message : 'Tablo yapısı yüklenemedi.');
     } finally { setTableInfoLoading(false); }
-  }, [selectedDatabase, selectedTable, activeServerId, activeToken, setTableInfo]);
+  }, [selectedDatabase, selectedTable, activeServerId, workspaceKey, setTableInfo]);
 
   useEffect(() => {
     setTableInfo(null); setTableInfoError(null); void loadSelectedTableInfo();
-  }, [selectedDatabase, selectedTable, activeServerId, activeToken]);
+  }, [selectedDatabase, selectedTable, activeServerId, workspaceKey]);
 
   useEffect(() => {
     const refreshActiveView = () => {
@@ -300,18 +300,18 @@ export function DatabasePanel({
         <TabsContent value="database" className="m-0 min-h-0 flex-1 overflow-hidden p-0"><DatabaseCatalogView mode="tables" databases={databases} selectedDatabase={selectedDatabase} selectedTable={selectedTable} activeServerName={activeServer?.name} isLoading={catalogLoading} error={catalogError} onRefresh={loadCatalog} onDatabaseSelect={handleDatabaseSelect} onTableSelect={(databaseName, tableName) => handleTableSelect(databaseName, tableName)} onDatabaseContextMenu={openDatabaseMenu} onTableContextMenu={openTableMenu} onOpenQuery={databaseName => createQueryTab({ databaseName })} /></TabsContent>
 
         <TabsContent value="schema-graph" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
-          {!selectedDatabase || !activeServerId ? <EmptyState icon={Network} title="Veritabanı seçilmedi" description="Şema grafiği için bir veritabanı seçin." /> : <DatabaseSchemaGraph serverId={activeServerId} databaseName={selectedDatabase} accountId={activeToken} catalog={databases} onCatalogRefresh={loadCatalog} onOpenTable={tableName => handleTableSelect(selectedDatabase, tableName, 'structure')} />}
+          {!selectedDatabase || !activeServerId ? <EmptyState icon={Network} title="Veritabanı seçilmedi" description="Şema grafiği için bir veritabanı seçin." /> : <DatabaseSchemaGraph serverId={activeServerId} databaseName={selectedDatabase} accountId={workspaceKey} catalog={databases} onCatalogRefresh={loadCatalog} onOpenTable={tableName => handleTableSelect(selectedDatabase, tableName, 'structure')} />}
         </TabsContent>
 
         <TabsContent value="table" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
-          {tableInfoLoading ? <LoadingState title="Tablo yapısı okunuyor" description={selectedTable || undefined} /> : tableInfoError ? <ErrorState title="Tablo yapısı yüklenemedi" description={tableInfoError} actionLabel="Tekrar dene" onAction={loadSelectedTableInfo} /> : !tableInfo || !selectedDatabase || !selectedTable || !activeServerId ? <EmptyState icon={TableIcon} title="Tablo seçilmedi" description="Yapısını incelemek için bir tablo seçin." /> : <TableSchemaEditor serverId={activeServerId} databaseName={selectedDatabase} tableName={selectedTable} accountId={activeToken} info={tableInfo} catalog={databases} onInfoChange={setTableInfo} onTableRenamed={nextTableName => { onTableSelect(nextTableName); setActiveTab('table'); }} onCatalogRefresh={loadCatalog} />}
+          {tableInfoLoading ? <LoadingState title="Tablo yapısı okunuyor" description={selectedTable || undefined} /> : tableInfoError ? <ErrorState title="Tablo yapısı yüklenemedi" description={tableInfoError} actionLabel="Tekrar dene" onAction={loadSelectedTableInfo} /> : !tableInfo || !selectedDatabase || !selectedTable || !activeServerId ? <EmptyState icon={TableIcon} title="Tablo seçilmedi" description="Yapısını incelemek için bir tablo seçin." /> : <TableSchemaEditor serverId={activeServerId} databaseName={selectedDatabase} tableName={selectedTable} accountId={workspaceKey} info={tableInfo} catalog={databases} onInfoChange={setTableInfo} onTableRenamed={nextTableName => { onTableSelect(nextTableName); setActiveTab('table'); }} onCatalogRefresh={loadCatalog} />}
         </TabsContent>
 
         <TabsContent value="table-data" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
-          {tableInfoLoading ? <LoadingState title="Kolon bilgileri hazırlanıyor" /> : tableInfoError ? <ErrorState title="Tablo yapısı yüklenemedi" description={tableInfoError} actionLabel="Tekrar dene" onAction={loadSelectedTableInfo} /> : !tableInfo || !selectedDatabase || !selectedTable || !activeServerId ? <EmptyState icon={TableIcon} title="Tablo seçilmedi" description="Verilerini görüntülemek için bir tablo seçin." /> : <TableDataView key={`${activeServerId}:${selectedDatabase}:${selectedTable}`} serverId={activeServerId} databaseName={selectedDatabase} tableName={selectedTable} accountId={activeToken} info={tableInfo} onOpenQuery={(title, sql, runImmediately, databaseName) => createQueryTab({ title, sql, runImmediately, databaseName: databaseName === undefined ? selectedDatabase : databaseName })} onFollowForeignKey={followForeignKey} />}
+          {tableInfoLoading ? <LoadingState title="Kolon bilgileri hazırlanıyor" /> : tableInfoError ? <ErrorState title="Tablo yapısı yüklenemedi" description={tableInfoError} actionLabel="Tekrar dene" onAction={loadSelectedTableInfo} /> : !tableInfo || !selectedDatabase || !selectedTable || !activeServerId ? <EmptyState icon={TableIcon} title="Tablo seçilmedi" description="Verilerini görüntülemek için bir tablo seçin." /> : <TableDataView key={`${activeServerId}:${selectedDatabase}:${selectedTable}`} serverId={activeServerId} databaseName={selectedDatabase} tableName={selectedTable} accountId={workspaceKey} info={tableInfo} onOpenQuery={(title, sql, runImmediately, databaseName) => createQueryTab({ title, sql, runImmediately, databaseName: databaseName === undefined ? selectedDatabase : databaseName })} onFollowForeignKey={followForeignKey} />}
         </TabsContent>
 
-        {queryTabs.map(tab => <TabsContent key={tab.id} value={`query:${tab.id}`} className="m-0 min-h-0 flex-1 overflow-hidden p-0"><QueryWorkspace tab={tab} servers={servers} accountId={activeToken} onChange={patch => updateQueryTab(tab.id, patch)} onDuplicate={() => duplicateQueryTab(tab)} /></TabsContent>)}
+        {queryTabs.map(tab => <TabsContent key={tab.id} value={`query:${tab.id}`} className="m-0 min-h-0 flex-1 overflow-hidden p-0"><QueryWorkspace tab={tab} servers={servers} accountId={workspaceKey} onChange={patch => updateQueryTab(tab.id, patch)} onDuplicate={() => duplicateQueryTab(tab)} /></TabsContent>)}
       </Tabs>
     </div>
   );
