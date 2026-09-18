@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use sqlx::{Column, Connection as SqlxConnection, Executor, Row};
 use std::time::Duration;
-use tiberius::{AuthMethod, Client, Config};
+use tiberius::{AuthMethod, Client, Config, EncryptionLevel};
 use tokio::net::TcpStream;
 use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 
@@ -66,7 +66,7 @@ pub async fn open_native(c: &Connection, database: Option<&str>) -> Result<Nativ
         cfg.port(c.port);
         cfg.authentication(AuthMethod::sql_server(c.username.clone(), c.password.clone()));
         if let Some(db) = database.or(c.database.as_deref()) { if !db.is_empty() { cfg.database(db); } }
-        if c.ssl_mode != "required" { cfg.trust_cert(); }
+        match c.ssl_mode.as_str() { "disabled" => cfg.encryption(EncryptionLevel::NotSupported), "preferred" => { cfg.encryption(EncryptionLevel::On); cfg.trust_cert(); }, _ => cfg.encryption(EncryptionLevel::Required) }
         let tcp = tokio::time::timeout(Duration::from_millis(c.connect_timeout_ms), TcpStream::connect(cfg.get_addr()))
             .await.map_err(|_| "MSSQL bağlantısı zaman aşımına uğradı.".to_string())?.map_err(|e| e.to_string())?;
         tcp.set_nodelay(true).map_err(|e| e.to_string())?;
