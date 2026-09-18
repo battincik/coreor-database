@@ -39,7 +39,7 @@ function connectionPayload(server: DatabaseServerConfig, database?: string | nul
 
 async function requestTransaction<T>(payload: DatabaseTransactionRequest) {
   try {
-    return await desktopDatabaseRequest<T>(payload as unknown as Record<string, unknown>);
+    return await desktopDatabaseRequest<T>({ ...payload });
   } catch (error) {
     throw normalizeDatabaseClientError(error);
   }
