@@ -96,7 +96,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const { workspaceKey, user } = useDesktop();
   const context = useContext(DatabaseContext)!;
   const { openContextMenu } = useAppContextMenu();
-  const { servers, activeServerId, setActiveServerId, addServer, updateServer, loadServers, isAddingServer, isServersLoading } = context;
+  const { servers, activeServerId, setActiveServerId, addServer, updateServer, removeServer, loadServers, isAddingServer, isServersLoading } = context;
   const [search, setSearch] = useState('');
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
   const [expandedDatabases, setExpandedDatabases] = useState<Set<string>>(new Set());
@@ -211,6 +211,15 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
             setEditingServer(server);
             setServerModalOpen(true);
           }
+        },
+        {
+          id: 'remove-profile',
+          label: 'Bağlantı profilini kaldır',
+          icon: Trash2,
+          danger: true,
+          onSelect: () => {
+            if (window.confirm(`"${server.name}" bağlantı profili bu bilgisayardan kaldırılsın mı? Veritabanı sunucusundaki veriler silinmez.`)) void removeServer(server.id);
+          }
         }
       ],
       `${server.name} • ${databaseEngineLabel(server.databaseType)}`
@@ -286,7 +295,27 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           }
         },
         { id: 'collapse', label: 'Hepsini daralt', icon: ChevronRight, onSelect: () => toggle(setExpandedDatabases, `${server.id}:${database}`, false) },
-        { id: 'refresh', label: 'Yenile', icon: RefreshCw, onSelect: () => void refreshServer(server) }
+        { id: 'refresh', label: 'Yenile', icon: RefreshCw, onSelect: () => void refreshServer(server) },
+        { id: 'sep-danger', separator: true },
+        {
+          id: 'drop-database',
+          label: 'Veritabanını sil (DROP DATABASE)',
+          icon: Trash2,
+          danger: true,
+          onSelect: () => setConfirmation({
+            title: `${database} veritabanını sil`,
+            description: 'Bu işlem veritabanını, bütün tablolarını ve içindeki verileri sunucudan kalıcı olarak siler.',
+            expectedText: database,
+            sql: `DROP DATABASE ${quoteDatabaseIdentifier(database, server.databaseType || 'mysql')};`,
+            confirmLabel: 'Veritabanını kalıcı olarak sil',
+            onConfirm: async () => {
+              if (!workspaceKey) throw new Error('Yerel çalışma alanı hazır değil.');
+              await executeDatabaseQuery(server.id, `DROP DATABASE ${quoteDatabaseIdentifier(database, server.databaseType || 'mysql')};`, workspaceKey, null);
+              if (selectedDatabase === database) { onTableSelect(null); onDatabaseSelect(null); }
+              await refreshServer(server);
+            }
+          })
+        }
       ],
       `${server.name}.${database}`
     );
