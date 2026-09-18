@@ -319,13 +319,51 @@ async fn catalog(c:&Connection,max:usize)->Result<Value,String>{
                 escaped
             );
 
-            let tables=match execute_sql(c,&table_sql,Some(&name),max).await {
+            let mut tables=match execute_sql(c,&table_sql,Some(&name),max).await {
                 Ok(result)=>rows_of(&result),
                 Err(_)=>{
                     let fallback=format!("SHOW FULL TABLES FROM {}",ident(&name,&c.engine)?);
                     rows_of(&execute_sql(c,&fallback,Some(&name),max).await?)
                 }
             };
+
+            let suspicious_zero_stats=!tables.is_empty() && tables.iter().all(|row|{
+                let Some(object)=row.as_object() else{return true};
+                num(object.get("tableRows").or_else(||object.get("TABLE_ROWS")))==0
+                    && num(object.get("dataLength").or_else(||object.get("DATA_LENGTH")))==0
+                    && num(object.get("indexLength").or_else(||object.get("INDEX_LENGTH")))==0
+            });
+            if suspicious_zero_stats {
+                let status_sql=format!("SHOW TABLE STATUS FROM {}",ident(&name,&c.engine)?);
+                if let Ok(status_result)=execute_sql(c,&status_sql,Some(&name),max).await {
+                    let status_rows=rows_of(&status_result);
+                    if status_rows.iter().any(|row|row.get("Data_length").or_else(||row.get("Data_length")).map(|value|num(Some(value))>0).unwrap_or(false)) {
+                        tables=status_rows.into_iter().filter_map(|row|{
+                            let object=row.as_object()?;
+                            let table_name=object.get("Name").and_then(text_value)?;
+                            let engine=object.get("Engine").cloned().unwrap_or(Value::Null);
+                            let comment=object.get("Comment").cloned().unwrap_or(json!(""));
+                            let is_view=engine.is_null() || comment.as_str().map(|value|value.eq_ignore_ascii_case("VIEW")).unwrap_or(false);
+                            Some(json!({
+                                "tableName":table_name,
+                                "tableType":if is_view{"VIEW"}else{"BASE TABLE"},
+                                "engine":engine,
+                                "rowFormat":object.get("Row_format").cloned().unwrap_or(Value::Null),
+                                "tableRows":num(object.get("Rows")),
+                                "avgRowLength":num(object.get("Avg_row_length")),
+                                "dataLength":num(object.get("Data_length")),
+                                "indexLength":num(object.get("Index_length")),
+                                "dataFree":num(object.get("Data_free")),
+                                "autoIncrement":object.get("Auto_increment").cloned().unwrap_or(Value::Null),
+                                "createTime":object.get("Create_time").cloned().unwrap_or(Value::Null),
+                                "updateTime":object.get("Update_time").cloned().unwrap_or(Value::Null),
+                                "tableCollation":object.get("Collation").cloned().unwrap_or(Value::Null),
+                                "tableComment":comment
+                            }))
+                        }).collect();
+                    }
+                }
+            }
 
             let mut names=Vec::new();
             let mut details=Vec::new();
