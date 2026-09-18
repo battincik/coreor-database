@@ -13,7 +13,10 @@ const banned = [
   ['@/lib/server', 'server backend import'],
   ['mysql2', 'Node MySQL driver'],
   ["from 'pg'", 'Node PostgreSQL driver'],
-  ["from 'mssql'", 'Node MSSQL driver']
+  ["from 'mssql'", 'Node MSSQL driver'],
+  ['window.confirm(', 'browser-native confirm dialog'],
+  ['window.alert(', 'browser-native alert dialog'],
+  ['window.prompt(', 'browser-native prompt dialog']
 ];
 
 const files = [];
