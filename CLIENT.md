@@ -1,14 +1,14 @@
 # Client branch
 
-Standalone desktop edition of Coreor Database.
+Cross-platform desktop edition of Coreor Database.
 
-## Final architecture
+## Product architecture
 
-`Next.js static UI -> Tauri IPC -> Rust -> Database`
+`Next.js static renderer -> Tauri IPC -> Rust -> Database`
 
-This branch intentionally contains no web database backend, authentication system, Next.js API routes, Node database drivers or required environment variables.
+The branch targets Windows, macOS and Linux and intentionally contains no Next.js database API routes or Node.js database drivers.
 
-Supported native engines:
+Supported engines:
 
 - MySQL
 - MariaDB
@@ -17,20 +17,21 @@ Supported native engines:
 - CockroachDB
 - Microsoft SQL Server
 
-Desktop validation:
+## Validation
 
-```powershell
-npm install
+```bash
+npm ci
 npm run desktop:check
 npm run typecheck
-cargo check --manifest-path src-tauri/Cargo.toml
+npm run build:ui
+cargo check --locked --manifest-path src-tauri/Cargo.toml
 npm run tauri:dev
 ```
 
-Installer build:
+## Bundles
 
-```powershell
-npm run tauri:build
-```
+- Windows: NSIS, MSI
+- macOS: App, DMG
+- Linux: DEB, AppImage
 
-Bundle targets: NSIS and MSI.
+Use `npm run tauri:build` for the current host or the explicit platform build scripts defined in `package.json`.
