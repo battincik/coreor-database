@@ -96,6 +96,7 @@ function MenuItems({ items, closeMenu }: { items: AppContextMenuItem[]; closeMen
 
 export function AppContextMenuProvider({ children }: { children: React.ReactNode }) {
   const [menu, setMenu] = useState<MenuState | null>(null);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const closeContextMenu = useCallback(() => setMenu(null), []);
@@ -106,7 +107,10 @@ export function AppContextMenuProvider({ children }: { children: React.ReactNode
       event.stopPropagation();
       const nextItems = visibleItems(items);
       if (!nextItems.length) return;
-      setMenu({ x: event.clientX, y: event.clientY, items: nextItems, title });
+      const x = event.clientX;
+      const y = event.clientY;
+      setMenuPosition({ x, y });
+      setMenu({ x, y, items: nextItems, title });
     },
     []
   );
@@ -137,12 +141,16 @@ export function AppContextMenuProvider({ children }: { children: React.ReactNode
   useEffect(() => {
     if (!menu || !menuRef.current) return;
     const rect = menuRef.current.getBoundingClientRect();
-    const nextX = Math.max(8, Math.min(menu.x, window.innerWidth - rect.width - 8));
-    const nextY = Math.max(8, Math.min(menu.y, window.innerHeight - rect.height - 8));
+    const maxX = Math.max(8, window.innerWidth - rect.width - 8);
+    const maxY = Math.max(8, window.innerHeight - rect.height - 8);
+    const nextX = Math.max(8, Math.min(menu.x, maxX));
+    const nextY = Math.max(8, Math.min(menu.y, maxY));
 
-    if (nextX !== menu.x || nextY !== menu.y) {
-      setMenu(current => (current ? { ...current, x: nextX, y: nextY } : null));
-    }
+    setMenuPosition(current =>
+      Math.abs(current.x - nextX) < 0.5 && Math.abs(current.y - nextY) < 0.5
+        ? current
+        : { x: nextX, y: nextY }
+    );
   }, [menu]);
 
   const contextValue = useMemo(() => ({ openContextMenu, closeContextMenu }), [openContextMenu, closeContextMenu]);
@@ -156,7 +164,7 @@ export function AppContextMenuProvider({ children }: { children: React.ReactNode
             ref={menuRef}
             role="menu"
             className="fixed z-[200] overflow-visible rounded-md border border-zinc-800 bg-zinc-950/98 shadow-2xl backdrop-blur"
-            style={{ left: menu.x, top: menu.y }}
+            style={{ left: menuPosition.x, top: menuPosition.y }}
             onMouseDown={event => event.stopPropagation()}
             onContextMenu={event => event.preventDefault()}
           >
