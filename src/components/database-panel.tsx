@@ -102,6 +102,7 @@ export function DatabasePanel({
   const [tableInfoError, setTableInfoError] = useState<string | null>(null);
   const [queryTabs, setQueryTabs] = useState<EditorQueryTab[]>([]);
   const [renameQueryTab, setRenameQueryTab] = useState<EditorQueryTab | null>(null);
+  const [pendingInsertTarget, setPendingInsertTarget] = useState<{ databaseName: string; tableName: string } | null>(null);
   const queryTabsHydrated = useRef(false);
   const lastTableView = useRef<TableView>('data');
 
@@ -249,6 +250,13 @@ export function DatabasePanel({
   }, [selectedDatabase, selectedTable, activeServerId, workspaceKey]);
 
   useEffect(() => {
+    if (!pendingInsertTarget || activeTab !== 'table-data' || !tableInfo) return;
+    if (selectedDatabase !== pendingInsertTarget.databaseName || selectedTable !== pendingInsertTarget.tableName) return;
+    window.dispatchEvent(new CustomEvent('coreor:insert-table-row', { detail: pendingInsertTarget }));
+    setPendingInsertTarget(null);
+  }, [pendingInsertTarget, activeTab, tableInfo, selectedDatabase, selectedTable]);
+
+  useEffect(() => {
     const refreshActiveView = () => {
       if (activeTab === 'table' && selectedTable) void loadSelectedTableInfo();
       else if (activeTab === 'database' || activeTab === 'sql-editor') void loadCatalog();
@@ -300,7 +308,7 @@ export function DatabasePanel({
       { id: 'describe', label: 'DESCRIBE çalıştır', icon: Code, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} DESCRIBE`, sql: `DESCRIBE ${table};`, runImmediately: true }); } },
       { id: 'show-create', label: 'SHOW CREATE TABLE', icon: Code, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} CREATE`, sql: `SHOW CREATE TABLE ${table};`, runImmediately: true }); } },
       { id: 'sep-2', separator: true },
-      { id: 'insert', label: 'INSERT taslağı', icon: Plus, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} INSERT`, sql: `INSERT INTO ${table} (\`column\`)\nVALUES ('value');` }); } },
+      { id: 'insert', label: 'Satır ekle', icon: Plus, onSelect: () => { setPendingInsertTarget({ databaseName, tableName }); handleTableSelect(databaseName, tableName, 'data'); } },
       { id: 'delete', label: 'DELETE taslağı', icon: Trash2, danger: true, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} DELETE`, sql: `-- Koşulu doğrulamadan çalıştırmayın.\nDELETE FROM ${table}\nWHERE \`primary_key\` = 0\nLIMIT 1;` }); } },
       { id: 'copy', label: 'Tam tablo adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(table) }
     ], `${databaseName}.${tableName}`);
