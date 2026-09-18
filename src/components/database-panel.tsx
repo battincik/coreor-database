@@ -308,7 +308,7 @@ export function DatabasePanel({
       { id: 'describe', label: 'DESCRIBE çalıştır', icon: Code, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} DESCRIBE`, sql: `DESCRIBE ${table};`, runImmediately: true }); } },
       { id: 'show-create', label: 'SHOW CREATE TABLE', icon: Code, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} CREATE`, sql: `SHOW CREATE TABLE ${table};`, runImmediately: true }); } },
       { id: 'sep-2', separator: true },
-      { id: 'insert', label: 'Satır ekle', icon: Plus, onSelect: () => { setPendingInsertTarget({ databaseName, tableName }); handleTableSelect(databaseName, tableName, 'data'); } },
+      { id: 'insert', label: 'Satır ekle', icon: Plus, disabled: Boolean(activeServer?.readOnly), onSelect: () => { setPendingInsertTarget({ databaseName, tableName }); handleTableSelect(databaseName, tableName, 'data'); } },
       { id: 'delete', label: 'DELETE taslağı', icon: Trash2, danger: true, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} DELETE`, sql: `-- Koşulu doğrulamadan çalıştırmayın.\nDELETE FROM ${table}\nWHERE \`primary_key\` = 0\nLIMIT 1;` }); } },
       { id: 'copy', label: 'Tam tablo adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(table) }
     ], `${databaseName}.${tableName}`);
