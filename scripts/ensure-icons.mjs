@@ -5,6 +5,7 @@ const required = [
   'src-tauri/icons/32x32.png',
   'src-tauri/icons/128x128.png',
   'src-tauri/icons/128x128@2x.png',
+  'src-tauri/icons/icon.png',
   'src-tauri/icons/icon.icns',
   'src-tauri/icons/icon.ico'
 ];
