@@ -1,4 +1,16 @@
-# Coreor Database
+<p align="center">
+  <img src="public/logo.png" width="112" alt="Coreor Database" />
+</p>
+
+<h1 align="center">Coreor Database</h1>
+
+<p align="center">
+  Tauri ve Rust tabanlı cross-platform, local-first veritabanı istemcisi.
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a>
+</p>
 
 Coreor Database; **Tauri 2, Rust, React ve Next.js** ile geliştirilen cross-platform, local-first bir veritabanı istemcisidir.
 
