@@ -412,7 +412,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[11px] font-semibold text-zinc-100">Coreor Database</div>
-            <div className="text-[8px] text-zinc-600">v2.1.0 • Çoklu motor çalışma alanı</div>
+            <div className="text-[8px] text-zinc-600">v3.1.0 • Çoklu motor çalışma alanı</div>
           </div>
           <Button
             variant="ghost"
