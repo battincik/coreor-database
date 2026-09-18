@@ -1,48 +1,74 @@
 # Coreor Database
 
-Coreor Database; Windows, macOS ve Linux için hazırlanmış, local-first çalışan cross-platform masaüstü veritabanı istemcisidir. Arayüz Next.js static export olarak Tauri içinde render edilir; veritabanı erişimi, config ve uzun süreli işlemler Rust katmanında yürütülür.
+Coreor Database; **Tauri 2, Rust, React ve Next.js** ile geliştirilen cross-platform, local-first bir veritabanı istemcisidir.
 
-## Çalışma mimarisi
+Arayüz işletim sisteminin WebView katmanında çalışır; ancak Coreor Database hosted bir web veritabanı istemcisi değildir. Veritabanı bağlantıları, SQL yürütme ve yönetim işlemleri kullanıcının bilgisayarındaki yerel Rust/Tauri sürecinden yapılır.
+
+> **Proje durumu:** Repo şu anda private pre-release durumunda. İleride Apache-2.0 altında public open-source hale getirilmek üzere hazırlanıyor.
+
+## Platformlar
+
+- Windows 10/11
+- macOS
+- Tauri/WebKitGTK tarafından desteklenen Linux masaüstü dağıtımları
+
+## Desteklenen veritabanları
+
+- MySQL
+- MariaDB
+- TiDB
+- PostgreSQL
+- CockroachDB
+- Microsoft SQL Server
+
+## Mimari
 
 ```text
-Next.js statik renderer
-        |
-        | Tauri IPC
-        v
-Rust masaüstü çekirdeği
-        |
-        +-- native config / platform servisleri
-        +-- transaction state
-        +-- database motorları
-        |
-        +-- MySQL / MariaDB / TiDB
-        +-- PostgreSQL / CockroachDB
-        +-- Microsoft SQL Server
+React / Next.js statik UI
+        │
+        │ Tauri IPC
+        ▼
+Yerel Rust uygulaması
+        │
+        ├── sqlx: MySQL / MariaDB / TiDB
+        ├── sqlx: PostgreSQL / CockroachDB
+        └── Tiberius: Microsoft SQL Server
+        │
+        ▼
+Veritabanı sunucusu
 ```
 
-Next.js API backend'i, Node.js database driver'ı ve veritabanı erişimi için zorunlu `.env` yoktur. Bağlantı profilleri kurulu uygulamada yerel kalır; veritabanı trafiği doğrudan kullanıcının cihazından çıkar.
+Uygulama ile veritabanı arasında Next.js API backend'i yoktur. Veritabanı trafiği doğrudan kullanıcının cihazından çıkar.
 
-Coreor Account ileride cloud sync veya ekip özellikleri gibi çevrimiçi capability'ler ekleyebilir; oturum açmak yerel veritabanı kullanımı için zorunlu değildir.
+Opsiyonel **Coreor Account API**; cloud sync, ekip çalışma alanları ve paylaşılan snippet gibi hesap özelliklerini sağlayabilir. Yerel istemciyi kullanmak için oturum açmak zorunlu değildir ve veritabanı kimlik bilgileri hesap servisine otomatik olarak gönderilmez.
 
-## Desteklenen masaüstü platformları
+## Öne çıkan özellikler
 
-- Windows 10/11 — NSIS ve MSI
-- macOS 12+ — App ve DMG
-- Linux — DEB ve AppImage
-
-Tauri platform-specific config dosyaları host işletim sistemine uygun bundle hedeflerini otomatik seçer.
+- Table, view, procedure, function, trigger ve event içeren Object Explorer
+- SQL editörü, geçmiş, favoriler ve notebook
+- Tablo görüntüleme/düzenleme
+- Filtreleme, sıralama ve pagination
+- Şema, index ve foreign key yönetimi
+- Şema grafiği
+- Kalıcı transaction workspace
+- Process, lock, kullanıcı ve yetki araçları
+- Import/export
+- Performans ve veri zekâsı araçları
+- Native katmanda read-only profil koruması
+- Platforma göre otomatik kısayollar
+- Light/dark/AMOLED temalar ve çoklu dil
 
 ## Geliştirme
 
 ```bash
 npm ci
-npm run desktop:check
+npm run architecture:check
 npm run typecheck
-cargo check --locked --manifest-path src-tauri/Cargo.toml
+npm run native:check
 npm run tauri:dev
 ```
 
-İlk çalıştırmada gerekliyse `src-tauri/icons/app-icon.svg` kaynağından Windows, macOS ve Linux ikonları otomatik üretilir.
+Platform gereksinimleri için [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) dosyasına bakın.
 
 ## Build
 
@@ -52,29 +78,32 @@ Bulunduğun işletim sistemi için:
 npm run tauri:build
 ```
 
-Açık platform scriptleri:
+Platform komutları:
 
 ```bash
-npm run tauri:build:windows
-npm run tauri:build:macos
-npm run tauri:build:linux
+npm run build:windows
+npm run build:linux
+npm run build:macos
 ```
 
-Installer her platformun kendi işletim sisteminde üretilmelidir. GitHub Actions Windows, macOS ve Linux buildlerini ayrı ayrı doğrular ve paketler.
+Bu komutlar ilgili işletim sisteminde çalıştırılmalıdır.
 
-## Kaynak kullanımı profili
+## Local-first yapı
 
-```bash
-npm run profile
-```
+Bağlantı profilleri ve masaüstü ayarları Tauri uygulama config dizininde tutulur. Opsiyonel hesap kimliği yerel çalışma alanından ayrı tasarlanmıştır.
 
-Profiler Windows'ta native PowerShell process-tree ölçümünü, macOS/Linux'ta `ps` tabanlı ölçümü kullanır.
+Gerçek DB şifrelerini, private key'leri, access token'ları veya production verilerini repoya commit etmeyin.
 
-## Temel kurallar
+## Dokümantasyon
 
-- Local-first veritabanı erişimi
-- Desktop ile DB sunucusu arasında gizli Coreor proxy yok
-- Read-only politikası ve transaction state Rust katmanında
-- Cross-platform kısayollar ve pencere chrome'u
-- İşletim sisteminin native config/data/cache/log dizinleri
-- Opsiyonel hesap capability'leri yerel özellikleri kilitlemez
+- [Mimari](ARCHITECTURE.md)
+- [Veritabanı desteği](DATABASE_SUPPORT.md)
+- [Katkı rehberi](CONTRIBUTING.md)
+- [Güvenlik politikası](SECURITY.md)
+- [Güvenlik modeli](SECURITY_MODEL.md)
+- [Roadmap](ROADMAP.md)
+- [Release süreci](RELEASING.md)
+
+## Lisans
+
+Coreor Database [Apache License 2.0](LICENSE) altında hazırlanmıştır. Ek bilgi için [NOTICE](NOTICE) ve [docs/LICENSE_GUIDE.md](docs/LICENSE_GUIDE.md) dosyalarına bakın.
