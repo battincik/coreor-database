@@ -4,26 +4,26 @@ Coreor Database uses two separate security layers: a **device-local vault** for 
 
 ## Local device vault
 
-Connection profiles are no longer persisted in plaintext \`config.json\`. The full connection profile — including server name, host/IP, username, database name, cached catalog metadata and database password — is serialized only in memory and encrypted with **AES-256-GCM** before it is written to the application data directory.
+Connection profiles are no longer persisted in plaintext `config.json`. The full connection profile — including server name, host/IP, username, database name, cached catalog metadata and database password — is serialized only in memory and encrypted with **AES-256-GCM** before it is written to the application data directory.
 
-The encrypted file is \`connection-vault.v1.json\`. Its plaintext envelope contains only format metadata, a random nonce and ciphertext.
+The encrypted file is `connection-vault.v1.json`. Its plaintext envelope contains only format metadata, a random nonce and ciphertext.
 
-Every installation uses a random 256-bit device key. The key is not written to \`config.json\` or the vault file:
+Every installation uses a random 256-bit device key. The key is not written to `config.json` or the vault file:
 
 - Windows: Windows Credential Manager, current user/device.
 - macOS: the user's default Keychain.
-- Linux: Secret Service through \`secret-tool\`; no plaintext fallback is allowed.
+- Linux: Secret Service through `secret-tool`; no plaintext fallback is allowed.
 
 The process can hold the key and an active connection secret in memory while using them. They are not persisted as plaintext.
 
 ### Existing installations
 
-Version 1 configs stored \`connections\` in \`config.json\`. Migration is fail-closed:
+Version 1 configs stored `connections` in `config.json`. Migration is fail-closed:
 
 1. Read the legacy profiles into process memory.
 2. Obtain/create the OS-protected device key.
 3. Encrypt and successfully write the local vault.
-4. Only then rewrite \`config.json\` without \`connections\`.
+4. Only then rewrite `config.json` without `connections`.
 
 If the secure OS store is unavailable, Coreor does not silently continue with plaintext credentials and does not delete the legacy data.
 
@@ -31,7 +31,7 @@ If the secure OS store is unavailable, Coreor does not silently continue with pl
 
 Saved passwords never return to React. Leaving the password field empty while editing preserves the encrypted password; entering a new password replaces it. New unsaved connections may send a password transiently over Tauri IPC for a connection test.
 
-For saved profiles, the webview sends \`serverId\`; Rust resolves the password from the native vault immediately before opening the database connection.
+For saved profiles, the webview sends `serverId`; Rust resolves the password from the native vault immediately before opening the database connection.
 
 ## Future zero-knowledge account vault
 
@@ -65,9 +65,9 @@ A future recovery key can be a second independent wrapping of the same AVK. Ther
 
 ## Cloud API invariant
 
-Cloud endpoints treat the vault as an opaque encrypted blob. Plaintext payload schemas must reject connection fields such as \`name\`, \`host\`, \`port\`, \`username\`, \`password\`, \`databaseName\`, catalog/database lists and legacy connector URLs.
+Cloud endpoints treat the vault as an opaque encrypted blob. Plaintext payload schemas must reject connection fields such as `name`, `host`, `port`, `username`, `password`, `databaseName`, catalog/database lists and legacy connector URLs.
 
-The initial wire contract is \`src/lib/cloudVaultContract.ts\`.
+The initial wire contract is `src/lib/cloudVaultContract.ts`.
 
 ## Operational zero-knowledge requirements
 
