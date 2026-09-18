@@ -22,8 +22,8 @@ import type {
 import { readEncryptedServerProfiles, writeEncryptedServerProfiles } from '@/lib/secureVault';
 import { recordActivity } from '@/lib/activityConsole';
 import { databaseEngineDefinition, databaseEngineLabel } from '@/lib/databaseEngines';
+import { desktopDatabaseRequest } from '@/lib/desktopClient';
 
-const DATABASE_API_PATH = '/api/database';
 const profileMutationQueues = new Map<string, Promise<void>>();
 const inFlightControllers = new Map<string, AbortController>();
 
@@ -190,16 +190,7 @@ async function requestDatabaseApi<T>(
   const tableName = typeof payload.table === 'string' ? payload.table : undefined;
 
   try {
-    const response = await fetch(DATABASE_API_PATH, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      credentials: 'same-origin',
-      cache: 'no-store',
-      referrerPolicy: 'same-origin',
-      signal: controller.signal,
-      body: JSON.stringify({ action, connection: createConnectionPayload(server, options.connectionDatabase), ...payload })
-    });
-    const result = await readApiResponse<T>(response);
+    const result = await desktopDatabaseRequest<T>({ action, connection: createConnectionPayload(server, options.connectionDatabase), ...payload });
     const queryMeta = (result as { _meta?: DatabaseQueryMeta } | null)?._meta;
     recordStatements({
       statements: queryMeta?.statements?.length ? queryMeta.statements : fallbackStatements(action, payload, server),
