@@ -13,6 +13,9 @@ import {
   Gauge,
   Loader2,
   Network,
+  Minus,
+  Square,
+  X,
   RefreshCw,
   Server,
   Settings2,
@@ -125,9 +128,19 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
   const openAutomation = (tab: AutomationCenterTab) => { setAutomationTab(tab); setAutomationOpen(true); };
   const openIntelligence = (tab: IntelligenceCenterTab) => { setIntelligenceTab(tab); setIntelligenceOpen(true); };
   const toolButton = 'flex h-7 shrink-0 items-center gap-1.5 rounded px-2 text-[10px] text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-35';
+  const windowButton = 'flex h-8 w-10 shrink-0 items-center justify-center text-zinc-500 transition-colors hover:bg-white/[0.07] hover:text-zinc-100';
+
+  const windowAction = async (action: 'minimize' | 'maximize' | 'close') => {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const appWindow = getCurrentWindow();
+    if (action === 'minimize') await appWindow.minimize();
+    if (action === 'maximize') await appWindow.toggleMaximize();
+    if (action === 'close') await appWindow.close();
+  };
 
   return <>
-    <div className="coreor-hide-scrollbar flex h-8 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-zinc-800 bg-zinc-950/95 px-2 text-[11px] text-zinc-400 shadow-sm backdrop-blur">
+    <div className="flex h-8 shrink-0 items-stretch border-b border-zinc-800 bg-zinc-950/95 text-[11px] text-zinc-400 shadow-sm backdrop-blur">
+      <div className="coreor-hide-scrollbar flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto pl-2">
       <div className="mr-1 flex min-w-44 max-w-64 shrink-0 items-center gap-2"><Database className="h-3.5 w-3.5 shrink-0 text-emerald-400" /><SearchSelect value={activeServerId || ''} options={serverOptions} onValueChange={serverId => setActiveServerId(serverId || null)} placeholder={t('topbar.connectionSelect')} searchPlaceholder={t('topbar.connectionSearch')} emptyText={t('topbar.noSavedServer')} className="min-w-0 flex-1" triggerClassName="min-h-7 h-7 rounded-lg border-zinc-800/80 bg-black/20 px-2 [&>span]:py-0" dropdownMinWidth={390} showDescriptionInTrigger={false} /></div>
       <button className={toolButton} disabled={!activeServer || busy} onClick={() => void connect()}>{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400" /> : <Server className="h-3.5 w-3.5 text-emerald-400" />}{t('topbar.connect')}</button>
       <button className={toolButton} disabled={!activeServer || busy} onClick={() => void refreshCatalog()}><RefreshCw className="h-3.5 w-3.5" />{t('topbar.refresh')}</button>
@@ -145,7 +158,14 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
       <button className={toolButton} disabled={!activeServer || !selectedDatabase} onClick={() => window.dispatchEvent(new Event('coreor:open-schema-graph'))}><Network className="h-3.5 w-3.5 text-cyan-400" />{t('topbar.schema')}</button>
       <button className={toolButton} onClick={() => openSettings('account')}><Settings2 className="h-3.5 w-3.5" />{t('topbar.settings')}</button>
       {status && <button className={`ml-2 inline-flex min-w-0 shrink-0 items-center gap-1.5 truncate text-[10px] ${status.tone === 'success' ? 'text-emerald-400' : 'text-red-400'}`} onClick={() => setStatus(null)}>{status.tone === 'success' ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}<span className="max-w-64 truncate">{status.text}</span></button>}
-      <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 pl-3 text-[10px] text-zinc-600"><span className="max-w-40 truncate text-zinc-400">{activeServer ? databaseEngineLabel(activeServer.databaseType) : t('topbar.noConnection')}</span>{activeServer?.readOnly && <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[8px] text-amber-300">{t('topbar.readOnly')}</span>}{selectedDatabase && <><span>›</span><span className="max-w-40 truncate">{selectedDatabase}</span></>}{selectedTable && <><span>›</span><span className="max-w-40 truncate text-cyan-400">{selectedTable}</span></>}</div>
+      {activeServer?.readOnly && <span className="ml-1 shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[8px] text-amber-300">{t('topbar.readOnly')}</span>}
+      <div className="min-w-8 flex-1 self-stretch" data-tauri-drag-region title="Pencereyi taşımak için sürükleyin" />
+      </div>
+      <div className="flex shrink-0 items-center border-l border-zinc-800 bg-black/15">
+        <button type="button" className={windowButton} onClick={() => void windowAction('minimize')} title="Simge durumuna küçült" aria-label="Simge durumuna küçült"><Minus className="h-3.5 w-3.5" strokeWidth={1.7} /></button>
+        <button type="button" className={windowButton} onClick={() => void windowAction('maximize')} title="Büyüt / geri yükle" aria-label="Büyüt veya geri yükle"><Square className="h-3 w-3" strokeWidth={1.7} /></button>
+        <button type="button" className={`${windowButton} hover:!bg-red-600 hover:!text-white`} onClick={() => void windowAction('close')} title="Kapat" aria-label="Kapat"><X className="h-4 w-4" strokeWidth={1.7} /></button>
+      </div>
     </div>
     <DatabaseUserManagerModal open={usersOpen} onClose={() => setUsersOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} />
     <DatabaseProcessCenterModal open={processOpen} onClose={() => setProcessOpen(false)} serverId={activeServerId} accountId={workspaceKey} />
