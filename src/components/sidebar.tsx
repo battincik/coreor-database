@@ -503,6 +503,56 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     );
   };
 
+  const objectMenu = (event: React.MouseEvent, server: DatabaseServerConfig, database: string, object: DatabaseSchemaObject) => {
+    if (object.kind === 'table') { tableMenu(event, server, database, object.name); return; }
+    const engine = server.databaseType || 'mysql';
+    const qualified = objectQualifiedName(engine, database, object);
+    const canRename = databaseEngineFamily(engine) === 'mssql' || object.kind === 'view';
+    openContextMenu(event, [
+      {
+        id: 'open',
+        label: object.kind === 'view' ? 'Verileri aç' : 'Aç / çalıştır',
+        icon: object.kind === 'view' ? View : object.kind === 'procedure' ? Zap : object.kind === 'function' ? FunctionSquare : Activity,
+        onSelect: () => {
+          setActiveServerId(server.id); onDatabaseSelect(database);
+          if (object.kind === 'view') onTableSelect(object.name);
+          else if (object.kind === 'procedure') openSql(server, database, `${object.name} çağır`, `CALL ${qualified}();`);
+          else if (object.kind === 'function') openSql(server, database, `${object.name} çalıştır`, `SELECT ${qualified}();`);
+          else openSql(server, database, `${object.name} tanımı`, objectDefinitionSql(engine, database, object), true);
+        }
+      },
+      { id: 'new-query', label: 'Yeni sorgu', icon: Code2, shortcut: 'newQuery', onSelect: () => openSql(server, database, `${object.name} sorgu`, '') },
+      { id: 'definition', label: 'DDL / tanımı göster', icon: FileCode2, onSelect: () => openSql(server, database, `${object.name} DDL`, objectDefinitionSql(engine, database, object), true) },
+      { id: 'dependencies', label: 'Bağımlılıkları sorgula', icon: Network, onSelect: () => openSql(server, database, `${object.name} bağımlılıklar`, objectDependencySql(engine, database, object), true) },
+      { id: 'sep-edit', separator: true },
+      { id: 'rename', label: 'Rename taslağı', icon: Wrench, disabled: Boolean(server.readOnly) || !canRename, disabledReason: server.readOnly ? 'Bağlantı salt-okunur.' : 'Bu nesne türünde güvenli rename motor/sürüme göre değişiyor.', onSelect: () => openSql(server, database, `${object.name} rename`, objectRenameTemplate(engine, database, object)) },
+      { id: 'copy', label: 'Kopyala', icon: Copy, children: [
+        { id: 'copy-name', label: 'Nesne adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(object.name) },
+        { id: 'copy-qualified', label: 'Tam nesne adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(qualified) },
+        ...(object.tableName ? [{ id: 'copy-parent', label: 'Bağlı tablo adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(object.tableName || '') }] : [])
+      ] },
+      { id: 'sep-danger', separator: true },
+      {
+        id: 'drop',
+        label: `${object.kind} nesnesini sil`,
+        icon: Trash2,
+        danger: true,
+        disabled: Boolean(server.readOnly),
+        disabledReason: server.readOnly ? 'Bağlantı salt-okunur.' : undefined,
+        onSelect: () => runDangerous(server, database, object.name, objectDropSql(engine, database, object), `${object.name} nesnesini sil`, `${object.kind} nesnesi sunucudan kalıcı olarak kaldırılacak.`, 'Nesneyi sil')
+      }
+    ], `${object.kind.toUpperCase()} • ${object.schema ? `${object.schema}.` : ''}${object.name}`);
+  };
+
+  const objectGroupDefinitions = [
+    { kind: 'table' as const, label: 'Tables', icon: Table2 },
+    { kind: 'view' as const, label: 'Views', icon: View },
+    { kind: 'procedure' as const, label: 'Procedures', icon: Zap },
+    { kind: 'function' as const, label: 'Functions', icon: FunctionSquare },
+    { kind: 'trigger' as const, label: 'Triggers', icon: Activity },
+    { kind: 'event' as const, label: 'Events', icon: Sparkles }
+  ];
+
   return (
     <aside className="flex h-full min-h-0 w-full flex-col border-r border-zinc-800 bg-zinc-950/96">
       <header className="shrink-0 border-b border-zinc-800 p-2">
