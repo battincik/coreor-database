@@ -531,14 +531,13 @@ pub fn workspace_sync_merge(app: &tauri::AppHandle, remote: Value) -> Result<Val
             }
 
             if let Some(index) = local_collection.records.iter().position(|record| record.id == remote_record.id) {
-                let local_record = &local_collection.records[index];
-                let identical = local_record.revision == remote_record.revision
-                    && local_record.updated_at == remote_record.updated_at
-                    && local_record.deleted_at == remote_record.deleted_at
-                    && local_record.updated_by_device == remote_record.updated_by_device
+                // Clone the local snapshot before mutating the collection. This keeps the
+                // merge branch borrow-checker-simple and makes conflict comparisons explicit.
+                let local_record = local_collection.records[index].clone();
+                let same_state = local_record.deleted_at == remote_record.deleted_at
                     && local_record.payload == remote_record.payload;
 
-                if identical {
+                if local_record.revision == remote_record.revision && same_state {
                     continue;
                 }
 
