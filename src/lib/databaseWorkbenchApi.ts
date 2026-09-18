@@ -13,13 +13,13 @@ import type {
   DatabaseUsersResponse,
   DatabaseWorkbenchAction
 } from '@/lib/databaseWorkbenchTypes';
-import { readEncryptedServerProfiles } from '@/lib/secureVault';
+import { readLocalServerProfiles } from '@/lib/localProfiles';
 import { recordActivity } from '@/lib/activityConsole';
 import { desktopDatabaseRequest } from '@/lib/desktopClient';
 import { normalizeDatabaseClientError } from '@/lib/databaseErrorPresentation';
 
 async function requireServer(accountId: string | null | undefined, serverId: string) {
-  const servers = await readEncryptedServerProfiles(accountId);
+  const servers = await readLocalServerProfiles();
   const server = servers.find(item => item.id === serverId);
   if (!server) throw new Error('Sunucu profili yerel config içinde bulunamadı.');
   return server;
