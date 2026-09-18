@@ -1,7 +1,7 @@
 'use client';
 
 import { useContext, useEffect, useRef, useState } from 'react';
-import { Code, Plus, RefreshCw, Server } from 'lucide-react';
+import { Code, Network, Plus, RefreshCw, Server, Settings2, Table2 } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import Sidebar from '@/components/sidebar';
 import { DatabasePanel } from '@/components/database-panel';
@@ -17,6 +17,7 @@ import { AppContextMenuProvider, useAppContextMenu } from '@/components/app-cont
 import { DatabaseContext } from '@/context/DatabaseContext';
 import { openQueryTab } from '@/lib/queryWorkspaceEvents';
 import { setAppPreferences, useAppPreferences } from '@/lib/appPreferences';
+import { OPEN_SETTINGS_MODAL_EVENT, TOGGLE_COMMAND_PALETTE_EVENT } from '@/lib/databaseToolEvents';
 
 function EditorWorkspace() {
   const [selectedDatabase, setSelectedDatabase] = useState<string | null>(null);
@@ -104,7 +105,34 @@ function EditorWorkspace() {
               disabled: !activeServer || !selectedDatabase,
               onSelect: () => { openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase || 'Sorgu' }); }
             },
+            {
+              id: 'open-table',
+              label: selectedTable ? `${selectedTable} verilerini aç` : 'Tablo verileri',
+              icon: Table2,
+              disabled: !selectedTable,
+              onSelect: () => { setActiveTab('table-data'); }
+            },
+            {
+              id: 'open-schema',
+              label: selectedDatabase ? `${selectedDatabase} şema grafiği` : 'Şema grafiği',
+              icon: Network,
+              disabled: !selectedDatabase,
+              onSelect: () => { setActiveTab('schema-graph'); }
+            },
             { id: 'separator-1', separator: true },
+            {
+              id: 'commands',
+              label: 'Komut paletini aç',
+              icon: Code,
+              shortcut: 'Ctrl+K',
+              onSelect: () => window.dispatchEvent(new Event(TOGGLE_COMMAND_PALETTE_EVENT))
+            },
+            {
+              id: 'settings',
+              label: 'Ayarları aç',
+              icon: Settings2,
+              onSelect: () => window.dispatchEvent(new Event(OPEN_SETTINGS_MODAL_EVENT))
+            },
             {
               id: 'refresh-view',
               label: 'Aktif görünümü yenile',
