@@ -18,6 +18,8 @@ import { openQueryTab } from '@/lib/queryWorkspaceEvents';
 import { OPEN_IMPORT_EXPORT_EVENT, OPEN_SETTINGS_MODAL_EVENT } from '@/lib/databaseToolEvents';
 import { databaseEngineDefinition, databaseEngineFamily, databaseEngineLabel, quoteDatabaseIdentifier, qualifiedDatabaseTable } from '@/lib/databaseEngines';
 
+const objectExplorerKey = (serverId: string, databaseName: string) => `${serverId}:${databaseName}`;
+
 interface CreateDatabaseState {
   server: DatabaseServerConfig;
   name: string;
@@ -192,10 +194,9 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   }, [servers]);
 
   const normalizedSearch = search.trim().toLocaleLowerCase('tr-TR');
-  const objectKey = (serverId: string, databaseName: string) => `${serverId}:${databaseName}`;
   const loadObjects = async (server: DatabaseServerConfig, databaseName: string, force = false) => {
     if (!workspaceKey) return;
-    const key = objectKey(server.id, databaseName);
+    const key = objectExplorerKey(server.id, databaseName);
     if (!force && (databaseObjects[key] || objectLoading.has(key))) return;
     setObjectLoading(previous => new Set(previous).add(key));
     try {
@@ -217,8 +218,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       while (!cancelled) {
         const target = targets[cursor++];
         if (!target) return;
-        const key = objectKey(target.server.id, target.database);
-        if (databaseObjects[key]) continue;
+        const key = objectExplorerKey(target.server.id, target.database);
         try {
           const result = await fetchDatabaseObjects(target.server.id, target.database, workspaceKey);
           if (!cancelled) setDatabaseObjects(previous => ({ ...previous, [key]: result.objects }));
@@ -233,7 +233,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     () => servers.map(server => ({
       ...server,
       databases: (server.databases || []).map(database => {
-        const key = objectKey(server.id, database.name);
+        const key = objectExplorerKey(server.id, database.name);
         const objects = databaseObjects[key] || [];
         const objectMatches = objects.filter(object => !normalizedSearch || `${server.name} ${database.name} ${object.kind} ${object.schema || ''} ${object.name} ${object.tableName || ''}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch));
         const tableMatches = database.tables.filter(table => !normalizedSearch || `${server.name} ${database.name} table ${table}`.toLocaleLowerCase('tr-TR').includes(normalizedSearch));
@@ -663,7 +663,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                             </button>
                           </div>
                           {databaseOpen && (() => {
-                            const key = objectKey(server.id, database.name);
+                            const key = objectExplorerKey(server.id, database.name);
                             const loaded = databaseObjects[key];
                             const fallbackObjects: DatabaseSchemaObject[] = database.tables.map(table => {
                               const detail = database.tableDetails.find(item => item.tableName === table);
