@@ -33,6 +33,9 @@ export interface LocalVaultStatus {
   keyAvailable: boolean;
   connectionCount: number;
   vaultPath: string;
+  workspaceEncrypted: boolean;
+  workspaceCollectionCount: number;
+  workspaceVaultPath: string;
 }
 
 export interface CloudVaultReadiness {

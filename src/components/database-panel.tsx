@@ -253,7 +253,7 @@ export function DatabasePanel({
         if (activeTab.startsWith('query:')) window.localStorage.setItem(QUERY_ACTIVE_TAB_STORAGE_KEY, activeTab);
         else window.localStorage.removeItem(QUERY_ACTIVE_TAB_STORAGE_KEY);
       } catch { /* active tab persistence is optional */ }
-    }, 250);
+    }, 500);
     return () => window.clearTimeout(timer);
   }, [queryTabs, activeTab, preferences.rememberQueryWorkspace]);
 

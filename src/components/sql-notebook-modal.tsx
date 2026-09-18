@@ -206,7 +206,7 @@ export function SqlNotebookModal({ open, onClose, serverId, accountId, databases
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
       void writeWorkspaceCollection('sql-notebooks', serverId || 'no-server', serializableDocuments(documents));
-    }, 250);
+    }, 750);
     return () => { if (saveTimer.current) window.clearTimeout(saveTimer.current); };
   }, [documents, loaded, open, serverId]);
 

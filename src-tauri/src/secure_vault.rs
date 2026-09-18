@@ -120,6 +120,9 @@ pub struct VaultStatus {
     pub key_available: bool,
     pub connection_count: usize,
     pub vault_path: String,
+    pub workspace_encrypted: bool,
+    pub workspace_collection_count: usize,
+    pub workspace_vault_path: String,
 }
 
 fn io_lock() -> &'static Mutex<()> {
@@ -698,13 +701,23 @@ pub fn status(app: &tauri::AppHandle) -> Result<VaultStatus, String> {
     let _guard = io_lock().lock()
         .map_err(|_| "Yerel kasa I/O kilidi kullanılamıyor.".to_string())?;
     let path = vault_file(app)?;
-    let key_available = if path.exists() {
+    let workspace_path = workspace_vault_file(app)?;
+    let encrypted_data_exists = path.exists() || workspace_path.exists();
+    let key_available = if encrypted_data_exists {
         cached_key()?.is_some() || platform_secret::read()?.is_some()
     } else {
         cached_key()?.is_some()
     };
     let connection_count = if path.exists() && key_available {
         load_payload_unlocked(app)?.connections.len()
+    } else {
+        0
+    };
+    let workspace_collection_count = if workspace_path.exists() && key_available {
+        load_workspace_payload_unlocked(app)?.workspace.len()
+    } else if path.exists() && key_available {
+        // Before the one-time split migration, surface the legacy combined count.
+        load_payload_unlocked(app)?.workspace.len()
     } else {
         0
     };
@@ -717,6 +730,9 @@ pub fn status(app: &tauri::AppHandle) -> Result<VaultStatus, String> {
         key_available,
         connection_count,
         vault_path: path.to_string_lossy().into_owned(),
+        workspace_encrypted: true,
+        workspace_collection_count,
+        workspace_vault_path: workspace_path.to_string_lossy().into_owned(),
     })
 }
 
