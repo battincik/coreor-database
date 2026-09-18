@@ -2,7 +2,7 @@
 
 import { useContext, useEffect, useRef, useSyncExternalStore } from 'react';
 import { DatabaseContext } from '@/context/DatabaseContext';
-import { useAuth } from '@/context/AuthContext';
+import { useDesktop } from '@/context/DesktopContext';
 import { useAppPreferences } from '@/lib/appPreferences';
 import { fetchDatabasePerformanceSnapshot } from '@/lib/databaseWorkbenchApi';
 import type { DatabasePerformanceSnapshot } from '@/lib/databaseWorkbenchTypes';
@@ -43,7 +43,7 @@ function ruleDescription(rule: NotificationRule, value: number) {
 }
 
 export function DatabaseNotificationMonitor() {
-  const { activeToken } = useAuth();
+  const { workspaceKey } = useDesktop();
   const { preferences } = useAppPreferences();
   const { servers, activeServerId } = useContext(DatabaseContext)!;
   const activities = useSyncExternalStore(subscribeActivities, getActivitiesSnapshot, getActivitiesServerSnapshot);
@@ -96,7 +96,7 @@ export function DatabaseNotificationMonitor() {
   }, [activities, preferences.liveNotifications]);
 
   useEffect(() => {
-    if (!preferences.liveNotifications || !server || !activeToken || databaseEngineFamily(server.databaseType) !== 'mysql') return;
+    if (!preferences.liveNotifications || !server || !workspaceKey || databaseEngineFamily(server.databaseType) !== 'mysql') return;
     let cancelled = false;
 
     const evaluate = async () => {
@@ -106,7 +106,7 @@ export function DatabaseNotificationMonitor() {
       const cooldowns = readCooldowns();
       const now = Date.now();
       try {
-        const snapshot = await fetchDatabasePerformanceSnapshot(server.id, activeToken, server.databaseName || null);
+        const snapshot = await fetchDatabasePerformanceSnapshot(server.id, workspaceKey, server.databaseName || null);
         if (cancelled) return;
         const previous = previousSnapshotRef.current;
         const elapsed = previous ? Math.max(0.25, (new Date(snapshot.sampledAt).getTime() - new Date(previous.sampledAt).getTime()) / 1000) : Math.max(1, snapshot.uptimeSeconds);
@@ -181,7 +181,7 @@ export function DatabaseNotificationMonitor() {
     void evaluate();
     const timer = window.setInterval(() => void evaluate(), preferences.performanceRefreshSeconds * 1000);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [preferences.liveNotifications, preferences.performanceRefreshSeconds, server, activeToken]);
+  }, [preferences.liveNotifications, preferences.performanceRefreshSeconds, server, workspaceKey]);
 
   return null;
 }
