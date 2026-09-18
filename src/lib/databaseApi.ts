@@ -6,6 +6,7 @@ import type {
   DatabaseConnectionPayload,
   DatabaseQueryMeta,
   DatabaseQueryStatement,
+  DatabaseObjectsResponse,
   DatabaseServerConfig,
   QueryExecutionResult,
   SchemaOverviewResponse,
@@ -32,6 +33,8 @@ const inFlightControllers = new Map<string, AbortController>();
 const tableInfoCache = new Map<string, { expiresAt: number; value: TableInfo }>();
 const tableInfoRequests = new Map<string, Promise<TableInfo>>();
 const TABLE_INFO_CACHE_MS = 15_000;
+const databaseObjectsCache = new Map<string, { expiresAt: number; value: DatabaseObjectsResponse }>();
+const DATABASE_OBJECTS_CACHE_MS = 30_000;
 
 export interface DatabaseServerCatalogItem extends DatabaseServerConfig {
   databases: DatabaseCatalogItem[];
@@ -72,6 +75,7 @@ const ACTION_TITLES: Record<DatabaseApiAction, string> = {
   catalog: 'Veritabanı kataloğu',
   'table-info': 'Tablo yapısı',
   'schema-overview': 'Şema metadata',
+  'database-objects': 'Veritabanı nesneleri',
   'table-data': 'Tablo verileri',
   'update-cell': 'Hücre güncelleme',
   'insert-row': 'Satır ekleme',
@@ -112,6 +116,7 @@ function fallbackStatements(action: DatabaseApiAction, payload: Record<string, u
   if (action === 'catalog') return [{ label: 'Ayrıntılı katalog', sql: `/* ${engine} katalog sorguları */` }];
   if (action === 'table-info') return [{ label: 'Tablo yapısı', sql: `/* ${engine} */ DESCRIBE ${database}.${table}` }];
   if (action === 'schema-overview') return [{ label: 'Şema metadata', sql: `/* ${engine} */ information_schema metadata for ${database}` }];
+  if (action === 'database-objects') return [{ label: 'Object Explorer', sql: `/* ${engine} */ database objects for ${database}` }];
   if (action === 'table-data') return [{ label: 'Tablo satırları', sql: `SELECT * FROM ${database}.${table}` }];
   if (action === 'update-cell') return [{ label: 'Hücre güncelleme', sql: `UPDATE ${database}.${table} SET ${String(payload.column || 'column')} = ? WHERE <primary-key>` }];
   if (action === 'insert-row') return [{ label: 'Satır ekleme', sql: `INSERT INTO ${database}.${table} (...) VALUES (...)` }];
@@ -126,6 +131,7 @@ function resultMetrics(action: DatabaseApiAction, result: unknown) {
   if (action === 'catalog') return { rowCount: payload.databases?.length };
   if (action === 'table-info') return { rowCount: payload.columns?.length };
   if (action === 'schema-overview') return { rowCount: payload.columns?.length };
+  if (action === 'database-objects') return { rowCount: (payload as { objects?: unknown[] }).objects?.length };
   if (action === 'table-data') return { rowCount: payload.data?.length };
   if (action === 'alter-table') return { rowCount: payload.tableInfo?.columns?.length };
   if (action === 'update-cell' || action === 'insert-row' || action === 'delete-rows') return { affectedRows: payload.affectedRows };
@@ -318,6 +324,16 @@ export async function fetchTableInfo(serverId: string, databaseName: string, tab
 export async function fetchSchemaOverview(serverId: string, databaseName: string, accountId?: string | null) {
   const server = await requireServer(accountId, serverId);
   return requestDatabaseApi<SchemaOverviewResponse>(server, 'schema-overview', { database: databaseName }, { requestKey: `schema-overview:${serverId}:${databaseName}`, connectionDatabase: databaseName });
+}
+
+export async function fetchDatabaseObjects(serverId: string, databaseName: string, accountId?: string | null, force = false) {
+  const key = `${serverId}:${databaseName}`;
+  const cached = databaseObjectsCache.get(key);
+  if (!force && cached && cached.expiresAt > Date.now()) return cached.value;
+  const server = await requireServer(accountId, serverId);
+  const value = await requestDatabaseApi<DatabaseObjectsResponse>(server, 'database-objects', { database: databaseName }, { requestKey: `database-objects:${key}`, connectionDatabase: databaseName });
+  databaseObjectsCache.set(key, { expiresAt: Date.now() + DATABASE_OBJECTS_CACHE_MS, value });
+  return value;
 }
 
 export async function fetchTableData(serverId: string, databaseName: string, tableName: string, accountId?: string | null, options: FetchTableDataOptions = {}) {
