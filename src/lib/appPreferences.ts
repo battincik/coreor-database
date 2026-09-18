@@ -32,6 +32,7 @@ export interface AppPreferences {
   queryResultLimit: number;
   importBatchSize: number;
   rememberPanelSizes: boolean;
+  rememberQueryWorkspace: boolean;
   defaultReadOnlyConnections: boolean;
   liveNotifications: boolean;
   performanceRefreshSeconds: PerformanceRefreshSeconds;
@@ -47,7 +48,7 @@ const DEFAULTS: AppPreferences = {
   dyslexiaSpacing: false, colorBlindMode: 'none', autocomplete: true,
   autoRefreshProcesses: false, confirmDangerousQueries: true, dryRunMutations: true,
   requireSecondApproval: true, productionAlterApproval: true, autoSchemaSnapshots: true,
-  queryResultLimit: 5000, importBatchSize: 250, rememberPanelSizes: true,
+  queryResultLimit: 5000, importBatchSize: 250, rememberPanelSizes: true, rememberQueryWorkspace: true,
   defaultReadOnlyConnections: false, liveNotifications: true, performanceRefreshSeconds: 5
 };
 let snapshot: AppPreferences = DEFAULTS;
