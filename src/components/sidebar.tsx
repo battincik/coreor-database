@@ -255,6 +255,8 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     const targets = server ? [server] : servers;
     setExpandedServers(new Set(targets.map(item => item.id)));
     setExpandedDatabases(new Set(targets.flatMap(item => (item.databases || []).map(database => `${item.id}:${database.name}`))));
+    setExpandedObjectGroups(new Set(targets.flatMap(item => (item.databases || []).flatMap(database => objectGroupDefinitions.map(group => `${item.id}:${database.name}:${group.kind}`)))));
+    for (const target of targets) for (const database of target.databases || []) void loadObjects(target, database.name);
   };
   const collapseAll = () => {
     setExpandedServers(new Set());
