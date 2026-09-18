@@ -63,7 +63,8 @@ async fn database_request(app:tauri::AppHandle,state:State<'_,TransactionStore>,
             }
         }
     }
-    tokio::time::timeout(Duration::from_millis(config.query_timeout_ms),database::execute_action(request,config.max_result_rows,config.max_page_size))
+    let max_page_size=config.max_page_size.max(5_000);
+    tokio::time::timeout(Duration::from_millis(config.query_timeout_ms),database::execute_action(request,config.max_result_rows,max_page_size))
         .await.map_err(|_|"Veritabanı işlemi zaman aşımına uğradı.".to_string())?
 }
 
