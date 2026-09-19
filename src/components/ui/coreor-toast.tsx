@@ -113,6 +113,7 @@ function VariantIcon({ variant, loading }: { variant: CoreorToastVariant; loadin
 }
 
 function ToastCard({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: string, result?: CoreorToastResult) => void }) {
+  const { t } = useLanguage();
   const variant = toast.variant || 'neutral';
   const tone = toneMap[variant];
   const [inputValue, setInputValue] = useState(toast.input?.defaultValue || '');
