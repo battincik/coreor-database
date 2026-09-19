@@ -12,6 +12,7 @@ import { CoreorSwitch } from '@/components/ui/coreor-switch';
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 import { useAppPreferences, type PerformanceRefreshSeconds } from '@/lib/appPreferences';
 import { performanceHistoryStore, type PerformanceHistoryPoint } from '@/lib/decentralizedIntelligence';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface DatabasePerformancePanelModalProps {
   open: boolean;
@@ -34,13 +35,6 @@ interface PerformancePoint {
 type HistoryWindow = '15m' | '1h' | '6h' | '24h';
 const WINDOW_MS: Record<HistoryWindow, number> = { '15m': 15 * 60_000, '1h': 60 * 60_000, '6h': 6 * 60 * 60_000, '24h': 24 * 60 * 60_000 };
 const REFRESH_OPTIONS: SearchSelectOption<PerformanceRefreshSeconds>[] = [1, 3, 5, 10, 15, 30].map(value => ({ value: value as PerformanceRefreshSeconds, label: `${value} saniye`, description: value <= 3 ? 'Çok canlı; daha fazla sorgu üretir.' : value <= 10 ? 'Dengeli canlı takip.' : 'Daha düşük veritabanı yükü.', badge: value === 5 ? 'Varsayılan' : undefined }));
-const WINDOW_OPTIONS: SearchSelectOption<HistoryWindow>[] = [
-  { value: '15m', label: t('performancePanel.last15Minutes'), description: t('performancePanel.spikes') },
-  { value: '1h', label: t('performancePanel.last1Hour'), description: t('performancePanel.shortTrend') },
-  { value: '6h', label: t('performancePanel.last6Hours'), description: t('performancePanel.shiftView') },
-  { value: '24h', label: t('performancePanel.last24Hours'), description: t('performancePanel.dailyView') }
-];
-
 function number(value: number, digits = 1) {
   return new Intl.NumberFormat('tr-TR', { maximumFractionDigits: digits }).format(Number.isFinite(value) ? value : 0);
 }
@@ -94,7 +88,14 @@ function storedToPoint(item: PerformanceHistoryPoint): PerformancePoint {
 }
 
 export function DatabasePerformancePanelModal({ open, onClose, serverId, accountId, selectedDatabase }: DatabasePerformancePanelModalProps) {
+  const { t } = useLanguage();
   const { preferences, setPreferences } = useAppPreferences();
+  const windowOptions = useMemo<SearchSelectOption<HistoryWindow>[]>(() => [
+    { value: '15m', label: t('performancePanel.last15Minutes'), description: t('performancePanel.spikes') },
+    { value: '1h', label: t('performancePanel.last1Hour'), description: t('performancePanel.shortTrend') },
+    { value: '6h', label: t('performancePanel.last6Hours'), description: t('performancePanel.shiftView') },
+    { value: '24h', label: t('performancePanel.last24Hours'), description: t('performancePanel.dailyView') }
+  ], [t]);
   const [snapshot, setSnapshot] = useState<DatabasePerformanceSnapshot | null>(null);
   const [points, setPoints] = useState<PerformancePoint[]>([]);
   const [loading, setLoading] = useState(false);
@@ -188,7 +189,7 @@ export function DatabasePerformancePanelModal({ open, onClose, serverId, account
         <div className="flex h-14 shrink-0 items-center gap-3 border-b border-zinc-800 px-4">
           <Activity className="h-4 w-4 text-cyan-400" />
           <div><h2 className="text-sm font-semibold">Veritabanı performans paneli</h2><p className="text-[10px] text-zinc-500">Yerel zaman serisi, canlı yenileme, InnoDB, replication ve mantıksal depolama.</p></div>
-          <div className="ml-auto flex items-center gap-2"><div className="w-40"><SearchSelect value={historyWindow} options={WINDOW_OPTIONS} onValueChange={setHistoryWindow} triggerClassName="h-8 min-h-8" showDescriptionInTrigger={false}/></div><div className="w-36"><SearchSelect value={preferences.performanceRefreshSeconds} options={REFRESH_OPTIONS} onValueChange={performanceRefreshSeconds => setPreferences({ performanceRefreshSeconds })} triggerClassName="h-8 min-h-8" showDescriptionInTrigger={false}/></div><CoreorSwitch checked={autoRefresh} onCheckedChange={setAutoRefresh} label="Canlı" /></div>
+          <div className="ml-auto flex items-center gap-2"><div className="w-40"><SearchSelect value={historyWindow} options={windowOptions} onValueChange={setHistoryWindow} triggerClassName="h-8 min-h-8" showDescriptionInTrigger={false}/></div><div className="w-36"><SearchSelect value={preferences.performanceRefreshSeconds} options={REFRESH_OPTIONS} onValueChange={performanceRefreshSeconds => setPreferences({ performanceRefreshSeconds })} triggerClassName="h-8 min-h-8" showDescriptionInTrigger={false}/></div><CoreorSwitch checked={autoRefresh} onCheckedChange={setAutoRefresh} label="Canlı" /></div>
           <Button variant="ghost" size="icon" className="h-8 w-8" disabled={loading} onClick={() => void load()}><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></Button>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
