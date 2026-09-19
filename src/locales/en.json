@@ -1024,7 +1024,12 @@
     "executionInfo": "Maintenance runs table/step by table/step instead of sending one bulk SQL statement over a single connection, so progress and failure points remain observable.",
     "successCount": "{count} successful",
     "failureCount": "{count} errors",
-    "pendingCount": "{count} pending"
+    "pendingCount": "{count} pending",
+    "completedLabel": "Completed",
+    "databaseScopeInfo": "{count} tables will be processed sequentially.",
+    "tableScopeInfo": "Selected maintenance steps will run on {table}.",
+    "tableScopeValue": "Table: {table}",
+    "tablesScopeValue": "{count} tables"
   },
   "processCenter": {
     "title": "Process and lock center",
@@ -1051,7 +1056,7 @@
     "openSql": "Open in SQL editor",
     "copySummary": "Copy process summary",
     "killQueryOnly": "Terminate query only",
-    "seconds": "{count} s",
+    "seconds": "{count} sec",
     "minutesSeconds": "{minutes} min {seconds} s",
     "hoursMinutes": "{hours} h {minutes} min",
     "query": "query",
@@ -1062,7 +1067,8 @@
     "general": "general",
     "duration": "Duration",
     "action": "Action",
-    "status": "Status"
+    "status": "Status",
+    "minutes": "{count} min"
   },
   "performancePanel": {
     "title": "Database performance panel",
@@ -1103,7 +1109,12 @@
     "questionsDelta": "Difference in Questions between the last two snapshots.",
     "firstAverage": "Average from uptime for the first measurement.",
     "off": "Off",
-    "noReplica": "This server did not return replica status."
+    "noReplica": "This server did not return replica status.",
+    "last15Minutes": "Last 15 minutes",
+    "spikes": "Short spikes",
+    "last1Hour": "Last 1 hour",
+    "last6Hours": "Last 6 hours",
+    "last24Hours": "Last 24 hours"
   },
   "catalogView": {
     "newQuery": "+ Query",
@@ -1587,7 +1598,8 @@
     "localSqlLog": "Local SQL log",
     "measurement": "Measurement",
     "health": "Health",
-    "serverStatusFailed": "Could not retrieve server status."
+    "serverStatusFailed": "Could not retrieve server status.",
+    "engine": "Engine"
   },
   "panel": {
     "preparing": "Preparing workspace",
@@ -2384,7 +2396,10 @@
     "schemaGraph": "Schema graph",
     "openCommandPalette": "Open command palette",
     "refreshActiveView": "Refresh active view",
-    "workspace": "{server} workspace"
+    "workspace": "{server} workspace",
+    "newServerGeneralQuery": "New server-wide query",
+    "generalQuery": "General query",
+    "addServer": "Add new server"
   },
   "editorError": {
     "title": "This view could not be rendered",
@@ -2397,5 +2412,10 @@
     "notHosted": "This UI does not run as a hosted web application.",
     "useNative": "Use the native Tauri application.",
     "devShell": "Starts the development environment inside the desktop shell."
+  },
+  "settingsSidebar": {
+    "backToEditor": "Back to editor",
+    "subtitle": "Account and application preferences",
+    "noResults": "No settings found."
   }
 }

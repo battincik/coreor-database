@@ -133,10 +133,10 @@ function EditorWorkspace() {
           [
             {
               id: 'new-global-query',
-              label: 'Yeni sunucu geneli sorgu',
+              label: t('editor.newServerGeneralQuery'),
               icon: Code,
               disabled: !activeServer,
-              onSelect: () => { openQueryTab({ serverId: activeServerId, databaseName: null, title: 'Genel sorgu' }); }
+              onSelect: () => { openQueryTab({ serverId: activeServerId, databaseName: null, title: t('editor.generalQuery') }); }
             },
             {
               id: 'new-database-query',
@@ -182,7 +182,7 @@ function EditorWorkspace() {
             },
             {
               id: 'add-server',
-              label: 'Yeni sunucu ekle',
+              label: t('editor.addServer'),
               icon: Server,
               onSelect: () => { window.dispatchEvent(new Event('coreor:open-server-modal')); }
             }

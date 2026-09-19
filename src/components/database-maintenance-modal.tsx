@@ -311,9 +311,9 @@ export function DatabaseMaintenanceModal({
       databaseName: database.name,
       code: failed ? 'MAINTENANCE_PARTIAL_FAILURE' : 'MAINTENANCE_COMPLETED',
       metadata: [
-        { label: 'Kapsam', value: scope === 'table' ? `Tablo: ${tableName}` : `${targets.length} tablo` },
+        { label: t('maintenance.scope'), value: scope === 'table' ? t('maintenance.tableScopeValue',{table:tableName}) : t('maintenance.tablesScopeValue',{count:formatNumber(targets.length)}) },
         { label: t('maintenance.operations'), value: operations.join(', ') },
-        { label: 'Tamamlanan', value: `${completed}/${total}` }
+        { label: t('maintenance.completedLabel'), value: `${completed}/${total}` }
       ]
     });
 
@@ -335,7 +335,7 @@ export function DatabaseMaintenanceModal({
             <div className="text-[12px] font-semibold text-zinc-100">{t('maintenance.title')}</div>
             <div className="mt-0.5 truncate text-[8px] text-zinc-600">{t('maintenance.subtitle',{server:server.name,engine:databaseEngineLabel(server.databaseType)})}</div>
           </div>
-          {server.readOnly && <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[8px] text-amber-300">Salt-okunur</span>}
+          {server.readOnly && <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[8px] text-amber-300">{t('query.readOnly')}</span>}
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} disabled={running}><X className="h-4 w-4" /></Button>
         </header>
 
@@ -344,12 +344,16 @@ export function DatabaseMaintenanceModal({
             <section className="rounded-xl border border-zinc-800 bg-black/20 p-3">
               <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold text-zinc-300"><Database className="h-3.5 w-3.5 text-cyan-400" />{t('maintenance.target')}</div>
               <div className="grid gap-2 sm:grid-cols-2">
-                <div><div className="mb-1 text-[8px] uppercase tracking-wider text-zinc-600">Veritabanı</div><SearchSelect value={databaseName} options={databaseOptions} onValueChange={value => { setDatabaseName(value); setTableName(''); }} disabled={running} searchPlaceholder={t('maintenance.databaseSearch')} dropdownMinWidth={360} /></div>
+                <div><div className="mb-1 text-[8px] uppercase tracking-wider text-zinc-600">{t('database.database')}</div><SearchSelect value={databaseName} options={databaseOptions} onValueChange={value => { setDatabaseName(value); setTableName(''); }} disabled={running} searchPlaceholder={t('maintenance.databaseSearch')} dropdownMinWidth={360} /></div>
                 <div><div className="mb-1 text-[8px] uppercase tracking-wider text-zinc-600">{t('maintenance.scope')}</div><div className="flex h-10 rounded-xl border border-zinc-800 bg-zinc-950 p-1">{(['database','table'] as const).map(value => <button key={value} type="button" disabled={running} onClick={() => setScope(value)} className={`flex-1 rounded-lg text-[9px] transition ${scope === value ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-600 hover:text-zinc-300'}`}>{value === 'database' ? t('maintenance.allTables') : t('maintenance.singleTable')}</button>)}</div></div>
               </div>
-              {scope === 'table' && <div className="mt-2"><div className="mb-1 text-[8px] uppercase tracking-wider text-zinc-600">Tablo</div><SearchSelect value={tableName} options={tableOptions} onValueChange={setTableName} disabled={running} searchPlaceholder={t('maintenance.tableSearch')} dropdownMinWidth={380} /></div>}
+              {scope === 'table' && <div className="mt-2"><div className="mb-1 text-[8px] uppercase tracking-wider text-zinc-600">{t('database.table')}</div><SearchSelect value={tableName} options={tableOptions} onValueChange={setTableName} disabled={running} searchPlaceholder={t('maintenance.tableSearch')} dropdownMinWidth={380} /></div>}
               <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/70 p-2.5 text-[8px] leading-4 text-zinc-500">
-                {scope === 'database' ? `${database?.tables.length || 0} tablo sırayla işlenecek.` : tableName ? `${tableName} üzerinde seçili bakım adımları çalışacak.` : t('maintenance.selectTable')}
+                {scope === 'database'
+  ? t('maintenance.databaseScopeInfo', { count: formatNumber(database?.tables.length || 0) })
+  : tableName
+    ? t('maintenance.tableScopeInfo', { table: tableName })
+    : t('maintenance.selectTable')}
                 {' '}{t('maintenance.executionInfo')}
               </div>
             </section>
@@ -384,7 +388,7 @@ export function DatabaseMaintenanceModal({
           </section>
 
           {visibleTables.length > 0 && <section className="mt-3 overflow-hidden rounded-xl border border-zinc-800 bg-black/20">
-            <div className="grid grid-cols-[minmax(180px,1fr)_110px_100px_90px] border-b border-zinc-800 bg-zinc-900/40 px-3 py-2 text-[8px] uppercase tracking-wider text-zinc-600"><span>Tablo</span><span>{t('maintenance.progress')}</span><span>Durum</span><span className="text-right">Süre</span></div>
+            <div className="grid grid-cols-[minmax(180px,1fr)_110px_100px_90px] border-b border-zinc-800 bg-zinc-900/40 px-3 py-2 text-[8px] uppercase tracking-wider text-zinc-600"><span>{t('database.table')}</span><span>{t('maintenance.progress')}</span><span>{t('maintenance.status')}</span><span className="text-right">{t('maintenance.duration')}</span></div>
             <div className="coreor-scrollbar max-h-72 overflow-y-auto">
               {visibleTables.map(([table, progress]) => <div key={table} className="grid grid-cols-[minmax(180px,1fr)_110px_100px_90px] items-center border-b border-zinc-900 px-3 py-2 text-[9px] last:border-0">
                 <div className="min-w-0"><div className="truncate text-zinc-300">{table}</div><div className="mt-0.5 truncate text-[7px] text-zinc-700">{progress.currentOperation || progress.error || '—'}</div></div>

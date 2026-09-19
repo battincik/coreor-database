@@ -87,9 +87,9 @@ export function DatabaseNotificationMonitor() {
         durationMs: latest.durationMs,
         metadata: [
           { label: t('notificationMonitor.server'), value: latest.serverName || '—' },
-          { label: 'Hedef', value: latest.databaseName || 'sunucu geneli' },
+          { label: t('notificationMonitor.target'), value: latest.databaseName || 'sunucu geneli' },
           { label: t('notificationMonitor.duration'), value: latest.durationMs === undefined ? '—' : `${latest.durationMs} ms` },
-          { label: 'Kod', value: latest.errorCode || 'DATABASE_ERROR' }
+          { label: t('notificationCenter.code'), value: latest.errorCode || 'DATABASE_ERROR' }
         ]
       });
       dispatchCoreorToast({
@@ -117,7 +117,7 @@ export function DatabaseNotificationMonitor() {
         code: 'SLOW_SQL',
         durationMs: latest.durationMs,
         metadata: [
-          { label: 'Sunucu', value: latest.serverName || '—' },
+          { label: t('notificationMonitor.server'), value: latest.serverName || '—' },
           { label: t('notificationMonitor.duration'), value: `${latest.durationMs} ms` },
           { label: t('notificationMonitor.rows'), value: latest.rowCount ?? latest.affectedRows ?? '—' },
           { label: t('notificationMonitor.source'), value: t('notificationMonitor.localSqlLog') }
@@ -190,8 +190,8 @@ export function DatabaseNotificationMonitor() {
             databaseName: server.databaseName || undefined,
             code: rule.metric,
             metadata: [
-              { label: 'Sunucu', value: server.name },
-              { label: 'Motor', value: server.databaseType || 'mysql' },
+              { label: t('notificationMonitor.server'), value: server.name },
+              { label: t('notificationMonitor.engine'), value: server.databaseType || 'mysql' },
               { label: t('notificationMonitor.measurement'), value: formatDate(snapshot.sampledAt,{timeStyle:'medium'}) },
               { label: t('notificationMonitor.health'), value: `${health.score}/100` }
             ]
@@ -225,7 +225,7 @@ export function DatabaseNotificationMonitor() {
               serverId: server.id,
               serverName: server.name,
               code: 'SERVER_UNREACHABLE',
-              metadata: [{ label: 'Sunucu', value: server.name }, { label: 'Hedef', value: `${server.host}:${server.port}` }]
+              metadata: [{ label: t('notificationMonitor.server'), value: server.name }, { label: t('notificationMonitor.target'), value: `${server.host}:${server.port}` }]
             });
             dispatchCoreorToast({
               id: `toast-${archived.id}`,

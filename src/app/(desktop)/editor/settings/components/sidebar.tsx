@@ -37,13 +37,13 @@ export function SettingsSidebar({ activeTab }: { activeTab?: string }) {
         <div className="flex items-center gap-2 px-1 py-1">
           <Button variant="ghost" size="icon" onClick={() => router.push('/editor')} className="h-8 w-8">
             <ArrowLeft className="h-4 w-4" />
-            <span className="sr-only">Editöre dön</span>
+            <span className="sr-only">{t('settingsSidebar.backToEditor')}</span>
           </Button>
           <div className="flex min-w-0 items-center gap-2">
             <Settings className="h-4 w-4 text-emerald-400" />
             <div>
               <h2 className="text-sm font-semibold">{t('settings', 'Ayarlar')}</h2>
-              <p className="text-[10px] text-muted-foreground">Hesap ve uygulama tercihleri</p>
+              <p className="text-[10px] text-muted-foreground">{t('settingsSidebar.subtitle')}</p>
             </div>
           </div>
         </div>
@@ -56,7 +56,7 @@ export function SettingsSidebar({ activeTab }: { activeTab?: string }) {
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-3 p-2">
-          {filteredItems.length === 0 && <div className="rounded-lg border border-dashed border-zinc-800 px-3 py-6 text-center text-xs text-muted-foreground">Ayar bulunamadı.</div>}
+          {filteredItems.length === 0 && <div className="rounded-lg border border-dashed border-zinc-800 px-3 py-6 text-center text-xs text-muted-foreground">{t('settingsSidebar.noResults')}</div>}
           {filteredItems.map(section => (
             <div key={section.category}>
               <h3 className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-600">{t(section.category, section.category)}</h3>

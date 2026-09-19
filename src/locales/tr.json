@@ -1024,7 +1024,12 @@
     "executionInfo": "Bakım tek bağlantıda toplu SQL yerine tablo/adım bazında yürütülür; bu sayede ilerleme ve hata noktası izlenebilir.",
     "successCount": "{count} başarılı",
     "failureCount": "{count} hata",
-    "pendingCount": "{count} bekleyen"
+    "pendingCount": "{count} bekleyen",
+    "completedLabel": "Tamamlanan",
+    "databaseScopeInfo": "{count} tablo sırayla işlenecek.",
+    "tableScopeInfo": "{table} üzerinde seçili bakım adımları çalışacak.",
+    "tableScopeValue": "Tablo: {table}",
+    "tablesScopeValue": "{count} tablo"
   },
   "processCenter": {
     "title": "Process ve kilit merkezi",
@@ -1062,7 +1067,8 @@
     "general": "genel",
     "duration": "Süre",
     "action": "İşlem",
-    "status": "Durum"
+    "status": "Durum",
+    "minutes": "{count} dk"
   },
   "performancePanel": {
     "title": "Veritabanı performans paneli",
@@ -1103,7 +1109,12 @@
     "questionsDelta": "Son iki snapshot arasındaki Questions farkı.",
     "firstAverage": "İlk ölçümde uptime üzerinden ortalama.",
     "off": "Kapalı",
-    "noReplica": "Bu sunucuda replica status dönmedi."
+    "noReplica": "Bu sunucuda replica status dönmedi.",
+    "last15Minutes": "Son 15 dakika",
+    "spikes": "Ani dalgalanmalar",
+    "last1Hour": "Son 1 saat",
+    "last6Hours": "Son 6 saat",
+    "last24Hours": "Son 24 saat"
   },
   "catalogView": {
     "newQuery": "+ Sorgu",
@@ -1587,7 +1598,8 @@
     "localSqlLog": "Yerel SQL günlüğü",
     "measurement": "Ölçüm",
     "health": "Sağlık",
-    "serverStatusFailed": "Sunucu durumu alınamadı."
+    "serverStatusFailed": "Sunucu durumu alınamadı.",
+    "engine": "Motor"
   },
   "panel": {
     "preparing": "Çalışma alanı hazırlanıyor",
@@ -2384,7 +2396,10 @@
     "schemaGraph": "Şema grafiği",
     "openCommandPalette": "Komut paletini aç",
     "refreshActiveView": "Aktif görünümü yenile",
-    "workspace": "{server} çalışma alanı"
+    "workspace": "{server} çalışma alanı",
+    "newServerGeneralQuery": "Yeni sunucu geneli sorgu",
+    "generalQuery": "Genel sorgu",
+    "addServer": "Yeni sunucu ekle"
   },
   "editorError": {
     "title": "Bu görünüm oluşturulamadı",
@@ -2397,5 +2412,10 @@
     "notHosted": "Bu UI hosted web uygulaması olarak çalıştırılmaz.",
     "useNative": "Native Tauri uygulamasını kullanın.",
     "devShell": "Geliştirme ortamını masaüstü shell içinde başlatır."
+  },
+  "settingsSidebar": {
+    "backToEditor": "Editöre dön",
+    "subtitle": "Hesap ve uygulama tercihleri",
+    "noResults": "Ayar bulunamadı."
   }
 }
