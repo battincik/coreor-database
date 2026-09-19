@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface DatabaseImportExportModalProps {
   open: boolean;
@@ -177,11 +178,11 @@ function splitSqlStatements(source: string) {
   return statements.slice(0, MAX_SQL_STATEMENTS);
 }
 
-function inferType(values: unknown[]) {
+function inferType(values: unknown[], t: (key: string, values?: Record<string, string | number>) => string) {
   const present = values
     .filter(value => value !== null && value !== undefined && String(value).trim() !== '')
     .slice(0, 100);
-  if (!present.length) return 'NULL / boş';
+  if (!present.length) return t('importExport.nullEmpty');
   if (present.every(value => /^(true|false|0|1)$/i.test(String(value)))) return 'BOOLEAN';
   if (present.every(value => /^-?\d+$/.test(String(value)))) return 'INTEGER';
   if (present.every(value => /^-?\d+(?:[.,]\d+)?$/.test(String(value)))) return 'DECIMAL';
@@ -198,22 +199,22 @@ function inferType(values: unknown[]) {
   return max <= 255 ? `VARCHAR(${Math.max(16, max)})` : 'TEXT';
 }
 
-function normalizeTypeValue(value: unknown, column: TableColumnInfo) {
+function normalizeTypeValue(value: unknown, column: TableColumnInfo, t: (key: string, values?: Record<string, string | number>) => string) {
   if (value === null || value === undefined) return value;
   const text = String(value).trim();
   if (text === '' && column.Null === 'YES') return null;
   const type = column.Data_type.toUpperCase();
   if (['TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'INTEGER', 'BIGINT', 'BIT', 'YEAR'].includes(type)) {
-    if (!/^-?\d+$/.test(text)) throw new Error('tam sayı bekleniyor');
+    if (!/^-?\d+$/.test(text)) throw new Error(t('importExport.integerExpected'));
     return text;
   }
   if (['DECIMAL', 'NUMERIC', 'FLOAT', 'DOUBLE', 'REAL'].includes(type)) {
     const normalized = text.replace(',', '.');
-    if (!/^-?\d+(?:\.\d+)?$/.test(normalized)) throw new Error('gerçel sayı bekleniyor');
+    if (!/^-?\d+(?:\.\d+)?$/.test(normalized)) throw new Error(t('importExport.numberExpected'));
     return normalized;
   }
   if (['BOOL', 'BOOLEAN'].includes(type)) {
-    if (!/^(true|false|0|1)$/i.test(text)) throw new Error('true, false, 0 veya 1 bekleniyor');
+    if (!/^(true|false|0|1)$/i.test(text)) throw new Error(t('importExport.booleanExpected'));
     return /^(true|1)$/i.test(text);
   }
   if (type === 'JSON') {
@@ -221,7 +222,7 @@ function normalizeTypeValue(value: unknown, column: TableColumnInfo) {
     return JSON.parse(text) as unknown;
   }
   if (['DATE', 'DATETIME', 'TIMESTAMP', 'TIME'].includes(type) && Number.isNaN(Date.parse(text))) {
-    throw new Error('geçerli tarih/zaman bekleniyor');
+    throw new Error(t('importExport.dateExpected'));
   }
   return value;
 }
@@ -230,20 +231,22 @@ function buildImportPreview(
   sourceHeaders: string[],
   sourceRows: unknown[][],
   mapping: Record<string, string>,
-  tableInfo: TableInfo | null
+  tableInfo: TableInfo | null,
+  t: (key: string, values?: Record<string, string | number>) => string,
+  formatNumber: (value: number) => string
 ) {
   const issues: ImportIssue[] = [];
   if (!tableInfo || !sourceHeaders.length) return { issues, normalizedRows: sourceRows };
 
   const duplicateHeaders = sourceHeaders.filter((header, index) => sourceHeaders.indexOf(header) !== index);
   for (const header of Array.from(new Set(duplicateHeaders))) {
-    issues.push({ severity: 'error', column: header, message: 'Kaynak dosyada yinelenen kolon başlığı var.' });
+    issues.push({ severity: 'error', column: header, message: t('importExport.duplicateHeader') });
   }
 
   const mappedTargets = sourceHeaders.map(header => mapping[header]).filter(Boolean);
   const duplicateTargets = mappedTargets.filter((target, index) => mappedTargets.indexOf(target) !== index);
   for (const target of Array.from(new Set(duplicateTargets))) {
-    issues.push({ severity: 'error', column: target, message: 'Birden fazla kaynak kolon aynı hedef kolona bağlanmış.' });
+    issues.push({ severity: 'error', column: target, message: t('importExport.duplicateTarget') });
   }
 
   for (const column of tableInfo.columns) {
@@ -251,7 +254,7 @@ function buildImportPreview(
       && column.Default === null
       && !/auto_increment|generated/i.test(column.Extra);
     if (required && !mappedTargets.includes(column.Field)) {
-      issues.push({ severity: 'error', column: column.Field, message: 'Zorunlu hedef kolon eşleştirilmemiş.' });
+      issues.push({ severity: 'error', column: column.Field, message: t('importExport.requiredTargetMissing') });
     }
   }
 
@@ -262,14 +265,14 @@ function buildImportPreview(
     const targetColumn = tableInfo.columns.find(column => column.Field === pair.target);
     if (!targetColumn) return row[pair.index];
     try {
-      return normalizeTypeValue(row[pair.index], targetColumn);
+      return normalizeTypeValue(row[pair.index], targetColumn, t);
     } catch (failure) {
       if (issues.length < MAX_PREVIEW_ISSUES) {
         issues.push({
           severity: 'error',
           row: rowIndex + 2,
           column: pair.target,
-          message: failure instanceof Error ? failure.message : 'Değer hedef tipe dönüştürülemedi.'
+          message: failure instanceof Error ? failure.message : t('importExport.conversionFailed')
         });
       }
       return row[pair.index];
@@ -282,7 +285,7 @@ function buildImportPreview(
       issues.push({
         severity: 'error',
         row: rowIndex + 2,
-        message: `Satırda ${row.length} değer var; ${expectedSourceLength} değer bekleniyor.`
+        message: t('importExport.rowLengthMismatch',{actual:formatNumber(row.length),expected:formatNumber(expectedSourceLength)})
       });
     }
   });
@@ -290,7 +293,7 @@ function buildImportPreview(
   if (sourceRows.length > 100_000) {
     issues.push({
       severity: 'warning',
-      message: 'Dosya 100.000 satırdan büyük. Aktarım uzun sürebilir ve uygulama belleği kullanımını artırabilir.'
+      message: t('importExport.largeFileWarning')
     });
   }
 
@@ -327,6 +330,7 @@ export function DatabaseImportExportModal({
   selectedTable
 }: DatabaseImportExportModalProps) {
   const { preferences } = useAppPreferences();
+  const { t, formatNumber, language } = useLanguage();
   const [database, setDatabase] = useState(selectedDatabase || '');
   const [table, setTable] = useState(selectedTable || '');
   const [tableInfo, setTableInfo] = useState<TableInfo | null>(null);
@@ -382,13 +386,13 @@ export function DatabaseImportExportModal({
   const inferred = useMemo(
     () => Object.fromEntries(sourceHeaders.map((header, index) => [
       header,
-      inferType(sourceRows.map(row => row[index]))
+      inferType(sourceRows.map(row => row[index]), t)
     ])) as Record<string, string>,
-    [sourceHeaders, sourceRows]
+    [sourceHeaders, sourceRows, t]
   );
   const preview = useMemo(
-    () => buildImportPreview(sourceHeaders, sourceRows, mapping, tableInfo),
-    [sourceHeaders, sourceRows, mapping, tableInfo]
+    () => buildImportPreview(sourceHeaders, sourceRows, mapping, tableInfo, t, formatNumber),
+    [sourceHeaders, sourceRows, mapping, tableInfo, t, formatNumber]
   );
   const importErrorCount = preview.issues.filter(issue => issue.severity === 'error').length;
   const importWarningCount = preview.issues.filter(issue => issue.severity === 'warning').length;
@@ -407,10 +411,10 @@ export function DatabaseImportExportModal({
 
     try {
       if (file.size > MAX_FILE_BYTES) {
-        throw new Error(`Dosya ${(MAX_FILE_BYTES / 1024 / 1024).toFixed(1)} MB sınırını aşıyor.`);
+        throw new Error(t('importExport.fileTooLarge',{size:(MAX_FILE_BYTES / 1024 / 1024).toFixed(1)}));
       }
       const text = await file.text();
-      const lowerName = file.name.toLocaleLowerCase('tr-TR');
+      const lowerName = file.name.toLocaleLowerCase(language);
       const detected: ImportFormat = lowerName.endsWith('.json')
         ? 'json'
         : lowerName.endsWith('.sql')
@@ -420,7 +424,7 @@ export function DatabaseImportExportModal({
 
       if (detected === 'csv') {
         const parsed = parseCsv(text);
-        if (!parsed.headers.length) throw new Error('CSV başlık satırı bulunamadı.');
+        if (!parsed.headers.length) throw new Error(t('importExport.csvHeaderMissing'));
         setDelimiter(parsed.delimiter === '\t' ? 'TAB' : parsed.delimiter);
         setSourceHeaders(parsed.headers);
         setSourceRows(parsed.rows);
@@ -428,21 +432,21 @@ export function DatabaseImportExportModal({
         const parsed = JSON.parse(text) as unknown;
         const array = Array.isArray(parsed) ? parsed : [parsed];
         const objects = array.filter(item => item && typeof item === 'object' && !Array.isArray(item)) as Record<string, unknown>[];
-        if (!objects.length) throw new Error('JSON dosyasında nesne satırı bulunamadı.');
+        if (!objects.length) throw new Error(t('importExport.jsonObjectMissing'));
         const headers = Array.from(new Set(objects.flatMap(item => Object.keys(item))));
         setSourceHeaders(headers);
         setSourceRows(objects.map(item => headers.map(header => item[header])));
       } else {
         const statements = splitSqlStatements(text);
-        if (!statements.length) throw new Error('Çalıştırılabilir SQL ifadesi bulunamadı.');
+        if (!statements.length) throw new Error(t('importExport.noExecutableSql'));
         if (statements.length >= MAX_SQL_STATEMENTS) {
-          setMessage(`Güvenlik sınırı nedeniyle ilk ${MAX_SQL_STATEMENTS.toLocaleString('tr-TR')} ifade yüklendi.`);
+          setMessage(t('importExport.safetyLimit',{count:formatNumber(MAX_SQL_STATEMENTS)}));
         }
         setSqlStatements(statements);
       }
       setFileName(file.name);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Dosya okunamadı.');
+      setError(failure instanceof Error ? failure.message : t('importExport.fileReadFailed'));
     }
   };
 
@@ -466,17 +470,17 @@ export function DatabaseImportExportModal({
           affected += Number(result.affectedRows || 0);
           setProgress({ current: index + 1, total: sqlStatements.length, affected });
         }
-        setMessage(`${sqlStatements.length} SQL ifadesi çalıştırıldı; ${affected.toLocaleString('tr-TR')} satır etkilendi.`);
+        setMessage(t('importExport.sqlExecuted',{statements:formatNumber(sqlStatements.length),affected:formatNumber(affected)}));
         return;
       }
 
-      if (!table) throw new Error('Hedef tablo seçin.');
-      if (importErrorCount > 0) throw new Error('Hata önizlemesindeki sorunları düzeltmeden içe aktarma başlatılamaz.');
+      if (!table) throw new Error(t('importExport.selectTargetTable'));
+      if (importErrorCount > 0) throw new Error(t('importExport.fixPreviewErrors'));
 
       const pairs = sourceHeaders
         .map((source, index) => ({ source, index, target: mapping[source] }))
         .filter(item => item.target);
-      if (!pairs.length) throw new Error('En az bir kolon eşleştirin.');
+      if (!pairs.length) throw new Error(t('importExport.mapAtLeastOneColumn'));
 
       const batchSize = preferences.importBatchSize;
       const total = Math.ceil(preview.normalizedRows.length / batchSize);
@@ -497,9 +501,9 @@ export function DatabaseImportExportModal({
           affected
         });
       }
-      setMessage(`${preview.normalizedRows.length.toLocaleString('tr-TR')} satır işlendi; ${affected.toLocaleString('tr-TR')} satır etkilendi.`);
+      setMessage(t('importExport.importCompleted',{processed:formatNumber(preview.normalizedRows.length),affected:formatNumber(affected)}));
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'İçe aktarma başarısız oldu.');
+      setError(failure instanceof Error ? failure.message : t('importExport.importFailed'));
     } finally {
       setBusy(false);
     }
@@ -548,9 +552,9 @@ export function DatabaseImportExportModal({
         );
         download(`${baseName}.sql`, statements.join('\n'), 'application/sql;charset=utf-8');
       }
-      setMessage(`${result.rowCount.toLocaleString('tr-TR')} satır dışa aktarıldı.`);
+      setMessage(t('importExport.exportCompleted',{count:formatNumber(result.rowCount)}));
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Dışa aktarma başarısız oldu.');
+      setError(failure instanceof Error ? failure.message : t('importExport.exportFailed'));
     } finally {
       setBusy(false);
     }
@@ -558,13 +562,13 @@ export function DatabaseImportExportModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[326] flex items-center justify-center p-2 sm:p-3">
-      <button className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} aria-label="Kapat" />
+      <button className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} aria-label={t('common.close')} />
       <div className="relative z-10 flex h-[calc(100dvh-16px)] max-h-[840px] w-[calc(100vw-16px)] max-w-[1280px] min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl sm:h-[calc(100dvh-24px)] sm:w-[calc(100vw-24px)]">
         <div className="flex h-12 shrink-0 items-center gap-3 border-b border-zinc-800 px-4">
           <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
           <div>
-            <h2 className="text-sm font-semibold">Gelişmiş içe / dışa aktarma</h2>
-            <p className="text-[10px] text-zinc-500">Kolon eşleştirme, hata önizlemesi, tip tahmini ve batch import.</p>
+            <h2 className="text-sm font-semibold">{t('importExport.title')}</h2>
+            <p className="text-[10px] text-zinc-500">{t('importExport.subtitle')}</p>
           </div>
           <Button variant="ghost" size="icon" className="ml-auto h-8 w-8" onClick={onClose}>
             <X className="h-4 w-4" />
@@ -579,25 +583,25 @@ export function DatabaseImportExportModal({
 
         <Tabs defaultValue="import" className="flex min-h-0 flex-1 flex-col">
           <TabsList className="h-10 shrink-0 justify-start rounded-none border-b border-zinc-800 bg-zinc-950 px-2">
-            <TabsTrigger value="import" className="h-9 text-xs"><Upload className="mr-1.5 h-3.5 w-3.5" />İçe aktar</TabsTrigger>
-            <TabsTrigger value="export" className="h-9 text-xs"><Download className="mr-1.5 h-3.5 w-3.5" />Dışa aktar</TabsTrigger>
+            <TabsTrigger value="import" className="h-9 text-xs"><Upload className="mr-1.5 h-3.5 w-3.5" />{t('importExport.import')}</TabsTrigger>
+            <TabsTrigger value="export" className="h-9 text-xs"><Download className="mr-1.5 h-3.5 w-3.5" />{t('importExport.export')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="import" className="m-0 min-h-0 flex-1 overflow-y-auto p-4">
             <div className="space-y-4">
               <div className="grid gap-3 rounded-xl border border-zinc-800 p-4 md:grid-cols-[1fr_1fr_1fr_auto]">
-                <label className="text-xs text-zinc-500">Veritabanı
+                <label className="text-xs text-zinc-500">{t('importExport.database')}
                   <select value={database} onChange={event => { setDatabase(event.target.value); setTable(''); }} className={`${controlClass} mt-1 w-full`}>
                     {databases.map(item => <option key={item.name}>{item.name}</option>)}
                   </select>
                 </label>
-                <label className="text-xs text-zinc-500">Hedef tablo
+                <label className="text-xs text-zinc-500">{t('importExport.targetTable')}
                   <select value={table} disabled={format === 'sql'} onChange={event => setTable(event.target.value)} className={`${controlClass} mt-1 w-full disabled:opacity-40`}>
-                    <option value="">Seçin</option>
+                    <option value="">{t('importExport.select')}</option>
                     {(selectedDatabaseItem?.tables || []).map(item => <option key={item}>{item}</option>)}
                   </select>
                 </label>
-                <label className="text-xs text-zinc-500">INSERT davranışı
+                <label className="text-xs text-zinc-500">{t('importExport.insertBehavior')}
                   <select value={importMode} disabled={format === 'sql'} onChange={event => setImportMode(event.target.value as typeof importMode)} className={`${controlClass} mt-1 w-full disabled:opacity-40`}>
                     <option value="insert">INSERT</option>
                     <option value="ignore">INSERT IGNORE</option>
@@ -605,7 +609,7 @@ export function DatabaseImportExportModal({
                   </select>
                 </label>
                 <label className="mt-5 inline-flex h-8 cursor-pointer items-center justify-center rounded border border-zinc-700 px-3 text-xs hover:bg-zinc-900">
-                  <Upload className="mr-2 h-4 w-4" />Dosya seç
+                  <Upload className="mr-2 h-4 w-4" />{t('importExport.chooseFile')}
                   <input type="file" accept=".csv,.json,.sql,text/csv,application/json,application/sql" className="sr-only" onChange={event => {
                     const file = event.target.files?.[0];
                     if (file) void readFile(file);
@@ -619,9 +623,9 @@ export function DatabaseImportExportModal({
                   <FileText className="h-4 w-4 text-cyan-400" />
                   <span>{fileName}</span>
                   <span className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] uppercase text-zinc-400">{format}</span>
-                  {delimiter && <span className="text-[10px] text-zinc-600">ayraç: {delimiter}</span>}
+                  {delimiter && <span className="text-[10px] text-zinc-600">{t('importExport.delimiter',{value:delimiter})}</span>}
                   <span className="ml-auto text-zinc-500">
-                    {format === 'sql' ? `${sqlStatements.length} ifade` : `${sourceRows.length.toLocaleString('tr-TR')} satır`}
+                    {format === 'sql' ? t('importExport.statementsCount',{count:formatNumber(sqlStatements.length)}) : t('importExport.rowsCount',{count:formatNumber(sourceRows.length)})}
                   </span>
                 </div>
               )}
@@ -629,16 +633,16 @@ export function DatabaseImportExportModal({
               {format !== 'sql' && sourceHeaders.length > 0 && (
                 <div className="rounded-xl border border-zinc-800">
                   <div className="flex items-center border-b border-zinc-800 px-4 py-3 text-xs font-semibold">
-                    Kolon eşleştirme ve tip tahmini
-                    <span className="ml-auto text-[10px] font-normal text-zinc-600">{sourceHeaders.length} kaynak kolon</span>
+                    {t('importExport.mappingTitle')}
+                    <span className="ml-auto text-[10px] font-normal text-zinc-600">{t('importExport.sourceColumns',{count:formatNumber(sourceHeaders.length)})}</span>
                   </div>
                   <div className="overflow-x-auto">
                     <Table size="sm">
                       <TableHeader><TableRow>
-                        <TableHead className="border bg-zinc-950">Kaynak</TableHead>
-                        <TableHead className="border bg-zinc-950">Tahmin</TableHead>
-                        <TableHead className="border bg-zinc-950">Örnek</TableHead>
-                        <TableHead className="border bg-zinc-950">Hedef kolon</TableHead>
+                        <TableHead className="border bg-zinc-950">{t('importExport.source')}</TableHead>
+                        <TableHead className="border bg-zinc-950">{t('importExport.guess')}</TableHead>
+                        <TableHead className="border bg-zinc-950">{t('importExport.sample')}</TableHead>
+                        <TableHead className="border bg-zinc-950">{t('importExport.targetColumn')}</TableHead>
                       </TableRow></TableHeader>
                       <TableBody>{sourceHeaders.map((header, index) => (
                         <TableRow key={`${header}-${index}`}>
@@ -647,7 +651,7 @@ export function DatabaseImportExportModal({
                           <TableCell className="max-w-72 truncate border font-mono text-[10px]">{String(sourceRows[0]?.[index] ?? '—')}</TableCell>
                           <TableCell className="border">
                             <select value={mapping[header] || ''} onChange={event => setMapping(previous => ({ ...previous, [header]: event.target.value }))} className={`${controlClass} w-full`}>
-                              <option value="">Aktarma</option>
+                              <option value="">{t('importExport.transfer')}</option>
                               {(tableInfo?.columns || []).map(column => <option key={column.Field}>{column.Field}</option>)}
                             </select>
                           </TableCell>
@@ -662,16 +666,16 @@ export function DatabaseImportExportModal({
                 <div className={`rounded-xl border ${importErrorCount ? 'border-red-500/30' : importWarningCount ? 'border-amber-500/30' : 'border-emerald-500/30'}`}>
                   <div className="flex items-center gap-2 border-b border-inherit px-4 py-3 text-xs font-semibold">
                     {importErrorCount ? <AlertTriangle className="h-4 w-4 text-red-400" /> : <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
-                    Hata önizlemesi
-                    <span className="ml-auto text-[10px] font-normal text-zinc-500">{importErrorCount} hata • {importWarningCount} uyarı</span>
+                    {t('importExport.errorPreview')}
+                    <span className="ml-auto text-[10px] font-normal text-zinc-500">{t('importExport.issueCounts',{errors:formatNumber(importErrorCount),warnings:formatNumber(importWarningCount)})}</span>
                   </div>
                   {preview.issues.length === 0 ? (
-                    <div className="p-4 text-xs text-emerald-300">İlk doğrulamada kolon ve veri tipi hatası bulunamadı.</div>
+                    <div className="p-4 text-xs text-emerald-300">{t('importExport.validationClean')}</div>
                   ) : (
                     <div className="max-h-52 overflow-y-auto p-2">
                       {preview.issues.slice(0, MAX_PREVIEW_ISSUES).map((issue, index) => (
                         <div key={`${issue.row}-${issue.column}-${index}`} className={`mb-1 flex items-start gap-2 rounded px-2 py-1.5 text-[10px] ${issue.severity === 'error' ? 'bg-red-500/[0.08] text-red-300' : 'bg-amber-500/[0.08] text-amber-200'}`}>
-                          <span className="shrink-0 font-mono">{issue.row ? `Satır ${issue.row}` : 'Dosya'}</span>
+                          <span className="shrink-0 font-mono">{issue.row ? t('importExport.rowLabel',{row:formatNumber(issue.row)}) : t('importExport.fileLabel')}</span>
                           {issue.column && <span className="shrink-0 text-zinc-500">• {issue.column}</span>}
                           <span>{issue.message}</span>
                         </div>
@@ -683,7 +687,7 @@ export function DatabaseImportExportModal({
 
               {format === 'sql' && sqlStatements.length > 0 && (
                 <div className="rounded-xl border border-zinc-800">
-                  <div className="border-b border-zinc-800 px-4 py-3 text-xs font-semibold">SQL ifade önizlemesi</div>
+                  <div className="border-b border-zinc-800 px-4 py-3 text-xs font-semibold">{t('importExport.sqlPreview')}</div>
                   <div className="max-h-80 space-y-2 overflow-y-auto p-3">
                     {sqlStatements.slice(0, 50).map((statement, index) => (
                       <pre key={index} className="coreor-sql-editor overflow-x-auto rounded border p-2 font-mono text-[10px]">-- {index + 1}{'\n'}{statement}</pre>
@@ -696,7 +700,7 @@ export function DatabaseImportExportModal({
                 <div className="rounded-lg border border-zinc-800 p-3">
                   <div className="mb-2 flex justify-between text-[10px] text-zinc-500">
                     <span>{progress.current}/{progress.total}</span>
-                    <span>{progress.affected.toLocaleString('tr-TR')} etkilenen satır</span>
+                    <span>{t('importExport.affectedRows',{count:formatNumber(progress.affected)})}</span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded bg-zinc-800">
                     <div className="h-full bg-cyan-500 transition-all" style={{ width: `${Math.min(100, progress.total ? progress.current / progress.total * 100 : 0)}%` }} />
@@ -707,7 +711,7 @@ export function DatabaseImportExportModal({
               <div className="flex justify-end">
                 <Button disabled={busy || !fileName || importErrorCount > 0 || (format !== 'sql' && (!table || !sourceRows.length)) || (format === 'sql' && !sqlStatements.length)} onClick={() => void runImport()}>
                   {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
-                  İçe aktarmayı başlat
+                  {t('importExport.startImport')}
                 </Button>
               </div>
             </div>
@@ -716,25 +720,25 @@ export function DatabaseImportExportModal({
           <TabsContent value="export" className="m-0 min-h-0 flex-1 overflow-y-auto p-4">
             <div className="space-y-4">
               <div className="grid gap-3 rounded-xl border border-zinc-800 p-4 md:grid-cols-2 lg:grid-cols-4">
-                <label className="text-xs text-zinc-500">Veritabanı
+                <label className="text-xs text-zinc-500">{t('importExport.database')}
                   <select value={database} onChange={event => { setDatabase(event.target.value); setTable(''); }} className={`${controlClass} mt-1 w-full`}>
                     {databases.map(item => <option key={item.name}>{item.name}</option>)}
                   </select>
                 </label>
-                <label className="text-xs text-zinc-500">Tablo
+                <label className="text-xs text-zinc-500">{t('importExport.table')}
                   <select value={table} onChange={event => setTable(event.target.value)} className={`${controlClass} mt-1 w-full`}>
-                    <option value="">Seçin</option>
+                    <option value="">{t('importExport.select')}</option>
                     {(selectedDatabaseItem?.tables || []).map(item => <option key={item}>{item}</option>)}
                   </select>
                 </label>
-                <label className="text-xs text-zinc-500">Format
+                <label className="text-xs text-zinc-500">{t('importExport.format')}
                   <select value={exportFormat} onChange={event => setExportFormat(event.target.value as ExportFormat)} className={`${controlClass} mt-1 w-full`}>
                     <option value="csv">CSV</option>
                     <option value="json">JSON</option>
                     <option value="sql">INSERT SQL</option>
                   </select>
                 </label>
-                <label className="text-xs text-zinc-500">Satır limiti
+                <label className="text-xs text-zinc-500">{t('importExport.rowLimit')}
                   <Input type="number" min="1" max="50000" value={exportLimit} onChange={event => setExportLimit(Number(event.target.value))} className="mt-1 h-8 text-xs" />
                 </label>
               </div>
@@ -742,10 +746,10 @@ export function DatabaseImportExportModal({
               {tableInfo && (
                 <div className="rounded-xl border border-zinc-800 p-4">
                   <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-xs font-semibold">Kolonlar</h3>
+                    <h3 className="text-xs font-semibold">{t('importExport.columns')}</h3>
                     <div className="flex gap-2 text-[10px]">
-                      <button className="text-cyan-400" onClick={() => setExportColumns(tableInfo.columns.map(column => column.Field))}>Tümünü seç</button>
-                      <button className="text-zinc-500" onClick={() => setExportColumns([])}>Temizle</button>
+                      <button className="text-cyan-400" onClick={() => setExportColumns(tableInfo.columns.map(column => column.Field))}>{t('importExport.selectAll')}</button>
+                      <button className="text-zinc-500" onClick={() => setExportColumns([])}>{t('importExport.clear')}</button>
                     </div>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -757,9 +761,9 @@ export function DatabaseImportExportModal({
                       </label>
                     ))}
                   </div>
-                  <label className="mt-4 block text-xs text-zinc-500">Sıralama kolonu
+                  <label className="mt-4 block text-xs text-zinc-500">{t('importExport.orderColumn')}
                     <select value={orderBy} onChange={event => setOrderBy(event.target.value)} className={`${controlClass} mt-1 w-full max-w-xs`}>
-                      <option value="">Sıralama yok</option>
+                      <option value="">{t('importExport.noSort')}</option>
                       {tableInfo.columns.map(column => <option key={column.Field}>{column.Field}</option>)}
                     </select>
                   </label>
@@ -769,14 +773,14 @@ export function DatabaseImportExportModal({
               <div className="rounded-xl border border-zinc-800 bg-black/20 p-4 text-xs text-zinc-500">
                 <div className="mb-2 flex items-center gap-2 font-medium text-zinc-300">
                   {exportFormat === 'json' ? <FileJson className="h-4 w-4" /> : exportFormat === 'csv' ? <FileSpreadsheet className="h-4 w-4" /> : <Database className="h-4 w-4" />}
-                  Dışa aktarma özeti
+                  {t('importExport.exportSummary')}
                 </div>
-                {exportColumns.length} kolon, en fazla {exportLimit.toLocaleString('tr-TR')} satır, {exportFormat.toUpperCase()} formatı.
+                {t('importExport.exportSummaryDescription',{columns:formatNumber(exportColumns.length),rows:formatNumber(exportLimit),format:exportFormat.toUpperCase()})}
               </div>
               <div className="flex justify-end">
                 <Button disabled={busy || !table || !exportColumns.length} onClick={() => void runExport()}>
                   {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                  Dosyayı oluştur
+                  {t('importExport.createFile')}
                 </Button>
               </div>
             </div>
