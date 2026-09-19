@@ -643,7 +643,15 @@
     "snippetNotice": "Bu sürümde snippet marketplace merkezi bir mağaza değildir. Ön tanımlı paketler uygulamayla gelir; gelecekte imzalı, indirilebilir ve yerel kasada saklanan paket formatına geçecektir.",
     "alertLocalNotice": "Kurallar bu cihazda yerel olarak tutulur. Alarm oluştuğunda Coreor anlık toast bildirimi gösterir; veriler merkezi bir sunucuya gönderilmez.",
     "rulesSaved": "Alarm kuralları kaydedildi",
-    "resetDefaults": "Varsayılanlara dön"
+    "resetDefaults": "Varsayılanlara dön",
+    "toastTestTitle": "Etkileşimli toast testi",
+    "toastTestDescription": "Checkbox, input ve evet/hayır akışını birlikte test edin.",
+    "testName": "Test adı",
+    "notificationTest": "Bildirim testi",
+    "detailsRead": "Detayları okudum",
+    "rememberSessionPreference": "Tercihimi bu oturumda hatırla",
+    "toastConfirmed": "Toast onaylandı",
+    "toastCancelled": "Toast iptal edildi"
   },
   "control": {
     "dropdown": {
@@ -2097,7 +2105,9 @@
       "productionAlterDescription": "ALTER TABLE işlemlerini de ikinci onay akışına dahil eder.",
       "alterApproval": "ALTER için onay",
       "manageApprovals": "Onay akışlarını yönet",
-      "readOnlyNative": "salt-okunur. Bu politika arayüz kontrollerine ek olarak native Rust/Tauri veritabanı katmanında da uygulanır."
+      "readOnlyNative": "salt-okunur. Bu politika arayüz kontrollerine ek olarak native Rust/Tauri veritabanı katmanında da uygulanır.",
+      "workspaceStatus": "{algorithm} • {count} koleksiyon • ayrı AAD",
+      "schemaProtectionDescription": "ALTER, DROP, TRUNCATE ve bağlantı yazma politikaları."
     },
     "developer": {
       "tools": "Geliştirici araçları",

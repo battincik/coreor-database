@@ -643,7 +643,15 @@
     "snippetNotice": "In this version, the snippet marketplace is not a central store. Built-in packs ship with the application; a signed, downloadable format stored in the local vault is planned.",
     "alertLocalNotice": "Rules are stored locally on this device. When an alert fires, Coreor shows a real-time toast; data is not sent to a central server.",
     "rulesSaved": "Alert rules saved",
-    "resetDefaults": "Reset to defaults"
+    "resetDefaults": "Reset to defaults",
+    "toastTestTitle": "Interactive toast test",
+    "toastTestDescription": "Test checkbox, input, and yes/no flows together.",
+    "testName": "Test name",
+    "notificationTest": "Notification test",
+    "detailsRead": "I read the details",
+    "rememberSessionPreference": "Remember my preference for this session",
+    "toastConfirmed": "Toast confirmed",
+    "toastCancelled": "Toast cancelled"
   },
   "control": {
     "dropdown": {
@@ -2097,7 +2105,9 @@
       "productionAlterDescription": "Includes ALTER TABLE operations in the second-approval flow.",
       "alterApproval": "Approval for ALTER",
       "manageApprovals": "Manage approval flows",
-      "readOnlyNative": "is read-only. This policy is enforced in the native Rust/Tauri database layer in addition to the UI controls."
+      "readOnlyNative": "is read-only. This policy is enforced in the native Rust/Tauri database layer in addition to the UI controls.",
+      "workspaceStatus": "{algorithm} • {count} collections • separate AAD",
+      "schemaProtectionDescription": "ALTER, DROP, TRUNCATE and connection write policies."
     },
     "developer": {
       "tools": "Developer tools",
