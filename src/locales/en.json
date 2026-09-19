@@ -558,7 +558,9 @@
     "changedLower": "changed",
     "migrationSaved": "Migration draft saved.",
     "daily": "Daily",
-    "weekly": "Weekly"
+    "weekly": "Weekly",
+    "masking": "Data masking",
+    "manual": "Manual"
   },
   "transaction": {
     "autocommit": "Autocommit",
