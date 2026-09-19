@@ -593,7 +593,14 @@
     "closed": "Kapalı",
     "autocommitDescription": "Sorgu tamamlandığında otomatik kalıcı olur.",
     "transactionDescription": "Statement açık transaction içinde çalışır.",
-    "queryCompleted": "Sorgu tamamlandı."
+    "queryCompleted": "Sorgu tamamlandı.",
+    "committedStatements": "{count} statement commit edildi.",
+    "rolledBackStatements": "{count} statement geri alındı.",
+    "autocommitOn": "Autocommit etkin.",
+    "autoRollbackIn": "Açık • {seconds} sn içinde otomatik rollback",
+    "pendingSummary": "Açık transaction var. {count} başarılı statement henüz kalıcı değil.",
+    "resultCount": "{count} sonuç",
+    "affectedCount": "{count} etkilenen"
   },
   "intelligence": {
     "action": {
@@ -1721,7 +1728,13 @@
     "loadFailed": "Kullanıcılar yüklenemedi.",
     "operationFailed": "İşlem başarısız oldu.",
     "userUpdated": "Kullanıcı güncellendi.",
-    "userCreated": "Kullanıcı oluşturuldu."
+    "userCreated": "Kullanıcı oluşturuldu.",
+    "username": "Kullanıcı adı",
+    "password": "Parola",
+    "deleteDescription": "{account} hesabı veritabanı sunucusundan kalıcı olarak kaldırılacak. Bu işlem oturum ve yetkileri etkileyebilir.",
+    "copyAccount": "user@host kopyala",
+    "copyHost": "Host’u kopyala",
+    "permissionsGranted": "Yetkiler verildi."
   },
   "runtime": {
     "nativeRequired": "Coreor Database masaüstü runtime gerekli",
@@ -2361,5 +2374,28 @@
     "tableSummary": "{tables} tablo • yaklaşık {rows} satır • {size}",
     "columnResizeHint": "Sütun ayırıcısını sürükleyerek genişliği değiştirin; ayırıcıya çift tıklayarak Excel tarzı otomatik fit uygulayın. Genişlikler bu tablo için yerel uygulama durumunda saklanır.",
     "records": "{count} kayıt"
+  },
+  "editor": {
+    "newQueryForDatabase": "{database} için yeni sorgu",
+    "databaseQuery": "Veritabanı sorgusu",
+    "openTableData": "{table} verilerini aç",
+    "tableData": "Tablo verileri",
+    "schemaGraphForDatabase": "{database} şema grafiği",
+    "schemaGraph": "Şema grafiği",
+    "openCommandPalette": "Komut paletini aç",
+    "refreshActiveView": "Aktif görünümü yenile",
+    "workspace": "{server} çalışma alanı"
+  },
+  "editorError": {
+    "title": "Bu görünüm oluşturulamadı",
+    "description": "Yalnızca aktif içerik paneli durduruldu. Sidebar veya üst menüden başka bir görünüm açabilirsiniz.",
+    "retry": "Görünümü yeniden dene"
+  },
+  "nativeRuntime": {
+    "preparing": "Native masaüstü runtime ve yerel çalışma alanı hazırlanıyor.",
+    "required": "Coreor Database masaüstü runtime gerekli",
+    "notHosted": "Bu UI hosted web uygulaması olarak çalıştırılmaz.",
+    "useNative": "Native Tauri uygulamasını kullanın.",
+    "devShell": "Geliştirme ortamını masaüstü shell içinde başlatır."
   }
 }

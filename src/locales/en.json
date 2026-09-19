@@ -593,7 +593,14 @@
     "closed": "Closed",
     "autocommitDescription": "Automatically becomes permanent when the query completes.",
     "transactionDescription": "Statement runs inside the open transaction.",
-    "queryCompleted": "Query completed."
+    "queryCompleted": "Query completed.",
+    "committedStatements": "{count} statements committed.",
+    "rolledBackStatements": "{count} statements rolled back.",
+    "autocommitOn": "Autocommit enabled.",
+    "autoRollbackIn": "Open • automatic rollback in {seconds} s",
+    "pendingSummary": "There is an open transaction. {count} successful statements are not permanent yet.",
+    "resultCount": "{count} results",
+    "affectedCount": "{count} affected"
   },
   "intelligence": {
     "action": {
@@ -1721,7 +1728,13 @@
     "loadFailed": "Users could not be loaded.",
     "operationFailed": "Operation failed.",
     "userUpdated": "User updated.",
-    "userCreated": "User created."
+    "userCreated": "User created.",
+    "username": "Username",
+    "password": "Password",
+    "deleteDescription": "Account {account} will be permanently removed from the database server. This may affect sessions and permissions.",
+    "copyAccount": "Copy user@host",
+    "copyHost": "Copy host",
+    "permissionsGranted": "Permissions granted."
   },
   "runtime": {
     "nativeRequired": "Coreor Database desktop runtime required",
@@ -2361,5 +2374,28 @@
     "tableSummary": "{tables} tables • about {rows} rows • {size}",
     "columnResizeHint": "Drag a column divider to resize; double-click it for Excel-style auto fit. Widths are stored locally for this table.",
     "records": "{count} records"
+  },
+  "editor": {
+    "newQueryForDatabase": "New query for {database}",
+    "databaseQuery": "Database query",
+    "openTableData": "Open {table} data",
+    "tableData": "Table data",
+    "schemaGraphForDatabase": "{database} schema graph",
+    "schemaGraph": "Schema graph",
+    "openCommandPalette": "Open command palette",
+    "refreshActiveView": "Refresh active view",
+    "workspace": "{server} workspace"
+  },
+  "editorError": {
+    "title": "This view could not be rendered",
+    "description": "Only the active content panel was stopped. You can open another view from the sidebar or top menu.",
+    "retry": "Retry view"
+  },
+  "nativeRuntime": {
+    "preparing": "Preparing native desktop runtime and local workspace.",
+    "required": "Coreor Database desktop runtime required",
+    "notHosted": "This UI does not run as a hosted web application.",
+    "useNative": "Use the native Tauri application.",
+    "devShell": "Starts the development environment inside the desktop shell."
   }
 }

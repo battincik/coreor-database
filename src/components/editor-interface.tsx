@@ -18,6 +18,7 @@ import { openQueryTab } from '@/lib/queryWorkspaceEvents';
 import { setAppPreferences, useAppPreferences } from '@/lib/appPreferences';
 import { OPEN_SETTINGS_MODAL_EVENT, TOGGLE_COMMAND_PALETTE_EVENT } from '@/lib/databaseToolEvents';
 import { matchesShortcut } from '@/lib/shortcuts';
+import { useLanguage } from '@/context/LanguageContext';
 
 function EditorWorkspace() {
   const [selectedDatabase, setSelectedDatabase] = useState<string | null>(null);
@@ -27,6 +28,7 @@ function EditorWorkspace() {
   const lastTableView = useRef<'table' | 'table-data'>('table-data');
   const panelSaveTimer = useRef<number | null>(null);
   const { openContextMenu } = useAppContextMenu();
+  const {t}=useLanguage();
   const { preferences } = useAppPreferences();
   const { activeServerId, servers } = useContext(DatabaseContext)!;
   const activeServer = servers.find(server => server.id === activeServerId) ?? null;
@@ -45,7 +47,7 @@ function EditorWorkspace() {
     const handler = (event: KeyboardEvent) => {
       if (matchesShortcut(event, 'newQuery')) {
         event.preventDefault();
-        if (activeServer) openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase ? `${selectedDatabase} sorgu` : 'Genel sorgu' });
+        if (activeServer) openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase ? t('commandPalette.queryTitle',{database:selectedDatabase}) : t('commandPalette.generalQuery') });
       } else if (matchesShortcut(event, 'settings')) {
         event.preventDefault();
         window.dispatchEvent(new Event(OPEN_SETTINGS_MODAL_EVENT));
@@ -138,21 +140,21 @@ function EditorWorkspace() {
             },
             {
               id: 'new-database-query',
-              label: selectedDatabase ? `${selectedDatabase} için yeni sorgu` : 'Veritabanı sorgusu',
+              label: selectedDatabase ? t('editor.newQueryForDatabase',{database:selectedDatabase}) : t('editor.databaseQuery'),
               icon: Plus,
               disabled: !activeServer || !selectedDatabase,
               onSelect: () => { openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase || 'Sorgu' }); }
             },
             {
               id: 'open-table',
-              label: selectedTable ? `${selectedTable} verilerini aç` : 'Tablo verileri',
+              label: selectedTable ? t('editor.openTableData',{table:selectedTable}) : t('editor.tableData'),
               icon: Table2,
               disabled: !selectedTable,
               onSelect: () => { setActiveTab('table-data'); }
             },
             {
               id: 'open-schema',
-              label: selectedDatabase ? `${selectedDatabase} şema grafiği` : 'Şema grafiği',
+              label: selectedDatabase ? t('editor.schemaGraphForDatabase',{database:selectedDatabase}) : t('editor.schemaGraph'),
               icon: Network,
               disabled: !selectedDatabase,
               onSelect: () => { setActiveTab('schema-graph'); }
@@ -160,20 +162,20 @@ function EditorWorkspace() {
             { id: 'separator-1', separator: true },
             {
               id: 'commands',
-              label: 'Komut paletini aç',
+              label: t('editor.openCommandPalette'),
               icon: Code,
               shortcut: 'commandPalette',
               onSelect: () => window.dispatchEvent(new Event(TOGGLE_COMMAND_PALETTE_EVENT))
             },
             {
               id: 'settings',
-              label: 'Ayarları aç',
+              label: t('commandPalette.openSettings'),
               icon: Settings2,
               onSelect: () => window.dispatchEvent(new Event(OPEN_SETTINGS_MODAL_EVENT))
             },
             {
               id: 'refresh-view',
-              label: 'Aktif görünümü yenile',
+              label: t('editor.refreshActiveView'),
               icon: RefreshCw,
               disabled: !activeServer,
               onSelect: () => { window.dispatchEvent(new Event('coreor:refresh-active-view')); }
@@ -185,7 +187,7 @@ function EditorWorkspace() {
               onSelect: () => { window.dispatchEvent(new Event('coreor:open-server-modal')); }
             }
           ],
-          activeServer ? `${activeServer.name} çalışma alanı` : 'Coreor Database'
+          activeServer ? t('editor.workspace',{server:activeServer.name}) : 'Coreor Database'
         )
       }
     >

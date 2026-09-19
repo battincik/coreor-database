@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import { Database, Laptop, TerminalSquare } from 'lucide-react';
 import { CoreorLoadingScreen } from '@/components/coreor-loading-screen';
+import { useLanguage } from '@/context/LanguageContext';
 
 export function NativeRuntimeGuard({ children }: { children: React.ReactNode }) {
+  const {t}=useLanguage();
   const [native, setNative] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -12,7 +14,7 @@ export function NativeRuntimeGuard({ children }: { children: React.ReactNode }) 
   }, []);
 
   if (native === null) {
-    return <CoreorLoadingScreen description="Native masaüstü runtime ve yerel çalışma alanı hazırlanıyor." />;
+    return <CoreorLoadingScreen description={t('nativeRuntime.preparing')} />;
   }
 
   if (!native) {
@@ -24,20 +26,20 @@ export function NativeRuntimeGuard({ children }: { children: React.ReactNode }) 
               <Database className="h-5 w-5 text-cyan-300" />
             </span>
             <div>
-              <h1 className="text-base font-semibold">Coreor Database masaüstü runtime gerekli</h1>
-              <p className="mt-1 text-[10px] text-zinc-500">Bu UI hosted web uygulaması olarak çalıştırılmaz.</p>
+              <h1 className="text-base font-semibold">{t('nativeRuntime.required')}</h1>
+              <p className="mt-1 text-[10px] text-zinc-500">{t('nativeRuntime.notHosted')}</p>
             </div>
           </div>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-zinc-800 bg-black/30 p-4">
               <Laptop className="h-4 w-4 text-emerald-400" />
               <div className="mt-2 text-[11px] font-medium">Windows • macOS • Linux</div>
-              <p className="mt-1 text-[9px] leading-4 text-zinc-600">Native Tauri uygulamasını kullanın.</p>
+              <p className="mt-1 text-[9px] leading-4 text-zinc-600">{t('nativeRuntime.useNative')}</p>
             </div>
             <div className="rounded-2xl border border-zinc-800 bg-black/30 p-4">
               <TerminalSquare className="h-4 w-4 text-purple-400" />
               <div className="mt-2 font-mono text-[10px] text-zinc-300">npm run tauri:dev</div>
-              <p className="mt-1 text-[9px] leading-4 text-zinc-600">Geliştirme ortamını masaüstü shell içinde başlatır.</p>
+              <p className="mt-1 text-[9px] leading-4 text-zinc-600">{t('nativeRuntime.devShell')}</p>
             </div>
           </div>
         </section>
