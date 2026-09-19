@@ -13,6 +13,7 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/app-state';
 import { CoreorConfirmModal, type CoreorConfirmation } from '@/components/ui/coreor-confirm-modal';
 import { useAppContextMenu } from '@/components/app-context-menu';
 import { openQueryTab, qualifiedSqlName, quoteSqlIdentifier } from '@/lib/queryWorkspaceEvents';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface DatabaseSchemaGraphProps {
   serverId: string;
@@ -47,11 +48,17 @@ const MIN_ZOOM = 0.22;
 const MAX_ZOOM = 2.6;
 const MAX_TABLES = 100;
 const FK_RULES: Array<NonNullable<TableForeignKeyDefinition['onDelete']>> = ['RESTRICT', 'CASCADE', 'SET NULL', 'NO ACTION'];
-const FK_OPTIONS: SearchSelectOption<NonNullable<TableForeignKeyDefinition['onDelete']>>[] = FK_RULES.map(rule => ({
-  value: rule,
-  label: rule,
-  description: rule === 'CASCADE' ? 'İşlemi bağlı satırlara uygular.' : rule === 'SET NULL' ? 'Bağlı kolon değerini NULL yapar.' : 'Referans bütünlüğünü koruyarak işlemi sınırlar.'
-}));
+function createFkOptions(t: (key: string) => string): SearchSelectOption<NonNullable<TableForeignKeyDefinition['onDelete']>>[] {
+  return FK_RULES.map(rule => ({
+    value: rule,
+    label: rule,
+    description: rule === 'CASCADE'
+      ? t('schemaGraph.cascadeDescription')
+      : rule === 'SET NULL'
+        ? t('schemaGraph.setNullDescription')
+        : t('schemaGraph.restrictDescription')
+  }));
+}
 
 function storageKey(serverId: string, databaseName: string) {
   return `coreor:schema-graph:${serverId}:${databaseName}:v2`;
@@ -217,6 +224,8 @@ async function loadWithConcurrency<T, R>(items: T[], concurrency: number, worker
 
 export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog, onOpenTable, onCatalogRefresh, readOnly = false }: DatabaseSchemaGraphProps) {
   const { openContextMenu } = useAppContextMenu();
+  const { t, formatNumber } = useLanguage();
+  const fkOptions = useMemo(() => createFkOptions(t), [t]);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const panRef = useRef<Point>({ x: 32, y: 32 });
   const nodeDragRef = useRef<NodeDrag | null>(null);
@@ -313,10 +322,10 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
         const failures: string[] = [];
         for (const entry of results) entry.result ? nextInfo[String(entry.item)] = entry.result : failures.push(String(entry.item));
         setTableInfo(nextInfo);
-        if (failures.length) setMessage(`${Object.keys(nextInfo).length} tablo yüklendi; ${failures.length} tablo için yapı bilgisi alınamadı.`);
+        if (failures.length) setMessage(t('schemaGraph.loadedWithFailures', { loaded: formatNumber(Object.keys(nextInfo).length), failed: formatNumber(failures.length) }));
       }
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Şema grafiği yüklenemedi.');
+      setError(failure instanceof Error ? failure.message : t('schemaGraph.loadFailed'));
     } finally { setLoading(false); }
   };
 
@@ -433,30 +442,30 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
   };
 
   const openCanvasMenu = (event: React.MouseEvent) => openContextMenu(event, [
-    { id: 'auto-layout', label: 'Otomatik yerleşim', icon: Move, onSelect: resetLayout },
-    { id: 'fit', label: 'Tüm şemayı ekrana sığdır', icon: Maximize2, onSelect: fit },
-    { id: 'zoom-100', label: 'Yakınlaştırmayı %100 yap', icon: RotateCcw, onSelect: () => zoomAt(1) },
-    { id: 'center', label: 'Seçili nesneyi ortala', icon: Focus, onSelect: centerSelected },
+    { id: 'auto-layout', label: t('schemaGraph.autoLayout'), icon: Move, onSelect: resetLayout },
+    { id: 'fit', label: t('schemaGraph.fitAll'), icon: Maximize2, onSelect: fit },
+    { id: 'zoom-100', label: t('schemaGraph.zoom100'), icon: RotateCcw, onSelect: () => zoomAt(1) },
+    { id: 'center', label: t('schemaGraph.centerSelected'), icon: Focus, onSelect: centerSelected },
     { id: 'sep', separator: true },
-    { id: 'refresh', label: 'Şema metadata’sını yenile', icon: RefreshCw, onSelect: () => void load() },
-    { id: 'copy-db', label: 'Veritabanı adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(databaseName) }
-  ], `Şema • ${databaseName}`);
+    { id: 'refresh', label: t('schemaGraph.refreshMetadata'), icon: RefreshCw, onSelect: () => void load() },
+    { id: 'copy-db', label: t('schemaGraph.copyDatabaseName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(databaseName) }
+  ], t('schemaGraph.schemaMenuTitle', { database: databaseName }));
 
   const openNodeMenu = (event: React.MouseEvent, tableName: string) => {
     const table = qualifiedSqlName(databaseName, tableName);
     openContextMenu(event, [
-      { id: 'data', label: 'Verileri aç', icon: Table2, onSelect: () => { onOpenTable?.(tableName); window.dispatchEvent(new CustomEvent('coreor:open-table-view', { detail: { view: 'data' } })); } },
-      { id: 'structure', label: 'Yapıyı aç', icon: Columns3, onSelect: () => onOpenTable?.(tableName) },
-      { id: 'insert', label: 'Yeni satır ekle', icon: Plus, disabled: readOnly, onSelect: () => { onOpenTable?.(tableName); window.dispatchEvent(new CustomEvent('coreor:request-insert-table-row', { detail: { databaseName, tableName } })); } },
+      { id: 'data', label: t('schemaGraph.openData'), icon: Table2, onSelect: () => { onOpenTable?.(tableName); window.dispatchEvent(new CustomEvent('coreor:open-table-view', { detail: { view: 'data' } })); } },
+      { id: 'structure', label: t('schemaGraph.openStructure'), icon: Columns3, onSelect: () => onOpenTable?.(tableName) },
+      { id: 'insert', label: t('schemaGraph.addRow'), icon: Plus, disabled: readOnly, onSelect: () => { onOpenTable?.(tableName); window.dispatchEvent(new CustomEvent('coreor:request-insert-table-row', { detail: { databaseName, tableName } })); } },
       { id: 'sep-query', separator: true },
-      { id: 'select', label: 'İlk 100 satırı sorgula', icon: Code, onSelect: () => openQueryTab({ serverId, databaseName, title: `${tableName} SELECT`, sql: `SELECT * FROM ${table}\nLIMIT 100;`, runImmediately: true }) },
-      { id: 'count', label: 'Satır sayısını sorgula', icon: Code, onSelect: () => openQueryTab({ serverId, databaseName, title: `${tableName} COUNT`, sql: `SELECT COUNT(*) AS totalRows FROM ${table};`, runImmediately: true }) },
+      { id: 'select', label: t('schemaGraph.first100'), icon: Code, onSelect: () => openQueryTab({ serverId, databaseName, title: `${tableName} SELECT`, sql: `SELECT * FROM ${table}\nLIMIT 100;`, runImmediately: true }) },
+      { id: 'count', label: t('schemaGraph.rowCount'), icon: Code, onSelect: () => openQueryTab({ serverId, databaseName, title: `${tableName} COUNT`, sql: `SELECT COUNT(*) AS totalRows FROM ${table};`, runImmediately: true }) },
       { id: 'create', label: 'SHOW CREATE TABLE', icon: Code, onSelect: () => openQueryTab({ serverId, databaseName, title: `${tableName} CREATE`, sql: `SHOW CREATE TABLE ${table};`, runImmediately: true }) },
       { id: 'sep-view', separator: true },
-      { id: 'center-node', label: 'Tabloyu ekranda ortala', icon: Focus, onSelect: () => { const point=positions[tableName];const viewport=viewportRef.current;if(point&&viewport)updatePan({x:viewport.clientWidth/2-(point.x+CARD_WIDTH/2)*zoom,y:viewport.clientHeight/2-(point.y+nodeHeight(tableInfo[tableName])/2)*zoom}); } },
-      { id: 'copy', label: 'Kopyala', icon: Copy, children: [
-        { id: 'copy-name', label: 'Tablo adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(tableName) },
-        { id: 'copy-qualified', label: 'Tam tablo adı', icon: Copy, onSelect: () => navigator.clipboard.writeText(table) }
+      { id: 'center-node', label: t('schemaGraph.centerTable'), icon: Focus, onSelect: () => { const point=positions[tableName];const viewport=viewportRef.current;if(point&&viewport)updatePan({x:viewport.clientWidth/2-(point.x+CARD_WIDTH/2)*zoom,y:viewport.clientHeight/2-(point.y+nodeHeight(tableInfo[tableName])/2)*zoom}); } },
+      { id: 'copy', label: t('common.copy'), icon: Copy, children: [
+        { id: 'copy-name', label: t('schemaGraph.tableName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(tableName) },
+        { id: 'copy-qualified', label: t('schemaGraph.fullTableName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(table) }
       ] }
     ], tableName);
   };
@@ -464,21 +473,21 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
   const openGraphColumnMenu = (event: React.MouseEvent, tableName: string, columnName: string) => {
     const table = qualifiedSqlName(databaseName, tableName);
     openContextMenu(event, [
-      { id: 'relation-source', label: 'İlişki başlangıcı olarak seç', icon: Link2, disabled: readOnly, onSelect: () => { setSource({ table: tableName, column: columnName }); setTarget(null); setSelectedEdge(null); } },
-      { id: 'open-table', label: 'Tablo yapısını aç', icon: Table2, onSelect: () => onOpenTable?.(tableName) },
+      { id: 'relation-source', label: t('schemaGraph.selectRelationSource'), icon: Link2, disabled: readOnly, onSelect: () => { setSource({ table: tableName, column: columnName }); setTarget(null); setSelectedEdge(null); } },
+      { id: 'open-table', label: t('schemaGraph.openTableStructure'), icon: Table2, onSelect: () => onOpenTable?.(tableName) },
       { id: 'sep-query', separator: true },
-      { id: 'distinct', label: 'DISTINCT değerleri sorgula', icon: Code, onSelect: () => openQueryTab({ serverId, databaseName, title: `${columnName} DISTINCT`, sql: `SELECT ${quoteSqlIdentifier(columnName)}, COUNT(*) AS occurrences\nFROM ${table}\nGROUP BY ${quoteSqlIdentifier(columnName)}\nORDER BY occurrences DESC\nLIMIT 250;`, runImmediately: true }) },
-      { id: 'copy-name', label: 'Kolon adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(columnName) },
-      { id: 'copy-qualified', label: 'Tam kolon yolunu kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(`${table}.${quoteSqlIdentifier(columnName)}`) }
+      { id: 'distinct', label: t('schemaGraph.queryDistinct'), icon: Code, onSelect: () => openQueryTab({ serverId, databaseName, title: `${columnName} DISTINCT`, sql: `SELECT ${quoteSqlIdentifier(columnName)}, COUNT(*) AS occurrences\nFROM ${table}\nGROUP BY ${quoteSqlIdentifier(columnName)}\nORDER BY occurrences DESC\nLIMIT 250;`, runImmediately: true }) },
+      { id: 'copy-name', label: t('schemaGraph.copyColumnName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(columnName) },
+      { id: 'copy-qualified', label: t('schemaGraph.copyFullColumnPath'), icon: Copy, onSelect: () => navigator.clipboard.writeText(`${table}.${quoteSqlIdentifier(columnName)}`) }
     ], `${tableName}.${columnName}`);
   };
 
   const requestRemoveEdge = (edge: GraphEdge) => {
     if (!accountId) return;
     setConfirmation({
-      title: 'Foreign key bağlantısını kaldır',
-      description: `${edge.name} constraint'i ${edge.source.table} tablosundan kaldırılacak. İlişkisel kural sunucuda kalıcı olarak değişir.`,
-      confirmLabel: 'Bağlantıyı kaldır',
+      title: t('schemaGraph.removeFkTitle'),
+      description: t('schemaGraph.removeFkDescription', { constraint: edge.name, table: edge.source.table }),
+      confirmLabel: t('schemaGraph.removeConnection'),
       tone: 'danger',
       onConfirm: async () => {
         setSavingLink(true); setError(null);
@@ -486,22 +495,22 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
           await mutateTableSchema(serverId, { database: databaseName, table: edge.source.table, mutation: { kind: 'drop-foreign-key', constraintName: edge.name } }, accountId);
           const refreshed = await fetchTableInfo(serverId, databaseName, edge.source.table, accountId);
           setTableInfo(previous => ({ ...previous, [edge.source.table]: refreshed }));
-          setSelectedEdge(null); setMessage('Foreign key bağlantısı kaldırıldı.'); await onCatalogRefresh?.();
-        } catch (failure) { setError(failure instanceof Error ? failure.message : 'Foreign key kaldırılamadı.'); throw failure; }
+          setSelectedEdge(null); setMessage(t('schemaGraph.fkRemoved')); await onCatalogRefresh?.();
+        } catch (failure) { setError(failure instanceof Error ? failure.message : t('schemaGraph.fkRemoveFailed')); throw failure; }
         finally { setSavingLink(false); }
       }
     });
   };
 
   const openEdgeMenu = (event: React.MouseEvent, edge: GraphEdge) => openContextMenu(event, [
-    { id: 'select', label: 'İlişkiyi seç', icon: Link2, onSelect: () => { setSelectedEdge(edge); setSource(null); setTarget(null); } },
-    { id: 'source', label: 'Kaynak tabloyu aç', icon: Table2, onSelect: () => onOpenTable?.(edge.source.table) },
-    { id: 'target', label: 'Hedef tabloyu aç', icon: Table2, onSelect: () => onOpenTable?.(edge.target.table) },
+    { id: 'select', label: t('schemaGraph.selectRelation'), icon: Link2, onSelect: () => { setSelectedEdge(edge); setSource(null); setTarget(null); } },
+    { id: 'source', label: t('schemaGraph.openSourceTable'), icon: Table2, onSelect: () => onOpenTable?.(edge.source.table) },
+    { id: 'target', label: t('schemaGraph.openTargetTable'), icon: Table2, onSelect: () => onOpenTable?.(edge.target.table) },
     { id: 'sep-copy', separator: true },
-    { id: 'copy-name', label: 'Constraint adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(edge.name) },
-    { id: 'copy-relation', label: 'İlişki yolunu kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(`${edge.source.table}.${edge.source.column} -> ${edge.target.table}.${edge.target.column}`) },
+    { id: 'copy-name', label: t('schemaGraph.copyConstraint'), icon: Copy, onSelect: () => navigator.clipboard.writeText(edge.name) },
+    { id: 'copy-relation', label: t('schemaGraph.copyRelationPath'), icon: Copy, onSelect: () => navigator.clipboard.writeText(`${edge.source.table}.${edge.source.column} -> ${edge.target.table}.${edge.target.column}`) },
     { id: 'sep-danger', separator: true },
-    { id: 'remove', label: 'Foreign key’i kaldır', icon: Unlink, danger: true, disabled: readOnly || savingLink, onSelect: () => requestRemoveEdge(edge) }
+    { id: 'remove', label: t('schemaGraph.removeFk'), icon: Unlink, danger: true, disabled: readOnly || savingLink, onSelect: () => requestRemoveEdge(edge) }
   ], edge.name);
 
   const chooseColumn = (table: string, column: string) => {
@@ -520,35 +529,35 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
       const refreshed = await fetchTableInfo(serverId, databaseName, source.table, accountId);
       setTableInfo(previous => ({ ...previous, [source.table]: refreshed }));
       await onCatalogRefresh?.();
-      setMessage(`${constraintName} foreign key bağlantısı oluşturuldu.`);
+      setMessage(t('schemaGraph.fkCreated', { constraint: constraintName }));
       setSource(null); setTarget(null); setConstraintName('');
-    } catch (failure) { setError(failure instanceof Error ? failure.message : 'Foreign key bağlantısı oluşturulamadı.'); }
+    } catch (failure) { setError(failure instanceof Error ? failure.message : t('schemaGraph.fkCreateFailed')); }
     finally { setSavingLink(false); }
   };
 
   const removeSelectedEdge = () => { if (selectedEdge) requestRemoveEdge(selectedEdge); };
 
-  if (!database) return <EmptyState icon={Database} title="Veritabanı seçilmedi" description="ER diyagramını görmek için bir veritabanı seçin." />;
-  if (!tableNames.length) return <EmptyState icon={Table2} title="Tablo bulunamadı" description="Bu veritabanında şemaya eklenecek tablo yok." />;
-  if (loading && !Object.keys(tableInfo).length) return <LoadingState title="ER şeması hazırlanıyor" description={`${loadedCount}/${tableNames.length} tablo yapısı okunuyor.`} />;
-  if (error && !Object.keys(tableInfo).length) return <ErrorState title="Şema grafiği yüklenemedi" description={error} actionLabel="Tekrar dene" onAction={load} />;
+  if (!database) return <EmptyState icon={Database} title={t('schemaGraph.noDatabase')} description={t('schemaGraph.selectDatabase')} />;
+  if (!tableNames.length) return <EmptyState icon={Table2} title={t('schemaGraph.noTables')} description={t('schemaGraph.noTablesDescription')} />;
+  if (loading && !Object.keys(tableInfo).length) return <LoadingState title={t('schemaGraph.preparing')} description={t('schemaGraph.tablesReading', { loaded: formatNumber(loadedCount), total: formatNumber(tableNames.length) })} />;
+  if (error && !Object.keys(tableInfo).length) return <ErrorState title={t('schemaGraph.loadFailed')} description={error} actionLabel={t('schemaGraph.retry')} onAction={load} />;
 
   return <div className="flex h-full min-h-0 flex-col bg-[#07090b]">
     <div className="coreor-hide-scrollbar flex min-h-10 shrink-0 items-center gap-1.5 overflow-x-auto border-b border-zinc-800 bg-zinc-950/95 px-2 py-1">
-      <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => void load()} disabled={loading}><RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />Yenile</Button>
-      <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={resetLayout}><RotateCcw className="mr-1.5 h-3.5 w-3.5" />Otomatik yerleşim</Button>
-      <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={fit}><Maximize2 className="mr-1.5 h-3.5 w-3.5" />Sığdır</Button>
-      <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={centerSelected}><Focus className="mr-1.5 h-3.5 w-3.5" />Merkezle</Button>
+      <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => void load()} disabled={loading}><RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />{t('common.refresh')}</Button>
+      <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={resetLayout}><RotateCcw className="mr-1.5 h-3.5 w-3.5" />{t('schemaGraph.autoLayout')}</Button>
+      <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={fit}><Maximize2 className="mr-1.5 h-3.5 w-3.5" />{t('schemaGraph.fit')}</Button>
+      <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={centerSelected}><Focus className="mr-1.5 h-3.5 w-3.5" />{t('schemaGraph.center')}</Button>
       <div className="mx-1 h-5 w-px bg-zinc-800" />
       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => zoomAt(zoom / 1.15)}><ZoomOut className="h-3.5 w-3.5" /></Button>
       <span className="w-12 text-center text-[10px] tabular-nums text-zinc-500">%{Math.round(zoom * 100)}</span>
       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => zoomAt(zoom * 1.15)}><ZoomIn className="h-3.5 w-3.5" /></Button>
-      <div className="ml-auto flex shrink-0 items-center gap-2 text-[10px] text-zinc-600"><Move className="h-3.5 w-3.5" />Boş alanı sürükle • Tekerlekle zoom • Tabloyu sürükle • İki kolonla FK</div>
+      <div className="ml-auto flex shrink-0 items-center gap-2 text-[10px] text-zinc-600"><Move className="h-3.5 w-3.5" />{t('schemaGraph.interactionHint')}</div>
     </div>
 
-    {(error || message || tableNames.length < (database.tables || []).length) && <div className={`shrink-0 border-b px-3 py-1.5 text-[10px] ${error ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-amber-500/20 bg-amber-500/[0.08] text-amber-200'}`}>{error || message || `Performans için ilk ${MAX_TABLES} tablo gösteriliyor.`}</div>}
+    {(error || message || tableNames.length < (database.tables || []).length) && <div className={`shrink-0 border-b px-3 py-1.5 text-[10px] ${error ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-amber-500/20 bg-amber-500/[0.08] text-amber-200'}`}>{error || message || t('schemaGraph.tableLimit', { count: formatNumber(MAX_TABLES) })}</div>}
 
-    {(source || selectedEdge) && <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b border-zinc-800 bg-zinc-950/80 px-3 py-1.5 text-[10px]">{selectedEdge ? <><Link2 className="h-4 w-4 text-cyan-400" /><span className="font-medium">{selectedEdge.name}</span><span className="text-zinc-500">{selectedEdge.source.table}.{selectedEdge.source.column} → {selectedEdge.target.table}.{selectedEdge.target.column}</span><span className="rounded bg-zinc-900 px-2 py-1 text-zinc-500">DELETE {selectedEdge.onDelete}</span><span className="rounded bg-zinc-900 px-2 py-1 text-zinc-500">UPDATE {selectedEdge.onUpdate}</span><Button size="sm" variant="ghost" className="ml-auto h-7 text-[10px] text-red-400" disabled={savingLink} onClick={() => void removeSelectedEdge()}><Unlink className="mr-1.5 h-3.5 w-3.5" />Bağlantıyı kaldır</Button></> : <><Link2 className="h-4 w-4 text-cyan-400" /><span className="rounded bg-cyan-500/10 px-2 py-1 text-cyan-200">{source?.table}.{source?.column}</span><span className="text-zinc-600">→</span>{target ? <span className="rounded bg-emerald-500/10 px-2 py-1 text-emerald-200">{target.table}.{target.column}</span> : <span className="text-zinc-500">Hedef kolonu seçin</span>}{target && <><input value={constraintName} onChange={event => setConstraintName(event.target.value)} className="h-8 w-60 rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-[10px]" placeholder="Constraint adı" /><div className="w-44"><SearchSelect value={onDelete} options={FK_OPTIONS} onValueChange={setOnDelete} triggerClassName="h-8 min-h-8 rounded-lg px-2 [&>span]:py-0" showDescriptionInTrigger={false} dropdownMinWidth={440} /></div><div className="w-44"><SearchSelect value={onUpdate} options={FK_OPTIONS} onValueChange={setOnUpdate} triggerClassName="h-8 min-h-8 rounded-lg px-2 [&>span]:py-0" showDescriptionInTrigger={false} dropdownMinWidth={440} /></div><Button size="sm" className="h-8 text-[10px]" disabled={readOnly || !constraintName.trim() || savingLink || source?.table === target.table} onClick={() => void createForeignKey()}>{savingLink ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Link2 className="mr-1.5 h-3.5 w-3.5" />}Bağlantıyı oluştur</Button></>}<Button size="sm" variant="ghost" className="ml-auto h-7 text-[10px]" onClick={() => { setSource(null); setTarget(null); }}>İptal</Button></>}</div>}
+    {(source || selectedEdge) && <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b border-zinc-800 bg-zinc-950/80 px-3 py-1.5 text-[10px]">{selectedEdge ? <><Link2 className="h-4 w-4 text-cyan-400" /><span className="font-medium">{selectedEdge.name}</span><span className="text-zinc-500">{selectedEdge.source.table}.{selectedEdge.source.column} → {selectedEdge.target.table}.{selectedEdge.target.column}</span><span className="rounded bg-zinc-900 px-2 py-1 text-zinc-500">DELETE {selectedEdge.onDelete}</span><span className="rounded bg-zinc-900 px-2 py-1 text-zinc-500">UPDATE {selectedEdge.onUpdate}</span><Button size="sm" variant="ghost" className="ml-auto h-7 text-[10px] text-red-400" disabled={savingLink} onClick={() => void removeSelectedEdge()}><Unlink className="mr-1.5 h-3.5 w-3.5" />{t('schemaGraph.removeConnection')}</Button></> : <><Link2 className="h-4 w-4 text-cyan-400" /><span className="rounded bg-cyan-500/10 px-2 py-1 text-cyan-200">{source?.table}.{source?.column}</span><span className="text-zinc-600">→</span>{target ? <span className="rounded bg-emerald-500/10 px-2 py-1 text-emerald-200">{target.table}.{target.column}</span> : <span className="text-zinc-500">{t('schemaGraph.selectTargetColumn')}</span>}{target && <><input value={constraintName} onChange={event => setConstraintName(event.target.value)} className="h-8 w-60 rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-[10px]" placeholder={t('schemaGraph.constraintName')} /><div className="w-44"><SearchSelect value={onDelete} options={fkOptions} onValueChange={setOnDelete} triggerClassName="h-8 min-h-8 rounded-lg px-2 [&>span]:py-0" showDescriptionInTrigger={false} dropdownMinWidth={440} /></div><div className="w-44"><SearchSelect value={onUpdate} options={fkOptions} onValueChange={setOnUpdate} triggerClassName="h-8 min-h-8 rounded-lg px-2 [&>span]:py-0" showDescriptionInTrigger={false} dropdownMinWidth={440} /></div><Button size="sm" className="h-8 text-[10px]" disabled={readOnly || !constraintName.trim() || savingLink || source?.table === target.table} onClick={() => void createForeignKey()}>{savingLink ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Link2 className="mr-1.5 h-3.5 w-3.5" />}{t('schemaGraph.createConnection')}</Button></>}<Button size="sm" variant="ghost" className="ml-auto h-7 text-[10px]" onClick={() => { setSource(null); setTarget(null); }}>{t('common.cancel')}</Button></>}</div>}
 
     <div
       ref={viewportRef}
@@ -610,7 +619,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
           </section>;
         })}
 
-        {source && target && source.table === target.table && <div className="absolute left-4 top-4 z-30 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-950/90 px-3 py-2 text-[10px] text-amber-200"><AlertTriangle className="h-4 w-4" />Self-reference için hedef tablo farklı seçilmelidir.</div>}
+        {source && target && source.table === target.table && <div className="absolute left-4 top-4 z-30 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-950/90 px-3 py-2 text-[10px] text-amber-200"><AlertTriangle className="h-4 w-4" />{t('schemaGraph.selfReference')}</div>}
       </div>
     </div>
     <CoreorConfirmModal action={confirmation} onClose={() => setConfirmation(null)} />

@@ -1470,7 +1470,19 @@
     "openSourceTable": "Open source table",
     "openTargetTable": "Open target table",
     "copyConstraint": "Copy constraint name",
-    "copyRelationPath": "Copy relation path"
+    "copyRelationPath": "Copy relation path",
+    "loadedWithFailures": "{loaded} tables loaded; structure information could not be retrieved for {failed} tables.",
+    "tablesReading": "Reading table structures {loaded}/{total}.",
+    "retry": "Try again",
+    "tableLimit": "Showing the first {count} tables for performance.",
+    "schemaMenuTitle": "Schema • {database}",
+    "centerTable": "Center table on screen",
+    "copyFullColumnPath": "Copy full column path",
+    "removeFkTitle": "Remove foreign key relationship",
+    "removeFkDescription": "Constraint {constraint} will be removed from table {table}. The relational rule will change permanently on the server.",
+    "fkCreated": "Foreign key {constraint} created.",
+    "fkCreateFailed": "Foreign key relationship could not be created.",
+    "createConnection": "Create relationship"
   },
   "userManager": {
     "title": "User, role, and permission management",

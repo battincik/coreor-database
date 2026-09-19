@@ -1470,7 +1470,19 @@
     "openSourceTable": "Kaynak tabloyu aç",
     "openTargetTable": "Hedef tabloyu aç",
     "copyConstraint": "Constraint adını kopyala",
-    "copyRelationPath": "İlişki yolunu kopyala"
+    "copyRelationPath": "İlişki yolunu kopyala",
+    "loadedWithFailures": "{loaded} tablo yüklendi; {failed} tablo için yapı bilgisi alınamadı.",
+    "tablesReading": "{loaded}/{total} tablo yapısı okunuyor.",
+    "retry": "Tekrar dene",
+    "tableLimit": "Performans için ilk {count} tablo gösteriliyor.",
+    "schemaMenuTitle": "Şema • {database}",
+    "centerTable": "Tabloyu ekranda ortala",
+    "copyFullColumnPath": "Tam kolon yolunu kopyala",
+    "removeFkTitle": "Foreign key bağlantısını kaldır",
+    "removeFkDescription": "{constraint} constraint'i {table} tablosundan kaldırılacak. İlişkisel kural sunucuda kalıcı olarak değişir.",
+    "fkCreated": "{constraint} foreign key bağlantısı oluşturuldu.",
+    "fkCreateFailed": "Foreign key bağlantısı oluşturulamadı.",
+    "createConnection": "Bağlantıyı oluştur"
   },
   "userManager": {
     "title": "Kullanıcı, rol ve yetki yönetimi",
