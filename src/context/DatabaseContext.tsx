@@ -7,6 +7,7 @@ import { useDesktop } from '@/context/DesktopContext';
 import { createDatabaseServer, deleteDatabaseServer, fetchDatabaseServers, fetchServerTables } from '@/lib/databaseApi';
 import { recordActivity } from '@/lib/activityConsole';
 import { databaseEngineDefinition } from '@/lib/databaseEngines';
+import { translateRuntime } from '@/lib/i18nRuntime';
 
 interface DatabaseContextType {
   databases: DatabaseCatalogItem[];
@@ -113,7 +114,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       });
       if (!storedServers.length) setDatabases([]);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Yerel bağlantı profilleri yüklenemedi.';
+      const message = error instanceof Error ? error.message : translateRuntime('databaseContext.loadProfilesFailed');
       console.error('Yerel bağlantı profilleri yüklenirken bir hata oluştu:', error);
       setServers([]); setActiveServerId(null); setDatabases([]); setServersError(message);
     } finally { setIsServersLoading(false); }
@@ -138,13 +139,13 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
   }, [servers, activeServerId]);
 
   const persistServer = async (server: DatabaseServerConfig, loadInitialCatalog: boolean) => {
-    if (!workspaceKey) throw new Error('Yerel çalışma alanı hazır değil.');
+    if (!workspaceKey) throw new Error(translateRuntime('sidebar.workspaceNotReady'));
     setIsAddingServer(true);
     try {
       await createDatabaseServer(server, workspaceKey); setActiveServerId(server.id);
       if (loadInitialCatalog) try { await fetchServerTables(server.id, workspaceKey); }
       catch (error) {
-        recordActivity({ level: 'warning', category: 'connection', title: 'Sunucu kaydedildi, katalog alınamadı', message: error instanceof Error ? error.message : 'İlk bağlantı kurulamadı.', serverId: server.id, serverName: server.name, host: server.host });
+        recordActivity({ level: 'warning', category: 'connection', title: translateRuntime('databaseContext.catalogAfterSaveFailed'), message: error instanceof Error ? error.message : translateRuntime('databaseContext.initialConnectionFailed'), serverId: server.id, serverName: server.name, host: server.host });
       }
       await loadServers();
     } finally { setIsAddingServer(false); }

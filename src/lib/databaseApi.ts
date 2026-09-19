@@ -28,6 +28,7 @@ import { recordActivity } from '@/lib/activityConsole';
 import { databaseEngineDefinition, databaseEngineLabel } from '@/lib/databaseEngines';
 import { desktopDatabaseRequest } from '@/lib/desktopClient';
 import { normalizeDatabaseClientError } from '@/lib/databaseErrorPresentation';
+import { translateRuntime } from '@/lib/i18nRuntime';
 
 const inFlightControllers = new Map<string, AbortController>();
 const tableInfoCache = new Map<string, { expiresAt: number; value: TableInfo }>();
@@ -70,19 +71,23 @@ export interface FetchTableDataOptions {
   knownTotalRows?: number;
 }
 
-const ACTION_TITLES: Record<DatabaseApiAction, string> = {
-  test: 'Bağlantı testi',
-  catalog: 'Veritabanı kataloğu',
-  'table-info': 'Tablo yapısı',
-  'schema-overview': 'Şema metadata',
-  'database-objects': 'Veritabanı nesneleri',
-  'table-data': 'Tablo verileri',
-  'update-cell': 'Hücre güncelleme',
-  'insert-row': 'Satır ekleme',
-  'delete-rows': 'Satır silme',
-  'alter-table': 'Tablo yapısını değiştirme',
-  query: 'SQL sorgusu'
+const ACTION_TITLE_KEYS: Record<DatabaseApiAction, string> = {
+  test: 'apiErrors.connectionTest',
+  catalog: 'apiErrors.detailedCatalog',
+  'table-info': 'apiErrors.tableStructure',
+  'schema-overview': 'apiErrors.schemaMetadata',
+  'database-objects': 'apiErrors.objectExplorer',
+  'table-data': 'apiErrors.tableRows',
+  'update-cell': 'apiErrors.cellUpdate',
+  'insert-row': 'apiErrors.rowInsert',
+  'delete-rows': 'apiErrors.rowDelete',
+  'alter-table': 'apiErrors.alterTable',
+  query: 'apiErrors.queryEditor'
 };
+
+function actionTitle(action: DatabaseApiAction) {
+  return translateRuntime(ACTION_TITLE_KEYS[action]);
+}
 
 function createServerId() {
   if (typeof window !== 'undefined' && 'randomUUID' in window.crypto) return window.crypto.randomUUID();
@@ -93,7 +98,7 @@ function createConnectionPayload(server: DatabaseServerConfig, databaseOverride?
   const engine = server.databaseType ?? 'mysql';
   const definition = databaseEngineDefinition(engine);
   if (!server.host?.trim() || !server.username?.trim()) {
-    throw new Error('Host veya kullanıcı adı eksik.');
+    throw new Error(translateRuntime('apiErrors.hostOrUsernameMissing'));
   }
   return {
     serverId: server.id,
@@ -111,19 +116,20 @@ function createConnectionPayload(server: DatabaseServerConfig, databaseOverride?
 
 function fallbackStatements(action: DatabaseApiAction, payload: Record<string, unknown>, server: DatabaseServerConfig): DatabaseQueryStatement[] {
   const engine = databaseEngineLabel(server.databaseType);
-  const database = String(payload.database || 'sunucu geneli');
-  const table = String(payload.table || 'tablo');
-  if (action === 'test') return [{ label: 'Bağlantı testi', sql: `/* ${engine} bağlantı testi */ SELECT version` }];
-  if (action === 'catalog') return [{ label: 'Ayrıntılı katalog', sql: `/* ${engine} katalog sorguları */` }];
-  if (action === 'table-info') return [{ label: 'Tablo yapısı', sql: `/* ${engine} */ DESCRIBE ${database}.${table}` }];
-  if (action === 'schema-overview') return [{ label: 'Şema metadata', sql: `/* ${engine} */ information_schema metadata for ${database}` }];
-  if (action === 'database-objects') return [{ label: 'Object Explorer', sql: `/* ${engine} */ database objects for ${database}` }];
-  if (action === 'table-data') return [{ label: 'Tablo satırları', sql: `SELECT * FROM ${database}.${table}` }];
-  if (action === 'update-cell') return [{ label: 'Hücre güncelleme', sql: `UPDATE ${database}.${table} SET ${String(payload.column || 'column')} = ? WHERE <primary-key>` }];
-  if (action === 'insert-row') return [{ label: 'Satır ekleme', sql: `INSERT INTO ${database}.${table} (...) VALUES (...)` }];
-  if (action === 'delete-rows') return [{ label: 'Seçili satırları sil', sql: `DELETE FROM ${database}.${table} WHERE <primary-key>` }];
-  if (action === 'alter-table') return [{ label: 'Tablo yapısını değiştir', sql: `ALTER TABLE ${database}.${table} <validated-operation>` }];
-  return [{ label: 'SQL editörü sorgusu', sql: String(payload.sql || '') }];
+  const database = String(payload.database || translateRuntime('query.serverScope'));
+  const table = String(payload.table || translateRuntime('database.table').toLocaleLowerCase());
+  const label = actionTitle(action);
+  if (action === 'test') return [{ label, sql: `/* ${engine} ${translateRuntime('apiErrors.connectionTest').toLocaleLowerCase()} */ SELECT version` }];
+  if (action === 'catalog') return [{ label, sql: `/* ${engine} ${translateRuntime('apiErrors.catalogQueries').toLocaleLowerCase()} */` }];
+  if (action === 'table-info') return [{ label, sql: `/* ${engine} */ DESCRIBE ${database}.${table}` }];
+  if (action === 'schema-overview') return [{ label, sql: `/* ${engine} */ information_schema metadata for ${database}` }];
+  if (action === 'database-objects') return [{ label, sql: `/* ${engine} */ database objects for ${database}` }];
+  if (action === 'table-data') return [{ label, sql: `SELECT * FROM ${database}.${table}` }];
+  if (action === 'update-cell') return [{ label, sql: `UPDATE ${database}.${table} SET ${String(payload.column || 'column')} = ? WHERE <primary-key>` }];
+  if (action === 'insert-row') return [{ label, sql: `INSERT INTO ${database}.${table} (...) VALUES (...)` }];
+  if (action === 'delete-rows') return [{ label, sql: `DELETE FROM ${database}.${table} WHERE <primary-key>` }];
+  if (action === 'alter-table') return [{ label, sql: `ALTER TABLE ${database}.${table} <validated-operation>` }];
+  return [{ label, sql: String(payload.sql || '') }];
 }
 
 function resultMetrics(action: DatabaseApiAction, result: unknown) {
@@ -156,8 +162,8 @@ function recordStatements(options: {
     const isLast = index === options.statements.length - 1;
     recordActivity({
       level: options.level,
-      title: statement.label || ACTION_TITLES[options.action],
-      message: options.level === 'error' ? options.error?.message || 'Sorgu başarısız oldu.' : `${options.server.name} üzerinde başarıyla çalıştırıldı.`,
+      title: statement.label || actionTitle(options.action),
+      message: options.level === 'error' ? options.error?.message || translateRuntime('apiErrors.queryFailed') : translateRuntime('apiErrors.executedSuccessfully',{server:options.server.name}),
       serverId: options.server.id,
       serverName: options.server.name,
       host: options.server.host,
@@ -199,7 +205,7 @@ async function requestDatabaseApi<T>(
     return result;
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      const aborted = new Error('Önceki tablo isteği daha güncel bir istek tarafından iptal edildi.') as DatabaseRequestError;
+      const aborted = new Error(translateRuntime('apiErrors.requestSuperseded')) as DatabaseRequestError;
       aborted.code = 'REQUEST_SUPERSEDED';
       throw aborted;
     }
@@ -224,7 +230,7 @@ async function requestDatabaseApi<T>(
 async function requireServer(accountId: string | null | undefined, serverId: string) {
   const servers = await readLocalServerProfiles();
   const server = servers.find(item => item.id === serverId);
-  if (!server) throw new Error('Sunucu profili yerel config içinde bulunamadı.');
+  if (!server) throw new Error(translateRuntime('apiErrors.serverProfileNotFound'));
   return server;
 }
 

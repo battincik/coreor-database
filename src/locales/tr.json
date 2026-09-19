@@ -2063,7 +2063,15 @@
     "tableAlter": "Tablo yapısını değiştirme",
     "detailedCatalog": "Ayrıntılı katalog",
     "tableRows": "Tablo satırları",
-    "queryEditor": "SQL editörü sorgusu"
+    "queryEditor": "SQL editörü sorgusu",
+    "schemaMetadata": "Şema metadata",
+    "objectExplorer": "Object Explorer",
+    "alterTable": "Tablo yapısını değiştirme",
+    "hostOrUsernameMissing": "Host veya kullanıcı adı eksik.",
+    "catalogQueries": "katalog sorguları",
+    "executedSuccessfully": "{server} üzerinde başarıyla çalıştırıldı.",
+    "requestSuperseded": "Önceki tablo isteği daha güncel bir istek tarafından iptal edildi.",
+    "serverProfileNotFound": "Sunucu profili yerel yapılandırmada bulunamadı."
   },
   "diagnostics": {
     "sessionInvalid": "Oturumunuz doğrulanamadı.",
@@ -2298,7 +2306,8 @@
       "manageApprovals": "Onay akışlarını yönet",
       "readOnlyNative": "salt-okunur. Bu politika arayüz kontrollerine ek olarak native Rust/Tauri veritabanı katmanında da uygulanır.",
       "workspaceStatus": "{algorithm} • {count} koleksiyon • ayrı AAD",
-      "schemaProtectionDescription": "ALTER, DROP, TRUNCATE ve bağlantı yazma politikaları."
+      "schemaProtectionDescription": "ALTER, DROP, TRUNCATE ve bağlantı yazma politikaları.",
+      "zeroKnowledgeReady": "AVK + Argon2id KEK • Bu cihazı hatırla altyapısı hazır"
     },
     "developer": {
       "tools": "Geliştirici araçları",
@@ -2331,7 +2340,8 @@
       "localVaultDescription": "Bağlantı profilleri config.json içinde tutulmaz; cihaz anahtarıyla şifrelenmiş yerel kasada saklanır.",
       "vaultCounts": "{profiles} profil • {databases} veritabanı • {tables} tablo",
       "organizationsDescription": "Ekip rolleri ve veritabanı bağları.",
-      "manageOrganizations": "Organizasyonları yönet"
+      "manageOrganizations": "Organizasyonları yönet",
+      "onlineFeatureNames": "Cloud Sync • Team Workspaces • Shared Snippets"
     },
     "servers": {
       "server": "Sunucu",
@@ -2472,5 +2482,30 @@
     "backToEditor": "Editöre dön",
     "subtitle": "Hesap ve uygulama tercihleri",
     "noResults": "Ayar bulunamadı."
+  },
+  "databaseContext": {
+    "loadProfilesFailed": "Yerel bağlantı profilleri yüklenemedi.",
+    "catalogAfterSaveFailed": "Sunucu kaydedildi, katalog alınamadı",
+    "initialConnectionFailed": "İlk bağlantı kurulamadı."
+  },
+  "engines": {
+    "mysql": {
+      "description": "Oracle MySQL Community ve Enterprise"
+    },
+    "mariadb": {
+      "description": "MariaDB Community ve Enterprise"
+    },
+    "tidb": {
+      "description": "MySQL protokolü uyumlu dağıtık SQL"
+    },
+    "postgresql": {
+      "description": "PostgreSQL açık kaynak ilişkisel veritabanı"
+    },
+    "cockroachdb": {
+      "description": "PostgreSQL protokolü uyumlu dağıtık SQL"
+    },
+    "mssql": {
+      "description": "SQL Server ve Azure SQL Database"
+    }
   }
 }

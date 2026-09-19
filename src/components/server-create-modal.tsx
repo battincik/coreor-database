@@ -155,9 +155,9 @@ export function ServerCreateModal({ open, onClose, onSubmit, initialServer, onUp
   const tlsOptions = useMemo(() => createTlsOptions(t), [t]);
   const timeoutOptions = useMemo(() => createTimeoutOptions(t), [t]);
   const engineOptions = useMemo<SearchSelectOption<DatabaseEngine>[]>(() => DATABASE_ENGINES.map(engine => ({
-    value: engine.id, label: engine.label, description: engine.description,
+    value: engine.id, label: engine.label, description: t(engine.descriptionKey),
     badge: engine.badge, keywords: [engine.family, String(engine.defaultPort), ...engine.versions]
-  })), []);
+  })), [t]);
   const versionOptions = useMemo<SearchSelectOption[]>(() => selectedEngine.versions.map((version, index) => ({
     value: version, label: `${selectedEngine.label} ${version}`,
     description: index === 0 ? t('server.latestVersionProfile') : t('server.compatibilityProfile'),

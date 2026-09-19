@@ -2059,11 +2059,19 @@
     "databaseObjects": "Database objects",
     "cellUpdate": "Cell update",
     "rowInsert": "Row insert",
-    "rowDelete": "Row delete",
+    "rowDelete": "Delete rows",
     "tableAlter": "Alter table structure",
     "detailedCatalog": "Detailed catalog",
     "tableRows": "Table rows",
-    "queryEditor": "SQL editor query"
+    "queryEditor": "SQL editor query",
+    "schemaMetadata": "Schema metadata",
+    "objectExplorer": "Object Explorer",
+    "alterTable": "Alter table structure",
+    "hostOrUsernameMissing": "Host or username is missing.",
+    "catalogQueries": "catalog queries",
+    "executedSuccessfully": "Executed successfully on {server}.",
+    "requestSuperseded": "The previous table request was cancelled by a newer request.",
+    "serverProfileNotFound": "Server profile was not found in local configuration."
   },
   "diagnostics": {
     "sessionInvalid": "Your session could not be verified.",
@@ -2298,7 +2306,8 @@
       "manageApprovals": "Manage approval flows",
       "readOnlyNative": "is read-only. This policy is enforced in the native Rust/Tauri database layer in addition to the UI controls.",
       "workspaceStatus": "{algorithm} • {count} collections • separate AAD",
-      "schemaProtectionDescription": "ALTER, DROP, TRUNCATE and connection write policies."
+      "schemaProtectionDescription": "ALTER, DROP, TRUNCATE and connection write policies.",
+      "zeroKnowledgeReady": "AVK + Argon2id KEK • Remember this device is ready"
     },
     "developer": {
       "tools": "Developer tools",
@@ -2331,7 +2340,8 @@
       "localVaultDescription": "Connection profiles are not stored in config.json; they are kept in an encrypted local vault protected by the device key.",
       "vaultCounts": "{profiles} profiles • {databases} databases • {tables} tables",
       "organizationsDescription": "Team roles and database links.",
-      "manageOrganizations": "Manage organizations"
+      "manageOrganizations": "Manage organizations",
+      "onlineFeatureNames": "Cloud Sync • Team Workspaces • Shared Snippets"
     },
     "servers": {
       "server": "Server",
@@ -2472,5 +2482,30 @@
     "backToEditor": "Back to editor",
     "subtitle": "Account and application preferences",
     "noResults": "No settings found."
+  },
+  "databaseContext": {
+    "loadProfilesFailed": "Local connection profiles could not be loaded.",
+    "catalogAfterSaveFailed": "Server saved, catalog could not be loaded",
+    "initialConnectionFailed": "Initial connection could not be established."
+  },
+  "engines": {
+    "mysql": {
+      "description": "Oracle MySQL Community and Enterprise"
+    },
+    "mariadb": {
+      "description": "MariaDB Community and Enterprise"
+    },
+    "tidb": {
+      "description": "Distributed SQL compatible with the MySQL protocol"
+    },
+    "postgresql": {
+      "description": "Open-source PostgreSQL relational database"
+    },
+    "cockroachdb": {
+      "description": "Distributed SQL compatible with the PostgreSQL protocol"
+    },
+    "mssql": {
+      "description": "SQL Server and Azure SQL Database"
+    }
   }
 }
