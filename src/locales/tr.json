@@ -3022,7 +3022,16 @@
       "business": "İş",
       "time": "Zaman",
       "geographic": "Coğrafi",
-      "text": "Metin"
+      "text": "Metin",
+      "catalog": "Katalog",
+      "storage": "Depolama",
+      "index": "İndeks",
+      "locks": "Kilit",
+      "connection": "Bağlantı",
+      "performance": "Performans",
+      "maintenance": "Bakım",
+      "dataQuality": "Veri Kalitesi",
+      "safeWrite": "Güvenli Yazma"
     },
     "quality": {
       "nullRate": "NULL oranı %{percent}.",
@@ -3062,6 +3071,68 @@
       "replication": "Replication gecikmesi",
       "unreachable": "Sunucuya ulaşılamıyor",
       "health": "Sağlık skoru düştü"
+    },
+    "snippets": {
+      "generic-table-counts": {
+        "title": "Tablo satır sayıları",
+        "description": "Seçili şemadaki tabloların tahmini satır sayılarını listeler."
+      },
+      "mysql-large-tables": {
+        "title": "En büyük tablolar",
+        "description": "Veri ve indeks boyutuna göre sıralar."
+      },
+      "mysql-unused-indexes": {
+        "title": "Kullanılmayan indeks adayları",
+        "description": "Performance Schema istatistiklerinden adayları bulur."
+      },
+      "mysql-locks": {
+        "title": "InnoDB kilit beklemeleri",
+        "description": "Aktif lock wait kayıtlarını gösterir."
+      },
+      "mysql-connection-summary": {
+        "title": "Bağlantı özeti",
+        "description": "Aktif kullanıcı ve host dağılımı."
+      },
+      "pg-large-tables": {
+        "title": "PostgreSQL büyük tablolar",
+        "description": "Toplam ilişki boyutlarını listeler."
+      },
+      "pg-long-queries": {
+        "title": "Uzun PostgreSQL sorguları",
+        "description": "30 saniyeyi geçen aktif sorgular."
+      },
+      "pg-index-usage": {
+        "title": "PostgreSQL indeks kullanımı",
+        "description": "Seq scan ve index scan oranlarını gösterir."
+      },
+      "pg-bloat-candidates": {
+        "title": "VACUUM adayları",
+        "description": "Dead tuple oranı yüksek tablolar."
+      },
+      "mssql-long-queries": {
+        "title": "SQL Server uzun istekler",
+        "description": "Aktif request ve wait bilgileri."
+      },
+      "mssql-index-fragmentation": {
+        "title": "İndeks parçalanması",
+        "description": "Yeniden düzenleme veya rebuild adayları."
+      },
+      "mssql-database-sizes": {
+        "title": "SQL Server veritabanı boyutları",
+        "description": "Data ve log dosyalarının boyutunu gösterir."
+      },
+      "generic-duplicate-values": {
+        "title": "Tekrarlanan değerleri bul",
+        "description": "Kolon bazlı duplicate analizi şablonu."
+      },
+      "generic-null-profile": {
+        "title": "NULL profili",
+        "description": "Kolon için NULL ve toplam kayıt sayısını ölçer."
+      },
+      "generic-safe-update": {
+        "title": "Güvenli UPDATE taslağı",
+        "description": "Transaction ve doğrulama SELECTi içeren yazma şablonu."
+      }
     }
   }
 }

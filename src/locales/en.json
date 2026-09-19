@@ -3022,7 +3022,16 @@
       "business": "Business",
       "time": "Time",
       "geographic": "Geographic",
-      "text": "Text"
+      "text": "Text",
+      "catalog": "Catalog",
+      "storage": "Storage",
+      "index": "Index",
+      "locks": "Locks",
+      "connection": "Connection",
+      "performance": "Performance",
+      "maintenance": "Maintenance",
+      "dataQuality": "Data Quality",
+      "safeWrite": "Safe Write"
     },
     "quality": {
       "nullRate": "NULL rate is {percent}%.",
@@ -3062,6 +3071,68 @@
       "replication": "Replication lag",
       "unreachable": "Server unreachable",
       "health": "Health score dropped"
+    },
+    "snippets": {
+      "generic-table-counts": {
+        "title": "Table row counts",
+        "description": "Lists estimated row counts for tables in the selected schema."
+      },
+      "mysql-large-tables": {
+        "title": "Largest tables",
+        "description": "Sorts tables by data and index size."
+      },
+      "mysql-unused-indexes": {
+        "title": "Unused index candidates",
+        "description": "Finds candidates from Performance Schema statistics."
+      },
+      "mysql-locks": {
+        "title": "InnoDB lock waits",
+        "description": "Shows active lock-wait records."
+      },
+      "mysql-connection-summary": {
+        "title": "Connection summary",
+        "description": "Shows active user and host distribution."
+      },
+      "pg-large-tables": {
+        "title": "Large PostgreSQL tables",
+        "description": "Lists total relation sizes."
+      },
+      "pg-long-queries": {
+        "title": "Long PostgreSQL queries",
+        "description": "Shows active queries running longer than 30 seconds."
+      },
+      "pg-index-usage": {
+        "title": "PostgreSQL index usage",
+        "description": "Shows sequential-scan and index-scan ratios."
+      },
+      "pg-bloat-candidates": {
+        "title": "VACUUM candidates",
+        "description": "Shows tables with a high dead-tuple ratio."
+      },
+      "mssql-long-queries": {
+        "title": "Long SQL Server requests",
+        "description": "Shows active request and wait information."
+      },
+      "mssql-index-fragmentation": {
+        "title": "Index fragmentation",
+        "description": "Shows candidates for reorganization or rebuild."
+      },
+      "mssql-database-sizes": {
+        "title": "SQL Server database sizes",
+        "description": "Shows the size of data and log files."
+      },
+      "generic-duplicate-values": {
+        "title": "Find duplicate values",
+        "description": "Template for column-level duplicate analysis."
+      },
+      "generic-null-profile": {
+        "title": "NULL profile",
+        "description": "Measures NULL and total row counts for a column."
+      },
+      "generic-safe-update": {
+        "title": "Safe UPDATE draft",
+        "description": "Write template with a transaction and validation SELECT."
+      }
     }
   }
 }
