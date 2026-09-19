@@ -1123,7 +1123,7 @@
   "commandPalette": {
     "navigate": "↑↓ gezin",
     "run": "Enter çalıştır",
-    "sqlMode": "> SQL",
+    "sqlMode": "SQL MODU",
     "placeholder": "Komut ara: open sakila actor, show processes, backup coreor_proxy…",
     "recent": "Son kullanılanlar",
     "tlsSettings": "TLS / bağlantı ayarları",
@@ -1142,7 +1142,32 @@
     "openTableData": "Tablo verisini aç",
     "quickSql": "Hızlı SQL çalıştır",
     "enterSql": "Çalıştırılacak SQL’i yazın.",
-    "noMatches": "Eşleşen komut bulunamadı."
+    "noMatches": "Eşleşen komut bulunamadı.",
+    "newQuery": "Yeni SQL sorgusu",
+    "newQueryInDatabase": "{database} veritabanında yeni sorgu",
+    "newQueryServerScope": "Sunucu genelinde yeni sorgu",
+    "queryTitle": "{database} sorgu",
+    "generalQuery": "Genel sorgu",
+    "transactionWorkspace": "Transaction çalışma alanı",
+    "transactionDescription": "Autocommit, commit ve rollback",
+    "processDescription": "Aktif sorgular ve kilitler",
+    "performancePanel": "Performans paneli",
+    "notebook": "SQL Notebook",
+    "schemaDescription": "{database} ER / flow görünümü",
+    "openBackup": "{database} yedeğini aç",
+    "backupDescription": "{database} için backup merkezi",
+    "databaseDescription": "{tables} tablo • {rows} satır",
+    "paletteSql": "Paletten SQL",
+    "sqlModeHint": "> işaretinden sonra yazılan sorgu seçili veritabanında yeni sekmede çalıştırılır.",
+    "noConnection": "Bağlantı yok",
+    "category": {
+      "recent": "Son kullanılanlar",
+      "commands": "Komutlar",
+      "databases": "Veritabanları",
+      "tables": "Tablolar",
+      "objects": "Nesneler",
+      "sql": "SQL"
+    }
   },
   "serverModal": {
     "localVault": "Yerel bağlantı kasası",

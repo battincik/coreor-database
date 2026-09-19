@@ -7,6 +7,7 @@ import type { DatabaseSchemaObject, DatabaseServerConfig } from 'types';
 import { openQueryTab, qualifiedSqlName } from '@/lib/queryWorkspaceEvents';
 import { fetchDatabaseObjects } from '@/lib/databaseApi';
 import { useDesktop } from '@/context/DesktopContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { matchesShortcut, shortcutLabel } from '@/lib/shortcuts';
 import { databaseEngineFamily } from '@/lib/databaseEngines';
 import { OPEN_PERFORMANCE_PANEL_EVENT, OPEN_PROCESS_CENTER_EVENT, OPEN_SETTINGS_MODAL_EVENT, OPEN_SQL_NOTEBOOK_EVENT, OPEN_TRANSACTION_WORKSPACE_EVENT, OPEN_USER_MANAGER_EVENT, TOGGLE_COMMAND_PALETTE_EVENT, dispatchDatabaseTool } from '@/lib/databaseToolEvents';
@@ -22,7 +23,7 @@ interface DatabaseCommandPaletteProps {
 
 interface PaletteItem {
   id: string;
-  category: 'Son kullanılanlar' | 'Komutlar' | 'Veritabanları' | 'Tablolar' | 'Nesneler' | 'SQL';
+  category: 'recent' | 'commands' | 'databases' | 'tables' | 'objects' | 'sql';
   label: string;
   description: string;
   keywords: string;
@@ -32,13 +33,13 @@ interface PaletteItem {
   run: () => void;
 }
 
-function normalized(value: string) {
-  return value.trim().toLocaleLowerCase('tr-TR');
+function normalized(value: string, language: string) {
+  return value.trim().toLocaleLowerCase(language);
 }
-function fuzzyScore(query: string, value: string) {
-  const tokens = normalized(query).split(/\s+/).filter(Boolean);
+function fuzzyScore(query: string, value: string, language: string) {
+  const tokens = normalized(query,language).split(/\s+/).filter(Boolean);
   if (!tokens.length) return 1;
-  const haystack = normalized(value);
+  const haystack = normalized(value,language);
   let score = 0;
   for (const token of tokens) {
     const direct = haystack.indexOf(token);
@@ -70,6 +71,7 @@ function looksLikeSql(value: string) {
 
 export function DatabaseCommandPalette({ servers, activeServerId, selectedDatabase, selectedTable, onDatabaseSelect, onTableSelect }: DatabaseCommandPaletteProps) {
   const { workspaceKey } = useDesktop();
+  const {t,formatNumber,language}=useLanguage();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -130,31 +132,31 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
 
   const allItems = useMemo<PaletteItem[]>(() => {
     const items: PaletteItem[] = [
-      { id: 'new-query', category: 'Komutlar', label: 'Yeni SQL sorgusu', description: selectedDatabase ? `${selectedDatabase} veritabanında yeni sorgu` : 'Sunucu genelinde yeni sorgu', keywords: 'new yeni query sorgu sql editor create', icon: <Code className="h-4 w-4" />, shortcut: 'newQuery', disabled: !activeServer, run: () => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase ? `${selectedDatabase} sorgu` : 'Genel sorgu' }) },
-      { id: 'settings-tls', category: 'Komutlar', label: 'TLS / bağlantı ayarları', description: 'Bağlantı profilleri ve SSL/TLS tercihleri', keywords: 'settings ayarlar tls ssl connection bağlantı security güvenlik', icon: <Settings className="h-4 w-4" />, run: () => dispatchDatabaseTool(OPEN_SETTINGS_MODAL_EVENT, { tab: 'servers' }) },
-      { id: 'transaction', category: 'Komutlar', label: 'Transaction çalışma alanı', description: mysqlWorkbench ? 'Autocommit, commit ve rollback' : 'Bu motor için henüz kullanılamıyor', keywords: 'transaction commit rollback', icon: <ShieldAlert className="h-4 w-4" />, disabled: !activeServer || !mysqlWorkbench, run: () => dispatchDatabaseTool(OPEN_TRANSACTION_WORKSPACE_EVENT) },
-      { id: 'users', category: 'Komutlar', label: 'Kullanıcı ve yetki yönetimi', description: mysqlWorkbench ? 'Kullanıcılar, roller, GRANT ve REVOKE' : 'Motor özel yönetim henüz kullanılamıyor', keywords: 'users kullanıcı rol grant revoke', icon: <Users className="h-4 w-4" />, disabled: !activeServer || !mysqlWorkbench, run: () => dispatchDatabaseTool(OPEN_USER_MANAGER_EVENT) },
-      { id: 'processes', category: 'Komutlar', label: 'Process ve kilit merkezi', description: 'Aktif sorgular ve kilitler', keywords: 'show göster process processes lock locks kilit deadlock', icon: <Activity className="h-4 w-4" />, disabled: !activeServer || !mysqlWorkbench, run: () => dispatchDatabaseTool(OPEN_PROCESS_CENTER_EVENT) },
-      { id: 'performance', category: 'Komutlar', label: 'Performans paneli', description: 'QPS, bağlantı, buffer pool ve depolama', keywords: 'performance qps buffer', icon: <Gauge className="h-4 w-4" />, disabled: !activeServer || !mysqlWorkbench, run: () => dispatchDatabaseTool(OPEN_PERFORMANCE_PANEL_EVENT) },
-      { id: 'notebook', category: 'Komutlar', label: 'SQL Notebook', description: 'SQL, Markdown, sonuç ve grafikler', keywords: 'notebook markdown grafik', icon: <BookOpen className="h-4 w-4" />, disabled: !activeServer, run: () => dispatchDatabaseTool(OPEN_SQL_NOTEBOOK_EVENT) },
-      { id: 'schema', category: 'Komutlar', label: 'Şema grafiğini aç', description: selectedDatabase ? `${selectedDatabase} ER / flow görünümü` : 'Önce veritabanı seçin', keywords: 'schema er graph foreign key', icon: <Network className="h-4 w-4" />, disabled: !activeServer || !selectedDatabase, run: () => window.dispatchEvent(new Event('coreor:open-schema-graph')) },
-      { id: 'settings', category: 'Komutlar', label: 'Ayarları aç', description: 'Hesap, organizasyon, görünüm ve güvenlik', keywords: 'settings ayarlar organization tema preferences account hesap', icon: <Settings className="h-4 w-4" />, run: () => dispatchDatabaseTool(OPEN_SETTINGS_MODAL_EVENT, { tab: 'account' }) }
+      { id: 'new-query', category: 'commands', label: t('commandPalette.newQuery'), description: selectedDatabase ? t('commandPalette.newQueryInDatabase',{database:selectedDatabase}) : t('commandPalette.newQueryServerScope'), keywords: 'new yeni query sorgu sql editor create', icon: <Code className="h-4 w-4" />, shortcut: 'newQuery', disabled: !activeServer, run: () => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase ? t('commandPalette.queryTitle',{database:selectedDatabase}) : t('commandPalette.generalQuery') }) },
+      { id: 'settings-tls', category: 'commands', label: t('commandPalette.tlsSettings'), description: t('commandPalette.tlsSettingsDescription'), keywords: 'settings ayarlar tls ssl connection bağlantı security güvenlik', icon: <Settings className="h-4 w-4" />, run: () => dispatchDatabaseTool(OPEN_SETTINGS_MODAL_EVENT, { tab: 'servers' }) },
+      { id: 'transaction', category: 'commands', label: t('commandPalette.transactionWorkspace'), description: mysqlWorkbench ? t('commandPalette.transactionDescription') : t('commandPalette.engineUnavailable'), keywords: 'transaction commit rollback', icon: <ShieldAlert className="h-4 w-4" />, disabled: !activeServer || !mysqlWorkbench, run: () => dispatchDatabaseTool(OPEN_TRANSACTION_WORKSPACE_EVENT) },
+      { id: 'users', category: 'commands', label: t('commandPalette.userManagement'), description: mysqlWorkbench ? t('commandPalette.userManagementDescription') : t('commandPalette.engineManagementUnavailable'), keywords: 'users kullanıcı rol grant revoke', icon: <Users className="h-4 w-4" />, disabled: !activeServer || !mysqlWorkbench, run: () => dispatchDatabaseTool(OPEN_USER_MANAGER_EVENT) },
+      { id: 'processes', category: 'commands', label: t('processCenter.title'), description: t('commandPalette.processDescription'), keywords: 'show göster process processes lock locks kilit deadlock', icon: <Activity className="h-4 w-4" />, disabled: !activeServer || !mysqlWorkbench, run: () => dispatchDatabaseTool(OPEN_PROCESS_CENTER_EVENT) },
+      { id: 'performance', category: 'commands', label: t('commandPalette.performancePanel'), description: t('commandPalette.performanceDescription'), keywords: 'performance qps buffer', icon: <Gauge className="h-4 w-4" />, disabled: !activeServer || !mysqlWorkbench, run: () => dispatchDatabaseTool(OPEN_PERFORMANCE_PANEL_EVENT) },
+      { id: 'notebook', category: 'commands', label: t('commandPalette.notebook'), description: t('commandPalette.notebookDescription'), keywords: 'notebook markdown grafik', icon: <BookOpen className="h-4 w-4" />, disabled: !activeServer, run: () => dispatchDatabaseTool(OPEN_SQL_NOTEBOOK_EVENT) },
+      { id: 'schema', category: 'commands', label: t('commandPalette.openSchemaGraph'), description: selectedDatabase ? t('commandPalette.schemaDescription',{database:selectedDatabase}) : t('commandPalette.selectDatabaseFirst'), keywords: 'schema er graph foreign key', icon: <Network className="h-4 w-4" />, disabled: !activeServer || !selectedDatabase, run: () => window.dispatchEvent(new Event('coreor:open-schema-graph')) },
+      { id: 'settings', category: 'commands', label: t('commandPalette.openSettings'), description: t('commandPalette.settingsDescription'), keywords: 'settings ayarlar organization tema preferences account hesap', icon: <Settings className="h-4 w-4" />, run: () => dispatchDatabaseTool(OPEN_SETTINGS_MODAL_EVENT, { tab: 'account' }) }
     ];
     for (const database of activeServer?.databases || []) {
       items.push({
         id: `backup:${database.name}`,
-        category: 'Komutlar',
-        label: `${database.name} yedeğini aç`,
-        description: `${database.name} için backup merkezi`,
+        category: 'commands',
+        label: t('commandPalette.openBackup',{database:database.name}),
+        description: t('commandPalette.backupDescription',{database:database.name}),
         keywords: `backup yedek yedekle ${database.name} database`,
         icon: <Database className="h-4 w-4" />,
         run: () => { onDatabaseSelect(database.name); window.requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('coreor:open-automation-center', { detail: { tab: 'backups' } }))); }
       });
       items.push({
         id: `database:${database.name}`,
-        category: 'Veritabanları',
+        category: 'databases',
         label: database.name,
-        description: `${database.tableCount} tablo • ${database.totalRows.toLocaleString('tr-TR')} satır`,
+        description: t('commandPalette.databaseDescription',{tables:formatNumber(database.tableCount),rows:formatNumber(database.totalRows)}),
         keywords: `open aç ${database.name} database veritabanı`,
         icon: <Database className="h-4 w-4" />,
         run: () => {
@@ -165,9 +167,9 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
       for (const table of database.tables)
         items.push({
           id: `table:${database.name}:${table}`,
-          category: 'Tablolar',
+          category: 'tables',
           label: `${database.name}.${table}`,
-          description: selectedDatabase === database.name && selectedTable === table ? 'Şu an açık tablo' : 'Tablo verisini aç',
+          description: selectedDatabase === database.name && selectedTable === table ? t('commandPalette.currentTable') : t('commandPalette.openTableData'),
           keywords: `open aç show göster ${database.name} ${table} table tablo data veri`,
           icon: <Table2 className="h-4 w-4" />,
           run: () => {
@@ -179,7 +181,7 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
         if (object.kind === 'table') continue;
         items.push({
           id: `object:${database.name}:${object.kind}:${object.schema || ''}:${object.name}`,
-          category: object.kind === 'view' ? 'Tablolar' : 'Nesneler',
+          category: object.kind === 'view' ? 'tables' : 'objects',
           label: `${database.name}.${object.name}`,
           description: `${object.kind}${object.tableName ? ` • ${object.tableName}` : ''}`,
           keywords: `open aç show göster ${database.name} ${object.name} ${object.kind} routine procedure function trigger event view`,
@@ -197,28 +199,28 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
       }
     }
     return items;
-  }, [activeServer, activeServerId, selectedDatabase, selectedTable, onDatabaseSelect, onTableSelect, mysqlWorkbench, objectIndex]);
+  }, [activeServer, activeServerId, selectedDatabase, selectedTable, onDatabaseSelect, onTableSelect, mysqlWorkbench, objectIndex, t, formatNumber]);
 
   const visibleItems = useMemo(() => {
-    const search = normalized(query);
+    const search = normalized(query,language);
     const sql = sqlFromQuery(query).trim();
     const sqlMode = query.trimStart().startsWith('>');
     let items: PaletteItem[] = [];
     if (!sqlMode) {
       if (!search) {
-        const recent = recentIds.map(id => allItems.find(item => item.id === id)).filter((item): item is PaletteItem => Boolean(item)).slice(0, 8).map(item => ({ ...item, category: 'Son kullanılanlar' as const }));
-        items = [...recent, ...allItems.filter(item => item.category === 'Komutlar').slice(0, 14)];
+        const recent = recentIds.map(id => allItems.find(item => item.id === id)).filter((item): item is PaletteItem => Boolean(item)).slice(0, 8).map(item => ({ ...item, category: 'recent' as const }));
+        items = [...recent, ...allItems.filter(item => item.category === 'commands').slice(0, 14)];
       } else {
         items = allItems
-          .map(item => ({ item, score: fuzzyScore(search, `${item.label} ${item.description} ${item.keywords}`) }))
+          .map(item => ({ item, score: fuzzyScore(search, `${item.label} ${item.description} ${item.keywords}`,language) }))
           .filter(entry => entry.score >= 0)
           .sort((left, right) => right.score - left.score)
           .map(entry => entry.item);
       }
     }
-    if (looksLikeSql(query) && activeServer && sql) items.unshift({ id: 'run-sql', category: 'SQL', label: 'Hızlı SQL çalıştır', description: sql.length > 130 ? `${sql.slice(0, 130)}…` : sql, keywords: '', icon: <Play className="h-4 w-4" />, shortcut: 'Enter', run: () => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: 'Paletten SQL', sql, runImmediately: true }) });
+    if (looksLikeSql(query) && activeServer && sql) items.unshift({ id: 'run-sql', category: 'sql', label: t('commandPalette.quickSql'), description: sql.length > 130 ? `${sql.slice(0, 130)}…` : sql, keywords: '', icon: <Play className="h-4 w-4" />, shortcut: 'Enter', run: () => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: t('commandPalette.paletteSql'), sql, runImmediately: true }) });
     return items.slice(0, 120);
-  }, [allItems, query, activeServer, activeServerId, selectedDatabase, recentIds]);
+  }, [allItems, query, activeServer, activeServerId, selectedDatabase, recentIds, language, t]);
 
   useEffect(() => {
     const raf = window.requestAnimationFrame(() => setActiveIndex(0));
@@ -268,21 +270,21 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
                 setOpen(false);
               }
             }}
-            placeholder="Komut ara: open sakila actor, show processes, backup coreor_proxy…"
+            placeholder={t('commandPalette.placeholder')}
             className="min-w-0 flex-1 bg-transparent font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600"
           />
-          <span className={`rounded border px-2 py-1 text-[9px] ${sqlMode ? 'border-emerald-500/25 text-emerald-300' : 'border-zinc-800 text-zinc-500'}`}>{sqlMode ? 'SQL MODU' : 'ESC'}</span>
+          <span className={`rounded border px-2 py-1 text-[9px] ${sqlMode ? 'border-emerald-500/25 text-emerald-300' : 'border-zinc-800 text-zinc-500'}`}>{sqlMode ? t('commandPalette.sqlMode') : 'ESC'}</span>
         </div>
         {sqlMode && (
           <div className="border-b border-zinc-800 px-4 py-2 text-[9px] text-zinc-600">
-            <span className="font-mono text-emerald-400">&gt;</span> işaretinden sonra yazılan sorgu seçili veritabanında yeni sekmede çalıştırılır.
+            <span className="font-mono text-emerald-400">&gt;</span> {t('commandPalette.sqlModeHint')}
           </div>
         )}
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {visibleItems.length === 0 && (
             <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
               <Command className="mb-3 h-8 w-8 text-zinc-700" />
-              <div className="text-sm text-zinc-400">{sqlMode ? 'Çalıştırılacak SQL’i yazın.' : 'Eşleşen komut bulunamadı.'}</div>
+              <div className="text-sm text-zinc-400">{sqlMode ? t('commandPalette.enterSql') : t('commandPalette.noMatches')}</div>
             </div>
           )}
           {visibleItems.map((item, index) => {
@@ -290,7 +292,7 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
             lastCategory = item.category;
             return (
               <React.Fragment key={item.id}>
-                {showCategory && <div className="px-2 pb-1 pt-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-600">{item.category}</div>}
+                {showCategory && <div className="px-2 pb-1 pt-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-600">{t(`commandPalette.category.${item.category}`)}</div>}
                 <button type="button" disabled={item.disabled} onMouseEnter={() => setActiveIndex(index)} onClick={() => execute(item)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left ${index === activeIndex ? 'bg-cyan-500/12 text-cyan-100' : 'text-zinc-300 hover:bg-white/[0.04]'} disabled:opacity-35`}>
                   <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${index === activeIndex ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' : 'border-zinc-800 bg-black/20 text-zinc-500'}`}>{item.icon}</span>
                   <span className="min-w-0 flex-1">
@@ -304,12 +306,12 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
           })}
         </div>
         <div className="flex h-9 shrink-0 items-center gap-3 border-t border-zinc-800 px-4 text-[9px] text-zinc-600">
-          <span>↑↓ gezin</span>
-          <span>Enter çalıştır</span>
+          <span>{t('commandPalette.navigate')}</span>
+          <span>{t('commandPalette.run')}</span>
           <span className="font-mono text-emerald-400">&gt; SQL</span>
           <span className="ml-auto flex items-center gap-1">
             <Database className="h-3 w-3" />
-            {activeServer?.name || 'Bağlantı yok'}
+            {activeServer?.name || t('commandPalette.noConnection')}
             {selectedDatabase ? ` / ${selectedDatabase}` : ''}
           </span>
         </div>

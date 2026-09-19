@@ -1123,7 +1123,7 @@
   "commandPalette": {
     "navigate": "↑↓ navigate",
     "run": "Enter to run",
-    "sqlMode": "> SQL",
+    "sqlMode": "SQL MODE",
     "placeholder": "Search commands: open sakila actor, show processes, backup coreor_proxy…",
     "recent": "Recent",
     "tlsSettings": "TLS / connection settings",
@@ -1142,7 +1142,32 @@
     "openTableData": "Open table data",
     "quickSql": "Quick SQL",
     "enterSql": "Enter SQL to run.",
-    "noMatches": "No matching command found."
+    "noMatches": "No matching command found.",
+    "newQuery": "New SQL query",
+    "newQueryInDatabase": "New query in {database}",
+    "newQueryServerScope": "New server-wide query",
+    "queryTitle": "{database} query",
+    "generalQuery": "General query",
+    "transactionWorkspace": "Transaction workspace",
+    "transactionDescription": "Autocommit, commit, and rollback",
+    "processDescription": "Active queries and locks",
+    "performancePanel": "Performance panel",
+    "notebook": "SQL Notebook",
+    "schemaDescription": "{database} ER / flow view",
+    "openBackup": "Open {database} backup",
+    "backupDescription": "Backup center for {database}",
+    "databaseDescription": "{tables} tables • {rows} rows",
+    "paletteSql": "Palette SQL",
+    "sqlModeHint": "The query entered after the > sign runs in a new tab in the selected database.",
+    "noConnection": "No connection",
+    "category": {
+      "recent": "Recent",
+      "commands": "Commands",
+      "databases": "Databases",
+      "tables": "Tables",
+      "objects": "Objects",
+      "sql": "SQL"
+    }
   },
   "serverModal": {
     "localVault": "Local connection vault",
