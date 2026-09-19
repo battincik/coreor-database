@@ -1955,7 +1955,15 @@
       "queryDescription": "Language service, dry-run and results",
       "securityDescription": "Encrypted vault, read-only and critical approvals",
       "advancedDescription": "Live monitoring, alerts and local data",
-      "aboutDescription": "Version and PR history"
+      "aboutDescription": "Version and PR history",
+      "organizations": "Organizations",
+      "servers": "Servers",
+      "appearance": "Appearance",
+      "accessibility": "Accessibility",
+      "query": "Query editor",
+      "security": "Security",
+      "advanced": "Advanced",
+      "about": "What's new"
     },
     "themes": {
       "amoledDescription": "Pure black with high contrast",
@@ -1971,7 +1979,8 @@
       "syntaxPastelDescription": "Pastel blue tones",
       "syntaxClassicDescription": "Vivid classic code colors",
       "syntaxGithubDescription": "GitHub dark appearance",
-      "syntaxLightDescription": "Light code appearance"
+      "syntaxLightDescription": "Light code appearance",
+      "syntaxDraculaDescription": "Purple and pink accents"
     },
     "fonts": {
       "systemDescription": "Operating system UI font",
@@ -1981,7 +1990,9 @@
       "cascadiaDescription": "Readable monospace for Windows and SQL",
       "firaDescription": "Developer font with code ligatures",
       "humanistDescription": "Readable Atkinson/Verdana-based appearance",
-      "serifDescription": "Classic typeface for long descriptions"
+      "serifDescription": "Classic typeface for long descriptions",
+      "systemUi": "System UI",
+      "systemMono": "System Monospace"
     },
     "monitoring": {
       "refreshFast": "Very live; generates more status queries.",
@@ -2003,7 +2014,14 @@
       "rememberPanels": "Remember panel sizes",
       "rememberPanelsDescription": "Stores sidebar and workspace proportions.",
       "saveLayout": "Save layout",
-      "processBackground": "Refreshes the Process Center in the background."
+      "processBackground": "Refreshes the Process Center in the background.",
+      "seconds": "{value} seconds",
+      "refreshBalanced": "Balanced live monitoring.",
+      "refreshLow": "Lower database load.",
+      "performanceRefresh": "Performance refresh",
+      "openAlertCenter": "Open alert center",
+      "openIntelligence": "Open Data Intelligence center",
+      "autoRefresh": "Auto refresh"
     },
     "explorer": {
       "groupedDescription": "Shows database objects under Tables, Views, Procedures, Functions, Triggers and Events groups. When disabled, all objects appear in one alphabetical list under the database.",
@@ -2011,7 +2029,8 @@
       "detailsTitle": "Object Explorer details",
       "detailsDescription": "Shows row count and data size next to tables and short metadata for other objects when available.",
       "showDetails": "Show details",
-      "hideDetails": "Hide details"
+      "hideDetails": "Hide details",
+      "groupedEnabled": "Group objects"
     },
     "accessibility": {
       "description": "Motion, contrast and focus visibility.",
@@ -2040,7 +2059,12 @@
       "requestApproval": "Request approval",
       "resultLimit": "Result row limit",
       "resultLimitDescription": "Maximum rows for a single result set.",
-      "keyboardShortcuts": "Keyboard shortcuts"
+      "keyboardShortcuts": "Keyboard shortcuts",
+      "autocomplete": "SQL autocomplete",
+      "languageServerActive": "Enabled • no central server required",
+      "dryRun": "UPDATE/DELETE dry-run",
+      "dryRunPreview": "Dry-run preview",
+      "platformDetected": "Platform detected automatically: {platform}"
     },
     "security": {
       "plaintextDescription": "Server profiles and passwords are never stored on disk in plaintext.",
@@ -2061,7 +2085,19 @@
       "defaultReadOnlyDescription": "The new-server form starts in READ ONLY mode by default. It can still be changed per profile.",
       "defaultReadOnly": "Default read-only",
       "openApprovalCenter": "Open approval center",
-      "approvalCenterDescription": "Manage pending, approved and rejected requests."
+      "approvalCenterDescription": "Manage pending, approved and rejected requests.",
+      "keyReady": "key ready",
+      "keyMissing": "key not found",
+      "keyOnFirstConnection": "will be created on first connection",
+      "cloudNotActive": "Cloud sync is not active yet; there is no plaintext upload path.",
+      "autoSnapshotDescription": "Stores the table structure in local history before each ALTER TABLE.",
+      "takeSnapshot": "Create snapshot",
+      "secondApprovalDescription": "Sends DROP and TRUNCATE operations to the approval center.",
+      "productionAlter": "Production ALTER approval",
+      "productionAlterDescription": "Includes ALTER TABLE operations in the second-approval flow.",
+      "alterApproval": "Approval for ALTER",
+      "manageApprovals": "Manage approval flows",
+      "readOnlyNative": "is read-only. This policy is enforced in the native Rust/Tauri database layer in addition to the UI controls."
     },
     "developer": {
       "tools": "Developer tools",
@@ -2070,7 +2106,76 @@
       "warning": "DevTools can display open SQL text, query results, WebView runtime state and some IPC call details. Enable it only on trusted computers and for debugging.",
       "accept": "Accept risks and enable",
       "disabled": "DevTools disabled",
-      "operationsDescription": "Migration, backups, prepared lab, comparisons and masking."
+      "operationsDescription": "Migration, backups, prepared lab, comparisons and masking.",
+      "enabled": "DevTools enabled",
+      "operations": "Operations center",
+      "openOperations": "Open operations center"
+    },
+    "resetPreferences": "Reset preferences",
+    "account": {
+      "userFallback": "Coreor user",
+      "emailUnavailable": "Email not shared",
+      "account": "Account",
+      "network": "Network",
+      "accountTitle": "Coreor account",
+      "accountDescription": "The account is optional; the local database client remains fully functional without signing in.",
+      "sessionMode": "Session mode",
+      "sessionDescription": "Connection profiles, SQL history and local settings are not tied to the account.",
+      "signedIn": "Signed in • {user}",
+      "onlineFeatures": "Features available with an account",
+      "onlineFeaturesDescription": "Cloud sync, team workspaces and shared snippets will be enabled by capability in the future.",
+      "cloudPrivacy": "The Coreor Account API will be connected separately; local database data and connection passwords will not be uploaded automatically.",
+      "localWorkspace": "Local workspace",
+      "localWorkspaceDescription": "Connection and application information stored on this computer.",
+      "localVaultDescription": "Connection profiles are not stored in config.json; they are kept in an encrypted local vault protected by the device key.",
+      "vaultCounts": "{profiles} profiles • {databases} databases • {tables} tables",
+      "organizationsDescription": "Team roles and database links.",
+      "manageOrganizations": "Manage organizations"
+    },
+    "servers": {
+      "server": "Server",
+      "database": "Database",
+      "table": "Table",
+      "profiles": "Connection profiles",
+      "profilesDescription": "Edit, activate, or remove local connections from this device.",
+      "active": "ACTIVE",
+      "objectCounts": "{databases} databases • {tables} tables",
+      "editConnection": "Edit connection",
+      "removeProfile": "Remove profile",
+      "removeProfileTitle": "Remove connection profile",
+      "removeProfileDescription": "Profile \"{server}\" will only be removed from the connection vault on this device. No data on the remote database server will be deleted.",
+      "newConnection": "New connection",
+      "refreshVault": "Refresh vault"
+    },
+    "appearance": {
+      "title": "Theme and font",
+      "description": "Shared appearance for the interface and SQL editor.",
+      "appTheme": "Application theme",
+      "appThemeDescription": "Colors for all panels and modals.",
+      "syntaxTheme": "SQL syntax theme",
+      "syntaxThemeDescription": "Keyword, string and comment colors.",
+      "fontFamily": "Font family",
+      "fontDescription": "Readability for tables, menus and editor.",
+      "uiSize": "Interface size",
+      "uiSizeDescription": "General UI text size.",
+      "sqlEditor": "SQL editor",
+      "sqlEditorDescription": "Syntax layer and caret metrics.",
+      "console": "Console",
+      "consoleDescription": "Bottom log text size.",
+      "lineHeight": "Line height",
+      "lineHeightDescription": "Vertical metric that prevents text overlap."
+    },
+    "shortcuts": {
+      "commandPalette": "Command palette",
+      "newQuery": "New query",
+      "runQuery": "Run query",
+      "formatSql": "Format SQL",
+      "find": "Search Object Explorer",
+      "closeTab": "Close tab",
+      "duplicateTab": "Duplicate tab",
+      "language": "Language selector",
+      "backupCenter": "Backup center",
+      "automationCenter": "Operations center"
     }
   },
   "errors": {

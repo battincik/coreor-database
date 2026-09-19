@@ -1955,7 +1955,15 @@
       "queryDescription": "Dil servisi, dry-run ve sonuçlar",
       "securityDescription": "Şifreli kasa, readonly ve kritik onay",
       "advancedDescription": "Canlı takip, alarm ve yerel veri",
-      "aboutDescription": "Sürüm ve PR geçmişi"
+      "aboutDescription": "Sürüm ve PR geçmişi",
+      "organizations": "Organizasyonlar",
+      "servers": "Sunucular",
+      "appearance": "Görünüm",
+      "accessibility": "Erişilebilirlik",
+      "query": "Sorgu editörü",
+      "security": "Güvenlik",
+      "advanced": "Gelişmiş",
+      "about": "Yenilikler"
     },
     "themes": {
       "amoledDescription": "Saf siyah ve yüksek kontrast",
@@ -1971,7 +1979,8 @@
       "syntaxPastelDescription": "Pastel mavi tonları",
       "syntaxClassicDescription": "Canlı klasik kod renkleri",
       "syntaxGithubDescription": "GitHub koyu görünüm",
-      "syntaxLightDescription": "Açık kod görünümü"
+      "syntaxLightDescription": "Açık kod görünümü",
+      "syntaxDraculaDescription": "Mor ve pembe vurgular"
     },
     "fonts": {
       "systemDescription": "İşletim sisteminin arayüz fontu",
@@ -1981,7 +1990,9 @@
       "cascadiaDescription": "Windows ve SQL için okunaklı monospace",
       "firaDescription": "Kod ligatürlü geliştirici fontu",
       "humanistDescription": "Atkinson/Verdana tabanlı okunaklı görünüm",
-      "serifDescription": "Uzun açıklamalar için klasik karakter"
+      "serifDescription": "Uzun açıklamalar için klasik karakter",
+      "systemUi": "Sistem UI",
+      "systemMono": "Sistem Monospace"
     },
     "monitoring": {
       "refreshFast": "Çok canlı; daha fazla durum sorgusu üretir.",
@@ -2003,7 +2014,14 @@
       "rememberPanels": "Panel boyutlarını hatırla",
       "rememberPanelsDescription": "Sidebar ve çalışma alanı oranlarını saklar.",
       "saveLayout": "Yerleşimi sakla",
-      "processBackground": "Process merkezini arka planda günceller."
+      "processBackground": "Process merkezini arka planda günceller.",
+      "seconds": "{value} saniye",
+      "refreshBalanced": "Dengeli canlı takip.",
+      "refreshLow": "Daha düşük veritabanı yükü.",
+      "performanceRefresh": "Performans yenileme",
+      "openAlertCenter": "Alarm merkezini aç",
+      "openIntelligence": "Veri Zekâsı merkezini aç",
+      "autoRefresh": "Otomatik yenile"
     },
     "explorer": {
       "groupedDescription": "Veritabanı nesnelerini Tables, Views, Procedures, Functions, Triggers ve Events başlıkları altında gösterir. Kapatılırsa bütün nesneler veritabanının altında alfabetik tek listede görünür.",
@@ -2011,7 +2029,8 @@
       "detailsTitle": "Object Explorer detayları",
       "detailsDescription": "Tabloların yanında satır sayısı ve veri boyutu; diğer nesnelerde kullanılabilir kısa metadata bilgisini gösterir.",
       "showDetails": "Detayları göster",
-      "hideDetails": "Detayları gizle"
+      "hideDetails": "Detayları gizle",
+      "groupedEnabled": "Nesneleri grupla"
     },
     "accessibility": {
       "description": "Hareket, kontrast ve odak görünürlüğü.",
@@ -2040,7 +2059,12 @@
       "requestApproval": "Onay iste",
       "resultLimit": "Sonuç satır sınırı",
       "resultLimitDescription": "Tek sonuç setinin azami satır sayısı.",
-      "keyboardShortcuts": "Klavye kısayolları"
+      "keyboardShortcuts": "Klavye kısayolları",
+      "autocomplete": "SQL autocomplete",
+      "languageServerActive": "Etkin • merkezi sunucu gerekmez",
+      "dryRun": "UPDATE/DELETE dry-run",
+      "dryRunPreview": "Dry-run ön izlemesi",
+      "platformDetected": "Platform otomatik algılandı: {platform}"
     },
     "security": {
       "plaintextDescription": "Sunucu profilleri ve parolalar diskte plaintext tutulmaz.",
@@ -2061,7 +2085,19 @@
       "defaultReadOnlyDescription": "Yeni sunucu ekleme formu varsayılan olarak READ ONLY açılır. Profil içinde ayrıca değiştirilebilir.",
       "defaultReadOnly": "Varsayılan salt-okunur",
       "openApprovalCenter": "Onay merkezini aç",
-      "approvalCenterDescription": "Bekleyen, onaylanan ve reddedilen talepleri yönetin."
+      "approvalCenterDescription": "Bekleyen, onaylanan ve reddedilen talepleri yönetin.",
+      "keyReady": "anahtar hazır",
+      "keyMissing": "anahtar bulunamadı",
+      "keyOnFirstConnection": "ilk bağlantıda oluşturulacak",
+      "cloudNotActive": "Cloud sync henüz aktif değil; plaintext upload yolu bulunmuyor.",
+      "autoSnapshotDescription": "Her ALTER TABLE öncesinde tablo yapısını yerel geçmişe kaydeder.",
+      "takeSnapshot": "Snapshot al",
+      "secondApprovalDescription": "DROP ve TRUNCATE işlemlerini onay merkezine gönderir.",
+      "productionAlter": "Production ALTER onayı",
+      "productionAlterDescription": "ALTER TABLE işlemlerini de ikinci onay akışına dahil eder.",
+      "alterApproval": "ALTER için onay",
+      "manageApprovals": "Onay akışlarını yönet",
+      "readOnlyNative": "salt-okunur. Bu politika arayüz kontrollerine ek olarak native Rust/Tauri veritabanı katmanında da uygulanır."
     },
     "developer": {
       "tools": "Geliştirici araçları",
@@ -2070,7 +2106,76 @@
       "warning": "DevTools; açık SQL metinlerini, sorgu sonuçlarını, WebView runtime state’ini ve bazı IPC çağrı ayrıntılarını görüntüleyebilir. Yalnızca güvendiğiniz bilgisayarlarda ve hata ayıklama amacıyla etkinleştirin.",
       "accept": "Riskleri kabul et ve etkinleştir",
       "disabled": "DevTools kapalı",
-      "operationsDescription": "Migration, yedekleme, prepared lab, karşılaştırma ve maskeleme."
+      "operationsDescription": "Migration, yedekleme, prepared lab, karşılaştırma ve maskeleme.",
+      "enabled": "DevTools etkin",
+      "operations": "Operasyon merkezi",
+      "openOperations": "Operasyon merkezini aç"
+    },
+    "resetPreferences": "Tercihleri sıfırla",
+    "account": {
+      "userFallback": "Coreor kullanıcısı",
+      "emailUnavailable": "E-posta paylaşılmadı",
+      "account": "Hesap",
+      "network": "Ağ",
+      "accountTitle": "Coreor hesabı",
+      "accountDescription": "Hesap isteğe bağlıdır; yerel veritabanı istemcisi oturum açmadan tam olarak çalışmaya devam eder.",
+      "sessionMode": "Oturum modu",
+      "sessionDescription": "Bağlantı profilleri, SQL geçmişi ve yerel ayarlar hesaba bağlı değildir.",
+      "signedIn": "Oturum açık • {user}",
+      "onlineFeatures": "Hesapla açılabilecek özellikler",
+      "onlineFeaturesDescription": "Gelecekte cloud sync, ekip çalışma alanları ve paylaşılan snippet gibi çevrimiçi özellikler capability bazlı açılacak.",
+      "cloudPrivacy": "Coreor Account API ayrıca bağlanacak; yerel DB verileri ve bağlantı şifreleri otomatik olarak buluta gönderilmeyecek.",
+      "localWorkspace": "Yerel çalışma alanı",
+      "localWorkspaceDescription": "Bu bilgisayarda saklanan bağlantı ve uygulama bilgileri.",
+      "localVaultDescription": "Bağlantı profilleri config.json içinde tutulmaz; cihaz anahtarıyla şifrelenmiş yerel kasada saklanır.",
+      "vaultCounts": "{profiles} profil • {databases} veritabanı • {tables} tablo",
+      "organizationsDescription": "Ekip rolleri ve veritabanı bağları.",
+      "manageOrganizations": "Organizasyonları yönet"
+    },
+    "servers": {
+      "server": "Sunucu",
+      "database": "Veritabanı",
+      "table": "Tablo",
+      "profiles": "Bağlantı profilleri",
+      "profilesDescription": "Yerel bağlantıları düzenleyin, etkinleştirin veya bu cihazdan kaldırın.",
+      "active": "AKTİF",
+      "objectCounts": "{databases} veritabanı • {tables} tablo",
+      "editConnection": "Bağlantıyı düzenle",
+      "removeProfile": "Profili kaldır",
+      "removeProfileTitle": "Bağlantı profilini kaldır",
+      "removeProfileDescription": "\"{server}\" profili yalnızca bu cihazdaki bağlantı kasasından kaldırılacak. Uzak veritabanı sunucusundaki hiçbir veri silinmez.",
+      "newConnection": "Yeni bağlantı",
+      "refreshVault": "Kasayı yenile"
+    },
+    "appearance": {
+      "title": "Tema ve font",
+      "description": "Arayüz ve SQL editörü için ortak görünüm.",
+      "appTheme": "Uygulama teması",
+      "appThemeDescription": "Bütün panel ve modal renkleri.",
+      "syntaxTheme": "SQL syntax teması",
+      "syntaxThemeDescription": "Anahtar kelime, string ve yorum renkleri.",
+      "fontFamily": "Font ailesi",
+      "fontDescription": "Tablo, menü ve editör okunabilirliği.",
+      "uiSize": "Arayüz boyutu",
+      "uiSizeDescription": "Genel UI metin boyutu.",
+      "sqlEditor": "SQL editörü",
+      "sqlEditorDescription": "Syntax katmanı ve caret metrikleri.",
+      "console": "Konsol",
+      "consoleDescription": "Alt günlük yazı boyutu.",
+      "lineHeight": "Satır yüksekliği",
+      "lineHeightDescription": "Üst üste binmeyi önleyen dikey metrik."
+    },
+    "shortcuts": {
+      "commandPalette": "Komut paleti",
+      "newQuery": "Yeni sorgu",
+      "runQuery": "Sorguyu çalıştır",
+      "formatSql": "SQL biçimlendir",
+      "find": "Object Explorer ara",
+      "closeTab": "Sekmeyi kapat",
+      "duplicateTab": "Sekmeyi çoğalt",
+      "language": "Dil seçici",
+      "backupCenter": "Yedekleme merkezi",
+      "automationCenter": "Operasyon merkezi"
     }
   },
   "errors": {
