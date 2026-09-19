@@ -11,14 +11,15 @@ import {
   subscribeNotifications,
   type CoreorNotification
 } from '@/lib/notificationStore';
+import { useLanguage } from '@/context/LanguageContext';
 
-function timeLabel(value: string) {
+function timeLabel(value: string, language: string, t: (key:string,values?:Record<string,string|number>)=>string) {
   const date = new Date(value);
   const diff = Date.now() - date.getTime();
-  if (diff < 60_000) return 'şimdi';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} dk`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} sa`;
-  return date.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' });
+  if (diff < 60_000) return t('notificationCenter.now');
+  if (diff < 3_600_000) return t('notificationCenter.minutesAgo',{count:Math.floor(diff/60_000)});
+  if (diff < 86_400_000) return t('notificationCenter.hoursAgo',{count:Math.floor(diff/3_600_000)});
+  return date.toLocaleDateString(language, { day: '2-digit', month: '2-digit' });
 }
 
 function tone(notification: CoreorNotification) {
@@ -30,6 +31,7 @@ function tone(notification: CoreorNotification) {
 
 export function DatabaseNotificationBell() {
   const router = useRouter();
+  const {t,language,formatNumber}=useLanguage();
   const notifications = useSyncExternalStore(subscribeNotifications, getNotificationsSnapshot, getNotificationsServerSnapshot);
   const [open, setOpen] = useState(false);
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -74,8 +76,8 @@ export function DatabaseNotificationBell() {
         type="button"
         className="relative flex h-8 w-9 items-center justify-center text-zinc-500 transition hover:bg-white/[0.06] hover:text-zinc-100"
         onClick={() => setOpen(value => !value)}
-        title="Bildirimler"
-        aria-label="Bildirimler"
+        title={t('notificationCenter.notifications')}
+        aria-label={t('notificationCenter.notifications')}
       >
         <Bell className="h-3.5 w-3.5" />
         {unread > 0 && <span className="absolute right-1 top-1 min-w-3.5 rounded-full bg-cyan-500 px-1 text-center text-[7px] font-semibold leading-3.5 text-black">{unread > 99 ? '99+' : unread}</span>}
@@ -85,15 +87,15 @@ export function DatabaseNotificationBell() {
         <div className="absolute right-0 top-full z-[2147483100] mt-px flex h-[min(620px,calc(100dvh-44px))] w-[min(380px,calc(100vw-16px))] flex-col overflow-hidden rounded-b-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
           <header className="flex h-11 shrink-0 items-center gap-2 border-b border-zinc-800 px-3">
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-semibold text-zinc-100">Bildirimler</div>
-              <div className="text-[8px] text-zinc-600">{unread} okunmamış • son 50 kayıt</div>
+              <div className="text-[11px] font-semibold text-zinc-100">{t('notificationCenter.notifications')}</div>
+              <div className="text-[8px] text-zinc-600">{t('notificationCenter.bellSummary',{unread:formatNumber(unread),count:50})}</div>
             </div>
-            <button type="button" className="rounded p-1.5 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200" title="Tümünü okundu işaretle" onClick={markAllNotificationsRead}><CheckCheck className="h-3.5 w-3.5" /></button>
+            <button type="button" className="rounded p-1.5 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200" title={t('notificationCenter.markAllRead')} onClick={markAllNotificationsRead}><CheckCheck className="h-3.5 w-3.5" /></button>
           </header>
 
           <div className="flex shrink-0 gap-1 border-b border-zinc-800 px-2 py-1.5">
-            <button type="button" onClick={() => setUnreadOnly(false)} className={`rounded px-2 py-1 text-[9px] ${!unreadOnly ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}>Tümü</button>
-            <button type="button" onClick={() => setUnreadOnly(true)} className={`rounded px-2 py-1 text-[9px] ${unreadOnly ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}>Okunmamış</button>
+            <button type="button" onClick={() => setUnreadOnly(false)} className={`rounded px-2 py-1 text-[9px] ${!unreadOnly ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}>{t('notificationCenter.all')}</button>
+            <button type="button" onClick={() => setUnreadOnly(true)} className={`rounded px-2 py-1 text-[9px] ${unreadOnly ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}>{t('notificationCenter.unread')}</button>
           </div>
 
           <div className="coreor-scrollbar min-h-0 flex-1 overflow-y-auto">
@@ -110,14 +112,14 @@ export function DatabaseNotificationBell() {
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
                     <span className={`min-w-0 flex-1 truncate text-[10px] font-medium ${notification.readAt ? 'text-zinc-400' : 'text-zinc-100'}`}>{notification.title}</span>
-                    <span className="shrink-0 text-[8px] text-zinc-700">{timeLabel(notification.createdAt)}</span>
+                    <span className="shrink-0 text-[8px] text-zinc-700">{timeLabel(notification.createdAt,language,t)}</span>
                   </span>
                   {notification.description && <span className="mt-0.5 block truncate text-[8px] text-zinc-600">{notification.description}</span>}
                   <span className="mt-1 block truncate text-[8px] text-zinc-700">{[notification.serverName, notification.databaseName, notification.code].filter(Boolean).join(' • ') || notification.source}</span>
                 </span>
                 <ChevronRight className="mt-1 h-3 w-3 shrink-0 text-zinc-800 transition group-hover:text-zinc-500" />
               </button>
-            )) : <div className="flex h-full min-h-40 items-center justify-center text-[10px] text-zinc-700">Gösterilecek bildirim yok.</div>}
+            )) : <div className="flex h-full min-h-40 items-center justify-center text-[10px] text-zinc-700">{t('notificationCenter.empty')}</div>}
           </div>
 
           <button
@@ -125,7 +127,7 @@ export function DatabaseNotificationBell() {
             className="flex h-10 shrink-0 items-center justify-center gap-2 border-t border-zinc-800 text-[9px] font-medium text-cyan-300 hover:bg-cyan-500/[0.04]"
             onClick={() => { setOpen(false); router.push('/editor/notifications/'); }}
           >
-            Tüm bildirimleri görüntüle <ChevronRight className="h-3 w-3" />
+            {t('notificationCenter.viewAll')} <ChevronRight className="h-3 w-3" />
           </button>
         </div>
       )}

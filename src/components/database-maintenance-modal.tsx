@@ -80,7 +80,7 @@ function operationDefinitions(engine: DatabaseEngine | undefined, t: (key: strin
   if (family === 'mssql') {
     return [
       { id: 'check', label: 'CHECKTABLE', description: t('maintenance.integrityCheck'), impact: 'medium', readOnlySafe: true },
-      { id: 'update-statistics', label: 'UPDATE STATISTICS', description: 'Query optimizer istatistiklerini yeniler.', impact: 'low' },
+      { id: 'update-statistics', label: 'UPDATE STATISTICS', description: t('maintenance.optimizerStats'), impact: 'low' },
       { id: 'reorganize-index', label: 'INDEX REORGANIZE', description: t('maintenance.reorganizeIndexes'), impact: 'medium' }
     ];
   }
@@ -119,7 +119,7 @@ export function DatabaseMaintenanceModal({
   initialTable
 }: DatabaseMaintenanceModalProps) {
   const { loadServers } = useContext(DatabaseContext)!;
-  const { t } = useLanguage();
+  const { t, formatNumber } = useLanguage();
   const [databaseName, setDatabaseName] = useState(initialDatabase || '');
   const [scope, setScope] = useState<'database' | 'table'>(initialTable ? 'table' : 'database');
   const [tableName, setTableName] = useState(initialTable || '');
@@ -147,7 +147,7 @@ export function DatabaseMaintenanceModal({
     () => databases.map(item => ({
       value: item.name,
       label: item.name,
-      description: `${item.tableCount.toLocaleString('tr-TR')} tablo • ${Number(item.totalRows || 0).toLocaleString('tr-TR')} satır`
+      description: t('maintenance.databaseSummary',{tables:formatNumber(item.tableCount),rows:formatNumber(Number(item.totalRows || 0))})
     })),
     [databases]
   );
@@ -305,14 +305,14 @@ export function DatabaseMaintenanceModal({
       severity: failed ? 'warning' : 'success',
       source: 'system',
       title: cancelRef.current ? t('maintenance.taskStopped') : failed ? t('maintenance.partialFailure') : t('maintenance.completedTitle'),
-      description: `${database.name} • ${success} başarılı • ${failed} hata • ${completed}/${total} adım`,
+      description: t('maintenance.notificationSummary',{database:database.name,success:formatNumber(success),failed:formatNumber(failed),completed:formatNumber(completed),total:formatNumber(total)}),
       serverId: server.id,
       serverName: server.name,
       databaseName: database.name,
       code: failed ? 'MAINTENANCE_PARTIAL_FAILURE' : 'MAINTENANCE_COMPLETED',
       metadata: [
         { label: 'Kapsam', value: scope === 'table' ? `Tablo: ${tableName}` : `${targets.length} tablo` },
-        { label: 'İşlemler', value: operations.join(', ') },
+        { label: t('maintenance.operations'), value: operations.join(', ') },
         { label: 'Tamamlanan', value: `${completed}/${total}` }
       ]
     });
@@ -333,7 +333,7 @@ export function DatabaseMaintenanceModal({
           <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-sky-500/20 bg-sky-500/10 text-sky-300"><Wrench className="h-4 w-4" /></span>
           <div className="min-w-0 flex-1">
             <div className="text-[12px] font-semibold text-zinc-100">{t('maintenance.title')}</div>
-            <div className="mt-0.5 truncate text-[8px] text-zinc-600">{server.name} • {databaseEngineLabel(server.databaseType)} • tablo bazlı sıralı bakım</div>
+            <div className="mt-0.5 truncate text-[8px] text-zinc-600">{t('maintenance.subtitle',{server:server.name,engine:databaseEngineLabel(server.databaseType)})}</div>
           </div>
           {server.readOnly && <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[8px] text-amber-300">Salt-okunur</span>}
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} disabled={running}><X className="h-4 w-4" /></Button>
@@ -350,7 +350,7 @@ export function DatabaseMaintenanceModal({
               {scope === 'table' && <div className="mt-2"><div className="mb-1 text-[8px] uppercase tracking-wider text-zinc-600">Tablo</div><SearchSelect value={tableName} options={tableOptions} onValueChange={setTableName} disabled={running} searchPlaceholder={t('maintenance.tableSearch')} dropdownMinWidth={380} /></div>}
               <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/70 p-2.5 text-[8px] leading-4 text-zinc-500">
                 {scope === 'database' ? `${database?.tables.length || 0} tablo sırayla işlenecek.` : tableName ? `${tableName} üzerinde seçili bakım adımları çalışacak.` : t('maintenance.selectTable')}
-                {' '}Bakım tek bağlantıda toplu SQL yerine tablo/adım bazında yürütülür; bu sayede ilerleme ve hata noktası izlenebilir.
+                {' '}{t('maintenance.executionInfo')}
               </div>
             </section>
 
@@ -380,7 +380,7 @@ export function DatabaseMaintenanceModal({
                   : <Button size="sm" className="h-8 gap-1.5 text-[9px]" onClick={() => void run()} disabled={!database || !operations.length || (scope === 'table' && !tableName)}><Play className="h-3.5 w-3.5" />{t('maintenance.start')}</Button>}
               </div>
             </div>
-            {overall.total > 0 && <div className="mt-2 flex gap-3 text-[8px]"><span className="text-emerald-400">{overall.success} başarılı</span><span className={overall.failed ? 'text-red-400' : 'text-zinc-600'}>{overall.failed} hata</span><span className="text-zinc-600">{overall.total - overall.completed} bekleyen</span></div>}
+            {overall.total > 0 && <div className="mt-2 flex gap-3 text-[8px]"><span className="text-emerald-400">{t('maintenance.successCount',{count:formatNumber(overall.success)})}</span><span className={overall.failed ? 'text-red-400' : 'text-zinc-600'}>{t('maintenance.failureCount',{count:formatNumber(overall.failed)})}</span><span className="text-zinc-600">{t('maintenance.pendingCount',{count:formatNumber(overall.total-overall.completed)})}</span></div>}
           </section>
 
           {visibleTables.length > 0 && <section className="mt-3 overflow-hidden rounded-xl border border-zinc-800 bg-black/20">

@@ -12,6 +12,7 @@ import { backupTasks } from '@/lib/databaseAutomation';
 import { calculateHealthScore, compareMetric, notificationRuleStore, performanceHistoryStore, type NotificationRule } from '@/lib/decentralizedIntelligence';
 import { dispatchCoreorToast, type CoreorToastVariant } from '@/components/ui/coreor-toast';
 import { publishCoreorNotification } from '@/lib/notificationStore';
+import { useLanguage } from '@/context/LanguageContext';
 
 const COOLDOWN_KEY = 'coreor:notification-cooldowns:v1';
 
@@ -42,14 +43,15 @@ function metricValue(rule: NotificationRule, snapshot: DatabasePerformanceSnapsh
   }
 }
 
-function ruleDescription(rule: NotificationRule, value: number) {
-  const formatted = Number.isInteger(value) ? value.toLocaleString('tr-TR') : value.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
-  const unit = rule.metric.includes('percent') || rule.metric === 'buffer-usage' || rule.metric === 'health-score' ? '%' : rule.metric === 'replication-lag' ? ' sn' : '';
-  return `${rule.name}: ${formatted}${unit}. Tanımlı eşik ${rule.operator} ${rule.threshold}.`;
+function ruleDescription(rule: NotificationRule, value: number, language: string, t:(key:string,values?:Record<string,string|number>)=>string) {
+  const formatted = Number.isInteger(value) ? value.toLocaleString(language) : value.toLocaleString(language, { maximumFractionDigits: 2 });
+  const unit = rule.metric.includes('percent') || rule.metric === 'buffer-usage' || rule.metric === 'health-score' ? '%' : rule.metric === 'replication-lag' ? ` ${t('common.secondsShort')}` : '';
+  return t('notificationMonitor.ruleDescription',{name:rule.name,value:`${formatted}${unit}`,operator:rule.operator,threshold:rule.threshold});
 }
 
 export function DatabaseNotificationMonitor() {
   const { workspaceKey } = useDesktop();
+  const {t,language,formatDate}=useLanguage();
   const { preferences } = useAppPreferences();
   const { servers, activeServerId } = useContext(DatabaseContext)!;
   const activities = useSyncExternalStore(subscribeActivities, getActivitiesSnapshot, getActivitiesServerSnapshot);
@@ -75,8 +77,8 @@ export function DatabaseNotificationMonitor() {
         id: `activity-${latest.id}`,
         severity: 'error',
         source: 'sql',
-        title: latest.title || 'SQL işlemi başarısız',
-        description: latest.message || 'Veritabanı işlemi hata verdi.',
+        title: latest.title || t('notificationMonitor.sqlFailed'),
+        description: latest.message || t('notificationMonitor.databaseOperationFailed'),
         serverId: latest.serverId,
         serverName: latest.serverName,
         databaseName: latest.databaseName,
@@ -84,9 +86,9 @@ export function DatabaseNotificationMonitor() {
         code: latest.errorCode || 'DATABASE_ERROR',
         durationMs: latest.durationMs,
         metadata: [
-          { label: 'Sunucu', value: latest.serverName || '—' },
+          { label: t('notificationMonitor.server'), value: latest.serverName || '—' },
           { label: 'Hedef', value: latest.databaseName || 'sunucu geneli' },
-          { label: 'Süre', value: latest.durationMs === undefined ? '—' : `${latest.durationMs} ms` },
+          { label: t('notificationMonitor.duration'), value: latest.durationMs === undefined ? '—' : `${latest.durationMs} ms` },
           { label: 'Kod', value: latest.errorCode || 'DATABASE_ERROR' }
         ]
       });
@@ -106,7 +108,7 @@ export function DatabaseNotificationMonitor() {
         id: `slow-${latest.id}`,
         severity: 'warning',
         source: 'sql',
-        title: 'Yavaş SQL işlemi algılandı',
+        title: t('notificationMonitor.slowSqlDetected'),
         description: latest.title || latest.sql.replace(/\s+/g, ' ').slice(0, 160),
         serverId: latest.serverId,
         serverName: latest.serverName,
@@ -116,9 +118,9 @@ export function DatabaseNotificationMonitor() {
         durationMs: latest.durationMs,
         metadata: [
           { label: 'Sunucu', value: latest.serverName || '—' },
-          { label: 'Süre', value: `${latest.durationMs} ms` },
-          { label: 'Satır', value: latest.rowCount ?? latest.affectedRows ?? '—' },
-          { label: 'Kaynak', value: 'Yerel SQL günlüğü' }
+          { label: t('notificationMonitor.duration'), value: `${latest.durationMs} ms` },
+          { label: t('notificationMonitor.rows'), value: latest.rowCount ?? latest.affectedRows ?? '—' },
+          { label: t('notificationMonitor.source'), value: t('notificationMonitor.localSqlLog') }
         ]
       });
       dispatchCoreorToast({
@@ -182,7 +184,7 @@ export function DatabaseNotificationMonitor() {
             severity: rule.severity as CoreorToastVariant,
             source: 'performance',
             title: rule.name,
-            description: ruleDescription(rule, value),
+            description: ruleDescription(rule, value, language, t),
             serverId: server.id,
             serverName: server.name,
             databaseName: server.databaseName || undefined,
@@ -190,8 +192,8 @@ export function DatabaseNotificationMonitor() {
             metadata: [
               { label: 'Sunucu', value: server.name },
               { label: 'Motor', value: server.databaseType || 'mysql' },
-              { label: 'Ölçüm', value: new Date(snapshot.sampledAt).toLocaleTimeString('tr-TR') },
-              { label: 'Sağlık', value: `${health.score}/100` }
+              { label: t('notificationMonitor.measurement'), value: formatDate(snapshot.sampledAt,{timeStyle:'medium'}) },
+              { label: t('notificationMonitor.health'), value: `${health.score}/100` }
             ]
           });
           dispatchCoreorToast({
@@ -219,7 +221,7 @@ export function DatabaseNotificationMonitor() {
               severity: unreachableRule.severity as CoreorToastVariant,
               source: 'connection',
               title: unreachableRule.name,
-              description: error instanceof Error ? error.message : String(error || 'Sunucu durumu alınamadı.'),
+              description: error instanceof Error ? error.message : String(error || t('notificationMonitor.serverStatusFailed')),
               serverId: server.id,
               serverName: server.name,
               code: 'SERVER_UNREACHABLE',

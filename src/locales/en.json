@@ -38,7 +38,8 @@
     "select": "Select",
     "success": "Success",
     "warning": "Warning",
-    "yes": "Yes"
+    "yes": "Yes",
+    "secondsShort": "s"
   },
   "app": {
     "accessibility": "Accessibility",
@@ -959,7 +960,13 @@
     "code": "Code",
     "errors": "Errors",
     "summary": "{total} records • {unread} unread",
-    "localHistoryNote": "This record was written to the local notification history by Coreor Database. SQL/performance notifications are stored in the encrypted workspace vault on this device and remain available here after the toast closes."
+    "localHistoryNote": "This record was written to the local notification history by Coreor Database. SQL/performance notifications are stored in the encrypted workspace vault on this device and remain available here after the toast closes.",
+    "now": "now",
+    "minutesAgo": "{count} min",
+    "hoursAgo": "{count} h",
+    "bellSummary": "{unread} unread • latest {count} records",
+    "all": "All",
+    "viewAll": "View all notifications"
   },
   "maintenance": {
     "title": "Maintenance center",
@@ -1003,7 +1010,14 @@
     "singleTable": "Single table",
     "tableSearch": "Search table…",
     "stopped": "Stopped",
-    "pending": "Pending"
+    "pending": "Pending",
+    "databaseSummary": "{tables} tables • {rows} rows",
+    "notificationSummary": "{database} • {success} successful • {failed} errors • {completed}/{total} steps",
+    "subtitle": "{server} • {engine} • sequential table maintenance",
+    "executionInfo": "Maintenance runs table/step by table/step instead of sending one bulk SQL statement over a single connection, so progress and failure points remain observable.",
+    "successCount": "{count} successful",
+    "failureCount": "{count} errors",
+    "pendingCount": "{count} pending"
   },
   "processCenter": {
     "title": "Process and lock center",
@@ -1029,7 +1043,19 @@
     "terminateFailed": "Process could not be terminated.",
     "openSql": "Open in SQL editor",
     "copySummary": "Copy process summary",
-    "killQueryOnly": "Terminate query only"
+    "killQueryOnly": "Terminate query only",
+    "seconds": "{count} s",
+    "minutesSeconds": "{minutes} min {seconds} s",
+    "hoursMinutes": "{hours} h {minutes} min",
+    "query": "query",
+    "connection": "connection",
+    "terminateQuery": "Terminate query",
+    "terminateConnection": "Terminate connection",
+    "terminateDescription": "{label} #{id} will be terminated on the server. The running operation may roll back or the client connection may be disconnected.",
+    "general": "general",
+    "duration": "Duration",
+    "action": "Action",
+    "status": "Status"
   },
   "performancePanel": {
     "title": "Database performance panel",
@@ -1517,15 +1543,19 @@
     "value": "Value"
   },
   "notificationMonitor": {
+    "ruleDescription": "{name}: {value}. Configured threshold {operator} {threshold}.",
     "sqlFailed": "SQL operation failed",
-    "databaseOperationFailed": "Database operation failed.",
+    "databaseOperationFailed": "The database operation returned an error.",
+    "server": "Server",
+    "target": "Target",
     "duration": "Duration",
-    "slowSql": "Slow SQL operation detected",
-    "row": "Row",
+    "slowSqlDetected": "Slow SQL operation detected",
+    "rows": "Rows",
+    "source": "Source",
     "localSqlLog": "Local SQL log",
     "measurement": "Measurement",
     "health": "Health",
-    "serverStatusUnavailable": "Server status unavailable."
+    "serverStatusFailed": "Could not retrieve server status."
   },
   "panel": {
     "preparing": "Preparing workspace",

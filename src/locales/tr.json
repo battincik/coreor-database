@@ -38,7 +38,8 @@
     "select": "Seçim yapın",
     "success": "Başarılı",
     "warning": "Uyarı",
-    "yes": "Evet"
+    "yes": "Evet",
+    "secondsShort": "sn"
   },
   "app": {
     "accessibility": "Erişilebilirlik",
@@ -959,7 +960,13 @@
     "code": "Kod",
     "errors": "Hatalar",
     "summary": "{total} kayıt • {unread} okunmamış",
-    "localHistoryNote": "Bu kayıt Coreor Database tarafından yerel bildirim geçmişine yazılmıştır. SQL/performans bildirimleri cihazdaki şifreli workspace kasasında tutulur; toast kapansa bile buradan incelenebilir."
+    "localHistoryNote": "Bu kayıt Coreor Database tarafından yerel bildirim geçmişine yazılmıştır. SQL/performans bildirimleri cihazdaki şifreli workspace kasasında tutulur; toast kapansa bile buradan incelenebilir.",
+    "now": "şimdi",
+    "minutesAgo": "{count} dk",
+    "hoursAgo": "{count} sa",
+    "bellSummary": "{unread} okunmamış • son {count} kayıt",
+    "all": "Tümü",
+    "viewAll": "Tüm bildirimleri görüntüle"
   },
   "maintenance": {
     "title": "Bakım merkezi",
@@ -1003,7 +1010,14 @@
     "singleTable": "Tek tablo",
     "tableSearch": "Tablo ara…",
     "stopped": "Durduruldu",
-    "pending": "Bekliyor"
+    "pending": "Bekliyor",
+    "databaseSummary": "{tables} tablo • {rows} satır",
+    "notificationSummary": "{database} • {success} başarılı • {failed} hata • {completed}/{total} adım",
+    "subtitle": "{server} • {engine} • tablo bazlı sıralı bakım",
+    "executionInfo": "Bakım tek bağlantıda toplu SQL yerine tablo/adım bazında yürütülür; bu sayede ilerleme ve hata noktası izlenebilir.",
+    "successCount": "{count} başarılı",
+    "failureCount": "{count} hata",
+    "pendingCount": "{count} bekleyen"
   },
   "processCenter": {
     "title": "Process ve kilit merkezi",
@@ -1029,7 +1043,19 @@
     "terminateFailed": "Process sonlandırılamadı.",
     "openSql": "SQL editöründe aç",
     "copySummary": "Process özetini kopyala",
-    "killQueryOnly": "Yalnız sorguyu sonlandır"
+    "killQueryOnly": "Yalnız sorguyu sonlandır",
+    "seconds": "{count} sn",
+    "minutesSeconds": "{minutes} dk {seconds} sn",
+    "hoursMinutes": "{hours} sa {minutes} dk",
+    "query": "sorgu",
+    "connection": "bağlantı",
+    "terminateQuery": "Sorguyu sonlandır",
+    "terminateConnection": "Bağlantıyı sonlandır",
+    "terminateDescription": "{id} numaralı {label} sunucuda sonlandırılacak. Devam eden işlem rollback olabilir veya istemci bağlantısı kesilebilir.",
+    "general": "genel",
+    "duration": "Süre",
+    "action": "İşlem",
+    "status": "Durum"
   },
   "performancePanel": {
     "title": "Veritabanı performans paneli",
@@ -1517,15 +1543,19 @@
     "value": "Değer"
   },
   "notificationMonitor": {
+    "ruleDescription": "{name}: {value}. Tanımlı eşik {operator} {threshold}.",
     "sqlFailed": "SQL işlemi başarısız",
     "databaseOperationFailed": "Veritabanı işlemi hata verdi.",
+    "server": "Sunucu",
+    "target": "Hedef",
     "duration": "Süre",
-    "slowSql": "Yavaş SQL işlemi algılandı",
-    "row": "Satır",
+    "slowSqlDetected": "Yavaş SQL işlemi algılandı",
+    "rows": "Satır",
+    "source": "Kaynak",
     "localSqlLog": "Yerel SQL günlüğü",
     "measurement": "Ölçüm",
     "health": "Sağlık",
-    "serverStatusUnavailable": "Sunucu durumu alınamadı."
+    "serverStatusFailed": "Sunucu durumu alınamadı."
   },
   "panel": {
     "preparing": "Çalışma alanı hazırlanıyor",
