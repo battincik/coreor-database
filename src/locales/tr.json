@@ -1165,7 +1165,9 @@
     "clearResult": "Sonucu temizle",
     "copyLiteral": "SQL literal olarak kopyala",
     "rowsMayBeAffected": "{count} satır etkilenebilir.",
-    "sourceTable": "Kaynak tablo: {table}"
+    "sourceTable": "Kaynak tablo: {table}",
+    "dryRunResult": "Dry-run sonucu",
+    "rowsCount": "{count} satır"
   },
   "notebookExtra": {
     "chartColumns": "Grafik için kategori ve sayısal değer kolonu seçin.",
@@ -1309,7 +1311,8 @@
     "virtualizedDom": "Virtualized • DOM {visible}/{total}",
     "primaryKeyLabel": "Primary key: {columns}",
     "noPrimaryKey": "Primary key yok: düzenleme kapalı",
-    "selectedCount": "{count} seçili"
+    "selectedCount": "{count} seçili",
+    "cellUpdateFailed": "Hücre güncellenemedi."
   },
   "tableSchema": {
     "simple": "Basit",
