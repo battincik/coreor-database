@@ -3023,6 +3023,45 @@
       "time": "Zaman",
       "geographic": "Coğrafi",
       "text": "Metin"
+    },
+    "quality": {
+      "nullRate": "NULL oranı %{percent}.",
+      "empty": "Boş string değerleri bulundu.",
+      "duplicate": "Benzersiz olması beklenen kolonda tekrarlar var.",
+      "whitespace": "Başında veya sonunda boşluk bulunan değerler var.",
+      "invalidEmail": "Geçersiz e-posta biçimleri bulundu.",
+      "invalidPhone": "Kısa veya geçersiz telefon değerleri bulundu.",
+      "longText": "5.000 karakterden uzun metinler bulundu.",
+      "outlier": "Üç standart sapmanın dışında sayısal değerler var."
+    },
+    "health": {
+      "snapshotLabel": "Sunucu ölçümü",
+      "snapshotMissing": "Canlı snapshot alınamadı.",
+      "connectionsLabel": "Bağlantı kapasitesi",
+      "connectionsMessage": "%{percent} bağlantı kullanımı.",
+      "bufferLabel": "Buffer pool",
+      "bufferMessage": "%{usage} kullanım, dirty %{dirty}.",
+      "replicationLabel": "Replikasyon",
+      "replicationUnavailable": "Replica bilgisi yok.",
+      "replicationMessage": "{seconds} saniye gecikme.",
+      "threadsLabel": "Çalışan sorgular",
+      "threadsMessage": "{count} çalışan thread.",
+      "slowLabel": "Slow query sayacı",
+      "slowMessage": "{count} global slow query.",
+      "queriesLabel": "Yerel sorgu başarısı",
+      "queriesMessage": "Son {count} sorguda {errors} hata, {slow} yavaş sorgu.",
+      "backupLabel": "Yedek güncelliği",
+      "backupMissing": "Tamamlanan yedek kaydı yok.",
+      "backupMessage": "Son yedek {hours} saat önce."
+    },
+    "rules": {
+      "connections": "Bağlantı kullanımı yüksek",
+      "running": "Çalışan thread sayısı yüksek",
+      "slow": "Yeni slow query algılandı",
+      "buffer": "Buffer pool kritik doluluk",
+      "replication": "Replication gecikmesi",
+      "unreachable": "Sunucuya ulaşılamıyor",
+      "health": "Sağlık skoru düştü"
     }
   }
 }

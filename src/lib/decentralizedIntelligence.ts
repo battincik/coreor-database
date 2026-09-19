@@ -3,6 +3,7 @@
 import type { DatabaseEngine, TableColumnInfo } from 'types';
 import type { ActivityEntry } from '@/lib/activityConsole';
 import type { DatabasePerformanceSnapshot } from '@/lib/databaseWorkbenchTypes';
+import { getRuntimeLocale, translateRuntime } from '@/lib/i18nRuntime';
 
 export type MaskKind =
   | 'redact' | 'email' | 'phone' | 'tc' | 'address' | 'iban' | 'credit-card'
@@ -496,22 +497,22 @@ export function analyzeDataQuality(rows: Record<string, unknown>[]): DataQuality
     const duplicates = Math.max(0, normalized.length - distinct);
     const numeric = values.map(Number).filter(Number.isFinite);
     const sample = values.filter(value => value !== null && value !== undefined).slice(0, 5);
-    if (rows.length && nulls / rows.length > .2) issues.push({ id:`${column}:null`, column, severity:nulls / rows.length > .5 ? 'error':'warning', type:'null-rate', message:`NULL oranı %${Math.round(nulls/rows.length*100)}.`, affected:nulls, sample });
-    if (empty) issues.push({ id:`${column}:empty`, column, severity:'warning', type:'empty', message:'Boş string değerleri bulundu.', affected:empty, sample });
-    if (duplicates > Math.max(5, rows.length * .5) && /(^id$|_id$|email|username|code|sku)/i.test(column)) issues.push({ id:`${column}:dup`, column, severity:'error', type:'duplicate', message:'Benzersiz olması beklenen kolonda tekrarlar var.', affected:duplicates, sample });
+    if (rows.length && nulls / rows.length > .2) issues.push({ id:`${column}:null`, column, severity:nulls / rows.length > .5 ? 'error':'warning', type:'null-rate', message:translateRuntime('intelligenceCatalog.quality.nullRate',{percent:Math.round(nulls/rows.length*100)}), affected:nulls, sample });
+    if (empty) issues.push({ id:`${column}:empty`, column, severity:'warning', type:'empty', message:translateRuntime('intelligenceCatalog.quality.empty'), affected:empty, sample });
+    if (duplicates > Math.max(5, rows.length * .5) && /(^id$|_id$|email|username|code|sku)/i.test(column)) issues.push({ id:`${column}:dup`, column, severity:'error', type:'duplicate', message:translateRuntime('intelligenceCatalog.quality.duplicate'), affected:duplicates, sample });
     const whitespace = values.filter(value => typeof value === 'string' && value !== value.trim()).length;
-    if (whitespace) issues.push({ id:`${column}:space`, column, severity:'warning', type:'whitespace', message:'Başında veya sonunda boşluk bulunan değerler var.', affected:whitespace, sample });
+    if (whitespace) issues.push({ id:`${column}:space`, column, severity:'warning', type:'whitespace', message:translateRuntime('intelligenceCatalog.quality.whitespace'), affected:whitespace, sample });
     const invalidEmail = /email/i.test(column) ? values.filter(value => value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value))).length : 0;
-    if (invalidEmail) issues.push({ id:`${column}:email`, column, severity:'error', type:'format', message:'Geçersiz e-posta biçimleri bulundu.', affected:invalidEmail, sample });
+    if (invalidEmail) issues.push({ id:`${column}:email`, column, severity:'error', type:'format', message:translateRuntime('intelligenceCatalog.quality.invalidEmail'), affected:invalidEmail, sample });
     const invalidPhone = /(phone|telefon|mobile)/i.test(column) ? values.filter(value => value && String(value).replace(/\D/g,'').length < 10).length : 0;
-    if (invalidPhone) issues.push({ id:`${column}:phone`, column, severity:'warning', type:'format', message:'Kısa veya geçersiz telefon değerleri bulundu.', affected:invalidPhone, sample });
+    if (invalidPhone) issues.push({ id:`${column}:phone`, column, severity:'warning', type:'format', message:translateRuntime('intelligenceCatalog.quality.invalidPhone'), affected:invalidPhone, sample });
     const longValues = values.filter(value => typeof value === 'string' && value.length > 5000).length;
-    if (longValues) issues.push({ id:`${column}:length`, column, severity:'info', type:'length', message:'5.000 karakterden uzun metinler bulundu.', affected:longValues, sample });
+    if (longValues) issues.push({ id:`${column}:length`, column, severity:'info', type:'length', message:translateRuntime('intelligenceCatalog.quality.longText'), affected:longValues, sample });
     if (numeric.length >= 8) {
       const average = numeric.reduce((sum,value)=>sum+value,0)/numeric.length;
       const deviation = Math.sqrt(numeric.reduce((sum,value)=>sum+(value-average)**2,0)/numeric.length);
       const outliers = numeric.filter(value => Math.abs(value-average) > deviation*3).length;
-      if (outliers) issues.push({ id:`${column}:outlier`, column, severity:'warning', type:'outlier', message:'Üç standart sapmanın dışında sayısal değerler var.', affected:outliers, sample });
+      if (outliers) issues.push({ id:`${column}:outlier`, column, severity:'warning', type:'outlier', message:translateRuntime('intelligenceCatalog.quality.outlier'), affected:outliers, sample });
       return { column, nulls, empty, distinct, duplicates, min:Math.min(...numeric), max:Math.max(...numeric), average };
     }
     return { column, nulls, empty, distinct, duplicates };
@@ -523,23 +524,23 @@ export function analyzeDataQuality(rows: Record<string, unknown>[]): DataQuality
 export function calculateHealthScore(snapshot: DatabasePerformanceSnapshot | null, activities: ActivityEntry[], backupAgeHours?: number | null): HealthScore {
   const factors: HealthFactor[] = [];
   const add = (factor: HealthFactor) => factors.push(factor);
-  if (!snapshot) add({ id:'snapshot', label:'Sunucu ölçümü', score:0, maximum:20, status:'unknown', message:'Canlı snapshot alınamadı.' });
+  if (!snapshot) add({ id:'snapshot', label:translateRuntime('intelligenceCatalog.health.snapshotLabel'), score:0, maximum:20, status:'unknown', message:translateRuntime('intelligenceCatalog.health.snapshotMissing') });
   else {
     const connectionPercent = snapshot.maxConnections ? snapshot.threadsConnected/snapshot.maxConnections*100 : 0;
-    add({ id:'connections', label:'Bağlantı kapasitesi', score:connectionPercent<65?15:connectionPercent<85?9:2, maximum:15, status:connectionPercent<65?'healthy':connectionPercent<85?'warning':'critical', message:`%${connectionPercent.toFixed(1)} bağlantı kullanımı.` });
+    add({ id:'connections', label:translateRuntime('intelligenceCatalog.health.connectionsLabel'), score:connectionPercent<65?15:connectionPercent<85?9:2, maximum:15, status:connectionPercent<65?'healthy':connectionPercent<85?'warning':'critical', message:translateRuntime('intelligenceCatalog.health.connectionsMessage',{percent:connectionPercent.toFixed(1)}) });
     const buffer = snapshot.bufferPool.usagePercent;
-    add({ id:'buffer', label:'Buffer pool', score:buffer<90?15:buffer<97?10:4, maximum:15, status:buffer<90?'healthy':buffer<97?'warning':'critical', message:`%${buffer.toFixed(1)} kullanım, dirty %${snapshot.bufferPool.dirtyPercent.toFixed(1)}.` });
+    add({ id:'buffer', label:translateRuntime('intelligenceCatalog.health.bufferLabel'), score:buffer<90?15:buffer<97?10:4, maximum:15, status:buffer<90?'healthy':buffer<97?'warning':'critical', message:translateRuntime('intelligenceCatalog.health.bufferMessage',{usage:buffer.toFixed(1),dirty:snapshot.bufferPool.dirtyPercent.toFixed(1)}) });
     const lag = snapshot.replication.secondsBehind;
-    add({ id:'replication', label:'Replikasyon', score:!snapshot.replication.available?8:lag===null?8:lag<10?15:lag<60?8:1, maximum:15, status:!snapshot.replication.available?'unknown':lag!==null&&lag>=60?'critical':lag!==null&&lag>=10?'warning':'healthy', message:!snapshot.replication.available?'Replica bilgisi yok.':`${lag ?? '—'} saniye gecikme.` });
-    add({ id:'threads', label:'Çalışan sorgular', score:snapshot.threadsRunning<10?10:snapshot.threadsRunning<30?6:1, maximum:10, status:snapshot.threadsRunning<10?'healthy':snapshot.threadsRunning<30?'warning':'critical', message:`${snapshot.threadsRunning} çalışan thread.` });
-    add({ id:'slow', label:'Slow query sayacı', score:snapshot.slowQueries===0?10:snapshot.slowQueries<100?7:3, maximum:10, status:snapshot.slowQueries===0?'healthy':snapshot.slowQueries<100?'warning':'critical', message:`${snapshot.slowQueries.toLocaleString('tr-TR')} global slow query.` });
+    add({ id:'replication', label:translateRuntime('intelligenceCatalog.health.replicationLabel'), score:!snapshot.replication.available?8:lag===null?8:lag<10?15:lag<60?8:1, maximum:15, status:!snapshot.replication.available?'unknown':lag!==null&&lag>=60?'critical':lag!==null&&lag>=10?'warning':'healthy', message:!snapshot.replication.available?translateRuntime('intelligenceCatalog.health.replicationUnavailable'):translateRuntime('intelligenceCatalog.health.replicationMessage',{seconds:lag ?? '—'}) });
+    add({ id:'threads', label:translateRuntime('intelligenceCatalog.health.threadsLabel'), score:snapshot.threadsRunning<10?10:snapshot.threadsRunning<30?6:1, maximum:10, status:snapshot.threadsRunning<10?'healthy':snapshot.threadsRunning<30?'warning':'critical', message:translateRuntime('intelligenceCatalog.health.threadsMessage',{count:snapshot.threadsRunning}) });
+    add({ id:'slow', label:translateRuntime('intelligenceCatalog.health.slowLabel'), score:snapshot.slowQueries===0?10:snapshot.slowQueries<100?7:3, maximum:10, status:snapshot.slowQueries===0?'healthy':snapshot.slowQueries<100?'warning':'critical', message:translateRuntime('intelligenceCatalog.health.slowMessage',{count:snapshot.slowQueries.toLocaleString(getRuntimeLocale())}) });
   }
   const relevant = activities.filter(item => item.durationMs !== undefined).slice(-100);
   const errors = relevant.filter(item => item.level==='error').length;
   const slow = relevant.filter(item => (item.durationMs||0)>=1000).length;
-  add({ id:'queries', label:'Yerel sorgu başarısı', score:errors===0&&slow<5?15:errors<5&&slow<20?9:3, maximum:15, status:errors===0&&slow<5?'healthy':errors<5?'warning':'critical', message:`Son ${relevant.length} sorguda ${errors} hata, ${slow} yavaş sorgu.` });
-  if (backupAgeHours === null || backupAgeHours === undefined) add({ id:'backup', label:'Yedek güncelliği', score:5, maximum:15, status:'unknown', message:'Tamamlanan yedek kaydı yok.' });
-  else add({ id:'backup', label:'Yedek güncelliği', score:backupAgeHours<24?15:backupAgeHours<72?9:2, maximum:15, status:backupAgeHours<24?'healthy':backupAgeHours<72?'warning':'critical', message:`Son yedek ${Math.round(backupAgeHours)} saat önce.` });
+  add({ id:'queries', label:translateRuntime('intelligenceCatalog.health.queriesLabel'), score:errors===0&&slow<5?15:errors<5&&slow<20?9:3, maximum:15, status:errors===0&&slow<5?'healthy':errors<5?'warning':'critical', message:translateRuntime('intelligenceCatalog.health.queriesMessage',{count:relevant.length,errors,slow}) });
+  if (backupAgeHours === null || backupAgeHours === undefined) add({ id:'backup', label:translateRuntime('intelligenceCatalog.health.backupLabel'), score:5, maximum:15, status:'unknown', message:translateRuntime('intelligenceCatalog.health.backupMissing') });
+  else add({ id:'backup', label:translateRuntime('intelligenceCatalog.health.backupLabel'), score:backupAgeHours<24?15:backupAgeHours<72?9:2, maximum:15, status:backupAgeHours<24?'healthy':backupAgeHours<72?'warning':'critical', message:translateRuntime('intelligenceCatalog.health.backupMessage',{hours:Math.round(backupAgeHours)}) });
   const score = Math.round(factors.reduce((sum,factor)=>sum+factor.score,0)/Math.max(1,factors.reduce((sum,factor)=>sum+factor.maximum,0))*100);
   return { score, grade:score>=90?'A':score>=80?'B':score>=65?'C':score>=50?'D':'F', factors };
 }
@@ -549,15 +550,17 @@ function writeLocal<T>(key:string,value:T) { if(typeof window==='undefined') ret
 
 const HISTORY_KEY='coreor:performance-history:v1';
 const RULES_KEY='coreor:notification-rules:v1';
-export const DEFAULT_NOTIFICATION_RULES: NotificationRule[] = [
-  { id:'connections', name:'Bağlantı kullanımı yüksek', metric:'connection-percent', operator:'gte', threshold:80, enabled:true, severity:'warning', cooldownSeconds:300 },
-  { id:'running', name:'Çalışan thread sayısı yüksek', metric:'running-threads', operator:'gte', threshold:25, enabled:true, severity:'warning', cooldownSeconds:180 },
-  { id:'slow', name:'Yeni slow query algılandı', metric:'slow-query-delta', operator:'gt', threshold:0, enabled:true, severity:'warning', cooldownSeconds:120 },
-  { id:'buffer', name:'Buffer pool kritik doluluk', metric:'buffer-usage', operator:'gte', threshold:97, enabled:true, severity:'danger', cooldownSeconds:300 },
-  { id:'replication', name:'Replication gecikmesi', metric:'replication-lag', operator:'gte', threshold:30, enabled:true, severity:'error', cooldownSeconds:180 },
-  { id:'unreachable', name:'Sunucuya ulaşılamıyor', metric:'server-unreachable', operator:'eq', threshold:1, enabled:true, severity:'error', cooldownSeconds:120 },
-  { id:'health', name:'Sağlık skoru düştü', metric:'health-score', operator:'lt', threshold:70, enabled:true, severity:'primary', cooldownSeconds:600 }
-];
+function defaultNotificationRules(): NotificationRule[] {
+  return [
+    { id:'connections', name:translateRuntime('intelligenceCatalog.rules.connections'), metric:'connection-percent', operator:'gte', threshold:80, enabled:true, severity:'warning', cooldownSeconds:300 },
+    { id:'running', name:translateRuntime('intelligenceCatalog.rules.running'), metric:'running-threads', operator:'gte', threshold:25, enabled:true, severity:'warning', cooldownSeconds:180 },
+    { id:'slow', name:translateRuntime('intelligenceCatalog.rules.slow'), metric:'slow-query-delta', operator:'gt', threshold:0, enabled:true, severity:'warning', cooldownSeconds:120 },
+    { id:'buffer', name:translateRuntime('intelligenceCatalog.rules.buffer'), metric:'buffer-usage', operator:'gte', threshold:97, enabled:true, severity:'danger', cooldownSeconds:300 },
+    { id:'replication', name:translateRuntime('intelligenceCatalog.rules.replication'), metric:'replication-lag', operator:'gte', threshold:30, enabled:true, severity:'error', cooldownSeconds:180 },
+    { id:'unreachable', name:translateRuntime('intelligenceCatalog.rules.unreachable'), metric:'server-unreachable', operator:'eq', threshold:1, enabled:true, severity:'error', cooldownSeconds:120 },
+    { id:'health', name:translateRuntime('intelligenceCatalog.rules.health'), metric:'health-score', operator:'lt', threshold:70, enabled:true, severity:'primary', cooldownSeconds:600 }
+  ];
+}
 
 export const performanceHistoryStore = {
   list(serverId?:string) { const values=readLocal<PerformanceHistoryPoint[]>(HISTORY_KEY,[]); return serverId?values.filter(item=>item.serverId===serverId):values; },
@@ -565,9 +568,9 @@ export const performanceHistoryStore = {
   clear(serverId?:string) { const values=readLocal<PerformanceHistoryPoint[]>(HISTORY_KEY,[]); writeLocal(HISTORY_KEY,serverId?values.filter(item=>item.serverId!==serverId):[]); }
 };
 export const notificationRuleStore = {
-  list() { return readLocal<NotificationRule[]>(RULES_KEY,DEFAULT_NOTIFICATION_RULES); },
+  list() { return readLocal<NotificationRule[]>(RULES_KEY,defaultNotificationRules()); },
   save(rules:NotificationRule[]) { writeLocal(RULES_KEY,rules); },
-  reset() { writeLocal(RULES_KEY,DEFAULT_NOTIFICATION_RULES); }
+  reset() { writeLocal(RULES_KEY,defaultNotificationRules()); }
 };
 
 export function compareMetric(value:number,operator:NotificationRule['operator'],threshold:number) {

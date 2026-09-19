@@ -3023,6 +3023,45 @@
       "time": "Time",
       "geographic": "Geographic",
       "text": "Text"
+    },
+    "quality": {
+      "nullRate": "NULL rate is {percent}%.",
+      "empty": "Empty string values were found.",
+      "duplicate": "Duplicates exist in a column expected to be unique.",
+      "whitespace": "Values with leading or trailing whitespace were found.",
+      "invalidEmail": "Invalid email formats were found.",
+      "invalidPhone": "Short or invalid phone values were found.",
+      "longText": "Text values longer than 5,000 characters were found.",
+      "outlier": "Numeric values outside three standard deviations were found."
+    },
+    "health": {
+      "snapshotLabel": "Server measurement",
+      "snapshotMissing": "Live snapshot is unavailable.",
+      "connectionsLabel": "Connection capacity",
+      "connectionsMessage": "{percent}% connection usage.",
+      "bufferLabel": "Buffer pool",
+      "bufferMessage": "{usage}% usage, {dirty}% dirty.",
+      "replicationLabel": "Replication",
+      "replicationUnavailable": "Replica information is unavailable.",
+      "replicationMessage": "{seconds} seconds lag.",
+      "threadsLabel": "Running queries",
+      "threadsMessage": "{count} running threads.",
+      "slowLabel": "Slow-query counter",
+      "slowMessage": "{count} global slow queries.",
+      "queriesLabel": "Local query success",
+      "queriesMessage": "Among the last {count} queries: {errors} errors, {slow} slow queries.",
+      "backupLabel": "Backup freshness",
+      "backupMissing": "No completed backup record.",
+      "backupMessage": "Last backup was {hours} hours ago."
+    },
+    "rules": {
+      "connections": "High connection usage",
+      "running": "High running-thread count",
+      "slow": "New slow query detected",
+      "buffer": "Critical buffer-pool usage",
+      "replication": "Replication lag",
+      "unreachable": "Server unreachable",
+      "health": "Health score dropped"
     }
   }
 }
