@@ -1,5 +1,7 @@
 'use client';
 
+import { translateRuntime } from '@/lib/i18nRuntime';
+
 export interface DatabaseErrorPayload {
   error?: string;
   message?: string;
@@ -27,139 +29,57 @@ interface ErrorGuidance {
   reauthenticate?: boolean;
 }
 
-const ERROR_GUIDANCE: Record<string, ErrorGuidance> = {
-  UNAUTHORIZED: {
-    message: 'Oturumunuz doğrulanamadı.',
-    hint: 'GitHub ile yeniden giriş yapıp işlemi tekrar deneyin.',
-    reauthenticate: true
-  },
-  SESSION_INVALID: {
-    message: 'Oturumunuz artık geçerli değil.',
-    hint: 'GitHub ile yeniden giriş yapın.',
-    reauthenticate: true
-  },
-  AUTH_USER_NOT_ALLOWED: {
-    message: 'Bu GitHub hesabının veritabanı çalışma alanına erişim izni yok.',
-    hint: 'Hesabın GitHub kullanıcı ID’sini uygulamanın erişim listesine ekleyin.'
-  },
-  CROSS_ORIGIN_REQUEST_REJECTED: {
-    message: 'İstek güvenlik politikası nedeniyle reddedildi.',
-    hint: 'Uygulamayı yapılandırılmış ana adresinden açıp tekrar deneyin.'
-  },
-  DATABASE_HOST_NOT_ALLOWED: {
-    message: 'Bu veritabanı sunucusuna bağlantıya izin verilmiyor.',
-    hint: 'Host adresini PROD veritabanı allowlist ayarına ekleyin.'
-  },
-  PRIVATE_DATABASE_HOST_NOT_ALLOWED: {
-    message: 'Özel veya yerel ağdaki bu veritabanı hedefi izinli değil.',
-    hint: 'Sunucuyu açıkça veritabanı host allowlist’ine ekleyin.'
-  },
-  DATABASE_PORT_NOT_ALLOWED: {
-    message: 'Bu veritabanı portuna bağlantıya izin verilmiyor.',
-    hint: 'Portu sunucu tarafındaki izin verilen port listesine ekleyin.'
-  },
-  DATABASE_AUTHENTICATION_FAILED: {
-    message: 'Veritabanı kullanıcı bilgilerini kabul etmedi.',
-    hint: 'Kullanıcı adı, parola ve host bazlı kullanıcı yetkisini kontrol edin.'
-  },
-  ER_ACCESS_DENIED_ERROR: {
-    message: 'Veritabanı kullanıcı bilgilerini kabul etmedi.',
-    hint: 'Kullanıcı adı, parola ve host bazlı kullanıcı yetkisini kontrol edin.'
-  },
-  DATABASE_HOST_NOT_FOUND: {
-    message: 'Veritabanı sunucusunun adresi çözümlenemedi.',
-    hint: 'Host adını ve DNS kaydını kontrol edin.',
-    retryable: true
-  },
-  ENOTFOUND: {
-    message: 'Veritabanı sunucusunun adresi çözümlenemedi.',
-    hint: 'Host adını ve DNS kaydını kontrol edin.',
-    retryable: true
-  },
-  EAI_AGAIN: {
-    message: 'DNS geçici olarak veritabanı adresini çözemedi.',
-    hint: 'Kısa süre sonra tekrar deneyin.',
-    retryable: true
-  },
-  DATABASE_CONNECTION_TIMEOUT: {
-    message: 'Veritabanı sunucusuna zamanında ulaşılamadı.',
-    hint: 'Sunucunun çalıştığını, portu, firewall’u ve ağ rotasını kontrol edin.',
-    retryable: true
-  },
-  ETIMEDOUT: {
-    message: 'Veritabanı bağlantısı zaman aşımına uğradı.',
-    hint: 'Ağ erişimini ve bağlantı timeout ayarını kontrol edin.',
-    retryable: true
-  },
-  ECONNREFUSED: {
-    message: 'Veritabanı sunucusu bağlantıyı reddetti.',
-    hint: 'Servisin ilgili portta dinlediğini ve firewall kuralını kontrol edin.',
-    retryable: true
-  },
-  DATABASE_TLS_VERIFICATION_FAILED: {
-    message: 'Veritabanının TLS sertifikası doğrulanamadı.',
-    hint: 'Sertifika zinciri, geçerlilik tarihi ve bağlandığınız hostname’i kontrol edin.'
-  },
-  DATABASE_NOT_FOUND: {
-    message: 'Seçilen veritabanı bulunamadı veya bu kullanıcı tarafından erişilemiyor.',
-    hint: 'Veritabanı adını ve kullanıcı yetkilerini kontrol edin.'
-  },
-  DATABASE_TABLE_NOT_FOUND: {
-    message: 'İşlem yapılmak istenen tablo bulunamadı.',
-    hint: 'Şema veya tablo listesini yenileyip tekrar deneyin.'
-  },
-  DATABASE_SQL_SYNTAX_ERROR: {
-    message: 'SQL sorgusu veritabanı tarafından sözdizimi hatasıyla reddedildi.',
-    hint: 'Hatalı statement bölümünü ve kullandığınız veritabanı dialect’ini kontrol edin.'
-  },
-  ER_PARSE_ERROR: {
-    message: 'SQL sorgusunda sözdizimi hatası var.',
-    hint: 'Hatalı statement bölümünü kontrol edin.'
-  },
-  DATABASE_UNIQUE_CONSTRAINT: {
-    message: 'İşlem benzersiz alan kısıtını ihlal ediyor.',
-    hint: 'Aynı unique/primary key değerine sahip mevcut kaydı kontrol edin.'
-  },
-  ER_DUP_ENTRY: {
-    message: 'Aynı benzersiz değere sahip bir kayıt zaten var.',
-    hint: 'Unique veya primary key değerini kontrol edin.'
-  },
-  READ_ONLY_PROFILE: {
-    message: 'Bu bağlantı profili salt-okunur olduğu için değişiklik yapılamadı.',
-    hint: 'Yazma işlemi gerekiyorsa profil ayarındaki salt-okunur seçeneğini bilinçli olarak kapatın.'
-  },
-  DATABASE_RATE_LIMITED: {
-    message: 'Kısa sürede çok fazla veritabanı isteği gönderildi.',
-    hint: 'Bir süre bekleyip tekrar deneyin.',
-    retryable: true
-  },
-  DATABASE_REQUEST_TOO_LARGE: {
-    message: 'Gönderilen veri izin verilen istek boyutunu aşıyor.',
-    hint: 'Dosyayı veya işlemi daha küçük parçalara bölün.'
-  },
-  BLOB_TOO_LARGE: {
-    message: 'BLOB verisi izin verilen boyutu aşıyor.',
-    hint: 'Daha küçük bir dosya kullanın veya sunucu limitini kontrollü şekilde yükseltin.'
-  },
-  TRANSACTION_NOT_FOUND: {
-    message: 'Açık transaction artık bulunamıyor.',
-    hint: 'Transaction’ı yeniden başlatın; sunucu restart veya timeout nedeniyle kapanmış olabilir.'
-  },
-  DATABASE_API_UNREACHABLE: {
-    message: 'Uygulamanın veritabanı API’sine ulaşılamadı.',
-    hint: 'İnternet bağlantısını ve uygulama sunucusunun durumunu kontrol edin.',
-    retryable: true
-  },
-  DATABASE_API_INVALID_RESPONSE: {
-    message: 'Veritabanı API’si beklenmeyen bir yanıt döndürdü.',
-    hint: 'Sayfayı yenileyin; sorun sürerse sunucu loglarını kontrol edin.',
-    retryable: true
-  }
+interface ErrorGuidanceDefinition {
+  messageKey: string;
+  hintKey?: string;
+  retryable?: boolean;
+  reauthenticate?: boolean;
+}
+
+const ERROR_GUIDANCE: Record<string, ErrorGuidanceDefinition> = {
+  UNAUTHORIZED: { messageKey: 'databaseErrors.unauthorized.message', hintKey: 'databaseErrors.unauthorized.hint', reauthenticate: true },
+  SESSION_INVALID: { messageKey: 'databaseErrors.sessionInvalid.message', hintKey: 'databaseErrors.sessionInvalid.hint', reauthenticate: true },
+  AUTH_USER_NOT_ALLOWED: { messageKey: 'databaseErrors.userNotAllowed.message', hintKey: 'databaseErrors.userNotAllowed.hint' },
+  CROSS_ORIGIN_REQUEST_REJECTED: { messageKey: 'databaseErrors.crossOrigin.message', hintKey: 'databaseErrors.crossOrigin.hint' },
+  DATABASE_HOST_NOT_ALLOWED: { messageKey: 'databaseErrors.hostNotAllowed.message', hintKey: 'databaseErrors.hostNotAllowed.hint' },
+  PRIVATE_DATABASE_HOST_NOT_ALLOWED: { messageKey: 'databaseErrors.privateHostNotAllowed.message', hintKey: 'databaseErrors.privateHostNotAllowed.hint' },
+  DATABASE_PORT_NOT_ALLOWED: { messageKey: 'databaseErrors.portNotAllowed.message', hintKey: 'databaseErrors.portNotAllowed.hint' },
+  DATABASE_AUTHENTICATION_FAILED: { messageKey: 'databaseErrors.authenticationFailed.message', hintKey: 'databaseErrors.authenticationFailed.hint' },
+  ER_ACCESS_DENIED_ERROR: { messageKey: 'databaseErrors.authenticationFailed.message', hintKey: 'databaseErrors.authenticationFailed.hint' },
+  DATABASE_HOST_NOT_FOUND: { messageKey: 'databaseErrors.hostNotFound.message', hintKey: 'databaseErrors.hostNotFound.hint', retryable: true },
+  ENOTFOUND: { messageKey: 'databaseErrors.hostNotFound.message', hintKey: 'databaseErrors.hostNotFound.hint', retryable: true },
+  EAI_AGAIN: { messageKey: 'databaseErrors.dnsTemporary.message', hintKey: 'databaseErrors.dnsTemporary.hint', retryable: true },
+  DATABASE_CONNECTION_TIMEOUT: { messageKey: 'databaseErrors.connectionTimeout.message', hintKey: 'databaseErrors.connectionTimeout.hint', retryable: true },
+  ETIMEDOUT: { messageKey: 'databaseErrors.timeout.message', hintKey: 'databaseErrors.timeout.hint', retryable: true },
+  ECONNREFUSED: { messageKey: 'databaseErrors.connectionRefused.message', hintKey: 'databaseErrors.connectionRefused.hint', retryable: true },
+  DATABASE_TLS_VERIFICATION_FAILED: { messageKey: 'databaseErrors.tlsVerification.message', hintKey: 'databaseErrors.tlsVerification.hint' },
+  DATABASE_NOT_FOUND: { messageKey: 'databaseErrors.databaseNotFound.message', hintKey: 'databaseErrors.databaseNotFound.hint' },
+  DATABASE_TABLE_NOT_FOUND: { messageKey: 'databaseErrors.tableNotFound.message', hintKey: 'databaseErrors.tableNotFound.hint' },
+  DATABASE_SQL_SYNTAX_ERROR: { messageKey: 'databaseErrors.sqlSyntax.message', hintKey: 'databaseErrors.sqlSyntax.hint' },
+  ER_PARSE_ERROR: { messageKey: 'databaseErrors.parseError.message', hintKey: 'databaseErrors.parseError.hint' },
+  DATABASE_UNIQUE_CONSTRAINT: { messageKey: 'databaseErrors.uniqueConstraint.message', hintKey: 'databaseErrors.uniqueConstraint.hint' },
+  ER_DUP_ENTRY: { messageKey: 'databaseErrors.duplicateEntry.message', hintKey: 'databaseErrors.duplicateEntry.hint' },
+  READ_ONLY_PROFILE: { messageKey: 'databaseErrors.readOnly.message', hintKey: 'databaseErrors.readOnly.hint' },
+  DATABASE_RATE_LIMITED: { messageKey: 'databaseErrors.rateLimited.message', hintKey: 'databaseErrors.rateLimited.hint', retryable: true },
+  DATABASE_REQUEST_TOO_LARGE: { messageKey: 'databaseErrors.requestTooLarge.message', hintKey: 'databaseErrors.requestTooLarge.hint' },
+  BLOB_TOO_LARGE: { messageKey: 'databaseErrors.blobTooLarge.message', hintKey: 'databaseErrors.blobTooLarge.hint' },
+  TRANSACTION_NOT_FOUND: { messageKey: 'databaseErrors.transactionNotFound.message', hintKey: 'databaseErrors.transactionNotFound.hint' },
+  DATABASE_API_UNREACHABLE: { messageKey: 'databaseErrors.apiUnreachable.message', hintKey: 'databaseErrors.apiUnreachable.hint', retryable: true },
+  DATABASE_API_INVALID_RESPONSE: { messageKey: 'databaseErrors.invalidResponse.message', hintKey: 'databaseErrors.invalidResponse.hint', retryable: true }
 };
+
+function localizedGuidance(definition: ErrorGuidanceDefinition): ErrorGuidance {
+  return {
+    message: translateRuntime(definition.messageKey),
+    hint: definition.hintKey ? translateRuntime(definition.hintKey) : undefined,
+    retryable: definition.retryable,
+    reauthenticate: definition.reauthenticate
+  };
+}
 
 function safeDetail(message: string | undefined) {
   const normalized = message
-    ?.replace(/(password|passwd|pwd|secret|token|authorization)\s*[:=]\s*[^\s,;]+/gi, '$1=[gizlendi]')
+    ?.replace(/(password|passwd|pwd|secret|token|authorization)\s*[:=]\s*[^\s,;]+/gi, `$1=[${translateRuntime('databaseErrors.redacted')}]`)
     .replace(/\s+/g, ' ')
     .trim();
   if (!normalized) return undefined;
@@ -209,27 +129,27 @@ function extractNativeError(error: unknown, depth = 0): { message?: string; code
 
 function guidanceFor(code: string, status: number, serverMessage?: string): ErrorGuidance {
   const known = ERROR_GUIDANCE[code];
-  if (known) return known;
-  if (status === 401) return ERROR_GUIDANCE.UNAUTHORIZED;
+  if (known) return localizedGuidance(known);
+  if (status === 401) return localizedGuidance(ERROR_GUIDANCE.UNAUTHORIZED);
   if (status === 403) {
     return {
-      message: 'Bu veritabanı işlemi için gerekli erişim izni yok.',
-      hint: 'Oturum ve sunucu tarafı erişim politikasını kontrol edin.'
+      message: translateRuntime('databaseErrors.forbidden.message'),
+      hint: translateRuntime('databaseErrors.forbidden.hint')
     };
   }
-  if (status === 429) return ERROR_GUIDANCE.DATABASE_RATE_LIMITED;
+  if (status === 429) return localizedGuidance(ERROR_GUIDANCE.DATABASE_RATE_LIMITED);
   if (status >= 500) {
     return {
-      message: 'Veritabanı işlemi sunucu tarafında tamamlanamadı.',
-      hint: 'Tekrar deneyin; sorun sürerse uygulama ve veritabanı loglarını kontrol edin.',
+      message: translateRuntime('databaseErrors.serverFailure.message'),
+      hint: translateRuntime('databaseErrors.serverFailure.hint'),
       retryable: true
     };
   }
 
   const detail = safeDetail(serverMessage);
   return {
-    message: detail || 'Veritabanı işlemi tamamlanamadı.',
-    hint: code ? `Hata kodu: ${code}.` : undefined
+    message: detail || translateRuntime('databaseErrors.generic.message'),
+    hint: code ? translateRuntime('databaseErrors.errorCode',{code}) : undefined
   };
 }
 
@@ -249,7 +169,7 @@ export function createDatabaseClientError(payload: DatabaseErrorPayload | null, 
 export function normalizeDatabaseClientError(error: unknown) {
   if (error instanceof DatabaseClientError) return error;
   if (error instanceof DOMException && error.name === 'AbortError') {
-    return new DatabaseClientError('İstek iptal edildi.', 'DATABASE_REQUEST_ABORTED', 0, 'İşlemi tekrar başlatabilirsiniz.', true);
+    return new DatabaseClientError(translateRuntime('databaseErrors.aborted.message'), 'DATABASE_REQUEST_ABORTED', 0, translateRuntime('databaseErrors.aborted.hint'), true);
   }
 
   const native = extractNativeError(error);
@@ -267,10 +187,10 @@ export function normalizeDatabaseClientError(error: unknown) {
   }
 
   return new DatabaseClientError(
-    'Native veritabanı işlemi tamamlanamadı ancak sürücü ayrıntı döndürmedi.',
+    translateRuntime('databaseErrors.nativeNoDetail.message'),
     'DATABASE_NATIVE_ERROR',
     0,
-    'İşlemi tekrar deneyin; sorun sürerse bildirim merkezindeki teknik ayrıntıları kontrol edin.',
+    translateRuntime('databaseErrors.nativeNoDetail.hint'),
     true
   );
 }
@@ -284,10 +204,10 @@ export async function readDatabaseApiResponse<T>(response: Response) {
       body = JSON.parse(raw) as T | DatabaseErrorPayload;
     } catch {
       throw new DatabaseClientError(
-        'Veritabanı API’si okunamayan bir yanıt döndürdü.',
+        translateRuntime('databaseErrors.unreadableResponse.message'),
         'DATABASE_API_INVALID_RESPONSE',
         response.status,
-        'Sayfayı yenileyin; sorun sürerse uygulama sunucusu loglarını kontrol edin.',
+        translateRuntime('databaseErrors.unreadableResponse.hint'),
         true
       );
     }

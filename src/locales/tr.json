@@ -2507,5 +2507,140 @@
     "mssql": {
       "description": "SQL Server ve Azure SQL Database"
     }
+  },
+  "databaseErrors": {
+    "redacted": "gizlendi",
+    "unauthorized": {
+      "message": "Oturumunuz doğrulanamadı.",
+      "hint": "Yeniden giriş yapıp işlemi tekrar deneyin."
+    },
+    "sessionInvalid": {
+      "message": "Oturumunuz artık geçerli değil.",
+      "hint": "Yeniden giriş yapın."
+    },
+    "userNotAllowed": {
+      "message": "Bu hesabın veritabanı çalışma alanına erişim izni yok.",
+      "hint": "Hesabın kullanıcı ID’sini uygulamanın erişim politikasına ekleyin."
+    },
+    "crossOrigin": {
+      "message": "İstek güvenlik politikası nedeniyle reddedildi.",
+      "hint": "Uygulamayı yapılandırılmış ana adresinden açıp tekrar deneyin."
+    },
+    "hostNotAllowed": {
+      "message": "Bu veritabanı sunucusuna bağlantıya izin verilmiyor.",
+      "hint": "Host adresini production veritabanı allowlist ayarına ekleyin."
+    },
+    "privateHostNotAllowed": {
+      "message": "Özel veya yerel ağdaki bu veritabanı hedefi izinli değil.",
+      "hint": "Sunucuyu açıkça veritabanı host allowlist’ine ekleyin."
+    },
+    "portNotAllowed": {
+      "message": "Bu veritabanı portuna bağlantıya izin verilmiyor.",
+      "hint": "Portu sunucu tarafındaki izin verilen port listesine ekleyin."
+    },
+    "authenticationFailed": {
+      "message": "Veritabanı kullanıcı bilgilerini kabul etmedi.",
+      "hint": "Kullanıcı adı, parola ve host bazlı kullanıcı yetkisini kontrol edin."
+    },
+    "hostNotFound": {
+      "message": "Veritabanı sunucusunun adresi çözümlenemedi.",
+      "hint": "Host adını ve DNS kaydını kontrol edin."
+    },
+    "dnsTemporary": {
+      "message": "DNS geçici olarak veritabanı adresini çözemedi.",
+      "hint": "Kısa süre sonra tekrar deneyin."
+    },
+    "connectionTimeout": {
+      "message": "Veritabanı sunucusuna zamanında ulaşılamadı.",
+      "hint": "Sunucunun çalıştığını, portu, firewall’u ve ağ rotasını kontrol edin."
+    },
+    "timeout": {
+      "message": "Veritabanı bağlantısı zaman aşımına uğradı.",
+      "hint": "Ağ erişimini ve bağlantı timeout ayarını kontrol edin."
+    },
+    "connectionRefused": {
+      "message": "Veritabanı sunucusu bağlantıyı reddetti.",
+      "hint": "Servisin ilgili portta dinlediğini ve firewall kuralını kontrol edin."
+    },
+    "tlsVerification": {
+      "message": "Veritabanının TLS sertifikası doğrulanamadı.",
+      "hint": "Sertifika zinciri, geçerlilik tarihi ve bağlandığınız hostname’i kontrol edin."
+    },
+    "databaseNotFound": {
+      "message": "Seçilen veritabanı bulunamadı veya bu kullanıcı tarafından erişilemiyor.",
+      "hint": "Veritabanı adını ve kullanıcı yetkilerini kontrol edin."
+    },
+    "tableNotFound": {
+      "message": "İşlem yapılmak istenen tablo bulunamadı.",
+      "hint": "Şema veya tablo listesini yenileyip tekrar deneyin."
+    },
+    "sqlSyntax": {
+      "message": "SQL sorgusu veritabanı tarafından sözdizimi hatasıyla reddedildi.",
+      "hint": "Hatalı statement bölümünü ve kullandığınız veritabanı dialect’ini kontrol edin."
+    },
+    "parseError": {
+      "message": "SQL sorgusunda sözdizimi hatası var.",
+      "hint": "Hatalı statement bölümünü kontrol edin."
+    },
+    "uniqueConstraint": {
+      "message": "İşlem benzersiz alan kısıtını ihlal ediyor.",
+      "hint": "Aynı unique/primary key değerine sahip mevcut kaydı kontrol edin."
+    },
+    "duplicateEntry": {
+      "message": "Aynı benzersiz değere sahip bir kayıt zaten var.",
+      "hint": "Unique veya primary key değerini kontrol edin."
+    },
+    "readOnly": {
+      "message": "Bu bağlantı profili salt-okunur olduğu için değişiklik yapılamadı.",
+      "hint": "Yazma işlemi gerekiyorsa profil ayarındaki salt-okunur seçeneğini bilinçli olarak kapatın."
+    },
+    "rateLimited": {
+      "message": "Kısa sürede çok fazla veritabanı isteği gönderildi.",
+      "hint": "Bir süre bekleyip tekrar deneyin."
+    },
+    "requestTooLarge": {
+      "message": "Gönderilen veri izin verilen istek boyutunu aşıyor.",
+      "hint": "Dosyayı veya işlemi daha küçük parçalara bölün."
+    },
+    "blobTooLarge": {
+      "message": "BLOB verisi izin verilen boyutu aşıyor.",
+      "hint": "Daha küçük bir dosya kullanın veya sunucu limitini kontrollü şekilde yükseltin."
+    },
+    "transactionNotFound": {
+      "message": "Açık transaction artık bulunamıyor.",
+      "hint": "Transaction’ı yeniden başlatın; sunucu restart veya timeout nedeniyle kapanmış olabilir."
+    },
+    "apiUnreachable": {
+      "message": "Uygulamanın veritabanı API’sine ulaşılamadı.",
+      "hint": "Ağ bağlantısını ve uygulama sunucusunun durumunu kontrol edin."
+    },
+    "invalidResponse": {
+      "message": "Veritabanı API’si beklenmeyen bir yanıt döndürdü.",
+      "hint": "Sayfayı yenileyin; sorun sürerse sunucu loglarını kontrol edin."
+    },
+    "forbidden": {
+      "message": "Bu veritabanı işlemi için gerekli erişim izni yok.",
+      "hint": "Oturum ve sunucu tarafı erişim politikasını kontrol edin."
+    },
+    "serverFailure": {
+      "message": "Veritabanı işlemi sunucu tarafında tamamlanamadı.",
+      "hint": "Tekrar deneyin; sorun sürerse uygulama ve veritabanı loglarını kontrol edin."
+    },
+    "generic": {
+      "message": "Veritabanı işlemi tamamlanamadı."
+    },
+    "errorCode": "Hata kodu: {code}.",
+    "aborted": {
+      "message": "İstek iptal edildi.",
+      "hint": "İşlemi tekrar başlatabilirsiniz."
+    },
+    "nativeNoDetail": {
+      "message": "Native veritabanı işlemi tamamlanamadı ancak sürücü ayrıntı döndürmedi.",
+      "hint": "İşlemi tekrar deneyin; sorun sürerse bildirim merkezindeki teknik ayrıntıları kontrol edin."
+    },
+    "unreadableResponse": {
+      "message": "Veritabanı API’si okunamayan bir yanıt döndürdü.",
+      "hint": "Sayfayı yenileyin; sorun sürerse uygulama sunucusu loglarını kontrol edin."
+    }
   }
 }

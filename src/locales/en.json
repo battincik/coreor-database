@@ -2507,5 +2507,140 @@
     "mssql": {
       "description": "SQL Server and Azure SQL Database"
     }
+  },
+  "databaseErrors": {
+    "redacted": "redacted",
+    "unauthorized": {
+      "message": "Your session could not be authenticated.",
+      "hint": "Sign in again and retry the operation."
+    },
+    "sessionInvalid": {
+      "message": "Your session is no longer valid.",
+      "hint": "Sign in again."
+    },
+    "userNotAllowed": {
+      "message": "This account is not allowed to access the database workspace.",
+      "hint": "Add the account user ID to the application's access policy."
+    },
+    "crossOrigin": {
+      "message": "The request was rejected by the security policy.",
+      "hint": "Open the application from its configured origin and retry."
+    },
+    "hostNotAllowed": {
+      "message": "Connections to this database host are not allowed.",
+      "hint": "Add the host to the production database allowlist."
+    },
+    "privateHostNotAllowed": {
+      "message": "This private or local-network database target is not allowed.",
+      "hint": "Explicitly add the server to the database host allowlist."
+    },
+    "portNotAllowed": {
+      "message": "Connections to this database port are not allowed.",
+      "hint": "Add the port to the server-side allowed-port list."
+    },
+    "authenticationFailed": {
+      "message": "The database rejected the supplied credentials.",
+      "hint": "Check the username, password, and host-based user permissions."
+    },
+    "hostNotFound": {
+      "message": "The database server address could not be resolved.",
+      "hint": "Check the host name and DNS record."
+    },
+    "dnsTemporary": {
+      "message": "DNS temporarily could not resolve the database address.",
+      "hint": "Retry after a short delay."
+    },
+    "connectionTimeout": {
+      "message": "The database server could not be reached in time.",
+      "hint": "Check that the server is running, the port, firewall rules, and network route."
+    },
+    "timeout": {
+      "message": "The database connection timed out.",
+      "hint": "Check network access and the connection timeout setting."
+    },
+    "connectionRefused": {
+      "message": "The database server refused the connection.",
+      "hint": "Check that the service is listening on the configured port and verify firewall rules."
+    },
+    "tlsVerification": {
+      "message": "The database TLS certificate could not be verified.",
+      "hint": "Check the certificate chain, validity period, and the hostname you are connecting to."
+    },
+    "databaseNotFound": {
+      "message": "The selected database was not found or is not accessible to this user.",
+      "hint": "Check the database name and user permissions."
+    },
+    "tableNotFound": {
+      "message": "The target table was not found.",
+      "hint": "Refresh the schema or table list and retry."
+    },
+    "sqlSyntax": {
+      "message": "The database rejected the SQL query because of a syntax error.",
+      "hint": "Check the failing statement and the selected database dialect."
+    },
+    "parseError": {
+      "message": "The SQL query contains a syntax error.",
+      "hint": "Check the failing statement section."
+    },
+    "uniqueConstraint": {
+      "message": "The operation violates a unique-field constraint.",
+      "hint": "Check for an existing row with the same unique or primary-key value."
+    },
+    "duplicateEntry": {
+      "message": "A row with the same unique value already exists.",
+      "hint": "Check the unique or primary-key value."
+    },
+    "readOnly": {
+      "message": "This connection profile is read-only, so the change was blocked.",
+      "hint": "If a write is required, deliberately disable read-only mode in the profile settings."
+    },
+    "rateLimited": {
+      "message": "Too many database requests were sent in a short period.",
+      "hint": "Wait briefly and retry."
+    },
+    "requestTooLarge": {
+      "message": "The submitted data exceeds the allowed request size.",
+      "hint": "Split the file or operation into smaller parts."
+    },
+    "blobTooLarge": {
+      "message": "The BLOB data exceeds the allowed size.",
+      "hint": "Use a smaller file or carefully increase the server limit."
+    },
+    "transactionNotFound": {
+      "message": "The open transaction can no longer be found.",
+      "hint": "Start the transaction again; it may have been closed by a server restart or timeout."
+    },
+    "apiUnreachable": {
+      "message": "The database API could not be reached.",
+      "hint": "Check network connectivity and the application server status."
+    },
+    "invalidResponse": {
+      "message": "The database API returned an unexpected response.",
+      "hint": "Refresh and retry; if the issue continues, inspect the server logs."
+    },
+    "forbidden": {
+      "message": "You do not have the required permission for this database operation.",
+      "hint": "Check the session and server-side access policy."
+    },
+    "serverFailure": {
+      "message": "The database operation could not be completed on the server.",
+      "hint": "Retry; if the issue continues, inspect application and database logs."
+    },
+    "generic": {
+      "message": "The database operation could not be completed."
+    },
+    "errorCode": "Error code: {code}.",
+    "aborted": {
+      "message": "The request was cancelled.",
+      "hint": "You can start the operation again."
+    },
+    "nativeNoDetail": {
+      "message": "The native database operation failed without driver details.",
+      "hint": "Retry; if the issue continues, inspect technical details in Notification Center."
+    },
+    "unreadableResponse": {
+      "message": "The database API returned an unreadable response.",
+      "hint": "Refresh; if the issue continues, inspect application server logs."
+    }
   }
 }
