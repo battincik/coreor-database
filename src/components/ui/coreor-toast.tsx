@@ -2,6 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useLanguage } from '@/context/LanguageContext';
 import {
   AlertTriangle,
   Check,
@@ -158,7 +159,7 @@ function ToastCard({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: s
             {toast.onOpen && !actionable && <span className="mt-1 inline-flex text-[8px] text-zinc-600">Ayrıntılar için aç</span>}
           </div>
           {!actionable && toast.metadata?.length ? <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-600" title={metadataTooltip}><Info className="h-3.5 w-3.5" /></span> : null}
-          <button type="button" className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-600 transition hover:bg-white/[0.06] hover:text-zinc-200" onClick={event => { event.stopPropagation(); cancel(); }} aria-label="Bildirimi kapat">
+          <button type="button" className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-600 transition hover:bg-white/[0.06] hover:text-zinc-200" onClick={event => { event.stopPropagation(); cancel(); }} aria-label={t('ui.closeNotification')}>
             <X className="h-3 w-3" />
           </button>
         </div>
