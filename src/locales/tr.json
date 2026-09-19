@@ -2642,5 +2642,387 @@
       "message": "Veritabanı API’si okunamayan bir yanıt döndürdü.",
       "hint": "Sayfayı yenileyin; sorun sürerse uygulama sunucusu loglarını kontrol edin."
     }
+  },
+  "intelligenceCatalog": {
+    "mask": {
+      "redact": {
+        "label": "Tam sansür",
+        "description": "Değeri tamamen yıldızlar."
+      },
+      "keep-first-2": {
+        "label": "İlk 2 karakter",
+        "description": "İlk iki karakteri korur."
+      },
+      "keep-last-4": {
+        "label": "Son 4 karakter",
+        "description": "Son dört karakteri korur."
+      },
+      "hash": {
+        "label": "Kararlı hash",
+        "description": "Aynı değer için aynı yerel maskeyi üretir."
+      },
+      "null": {
+        "label": "NULL yap",
+        "description": "Ön izlemede değeri null gösterir."
+      },
+      "email": {
+        "label": "E-posta",
+        "description": "Kullanıcı adını gizler, domaini korur."
+      },
+      "phone": {
+        "label": "Telefon",
+        "description": "Ülke kodu ve son rakamları kısmen korur."
+      },
+      "tc": {
+        "label": "T.C. kimlik",
+        "description": "İlk ve son iki haneyi korur."
+      },
+      "address": {
+        "label": "Adres",
+        "description": "İlk kelimeyi koruyup ayrıntıyı siler."
+      },
+      "iban": {
+        "label": "IBAN",
+        "description": "Ülke kodu ve son dört haneyi korur."
+      },
+      "credit-card": {
+        "label": "Kart numarası",
+        "description": "BIN ve son dört haneyi korur."
+      },
+      "first-name": {
+        "label": "Ad",
+        "description": "İlk harfi korur."
+      },
+      "last-name": {
+        "label": "Soyad",
+        "description": "İlk harfi korur."
+      },
+      "full-name": {
+        "label": "Ad soyad",
+        "description": "Her parçanın ilk harfini korur."
+      },
+      "username": {
+        "label": "Kullanıcı adı",
+        "description": "Baş ve son karakterleri korur."
+      },
+      "password": {
+        "label": "Parola",
+        "description": "Uzunluğu korumadan tamamen kapatır."
+      },
+      "company": {
+        "label": "Şirket",
+        "description": "Şirket adını anonim kuruluşla değiştirir."
+      },
+      "city": {
+        "label": "Şehir",
+        "description": "Şehri bölgesel bir değerle değiştirir."
+      },
+      "country": {
+        "label": "Ülke",
+        "description": "Ülkeyi genel bölge ile değiştirir."
+      },
+      "postal-code": {
+        "label": "Posta kodu",
+        "description": "İlk iki haneyi korur."
+      },
+      "url": {
+        "label": "URL",
+        "description": "Protokolü koruyup host ve pathi maskeler."
+      },
+      "domain": {
+        "label": "Domain",
+        "description": "TLD bilgisini korur."
+      },
+      "ipv4": {
+        "label": "IPv4",
+        "description": "İlk iki octeti korur."
+      },
+      "ipv6": {
+        "label": "IPv6",
+        "description": "İlk iki bloğu korur."
+      },
+      "mac": {
+        "label": "MAC adresi",
+        "description": "Üretici prefixini korur."
+      },
+      "uuid": {
+        "label": "UUID",
+        "description": "Biçimi koruyan kararlı UUID üretir."
+      },
+      "snowflake": {
+        "label": "Snowflake ID",
+        "description": "Uzunluğu koruyan sayısal ID üretir."
+      },
+      "token": {
+        "label": "Token",
+        "description": "Prefixi koruyup token gövdesini gizler."
+      },
+      "api-key": {
+        "label": "API anahtarı",
+        "description": "İlk ve son dört karakteri korur."
+      },
+      "date": {
+        "label": "Tarih",
+        "description": "Ayı koruyup günü anonimleştirir."
+      },
+      "datetime": {
+        "label": "Tarih-saat",
+        "description": "Tarihi ay seviyesinde korur."
+      },
+      "birthdate": {
+        "label": "Doğum tarihi",
+        "description": "Yılı koruyup ay ve günü değiştirir."
+      },
+      "amount": {
+        "label": "Tutar",
+        "description": "Büyüklük sırasını koruyan yuvarlak değer."
+      },
+      "currency": {
+        "label": "Para birimi",
+        "description": "Para kodunu korur, tutarı maskeler."
+      },
+      "percentage": {
+        "label": "Yüzde",
+        "description": "Değeri beşlik dilime yuvarlar."
+      },
+      "latitude": {
+        "label": "Enlem",
+        "description": "Koordinatı yaklaşık bölgeye yuvarlar."
+      },
+      "longitude": {
+        "label": "Boylam",
+        "description": "Koordinatı yaklaşık bölgeye yuvarlar."
+      },
+      "coordinate": {
+        "label": "Koordinat",
+        "description": "Enlem ve boylamı iki ondalığa indirir."
+      },
+      "plate-tr": {
+        "label": "Türkiye plaka",
+        "description": "İl kodunu korur."
+      },
+      "serial": {
+        "label": "Seri numarası",
+        "description": "Prefix ve uzunluğu korur."
+      }
+    },
+    "mock": {
+      "sequential-id": {
+        "label": "Sıralı ID",
+        "description": "1, 2, 3 şeklinde artar."
+      },
+      "snowflake-id": {
+        "label": "Snowflake ID",
+        "description": "64-bit Twitter benzeri sayısal ID."
+      },
+      "uuid": {
+        "label": "UUID v4",
+        "description": "Standart UUID biçimi."
+      },
+      "ulid": {
+        "label": "ULID",
+        "description": "Zamana göre sıralanabilir 26 karakter."
+      },
+      "integer": {
+        "label": "Tam sayı",
+        "description": "Min/max aralığında sayı."
+      },
+      "bigint": {
+        "label": "Büyük tam sayı",
+        "description": "BIGINT uyumlu değer."
+      },
+      "decimal": {
+        "label": "Ondalıklı sayı",
+        "description": "Hassasiyet ayarlı decimal."
+      },
+      "boolean": {
+        "label": "Boolean",
+        "description": "true veya false."
+      },
+      "first-name": {
+        "label": "Ad",
+        "description": "Türkçe ad havuzu."
+      },
+      "last-name": {
+        "label": "Soyad",
+        "description": "Türkçe soyad havuzu."
+      },
+      "full-name": {
+        "label": "Ad soyad",
+        "description": "Uyumlu ad ve soyad."
+      },
+      "username": {
+        "label": "Kullanıcı adı",
+        "description": "Ad tabanlı benzersiz kullanıcı adı."
+      },
+      "email": {
+        "label": "E-posta",
+        "description": "Geçerli test e-postası."
+      },
+      "phone-tr": {
+        "label": "TR telefon",
+        "description": "+90 formatında test telefonu."
+      },
+      "phone-intl": {
+        "label": "Uluslararası telefon",
+        "description": "Farklı ülke kodları."
+      },
+      "tc": {
+        "label": "Geçerli T.C. kimlik",
+        "description": "Checksum kurallarına uygun test değeri."
+      },
+      "iban-tr": {
+        "label": "TR IBAN",
+        "description": "Mod-97 kontrolü geçerli test IBANı."
+      },
+      "credit-card-test": {
+        "label": "Test kartı",
+        "description": "Luhn kontrolü geçerli, gerçek olmayan kart."
+      },
+      "company": {
+        "label": "Şirket adı",
+        "description": "Türkçe şirket isimleri."
+      },
+      "job-title": {
+        "label": "Meslek/unvan",
+        "description": "Yazılım ve iş unvanları."
+      },
+      "address-tr": {
+        "label": "Türkiye adresi",
+        "description": "Mahalle, cadde ve kapı numarası."
+      },
+      "city-tr": {
+        "label": "Türkiye şehri",
+        "description": "İl havuzu."
+      },
+      "district-tr": {
+        "label": "Türkiye ilçesi",
+        "description": "İlçe havuzu."
+      },
+      "country": {
+        "label": "Ülke",
+        "description": "Ülke adı."
+      },
+      "postal-code": {
+        "label": "Posta kodu",
+        "description": "Beş haneli posta kodu."
+      },
+      "url": {
+        "label": "URL",
+        "description": "HTTPS test adresi."
+      },
+      "domain": {
+        "label": "Domain",
+        "description": "Test domaini."
+      },
+      "ipv4": {
+        "label": "IPv4",
+        "description": "Dokümantasyon ağlarından adres."
+      },
+      "ipv6": {
+        "label": "IPv6",
+        "description": "Dokümantasyon IPv6 adresi."
+      },
+      "mac": {
+        "label": "MAC adresi",
+        "description": "Yerel bit işaretli MAC."
+      },
+      "date": {
+        "label": "Tarih",
+        "description": "ISO YYYY-MM-DD."
+      },
+      "datetime": {
+        "label": "Tarih-saat",
+        "description": "ISO tarih ve saat."
+      },
+      "birthdate": {
+        "label": "Doğum tarihi",
+        "description": "18-80 yaş arası tarih."
+      },
+      "unix-timestamp": {
+        "label": "Unix timestamp",
+        "description": "Saniye cinsinden epoch."
+      },
+      "amount": {
+        "label": "Tutar",
+        "description": "İki ondalıklı pozitif tutar."
+      },
+      "currency-code": {
+        "label": "Para kodu",
+        "description": "TRY, USD, EUR gibi ISO kodu."
+      },
+      "percentage": {
+        "label": "Yüzde",
+        "description": "0-100 arası oran."
+      },
+      "latitude": {
+        "label": "Enlem",
+        "description": "-90 ile 90 arası."
+      },
+      "longitude": {
+        "label": "Boylam",
+        "description": "-180 ile 180 arası."
+      },
+      "coordinate": {
+        "label": "Koordinat",
+        "description": "lat,lng biçimi."
+      },
+      "plate-tr": {
+        "label": "Türkiye plaka",
+        "description": "İl kodlu plaka."
+      },
+      "sentence": {
+        "label": "Cümle",
+        "description": "Kısa Türkçe test cümlesi."
+      },
+      "paragraph": {
+        "label": "Paragraf",
+        "description": "Birden fazla cümle."
+      },
+      "slug": {
+        "label": "Slug",
+        "description": "URL uyumlu kısa metin."
+      },
+      "hex": {
+        "label": "Hex değer",
+        "description": "Rastgele hexadecimal değer."
+      },
+      "color": {
+        "label": "Renk",
+        "description": "#RRGGBB değeri."
+      },
+      "json-object": {
+        "label": "JSON nesnesi",
+        "description": "Basit JSON içerik."
+      },
+      "enum": {
+        "label": "Enum listesinden",
+        "description": "Virgülle verilen değerlerden seçer."
+      },
+      "constant": {
+        "label": "Sabit değer",
+        "description": "Bütün satırlarda aynı değer."
+      },
+      "null": {
+        "label": "NULL",
+        "description": "Her zaman null."
+      }
+    },
+    "categories": {
+      "general": "Genel",
+      "technical": "Teknik",
+      "communication": "İletişim",
+      "identity": "Kimlik",
+      "location": "Konum",
+      "finance": "Finans",
+      "network": "Ağ",
+      "numeric": "Sayısal",
+      "boolean": "Mantıksal",
+      "person": "Kişi",
+      "business": "İş",
+      "time": "Zaman",
+      "geographic": "Coğrafi",
+      "text": "Metin"
+    }
   }
 }

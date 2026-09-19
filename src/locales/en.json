@@ -2642,5 +2642,387 @@
       "message": "The database API returned an unreadable response.",
       "hint": "Refresh; if the issue continues, inspect application server logs."
     }
+  },
+  "intelligenceCatalog": {
+    "mask": {
+      "redact": {
+        "label": "Full redaction",
+        "description": "Replaces the entire value with asterisks."
+      },
+      "keep-first-2": {
+        "label": "Keep first 2 characters",
+        "description": "Keeps the first two characters."
+      },
+      "keep-last-4": {
+        "label": "Keep last 4 characters",
+        "description": "Keeps the last four characters."
+      },
+      "hash": {
+        "label": "Stable hash",
+        "description": "Produces the same local mask for the same value."
+      },
+      "null": {
+        "label": "Set NULL",
+        "description": "Shows the value as null in preview."
+      },
+      "email": {
+        "label": "Email",
+        "description": "Hides the username and keeps the domain."
+      },
+      "phone": {
+        "label": "Phone",
+        "description": "Partially keeps the country code and final digits."
+      },
+      "tc": {
+        "label": "Turkish national ID",
+        "description": "Keeps the first and last two digits."
+      },
+      "address": {
+        "label": "Address",
+        "description": "Keeps the first word and removes the remaining details."
+      },
+      "iban": {
+        "label": "IBAN",
+        "description": "Keeps the country code and last four digits."
+      },
+      "credit-card": {
+        "label": "Card number",
+        "description": "Keeps the BIN and last four digits."
+      },
+      "first-name": {
+        "label": "First name",
+        "description": "Keeps the first letter."
+      },
+      "last-name": {
+        "label": "Last name",
+        "description": "Keeps the first letter."
+      },
+      "full-name": {
+        "label": "Full name",
+        "description": "Keeps the first letter of each name part."
+      },
+      "username": {
+        "label": "Username",
+        "description": "Keeps the first and last characters."
+      },
+      "password": {
+        "label": "Password",
+        "description": "Fully hides the value without preserving its length."
+      },
+      "company": {
+        "label": "Company",
+        "description": "Replaces the company name with an anonymous organization."
+      },
+      "city": {
+        "label": "City",
+        "description": "Replaces the city with a regional value."
+      },
+      "country": {
+        "label": "Country",
+        "description": "Replaces the country with a generic region."
+      },
+      "postal-code": {
+        "label": "Postal code",
+        "description": "Keeps the first two digits."
+      },
+      "url": {
+        "label": "URL",
+        "description": "Keeps the protocol and masks the host and path."
+      },
+      "domain": {
+        "label": "Domain",
+        "description": "Keeps the TLD."
+      },
+      "ipv4": {
+        "label": "IPv4",
+        "description": "Keeps the first two octets."
+      },
+      "ipv6": {
+        "label": "IPv6",
+        "description": "Keeps the first two blocks."
+      },
+      "mac": {
+        "label": "MAC address",
+        "description": "Keeps the vendor prefix."
+      },
+      "uuid": {
+        "label": "UUID",
+        "description": "Produces a stable UUID while preserving the format."
+      },
+      "snowflake": {
+        "label": "Snowflake ID",
+        "description": "Produces a numeric ID while preserving length."
+      },
+      "token": {
+        "label": "Token",
+        "description": "Keeps the prefix and hides the token body."
+      },
+      "api-key": {
+        "label": "API key",
+        "description": "Keeps the first and last four characters."
+      },
+      "date": {
+        "label": "Date",
+        "description": "Keeps the month and anonymizes the day."
+      },
+      "datetime": {
+        "label": "Date-time",
+        "description": "Keeps the date at month-level precision."
+      },
+      "birthdate": {
+        "label": "Date of birth",
+        "description": "Keeps the year and changes the month and day."
+      },
+      "amount": {
+        "label": "Amount",
+        "description": "Produces a rounded value that preserves the order of magnitude."
+      },
+      "currency": {
+        "label": "Currency",
+        "description": "Keeps the currency code and masks the amount."
+      },
+      "percentage": {
+        "label": "Percentage",
+        "description": "Rounds the value to a five-point bucket."
+      },
+      "latitude": {
+        "label": "Latitude",
+        "description": "Rounds the coordinate to an approximate region."
+      },
+      "longitude": {
+        "label": "Longitude",
+        "description": "Rounds the coordinate to an approximate region."
+      },
+      "coordinate": {
+        "label": "Coordinate",
+        "description": "Rounds latitude and longitude to two decimals."
+      },
+      "plate-tr": {
+        "label": "Turkish license plate",
+        "description": "Keeps the province code."
+      },
+      "serial": {
+        "label": "Serial number",
+        "description": "Keeps the prefix and length."
+      }
+    },
+    "mock": {
+      "sequential-id": {
+        "label": "Sequential ID",
+        "description": "Increments as 1, 2, 3."
+      },
+      "snowflake-id": {
+        "label": "Snowflake ID",
+        "description": "64-bit Twitter-like numeric ID."
+      },
+      "uuid": {
+        "label": "UUID v4",
+        "description": "Standard UUID format."
+      },
+      "ulid": {
+        "label": "ULID",
+        "description": "26-character time-sortable identifier."
+      },
+      "integer": {
+        "label": "Integer",
+        "description": "Number within a min/max range."
+      },
+      "bigint": {
+        "label": "Large integer",
+        "description": "BIGINT-compatible value."
+      },
+      "decimal": {
+        "label": "Decimal number",
+        "description": "Decimal with configurable precision."
+      },
+      "boolean": {
+        "label": "Boolean",
+        "description": "true or false."
+      },
+      "first-name": {
+        "label": "First name",
+        "description": "Turkish first-name pool."
+      },
+      "last-name": {
+        "label": "Last name",
+        "description": "Turkish surname pool."
+      },
+      "full-name": {
+        "label": "Full name",
+        "description": "Matching first and last name."
+      },
+      "username": {
+        "label": "Username",
+        "description": "Unique username based on a name."
+      },
+      "email": {
+        "label": "Email",
+        "description": "Valid test email."
+      },
+      "phone-tr": {
+        "label": "Turkish phone",
+        "description": "Test phone in +90 format."
+      },
+      "phone-intl": {
+        "label": "International phone",
+        "description": "Uses different country codes."
+      },
+      "tc": {
+        "label": "Valid Turkish national ID",
+        "description": "Test value that satisfies checksum rules."
+      },
+      "iban-tr": {
+        "label": "Turkish IBAN",
+        "description": "Test IBAN that passes Mod-97 validation."
+      },
+      "credit-card-test": {
+        "label": "Test card",
+        "description": "Non-real card number that passes Luhn validation."
+      },
+      "company": {
+        "label": "Company name",
+        "description": "Turkish company names."
+      },
+      "job-title": {
+        "label": "Job title",
+        "description": "Software and business job titles."
+      },
+      "address-tr": {
+        "label": "Turkish address",
+        "description": "Neighborhood, street, and building number."
+      },
+      "city-tr": {
+        "label": "Turkish city",
+        "description": "Province pool."
+      },
+      "district-tr": {
+        "label": "Turkish district",
+        "description": "District pool."
+      },
+      "country": {
+        "label": "Country",
+        "description": "Country name."
+      },
+      "postal-code": {
+        "label": "Postal code",
+        "description": "Five-digit postal code."
+      },
+      "url": {
+        "label": "URL",
+        "description": "HTTPS test address."
+      },
+      "domain": {
+        "label": "Domain",
+        "description": "Test domain."
+      },
+      "ipv4": {
+        "label": "IPv4",
+        "description": "Address from documentation networks."
+      },
+      "ipv6": {
+        "label": "IPv6",
+        "description": "Documentation IPv6 address."
+      },
+      "mac": {
+        "label": "MAC address",
+        "description": "Locally administered MAC address."
+      },
+      "date": {
+        "label": "Date",
+        "description": "ISO YYYY-MM-DD."
+      },
+      "datetime": {
+        "label": "Date-time",
+        "description": "ISO date and time."
+      },
+      "birthdate": {
+        "label": "Date of birth",
+        "description": "Date for an age between 18 and 80."
+      },
+      "unix-timestamp": {
+        "label": "Unix timestamp",
+        "description": "Epoch in seconds."
+      },
+      "amount": {
+        "label": "Amount",
+        "description": "Positive amount with two decimals."
+      },
+      "currency-code": {
+        "label": "Currency code",
+        "description": "ISO code such as TRY, USD, or EUR."
+      },
+      "percentage": {
+        "label": "Percentage",
+        "description": "Ratio between 0 and 100."
+      },
+      "latitude": {
+        "label": "Latitude",
+        "description": "Between -90 and 90."
+      },
+      "longitude": {
+        "label": "Longitude",
+        "description": "Between -180 and 180."
+      },
+      "coordinate": {
+        "label": "Coordinate",
+        "description": "lat,lng format."
+      },
+      "plate-tr": {
+        "label": "Turkish license plate",
+        "description": "Plate with province code."
+      },
+      "sentence": {
+        "label": "Sentence",
+        "description": "Short Turkish test sentence."
+      },
+      "paragraph": {
+        "label": "Paragraph",
+        "description": "Multiple sentences."
+      },
+      "slug": {
+        "label": "Slug",
+        "description": "Short URL-compatible text."
+      },
+      "hex": {
+        "label": "Hex value",
+        "description": "Random hexadecimal value."
+      },
+      "color": {
+        "label": "Color",
+        "description": "#RRGGBB value."
+      },
+      "json-object": {
+        "label": "JSON object",
+        "description": "Simple JSON content."
+      },
+      "enum": {
+        "label": "From enum list",
+        "description": "Selects from comma-separated values."
+      },
+      "constant": {
+        "label": "Constant value",
+        "description": "Same value for every row."
+      },
+      "null": {
+        "label": "NULL",
+        "description": "Always null."
+      }
+    },
+    "categories": {
+      "general": "General",
+      "technical": "Technical",
+      "communication": "Communication",
+      "identity": "Identity",
+      "location": "Location",
+      "finance": "Finance",
+      "network": "Network",
+      "numeric": "Numeric",
+      "boolean": "Boolean",
+      "person": "Person",
+      "business": "Business",
+      "time": "Time",
+      "geographic": "Geographic",
+      "text": "Text"
+    }
   }
 }

@@ -246,8 +246,14 @@ export function DatabaseIntelligenceCenterModal({ open, onClose, initialTab = 'p
   };
 
   const maskColumnOptions = (info: TableInfo | null): SearchSelectOption[] => (info?.columns || []).map(column => ({ value:column.Field, label:column.Field, description:column.Type }));
-  const maskTypeOptions: SearchSelectOption[] = MASK_TYPES.map(item => ({ value:item.id, label:item.label, description:item.description, badge:item.category, keywords:[item.category] }));
-  const mockTypeOptions: SearchSelectOption[] = MOCK_DATA_TYPES.map(item => ({ value:item.id, label:item.label, description:item.description, badge:item.category, keywords:[item.category] }));
+  const maskTypeOptions = useMemo<SearchSelectOption[]>(() => MASK_TYPES.map(item => {
+    const category = t(item.categoryKey);
+    return { value:item.id, label:t(item.labelKey), description:t(item.descriptionKey), badge:category, keywords:[category] };
+  }), [language, t]);
+  const mockTypeOptions = useMemo<SearchSelectOption[]>(() => MOCK_DATA_TYPES.map(item => {
+    const category = t(item.categoryKey);
+    return { value:item.id, label:t(item.labelKey), description:t(item.descriptionKey), badge:category, keywords:[category] };
+  }), [language, t]);
   const categories = useMemo(() => ['all', ...new Set(QUERY_SNIPPETS.map(item => item.category))], []);
   const visibleSnippets = useMemo(() => QUERY_SNIPPETS.filter(item => {
     const engineMatch = item.engines.includes('all') || item.engines.includes(engine as DatabaseEngine);
