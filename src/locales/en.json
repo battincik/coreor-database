@@ -1154,7 +1154,18 @@
     "result": "Result",
     "openResults": "Open results panel",
     "collapseResultsFully": "Fully collapse results panel",
-    "collapseResults": "Collapse results panel"
+    "collapseResults": "Collapse results panel",
+    "tableCount": "{count} tables",
+    "previousCreateDefinition": "Previous CREATE definition",
+    "readOnlyMessage": "{server} is a read-only profile. Write and schema queries cannot be executed.",
+    "blockedSql": "Blocked SQL",
+    "resultNumber": "Result {number}",
+    "totalErrors": "Total errors",
+    "addFavorite": "Add to favorites",
+    "clearResult": "Clear result",
+    "copyLiteral": "Copy as SQL literal",
+    "rowsMayBeAffected": "{count} rows may be affected.",
+    "sourceTable": "Source table: {table}"
   },
   "notebookExtra": {
     "chartColumns": "Select category and numeric value columns for the chart.",

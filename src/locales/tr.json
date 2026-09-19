@@ -1154,7 +1154,18 @@
     "result": "Sonuç",
     "openResults": "Sonuç panelini aç",
     "collapseResultsFully": "Sonuç panelini tamamen daralt",
-    "collapseResults": "Sonuç panelini daralt"
+    "collapseResults": "Sonuç panelini daralt",
+    "tableCount": "{count} tablo",
+    "previousCreateDefinition": "Önceki CREATE tanımı",
+    "readOnlyMessage": "{server} salt-okunur profildir. Yazma ve şema sorguları çalıştırılamaz.",
+    "blockedSql": "Engellenen SQL",
+    "resultNumber": "Sonuç {number}",
+    "totalErrors": "Toplam hata",
+    "addFavorite": "Favorilere ekle",
+    "clearResult": "Sonucu temizle",
+    "copyLiteral": "SQL literal olarak kopyala",
+    "rowsMayBeAffected": "{count} satır etkilenebilir.",
+    "sourceTable": "Kaynak tablo: {table}"
   },
   "notebookExtra": {
     "chartColumns": "Grafik için kategori ve sayısal değer kolonu seçin.",

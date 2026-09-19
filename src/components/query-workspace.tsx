@@ -44,6 +44,7 @@ import { approvalRequests, automationId, migrationDrafts, schemaSnapshots } from
 import { analyzeSqlDocument, type SqlDiagnostic } from '@/lib/sqlLanguageServer';
 import { useCoreorToast } from '@/components/ui/coreor-toast';
 import { migrateLegacyWorkspaceCollection, readWorkspaceCollection, writeWorkspaceCollection } from '@/lib/nativeWorkspaceStore';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface QueryWorkspaceProps {
   tab: EditorQueryTab;
@@ -83,7 +84,7 @@ function writeStored(key: string, values: StoredQuery[]) {
   const collection = key === HISTORY_KEY ? 'query-history' : 'query-favorites';
   void writeWorkspaceCollection(collection, 'global', values.slice(0, MAX_HISTORY));
 }
-function queryTitle(sql: string) { const text = sql.replace(/\s+/g, ' ').trim(); return text.length > 72 ? `${text.slice(0, 72)}…` : text || 'SQL sorgusu'; }
+function queryTitle(sql: string) { const text = sql.replace(/\s+/g, ' ').trim(); return text.length > 72 ? `${text.slice(0, 72)}…` : text || 'SQL'; }
 function formatSql(source: string) { return source.trim().replace(/\s+(FROM|WHERE|LEFT JOIN|RIGHT JOIN|INNER JOIN|GROUP BY|HAVING|ORDER BY|LIMIT|VALUES|SET)\s+/gi, '\n$1\n  ').replace(/\s+(AND|OR)\s+/gi, '\n  $1 '); }
 
 function splitStatements(sql: string) {
@@ -135,6 +136,7 @@ function diagnosticIcon(item: SqlDiagnostic) { return item.severity === 'error' 
 
 export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate }: QueryWorkspaceProps) {
   const { openContextMenu } = useAppContextMenu();
+  const { t, formatNumber, language } = useLanguage();
   const toast = useCoreorToast();
   const { preferences } = useAppPreferences();
   const autoRunHandled = useRef(false);
@@ -160,7 +162,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   const engine = selectedServer?.databaseType || 'mysql';
   const token = useMemo(() => cursorToken(tab.sql, cursor), [tab.sql, cursor]);
   const serverOptions = useMemo<SearchSelectOption[]>(() => servers.map(server => ({ value: server.id, label: server.name, description: `${server.host}:${server.port}`, badge: databaseEngineDefinition(server.databaseType).label })), [servers]);
-  const databaseOptions = useMemo<SearchSelectOption[]>(() => [{ value: '', label: 'Sunucu geneli' }, ...databases.map(database => ({ value: database.name, label: database.name, description: `${database.tableCount} tablo` }))], [databases]);
+  const databaseOptions = useMemo<SearchSelectOption[]>(() => [{ value: '', label: t('query.serverScope') }, ...databases.map(database => ({ value: database.name, label: database.name, description: t('queryWorkspace.tableCount', { count: formatNumber(database.tableCount) }) }))], [databases, formatNumber, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -198,13 +200,13 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
 
   const suggestions = useMemo<Suggestion[]>(() => {
     if (!preferences.autocomplete || !suggestionsOpen || !selectedServer) return [];
-    const raw = token.value.replace(/[`"\[\]]/g, ''); const lower = raw.toLocaleLowerCase('tr-TR'); const upper = raw.toUpperCase(); const quote = (value: string) => quoteDatabaseIdentifier(value, engine); const list: Suggestion[] = [];
+    const raw = token.value.replace(/[`"\[\]]/g, ''); const lower = raw.toLocaleLowerCase(language); const upper = raw.toUpperCase(); const quote = (value: string) => quoteDatabaseIdentifier(value, engine); const list: Suggestion[] = [];
     for (const keyword of SQL_KEYWORDS) if (!upper || keyword.startsWith(upper)) list.push({ id: `k:${keyword}`, label: keyword, insertText: keyword, detail: 'SQL', kind: 'keyword' });
-    for (const database of databases) if (!lower || database.name.toLocaleLowerCase('tr-TR').includes(lower)) list.push({ id: `d:${database.name}`, label: database.name, insertText: quote(database.name), detail: `${database.tableCount} tablo`, kind: 'database' });
-    for (const tableName of selectedDatabase?.tables || []) if (!lower || tableName.toLocaleLowerCase('tr-TR').includes(lower)) list.push({ id: `t:${tableName}`, label: tableName, insertText: quote(tableName), detail: tab.databaseName || '', kind: 'table' });
-    for (const [tableName, info] of Object.entries(columnCache)) for (const column of info.columns) if (!lower || column.Field.toLocaleLowerCase('tr-TR').includes(lower)) list.push({ id: `c:${tableName}:${column.Field}`, label: column.Field, insertText: quote(column.Field), detail: `${tableName} • ${column.Type}`, kind: 'column' });
+    for (const database of databases) if (!lower || database.name.toLocaleLowerCase(language).includes(lower)) list.push({ id: `d:${database.name}`, label: database.name, insertText: quote(database.name), detail: t('queryWorkspace.tableCount', { count: formatNumber(database.tableCount) }), kind: 'database' });
+    for (const tableName of selectedDatabase?.tables || []) if (!lower || tableName.toLocaleLowerCase(language).includes(lower)) list.push({ id: `t:${tableName}`, label: tableName, insertText: quote(tableName), detail: tab.databaseName || '', kind: 'table' });
+    for (const [tableName, info] of Object.entries(columnCache)) for (const column of info.columns) if (!lower || column.Field.toLocaleLowerCase(language).includes(lower)) list.push({ id: `c:${tableName}:${column.Field}`, label: column.Field, insertText: quote(column.Field), detail: `${tableName} • ${column.Type}`, kind: 'column' });
     return list.slice(0, 36);
-  }, [preferences.autocomplete, suggestionsOpen, selectedServer, token.value, engine, databases, selectedDatabase, columnCache, tab.databaseName]);
+  }, [preferences.autocomplete, suggestionsOpen, selectedServer, token.value, engine, databases, selectedDatabase, columnCache, tab.databaseName, language, t, formatNumber]);
 
   const recordHistory = useCallback((sql: string) => {
     const item = { id: createId(), title: queryTitle(sql), sql, databaseName: tab.databaseName, createdAt: new Date().toISOString() };
@@ -225,8 +227,8 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       const result = await executeDatabaseQuery(selectedServer.id, show, accountId, tab.databaseName);
       createSql = result.rows.length ? String(Object.values(result.rows[0]).at(-1) || '') : undefined;
     } catch { /* tableInfo remains useful */ }
-    schemaSnapshots.add({ id: automationId('snapshot'), serverId: selectedServer.id, databaseName: tab.databaseName, tableName, engine, createdAt: new Date().toISOString(), reason: 'ALTER öncesi otomatik snapshot', alterSql: statement, createSql, tableInfo });
-    migrationDrafts.save({ id: automationId('migration'), serverId: selectedServer.id, databaseName: tab.databaseName, name: `${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}_${tableName}_alter`, createdAt: new Date().toISOString(), upSql: `${statement};`, downSql: createSql ? `-- Önceki CREATE tanımı\n${createSql}` : '-- DOWN SQL manuel olarak tamamlanmalı', source: 'query', status: 'draft' });
+    schemaSnapshots.add({ id: automationId('snapshot'), serverId: selectedServer.id, databaseName: tab.databaseName, tableName, engine, createdAt: new Date().toISOString(), reason: t('queryWorkspace.snapshotBeforeAlter'), alterSql: statement, createSql, tableInfo });
+    migrationDrafts.save({ id: automationId('migration'), serverId: selectedServer.id, databaseName: tab.databaseName, name: `${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}_${tableName}_alter`, createdAt: new Date().toISOString(), upSql: `${statement};`, downSql: createSql ? `-- ${t('queryWorkspace.previousCreateDefinition')}\n${createSql}` : t('queryWorkspace.downSqlManual'), source: 'query', status: 'draft' });
   }, [preferences.autoSchemaSnapshots, selectedServer, accountId, tab.databaseName, engine]);
 
   const requiresApproval = useCallback((statement: string) => {
@@ -236,16 +238,16 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     if (approved) { approvalRequests.remove(approved.id); return false; }
     approvalRequests.save({ id: automationId('approval'), serverId: selectedServer?.id || '', databaseName: tab.databaseName, operation: type, sql: statement, requester: 'current-user', createdAt: new Date().toISOString(), status: 'pending' });
     window.dispatchEvent(new CustomEvent('coreor:open-automation-center', { detail: { tab: 'approvals' } }));
-    onChange({ error: 'İşlem ikinci kullanıcı onayına gönderildi. Onaylandıktan sonra sorguyu tekrar çalıştırın.', isRunning: false });
+    onChange({ error: t('queryWorkspace.sentForApproval'), isRunning: false });
     return true;
   }, [preferences.requireSecondApproval, preferences.productionAlterApproval, selectedServer?.id, tab.databaseName, onChange]);
 
   const assertWritable = useCallback((statements: string[]) => {
     const write = statements.find(isWriteStatement);
     if (!selectedServer?.readOnly || !write) return true;
-    const message = `${selectedServer.name} salt-okunur profildir. Yazma ve şema sorguları çalıştırılamaz.`;
+    const message = t('queryWorkspace.readOnlyMessage', { server: selectedServer.name });
     onChange({ isRunning: false, error: message });
-    toast.show({ variant: 'warning', title: 'Salt-okunur bağlantı', description: message, metadata: [{ label: 'Engellenen SQL', value: queryTitle(write) }] });
+    toast.show({ variant: 'warning', title: t('queryWorkspace.readOnlyConnection'), description: message, metadata: [{ label: t('queryWorkspace.blockedSql'), value: queryTitle(write) }] });
     return false;
   }, [selectedServer, onChange, toast]);
 
@@ -259,9 +261,9 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       await takeSnapshot(statement);
       try {
         const result = await executeDatabaseQuery(selectedServer.id, statement, accountId, tab.databaseName);
-        sets.push({ id: createId('result'), sql: statement, label: `Sonuç ${index + 1}`, result, error: null });
+        sets.push({ id: createId('result'), sql: statement, label: t('queryWorkspace.resultNumber', { number: index + 1 }), result, error: null });
       } catch (error) {
-        sets.push({ id: createId('result'), sql: statement, label: `Sonuç ${index + 1}`, result: null, error: error instanceof Error ? error.message : 'Sorgu çalıştırılamadı.' });
+        sets.push({ id: createId('result'), sql: statement, label: t('queryWorkspace.resultNumber', { number: index + 1 }), result: null, error: error instanceof Error ? error.message : t('queryWorkspace.queryFailed') });
         break;
       }
     }
@@ -280,9 +282,9 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
         try {
           const preview = await executeDatabaseQuery(selectedServer.id, mutation.preview, accountId, tab.databaseName);
           setDryRunPending({ statement: statements[0], preview, table: mutation.table });
-          setResultSets([{ id: 'dry-run', sql: mutation.preview, label: 'Dry-run ön izlemesi', result: preview, error: null, dryRun: true }]); setActiveResultId('dry-run');
+          setResultSets([{ id: 'dry-run', sql: mutation.preview, label: t('queryWorkspace.dryRunPreview'), result: preview, error: null, dryRun: true }]); setActiveResultId('dry-run');
           onChange({ isRunning: false, result: preview, error: null });
-        } catch (error) { onChange({ isRunning: false, error: error instanceof Error ? error.message : 'Dry-run çalıştırılamadı.' }); }
+        } catch (error) { onChange({ isRunning: false, error: error instanceof Error ? error.message : t('queryWorkspace.dryRunFailed') }); }
         return;
       }
     }
@@ -294,12 +296,12 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     if (!assertWritable(statements)) return;
     const blockingDiagnostics = diagnostics.filter(item => item.severity === 'error' && ['UNTERMINATED_STRING','UNEXPECTED_PAREN','UNCLOSED_PAREN','MISSING_WHERE','ENGINE_SYNTAX'].includes(item.code));
     if (blockingDiagnostics.length) {
-      toast.show({ variant: 'error', title: 'SQL dil servisi sorguyu durdurdu', description: blockingDiagnostics[0].message, metadata: [{ label: 'Kod', value: blockingDiagnostics[0].code }, { label: 'Toplam hata', value: blockingDiagnostics.length }] });
+      toast.show({ variant: 'error', title: t('query.errorStopped'), description: blockingDiagnostics[0].message, metadata: [{ label: t('notificationCenter.code'), value: blockingDiagnostics[0].code }, { label: t('queryWorkspace.totalErrors'), value: blockingDiagnostics.length }] });
       return;
     }
     const dangerous = statements.some(statement => operationType(statement) || (/^(UPDATE|DELETE)\b/i.test(statement) && !/\bWHERE\b/i.test(statement)));
     if (preferences.confirmDangerousQueries && dangerous) {
-      setConfirmation({ title: 'Güvenli SQL doğrulaması', description: 'Bu sorgu veri veya şema değişikliği oluşturabilir.', expectedText: 'ÇALIŞTIR', sql: tab.sql, confirmLabel: 'Güvenlik adımına devam et', onConfirm: () => void executeNow() }); return;
+      setConfirmation({ title: t('queryWorkspace.safeSqlValidation'), description: t('query.dangerousConfirm'), expectedText: t('queryWorkspace.executeUpper'), sql: tab.sql, confirmLabel: t('queryWorkspace.continueSecurity'), onConfirm: () => void executeNow() }); return;
     }
     void executeNow();
   }, [preferences.confirmDangerousQueries, tab.sql, executeNow, diagnostics, toast, assertWritable]);
@@ -315,31 +317,31 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   const insertSuggestion = (suggestion: Suggestion) => { const next = `${tab.sql.slice(0, token.start)}${suggestion.insertText}${tab.sql.slice(cursor)}`; onChange({ sql: next }); setCursor(token.start + suggestion.insertText.length); setSuggestionsOpen(false); };
   const libraryItems = library === 'history' ? history : favorites;
   const editorContextMenu = (event: React.MouseEvent) => openContextMenu(event, [
-    { id: 'run', label: 'Sorguyu çalıştır', icon: Play, shortcut: 'runQuery', disabled: !tab.sql.trim() || Boolean(selectedServer?.readOnly && splitStatements(tab.sql).some(isWriteStatement)), onSelect: runQuery },
-    { id: 'format', label: 'SQL biçimlendir', icon: Wand2, shortcut: 'formatSql', disabled: !tab.sql.trim(), onSelect: () => onChange({ sql: formatSql(tab.sql) }) },
-    { id: 'explain', label: 'EXPLAIN olarak hazırla', icon: Search, disabled: !tab.sql.trim() || /^\s*EXPLAIN\b/i.test(tab.sql), onSelect: () => onChange({ sql: `EXPLAIN ${tab.sql.trim()}` }) },
+    { id: 'run', label: t('query.run'), icon: Play, shortcut: 'runQuery', disabled: !tab.sql.trim() || Boolean(selectedServer?.readOnly && splitStatements(tab.sql).some(isWriteStatement)), onSelect: runQuery },
+    { id: 'format', label: t('query.format'), icon: Wand2, shortcut: 'formatSql', disabled: !tab.sql.trim(), onSelect: () => onChange({ sql: formatSql(tab.sql) }) },
+    { id: 'explain', label: t('queryWorkspace.prepareExplain'), icon: Search, disabled: !tab.sql.trim() || /^\s*EXPLAIN\b/i.test(tab.sql), onSelect: () => onChange({ sql: `EXPLAIN ${tab.sql.trim()}` }) },
     { id: 'sep-library', separator: true },
-    { id: 'favorite', label: isFavorite ? 'Favorilerden kaldır' : 'Favorilere ekle', icon: isFavorite ? StarOff : Star, disabled: !tab.sql.trim(), onSelect: toggleFavorite },
-    { id: 'history', label: 'Sorgu geçmişini aç', icon: History, onSelect: () => setLibrary('history') },
-    { id: 'favorites', label: 'Favorileri aç', icon: BookOpen, onSelect: () => setLibrary('favorites') },
+    { id: 'favorite', label: isFavorite ? t('queryWorkspace.removeFavorite') : t('queryWorkspace.addFavorite'), icon: isFavorite ? StarOff : Star, disabled: !tab.sql.trim(), onSelect: toggleFavorite },
+    { id: 'history', label: t('queryWorkspace.openHistory'), icon: History, onSelect: () => setLibrary('history') },
+    { id: 'favorites', label: t('queryWorkspace.openFavorites'), icon: BookOpen, onSelect: () => setLibrary('favorites') },
     { id: 'sep-copy', separator: true },
-    { id: 'copy-sql', label: 'Tüm SQL’i kopyala', icon: Copy, disabled: !tab.sql.trim(), onSelect: () => navigator.clipboard.writeText(tab.sql) },
-    { id: 'copy-db', label: 'Aktif veritabanını kopyala', icon: Database, disabled: !tab.databaseName, onSelect: () => navigator.clipboard.writeText(tab.databaseName || '') },
-    { id: 'duplicate', label: 'Sekmeyi çoğalt', icon: Copy, onSelect: onDuplicate },
+    { id: 'copy-sql', label: t('queryWorkspace.copyAllSql'), icon: Copy, disabled: !tab.sql.trim(), onSelect: () => navigator.clipboard.writeText(tab.sql) },
+    { id: 'copy-db', label: t('queryWorkspace.copyActiveDatabase'), icon: Database, disabled: !tab.databaseName, onSelect: () => navigator.clipboard.writeText(tab.databaseName || '') },
+    { id: 'duplicate', label: t('queryWorkspace.duplicateTab'), icon: Copy, onSelect: onDuplicate },
     { id: 'sep-danger', separator: true },
-    { id: 'clear-result', label: 'Sonucu temizle', icon: XCircle, disabled: !tab.result && !tab.error, onSelect: () => { setResultSets([]); setActiveResultId(null); onChange({ result: null, error: null }); } },
-    { id: 'clear', label: 'Editörü temizle', icon: Trash2, danger: Boolean(tab.sql.trim()), onSelect: () => onChange({ sql: '', result: null, error: null }) }
+    { id: 'clear-result', label: t('queryWorkspace.clearResult'), icon: XCircle, disabled: !tab.result && !tab.error, onSelect: () => { setResultSets([]); setActiveResultId(null); onChange({ result: null, error: null }); } },
+    { id: 'clear', label: t('queryWorkspace.clearEditor'), icon: Trash2, danger: Boolean(tab.sql.trim()), onSelect: () => onChange({ sql: '', result: null, error: null }) }
   ], tab.title);
 
   const resultCellContextMenu = (event: React.MouseEvent, row: Record<string, unknown>, column: string) => {
     const value = row[column];
     openContextMenu(event, [
-      { id: 'copy-value', label: 'Hücre değerini kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(valueText(value)) },
-      { id: 'copy-literal', label: 'SQL literal olarak kopyala', icon: Code2, onSelect: () => navigator.clipboard.writeText(toSqlLiteral(value)) },
-      { id: 'copy-column', label: 'Kolon adını kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(column) },
+      { id: 'copy-value', label: t('queryWorkspace.copyCell'), icon: Copy, onSelect: () => navigator.clipboard.writeText(valueText(value)) },
+      { id: 'copy-literal', label: t('queryWorkspace.copyLiteral'), icon: Code2, onSelect: () => navigator.clipboard.writeText(toSqlLiteral(value)) },
+      { id: 'copy-column', label: t('queryWorkspace.copyColumn'), icon: Copy, onSelect: () => navigator.clipboard.writeText(column) },
       { id: 'sep-row', separator: true },
-      { id: 'copy-row', label: 'Satırı JSON olarak kopyala', icon: Copy, onSelect: () => navigator.clipboard.writeText(JSON.stringify(row, null, 2)) },
-      { id: 'copy-result', label: 'Tüm sonucu JSON olarak kopyala', icon: Copy, disabled: !activeResult?.rows?.length, onSelect: () => navigator.clipboard.writeText(JSON.stringify(activeResult?.rows || [], null, 2)) }
+      { id: 'copy-row', label: t('queryWorkspace.copyRowJson'), icon: Copy, onSelect: () => navigator.clipboard.writeText(JSON.stringify(row, null, 2)) },
+      { id: 'copy-result', label: t('queryWorkspace.copyAllJson'), icon: Copy, disabled: !activeResult?.rows?.length, onSelect: () => navigator.clipboard.writeText(JSON.stringify(activeResult?.rows || [], null, 2)) }
     ], `${column}: ${valueText(value)}`);
   };
 
@@ -366,20 +368,20 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
 
   return <div className="flex h-full min-h-0 flex-col bg-zinc-950/30">
     <div className="coreor-hide-scrollbar flex min-h-10 shrink-0 items-center gap-1.5 overflow-x-auto border-b border-zinc-800 px-2 py-1">
-      <Button size="sm" className="h-7 gap-1.5 text-[11px]" disabled={!selectedServer || !accountId || tab.isRunning || !tab.sql.trim() || Boolean(selectedServer?.readOnly && splitStatements(tab.sql).some(isWriteStatement))} onClick={runQuery}>{tab.isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : selectedServer?.readOnly ? <LockKeyhole className="h-3.5 w-3.5"/> : <Play className="h-3.5 w-3.5"/>}Çalıştır</Button>
-      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px]" onClick={() => onChange({ sql: formatSql(tab.sql) })}><Wand2 className="mr-1 h-3.5 w-3.5"/>Biçimlendir</Button>
+      <Button size="sm" className="h-7 gap-1.5 text-[11px]" disabled={!selectedServer || !accountId || tab.isRunning || !tab.sql.trim() || Boolean(selectedServer?.readOnly && splitStatements(tab.sql).some(isWriteStatement))} onClick={runQuery}>{tab.isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : selectedServer?.readOnly ? <LockKeyhole className="h-3.5 w-3.5"/> : <Play className="h-3.5 w-3.5"/>}{t('query.run')}</Button>
+      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px]" onClick={() => onChange({ sql: formatSql(tab.sql) })}><Wand2 className="mr-1 h-3.5 w-3.5"/>{t('query.format')}</Button>
       <Button variant="ghost" size="icon" className={`h-7 w-7 ${isFavorite ? 'text-amber-300' : ''}`} onClick={toggleFavorite}>{isFavorite ? <Star className="h-3.5 w-3.5 fill-current"/> : <StarOff className="h-3.5 w-3.5"/>}</Button>
-      <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setLibrary(library === 'history' ? null : 'history')}><History className="mr-1 h-3.5 w-3.5"/>Geçmiş</Button>
-      <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setLibrary(library === 'favorites' ? null : 'favorites')}><BookOpen className="mr-1 h-3.5 w-3.5"/>Favoriler</Button>
+      <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setLibrary(library === 'history' ? null : 'history')}><History className="mr-1 h-3.5 w-3.5"/>{t('query.history')}</Button>
+      <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setLibrary(library === 'favorites' ? null : 'favorites')}><BookOpen className="mr-1 h-3.5 w-3.5"/>{t('query.favorites')}</Button>
       <button type="button" className="flex h-7 items-center gap-1 rounded px-2 text-[9px] text-zinc-500 hover:bg-zinc-900" onClick={() => setDiagnosticsOpen(previous => !previous)}><CheckCircle2 className="h-3.5 w-3.5 text-cyan-400"/>LSP <span className={diagnosticCounts.errors ? 'text-red-400' : 'text-emerald-400'}>{diagnosticCounts.errors}</span>/<span className="text-amber-400">{diagnosticCounts.warnings}</span></button>
       <div className="w-48 shrink-0"><SearchSelect value={selectedServer?.id || ''} options={serverOptions} onValueChange={serverId => onChange({ serverId: serverId || null, databaseName: null, result: null })} triggerClassName="h-7 min-h-7" showDescriptionInTrigger={false}/></div>
       <div className="w-52 shrink-0"><SearchSelect value={tab.databaseName || ''} options={databaseOptions} onValueChange={databaseName => onChange({ databaseName: databaseName || null, result: null })} triggerClassName="h-7 min-h-7" showDescriptionInTrigger={false}/></div>
-      <span className="ml-auto flex items-center gap-2 text-[9px] text-zinc-600">{selectedServer?.readOnly && <span className="rounded bg-amber-500/10 px-2 py-1 text-amber-300">READ ONLY</span>}<span className={preferences.dryRunMutations ? 'text-emerald-400' : ''}>Dry-run {preferences.dryRunMutations ? 'açık' : 'kapalı'}</span><span>•</span><span>{preferences.autoSchemaSnapshots ? 'Snapshot açık' : 'Snapshot kapalı'}</span></span>
+      <span className="ml-auto flex items-center gap-2 text-[9px] text-zinc-600">{selectedServer?.readOnly && <span className="rounded bg-amber-500/10 px-2 py-1 text-amber-300">READ ONLY</span>}<span className={preferences.dryRunMutations ? 'text-emerald-400' : ''}>Dry-run {preferences.dryRunMutations ? t('queryWorkspace.enabled') : t('queryWorkspace.disabled')}</span><span>•</span><span>{preferences.autoSchemaSnapshots ? t('query.snapshotEnabled') : t('queryWorkspace.snapshotOff')}</span></span>
     </div>
 
     {diagnosticsOpen && diagnostics.length > 0 && <div className="coreor-hide-scrollbar flex max-h-20 shrink-0 gap-2 overflow-x-auto border-b border-zinc-800 bg-black/20 px-2 py-1.5">{diagnostics.slice(0, 12).map(item => <button key={item.id} type="button" className="flex min-w-[260px] max-w-[420px] items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1.5 text-left" title={item.suggestion}><span className="mt-0.5">{diagnosticIcon(item)}</span><span className="min-w-0"><span className="block truncate text-[9px] text-zinc-300">{item.message}</span><span className="mt-0.5 block text-[8px] text-zinc-600">{item.code}{item.suggestion ? ` • ${item.suggestion}` : ''}</span></span></button>)}</div>}
 
-    {dryRunPending && <div className="flex shrink-0 items-center gap-3 border-b border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-[10px] text-amber-100"><AlertTriangle className="h-4 w-4"/><div className="min-w-0 flex-1"><b>{dryRunPending.preview.rows.length.toLocaleString('tr-TR')} satır</b> etkilenebilir. Kaynak tablo: {dryRunPending.table}</div><Button size="sm" className="h-7" disabled={selectedServer?.readOnly} onClick={() => { const statement = dryRunPending.statement; setDryRunPending(null); void executeStatements([statement]); }}><ShieldCheck className="mr-1 h-3.5 w-3.5"/>Değişikliği uygula</Button><Button variant="ghost" size="sm" onClick={() => setDryRunPending(null)}>İptal</Button></div>}
+    {dryRunPending && <div className="flex shrink-0 items-center gap-3 border-b border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-[10px] text-amber-100"><AlertTriangle className="h-4 w-4"/><div className="min-w-0 flex-1"><b>{t('queryWorkspace.rowsMayBeAffected', { count: formatNumber(dryRunPending.preview.rows.length) })}</b> {t('queryWorkspace.sourceTable', { table: dryRunPending.table })}</div><Button size="sm" className="h-7" disabled={selectedServer?.readOnly} onClick={() => { const statement = dryRunPending.statement; setDryRunPending(null); void executeStatements([statement]); }}><ShieldCheck className="mr-1 h-3.5 w-3.5"/>{t('query.applyChange')}</Button><Button variant="ghost" size="sm" onClick={() => setDryRunPending(null)}>{t('common.cancel')}</Button></div>}
 
     <div className={`grid min-h-0 flex-1 ${library ? 'grid-cols-[minmax(0,1fr)_300px]' : 'grid-cols-1'}`}>
       <div ref={splitRef} className="flex min-h-0 flex-col">
@@ -387,8 +389,8 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
           {suggestionsOpen && suggestions.length > 0 && <div className="absolute bottom-3 left-3 z-30 max-h-80 w-[500px] overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-950 p-1 shadow-2xl">{suggestions.map((suggestion, index) => <button key={suggestion.id} onMouseDown={event => { event.preventDefault(); insertSuggestion(suggestion); }} className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left ${index === suggestionIndex ? 'bg-cyan-500/15' : 'hover:bg-zinc-900'}`}>{suggestionIcon(suggestion.kind)}<span className="min-w-0 flex-1 truncate font-mono text-[10px]">{suggestion.label}</span><span className="text-[9px] text-zinc-600">{suggestion.detail}</span></button>)}</div>}
         </div>
         <div className="flex min-h-0 shrink-0 flex-col border-t border-zinc-800 bg-black/20" style={{ height: resultCollapsed ? 36 : resultHeight }}>
-          {!resultCollapsed && <div role="separator" aria-orientation="horizontal" aria-label="Sonuç paneli yüksekliğini değiştir" className="group flex h-1.5 shrink-0 cursor-row-resize touch-none items-center justify-center bg-zinc-950 hover:bg-cyan-500/10" onPointerDown={startResultResize}><GripHorizontal className="h-3 w-3 text-zinc-800 transition group-hover:text-cyan-500" /></div>}
-          <div className="coreor-hide-scrollbar flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-zinc-800 px-2 text-[10px] text-zinc-500"><Terminal className="h-3.5 w-3.5"/>{resultSets.length > 1 ? resultSets.map(item => <button key={item.id} onClick={() => setActiveResultId(item.id)} className={`rounded px-2 py-1 ${activeSet?.id === item.id ? 'bg-cyan-500/10 text-cyan-300' : 'hover:bg-zinc-900'}`}>{item.label}{item.error ? ' • hata' : item.dryRun ? ' • ön izleme' : ''}</button>) : <span>{activeSet?.dryRun ? 'Dry-run sonucu' : 'Sonuç'}</span>}<span className="ml-auto shrink-0">{activeResult?.rows?.length?.toLocaleString('tr-TR') || 0} satır</span><button type="button" className="ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" onClick={() => setResultCollapsed(previous => !previous)} title={resultCollapsed ? 'Sonuç panelini aç' : 'Sonuç panelini tamamen daralt'} aria-label={resultCollapsed ? 'Sonuç panelini aç' : 'Sonuç panelini daralt'}>{resultCollapsed ? <ChevronUp className="h-3.5 w-3.5"/> : <ChevronDown className="h-3.5 w-3.5"/>}</button></div>
+          {!resultCollapsed && <div role="separator" aria-orientation="horizontal" aria-label={t('queryWorkspace.resizeResults')} className="group flex h-1.5 shrink-0 cursor-row-resize touch-none items-center justify-center bg-zinc-950 hover:bg-cyan-500/10" onPointerDown={startResultResize}><GripHorizontal className="h-3 w-3 text-zinc-800 transition group-hover:text-cyan-500" /></div>}
+          <div className="coreor-hide-scrollbar flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-zinc-800 px-2 text-[10px] text-zinc-500"><Terminal className="h-3.5 w-3.5"/>{resultSets.length > 1 ? resultSets.map(item => <button key={item.id} onClick={() => setActiveResultId(item.id)} className={`rounded px-2 py-1 ${activeSet?.id === item.id ? 'bg-cyan-500/10 text-cyan-300' : 'hover:bg-zinc-900'}`}>{item.label}{item.error ? ` • ${t('common.error')}` : item.dryRun ? ` ${t('queryWorkspace.preview')}` : ''}</button>) : <span>{activeSet?.dryRun ? 'Dry-run sonucu' : 'Sonuç'}</span>}<span className="ml-auto shrink-0">{activeResult?.rows?.length?.toLocaleString('tr-TR') || 0} satır</span><button type="button" className="ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" onClick={() => setResultCollapsed(previous => !previous)} title={resultCollapsed ? 'Sonuç panelini aç' : 'Sonuç panelini tamamen daralt'} aria-label={resultCollapsed ? 'Sonuç panelini aç' : 'Sonuç panelini daralt'}>{resultCollapsed ? <ChevronUp className="h-3.5 w-3.5"/> : <ChevronDown className="h-3.5 w-3.5"/>}</button></div>
           {!resultCollapsed && (activeSet?.error || tab.error ? <div className="m-3 rounded border border-red-500/30 bg-red-500/10 p-3 font-mono text-[11px] text-red-300">{activeSet?.error || tab.error}</div> : activeResult?.rows?.length ? <ScrollArea className="min-h-0 flex-1"><div className="min-w-max"><Table size="sm" columnStorageKey={`query-result:${tab.id}:${columns.join('|')}`}><TableHeader><TableRow>{columns.map(column => <TableHead key={column} columnKey={column} className="sticky top-0 z-10 border bg-zinc-950">{column}</TableHead>)}</TableRow></TableHeader><TableBody>{activeResult.rows.map((row, rowIndex) => <TableRow key={rowIndex}>{columns.map(column => <TableCell key={column} className="truncate border font-mono text-[11px]" title={valueText(row[column])} onContextMenu={event => resultCellContextMenu(event, row, column)}>{valueText(row[column])}</TableCell>)}</TableRow>)}</TableBody></Table></div></ScrollArea> : activeResult ? <div className="flex flex-1 items-center justify-center text-xs text-zinc-500">{typeof activeResult.affectedRows === 'number' ? `${activeResult.affectedRows.toLocaleString('tr-TR')} satır etkilendi.` : 'Sorgu tamamlandı.'}</div> : <div className="flex flex-1 items-center justify-center text-xs text-zinc-600">Sonuçlar burada gösterilir.</div>)}
         </div>
       </div>
