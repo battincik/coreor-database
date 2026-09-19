@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EmptyState, ErrorState, LoadingState } from '@/components/app-state';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface DatabaseCatalogViewProps {
   mode: 'databases' | 'tables';
@@ -43,7 +44,7 @@ type SortState = { key: string; direction: SortDirection };
 
 interface ColumnDefinition {
   key: string;
-  label: string;
+  labelKey: string;
   sortKey?: string;
   align?: 'left' | 'right';
   sticky?: boolean;
@@ -51,47 +52,36 @@ interface ColumnDefinition {
 }
 
 const DATABASE_COLUMNS: ColumnDefinition[] = [
-  { key: 'name', label: 'Veritabanı', sortKey: 'name' },
-  { key: 'tableCount', label: 'Tablo', sortKey: 'tableCount', align: 'right' },
-  { key: 'totalRows', label: 'Tahmini satır', sortKey: 'totalRows', align: 'right' },
-  { key: 'totalSizeMB', label: 'Toplam boyut', sortKey: 'totalSizeMB', align: 'right' },
-  { key: 'dataSizeMB', label: 'Veri boyutu', align: 'right' },
-  { key: 'indexSizeMB', label: 'İndeks boyutu', align: 'right' },
-  { key: 'defaultCharset', label: 'Charset' },
-  { key: 'defaultCollation', label: 'Collation' }
+  { key: 'name', labelKey: 'catalog.database', sortKey: 'name' },
+  { key: 'tableCount', labelKey: 'catalog.table', sortKey: 'tableCount', align: 'right' },
+  { key: 'totalRows', labelKey: 'catalog.estimatedRows', sortKey: 'totalRows', align: 'right' },
+  { key: 'totalSizeMB', labelKey: 'catalog.totalSize', sortKey: 'totalSizeMB', align: 'right' },
+  { key: 'dataSizeMB', labelKey: 'catalog.dataSize', align: 'right' },
+  { key: 'indexSizeMB', labelKey: 'catalog.indexSize', align: 'right' },
+  { key: 'defaultCharset', labelKey: 'catalog.charset' },
+  { key: 'defaultCollation', labelKey: 'catalog.collation' }
 ];
 
 const TABLE_COLUMNS: ColumnDefinition[] = [
-  { key: 'tableName', label: 'Tablo adı', sortKey: 'tableName', sticky: true },
-  { key: 'engine', label: 'Motor', sortKey: 'engine' },
-  { key: 'tableType', label: 'Tür' },
-  { key: 'rows', label: 'Tahmini satır', sortKey: 'rows', align: 'right' },
-  { key: 'columns', label: 'Kolon', sortKey: 'columns', align: 'right' },
-  { key: 'sizeMB', label: 'Toplam boyut', sortKey: 'sizeMB', align: 'right' },
-  { key: 'dataSizeMB', label: 'Veri', align: 'right' },
-  { key: 'indexSizeMB', label: 'İndeks', align: 'right' },
-  { key: 'freeSizeMB', label: 'Boş alan', align: 'right' },
-  { key: 'avgRowLength', label: 'Ort. satır', align: 'right' },
-  { key: 'rowFormat', label: 'Row format' },
-  { key: 'collation', label: 'Collation' },
-  { key: 'autoIncrement', label: 'Auto inc.', align: 'right' },
-  { key: 'indexCount', label: 'İndeks', align: 'right' },
-  { key: 'foreignKeyCount', label: 'FK', align: 'right' },
-  { key: 'createdAt', label: 'Oluşturulma', sortKey: 'createdAt' },
-  { key: 'updatedAt', label: 'Güncellenme', sortKey: 'updatedAt' },
-  { key: 'comment', label: 'Yorum', className: 'min-w-72' }
+  { key: 'tableName', labelKey: 'catalog.tableName', sortKey: 'tableName', sticky: true },
+  { key: 'engine', labelKey: 'catalog.engine', sortKey: 'engine' },
+  { key: 'tableType', labelKey: 'catalog.type' },
+  { key: 'rows', labelKey: 'catalog.estimatedRows', sortKey: 'rows', align: 'right' },
+  { key: 'columns', labelKey: 'catalog.columns', sortKey: 'columns', align: 'right' },
+  { key: 'sizeMB', labelKey: 'catalog.totalSize', sortKey: 'sizeMB', align: 'right' },
+  { key: 'dataSizeMB', labelKey: 'catalog.data', align: 'right' },
+  { key: 'indexSizeMB', labelKey: 'catalog.index', align: 'right' },
+  { key: 'freeSizeMB', labelKey: 'catalog.freeSpace', align: 'right' },
+  { key: 'avgRowLength', labelKey: 'catalog.avgRow', align: 'right' },
+  { key: 'rowFormat', labelKey: 'catalog.rowFormat' },
+  { key: 'collation', labelKey: 'catalog.collation' },
+  { key: 'autoIncrement', labelKey: 'catalog.autoIncrement', align: 'right' },
+  { key: 'indexCount', labelKey: 'catalog.index', align: 'right' },
+  { key: 'foreignKeyCount', labelKey: 'catalog.foreignKey', align: 'right' },
+  { key: 'createdAt', labelKey: 'catalog.createdAt', sortKey: 'createdAt' },
+  { key: 'updatedAt', labelKey: 'catalog.updatedAt', sortKey: 'updatedAt' },
+  { key: 'comment', labelKey: 'catalog.comment', className: 'min-w-72' }
 ];
-
-function formatNumber(value: number) {
-  return Number.isFinite(value) ? value.toLocaleString('tr-TR') : '0';
-}
-
-function formatDate(value: string | null) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('tr-TR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
-}
 
 function SortButton({ active, direction, children, onClick }: {
   active: boolean;
@@ -111,7 +101,7 @@ function SortButton({ active, direction, children, onClick }: {
   );
 }
 
-function databaseCell(database: DatabaseCatalogItem, key: string) {
+function databaseCell(database: DatabaseCatalogItem, key: string, formatNumber:(value:number)=>string) {
   switch (key) {
     case 'name':
       return <span className="flex items-center gap-2"><Database className="h-3.5 w-3.5 text-emerald-500" />{database.name}</span>;
@@ -126,7 +116,7 @@ function databaseCell(database: DatabaseCatalogItem, key: string) {
   }
 }
 
-function tableCell(table: DatabaseTable, key: string) {
+function tableCell(table: DatabaseTable, key: string, formatNumber:(value:number)=>string, formatDate:(value:string|Date,options?:Intl.DateTimeFormatOptions)=>string) {
   switch (key) {
     case 'tableName': return <span className="flex items-center gap-2"><TableIcon className="h-3.5 w-3.5 text-blue-500" />{table.tableName}</span>;
     case 'engine': return table.engine;
@@ -143,8 +133,8 @@ function tableCell(table: DatabaseTable, key: string) {
     case 'autoIncrement': return table.autoIncrement === null ? '—' : String(table.autoIncrement);
     case 'indexCount': return formatNumber(table.indexCount);
     case 'foreignKeyCount': return formatNumber(table.foreignKeyCount);
-    case 'createdAt': return formatDate(table.createdAt);
-    case 'updatedAt': return formatDate(table.updatedAt);
+    case 'createdAt': return table.createdAt ? formatDate(table.createdAt,{dateStyle:'short',timeStyle:'short'}) : '—';
+    case 'updatedAt': return table.updatedAt ? formatDate(table.updatedAt,{dateStyle:'short',timeStyle:'short'}) : '—';
     case 'comment': return table.comment || '—';
     default: return '—';
   }
@@ -165,6 +155,7 @@ export function DatabaseCatalogView({
   onTableContextMenu,
   onOpenQuery
 }: DatabaseCatalogViewProps) {
+  const {t,formatNumber,formatDate,language}=useLanguage();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<SortState>({ key: mode === 'databases' ? 'name' : 'tableName', direction: 'asc' });
@@ -178,24 +169,24 @@ export function DatabaseCatalogView({
 
   const selectedDatabaseItem = databases.find(database => database.name === selectedDatabase) ?? null;
   const databaseRows = useMemo(() => {
-    const normalizedSearch = search.trim().toLocaleLowerCase('tr-TR');
-    const rows = databases.filter(database => !normalizedSearch || database.name.toLocaleLowerCase('tr-TR').includes(normalizedSearch));
+    const normalizedSearch = search.trim().toLocaleLowerCase(language);
+    const rows = databases.filter(database => !normalizedSearch || database.name.toLocaleLowerCase(language).includes(normalizedSearch));
     return [...rows].sort((left, right) => {
       const leftValue = sort.key === 'name' ? left.name : sort.key === 'tableCount' ? left.tableCount : sort.key === 'totalRows' ? left.totalRows : Number(left.totalSizeMB);
       const rightValue = sort.key === 'name' ? right.name : sort.key === 'tableCount' ? right.tableCount : sort.key === 'totalRows' ? right.totalRows : Number(right.totalSizeMB);
       const comparison = typeof leftValue === 'string' && typeof rightValue === 'string'
-        ? leftValue.localeCompare(rightValue, 'tr-TR')
+        ? leftValue.localeCompare(rightValue, language)
         : Number(leftValue) - Number(rightValue);
       return comparison * (sort.direction === 'asc' ? 1 : -1);
     });
-  }, [databases, search, sort]);
+  }, [databases, search, sort, language]);
 
   const tableRows = useMemo(() => {
-    const normalizedSearch = search.trim().toLocaleLowerCase('tr-TR');
+    const normalizedSearch = search.trim().toLocaleLowerCase(language);
     const rows = (selectedDatabaseItem?.tableDetails || []).filter(table => (
       !normalizedSearch || [table.tableName, table.comment, table.engine, table.tableType, table.collation, table.rowFormat]
         .filter(Boolean)
-        .some(value => String(value).toLocaleLowerCase('tr-TR').includes(normalizedSearch))
+        .some(value => String(value).toLocaleLowerCase(language).includes(normalizedSearch))
     ));
     const readValue = (table: DatabaseTable) => {
       switch (sort.key) {
@@ -212,11 +203,11 @@ export function DatabaseCatalogView({
       const leftValue = readValue(left);
       const rightValue = readValue(right);
       const comparison = typeof leftValue === 'string' && typeof rightValue === 'string'
-        ? leftValue.localeCompare(rightValue, 'tr-TR')
+        ? leftValue.localeCompare(rightValue, language)
         : Number(leftValue) - Number(rightValue);
       return comparison * (sort.direction === 'asc' ? 1 : -1);
     });
-  }, [selectedDatabaseItem, search, sort]);
+  }, [selectedDatabaseItem, search, sort, language]);
 
   const activeRows = mode === 'databases' ? databaseRows : tableRows;
   const totalPages = Math.max(1, Math.ceil(activeRows.length / pageSize));
@@ -235,25 +226,25 @@ export function DatabaseCatalogView({
     setPage(1);
   };
 
-  if (isLoading) return <LoadingState title={mode === 'databases' ? 'Veritabanları okunuyor' : 'Tablolar hazırlanıyor'} description={activeServerName || undefined} />;
-  if (error) return <ErrorState title="Katalog yüklenemedi" description={error} actionLabel="Tekrar dene" onAction={onRefresh} />;
-  if (mode === 'databases' && databases.length === 0) return <EmptyState icon={Database} title="Görüntülenebilir veritabanı yok" description="Bağlantı kullanıcısının yetkilerini kontrol edin veya kataloğu yenileyin." actionLabel="Kataloğu yenile" onAction={onRefresh} />;
-  if (mode === 'tables' && !selectedDatabaseItem) return <EmptyState icon={Database} title="Veritabanı seçilmedi" description="Sol ağaçtan veya veritabanı listesinden bir veritabanı seçin." />;
-  if (mode === 'tables' && selectedDatabaseItem && selectedDatabaseItem.tableDetails.length === 0) return <EmptyState icon={TableIcon} title="Bu veritabanında tablo yok" description="Kullanıcının tablo görüntüleme yetkisini kontrol edin veya kataloğu yenileyin." actionLabel="Yenile" onAction={onRefresh} />;
+  if (isLoading) return <LoadingState title={mode === 'databases' ? t('catalog.loadingDatabases') : t('catalog.loadingTables')} description={activeServerName || undefined} />;
+  if (error) return <ErrorState title={t('catalog.loadFailed')} description={error} actionLabel={t('catalog.retry')} onAction={onRefresh} />;
+  if (mode === 'databases' && databases.length === 0) return <EmptyState icon={Database} title={t('catalog.noVisibleDatabases')} description={t('catalog.noVisibleDatabasesDescription')} actionLabel={t('catalog.refreshCatalog')} onAction={onRefresh} />;
+  if (mode === 'tables' && !selectedDatabaseItem) return <EmptyState icon={Database} title={t('catalog.noDatabaseSelected')} description={t('catalog.selectDatabaseDescription')} />;
+  if (mode === 'tables' && selectedDatabaseItem && selectedDatabaseItem.tableDetails.length === 0) return <EmptyState icon={TableIcon} title={t('catalog.noTables')} description={t('catalog.noTablesDescription')} actionLabel={t('common.refresh')} onAction={onRefresh} />;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 border-b border-zinc-800 px-2 py-1">
-        <button type="button" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-200" onClick={() => void onRefresh()}><RefreshCw className="h-3.5 w-3.5" />Yenile</button>
-        <button type="button" className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300" onClick={() => onOpenQuery(mode === 'tables' ? selectedDatabase : null)}>+ Sorgu</button>
-        <button type="button" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-200" onClick={() => requestTableColumnAction(columnStorageKey, 'fit-all')} title="Bütün sütunları mevcut içeriğe göre kompakt biçimde fit eder"><Columns3 className="h-3.5 w-3.5" />Tümünü fit et</button>
-        <button type="button" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-200" onClick={() => requestTableColumnAction(columnStorageKey, 'reset')} title="Bu görünüm için kaydedilen sütun genişliklerini siler"><RotateCcw className="h-3.5 w-3.5" />Genişlikleri sıfırla</button>
-        <div className="relative min-w-64 max-w-md flex-1"><Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" /><Input value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder={mode === 'databases' ? 'Veritabanı ara' : 'Tablo, yorum, motor veya collation ara'} className="h-7 pl-7 text-xs" /></div>
-        <span className="ml-auto text-[10px] text-zinc-600">{mode === 'databases' ? `${databaseRows.length.toLocaleString('tr-TR')} veritabanı • ${databases.reduce((total, database) => total + database.tableCount, 0).toLocaleString('tr-TR')} tablo` : `${tableRows.length.toLocaleString('tr-TR')} tablo • yaklaşık ${formatNumber(selectedDatabaseItem?.totalRows || 0)} satır • ${formatStorageMb(selectedDatabaseItem?.totalSizeMB)}`}</span>
+        <button type="button" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-200" onClick={() => void onRefresh()}><RefreshCw className="h-3.5 w-3.5" />{t('common.refresh')}</button>
+        <button type="button" className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300" onClick={() => onOpenQuery(mode === 'tables' ? selectedDatabase : null)}>+ {t('catalog.query')}</button>
+        <button type="button" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-200" onClick={() => requestTableColumnAction(columnStorageKey, 'fit-all')} title={t('catalog.fitAllDescription')}><Columns3 className="h-3.5 w-3.5" />{t('catalog.fitAll')}</button>
+        <button type="button" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-200" onClick={() => requestTableColumnAction(columnStorageKey, 'reset')} title={t('catalog.resetWidthsDescription')}><RotateCcw className="h-3.5 w-3.5" />{t('catalog.resetWidths')}</button>
+        <div className="relative min-w-64 max-w-md flex-1"><Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" /><Input value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder={mode === 'databases' ? t('catalog.searchDatabase') : t('catalog.searchTable')} className="h-7 pl-7 text-xs" /></div>
+        <span className="ml-auto text-[10px] text-zinc-600">{mode === 'databases' ? t('catalog.databaseSummary',{databases:formatNumber(databaseRows.length),tables:formatNumber(databases.reduce((total,database)=>total+database.tableCount,0))}) : t('catalog.tableSummary',{tables:formatNumber(tableRows.length),rows:formatNumber(selectedDatabaseItem?.totalRows || 0),size:formatStorageMb(selectedDatabaseItem?.totalSizeMB)})}</span>
       </div>
 
       <div className="shrink-0 border-b border-zinc-900 bg-black/15 px-2 py-1 text-[9px] text-zinc-700">
-        Sütun ayırıcısını sürükleyerek genişliği değiştirin; ayırıcıya çift tıklayarak Excel tarzı otomatik fit uygulayın. Genişlikler bu tablo için yerel uygulama durumunda saklanır.
+        {t('catalog.columnResizeHint')}
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
@@ -268,8 +259,8 @@ export function DatabaseCatalogView({
                     className={`${column.sticky ? 'sticky left-0 top-0 z-20' : 'sticky top-0 z-10'} border bg-zinc-950 ${column.align === 'right' ? 'text-right' : ''} ${column.className || ''}`}
                   >
                     {column.sortKey ? (
-                      <SortButton active={sort.key === column.sortKey} direction={sort.direction} onClick={() => changeSort(column.sortKey!)}>{column.label}</SortButton>
-                    ) : column.label}
+                      <SortButton active={sort.key === column.sortKey} direction={sort.direction} onClick={() => changeSort(column.sortKey!)}>{t(column.labelKey)}</SortButton>
+                    ) : t(column.labelKey)}
                   </TableHead>
                 ))}
               </TableRow>
@@ -288,7 +279,7 @@ export function DatabaseCatalogView({
                         key={column.key}
                         className={`border py-1.5 ${column.align === 'right' ? 'text-right tabular-nums' : ''} ${column.key === 'name' ? 'font-medium' : ''} ${column.key === 'totalRows' ? 'text-blue-400' : ''} ${['defaultCharset', 'defaultCollation'].includes(column.key) ? 'font-mono text-[10px] text-zinc-400' : ''}`}
                       >
-                        {databaseCell(database, column.key)}
+                        {databaseCell(database, column.key, formatNumber)}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -306,7 +297,7 @@ export function DatabaseCatalogView({
                         title={column.key === 'comment' ? table.comment : undefined}
                         className={`${column.sticky ? 'sticky left-0 z-10 bg-zinc-950/95' : ''} border py-1.5 ${column.align === 'right' ? 'text-right tabular-nums' : ''} ${column.key === 'tableName' ? 'font-medium' : ''} ${column.key === 'engine' ? 'text-emerald-400' : ''} ${column.key === 'rows' ? 'text-blue-400' : ''} ${column.key === 'collation' ? 'font-mono text-[10px]' : ''} ${['createdAt', 'updatedAt'].includes(column.key) ? 'whitespace-nowrap' : ''} ${column.key === 'comment' ? 'truncate text-zinc-400' : ''}`}
                       >
-                        {tableCell(table, column.key)}
+                        {tableCell(table, column.key, formatNumber, formatDate)}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -317,7 +308,7 @@ export function DatabaseCatalogView({
       </ScrollArea>
 
       <div className="flex h-9 shrink-0 items-center justify-end gap-2 border-t border-zinc-800 px-2 text-[10px] text-zinc-500">
-        <span>{activeRows.length.toLocaleString('tr-TR')} kayıt</span>
+        <span>{t('catalog.records',{count:formatNumber(activeRows.length)})}</span>
         <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={page <= 1} onClick={() => setPage(previous => Math.max(1, previous - 1))}><ChevronLeft className="h-3.5 w-3.5" /></Button>
         <span className="min-w-16 text-center">{page} / {totalPages}</span>
         <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={page >= totalPages} onClick={() => setPage(previous => Math.min(totalPages, previous + 1))}><ChevronRight className="h-3.5 w-3.5" /></Button>

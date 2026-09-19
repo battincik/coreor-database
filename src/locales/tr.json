@@ -2245,5 +2245,64 @@
   "errors": {
     "contextMenuUnavailable": "Bu işlem şu anda kullanılamıyor.",
     "contextMenuProvider": "useAppContextMenu, AppContextMenuProvider içinde kullanılmalıdır."
+  },
+  "contextMenu": {
+    "unavailable": "Bu işlem şu anda kullanılamıyor."
+  },
+  "loadingScreen": {
+    "title": "Coreor Database hazırlanıyor",
+    "description": "Çalışma alanı, şifreli kasa ve oturum bilgileri yükleniyor."
+  },
+  "actionConfirm": {
+    "sqlToRun": "Çalıştırılacak SQL",
+    "typeToConfirmPrefix": "Onaylamak için",
+    "typeToConfirmSuffix": "yazın.",
+    "failed": "İşlem tamamlanamadı."
+  },
+  "catalog": {
+    "database": "Veritabanı",
+    "table": "Tablo",
+    "estimatedRows": "Tahmini satır",
+    "totalSize": "Toplam boyut",
+    "dataSize": "Veri boyutu",
+    "indexSize": "İndeks boyutu",
+    "charset": "Charset",
+    "collation": "Collation",
+    "tableName": "Tablo adı",
+    "engine": "Motor",
+    "type": "Tür",
+    "columns": "Kolon",
+    "data": "Veri",
+    "index": "İndeks",
+    "freeSpace": "Boş alan",
+    "avgRow": "Ort. satır",
+    "rowFormat": "Satır formatı",
+    "autoIncrement": "Auto inc.",
+    "foreignKey": "FK",
+    "createdAt": "Oluşturulma",
+    "updatedAt": "Güncellenme",
+    "comment": "Yorum",
+    "loadingDatabases": "Veritabanları okunuyor",
+    "loadingTables": "Tablolar hazırlanıyor",
+    "loadFailed": "Katalog yüklenemedi",
+    "retry": "Tekrar dene",
+    "noVisibleDatabases": "Görüntülenebilir veritabanı yok",
+    "noVisibleDatabasesDescription": "Bağlantı kullanıcısının yetkilerini kontrol edin veya kataloğu yenileyin.",
+    "refreshCatalog": "Kataloğu yenile",
+    "noDatabaseSelected": "Veritabanı seçilmedi",
+    "selectDatabaseDescription": "Sol ağaçtan veya veritabanı listesinden bir veritabanı seçin.",
+    "noTables": "Bu veritabanında tablo yok",
+    "noTablesDescription": "Kullanıcının tablo görüntüleme yetkisini kontrol edin veya kataloğu yenileyin.",
+    "query": "Sorgu",
+    "fitAll": "Tümünü fit et",
+    "fitAllDescription": "Bütün sütunları mevcut içeriğe göre kompakt biçimde fit eder.",
+    "resetWidths": "Genişlikleri sıfırla",
+    "resetWidthsDescription": "Bu görünüm için kaydedilen sütun genişliklerini siler.",
+    "searchDatabase": "Veritabanı ara",
+    "searchTable": "Tablo, yorum, motor veya collation ara",
+    "databaseSummary": "{databases} veritabanı • {tables} tablo",
+    "tableSummary": "{tables} tablo • yaklaşık {rows} satır • {size}",
+    "columnResizeHint": "Sütun ayırıcısını sürükleyerek genişliği değiştirin; ayırıcıya çift tıklayarak Excel tarzı otomatik fit uygulayın. Genişlikler bu tablo için yerel uygulama durumunda saklanır.",
+    "records": "{count} kayıt"
   }
 }

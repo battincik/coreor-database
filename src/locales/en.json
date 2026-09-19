@@ -2245,5 +2245,64 @@
   "errors": {
     "contextMenuUnavailable": "This action is currently unavailable.",
     "contextMenuProvider": "useAppContextMenu must be used inside AppContextMenuProvider."
+  },
+  "contextMenu": {
+    "unavailable": "This action is currently unavailable."
+  },
+  "loadingScreen": {
+    "title": "Preparing Coreor Database",
+    "description": "Loading workspace, encrypted vault, and session information."
+  },
+  "actionConfirm": {
+    "sqlToRun": "SQL to execute",
+    "typeToConfirmPrefix": "Type",
+    "typeToConfirmSuffix": "to confirm.",
+    "failed": "The operation could not be completed."
+  },
+  "catalog": {
+    "database": "Database",
+    "table": "Table",
+    "estimatedRows": "Estimated rows",
+    "totalSize": "Total size",
+    "dataSize": "Data size",
+    "indexSize": "Index size",
+    "charset": "Charset",
+    "collation": "Collation",
+    "tableName": "Table name",
+    "engine": "Engine",
+    "type": "Type",
+    "columns": "Columns",
+    "data": "Data",
+    "index": "Index",
+    "freeSpace": "Free space",
+    "avgRow": "Avg. row",
+    "rowFormat": "Row format",
+    "autoIncrement": "Auto inc.",
+    "foreignKey": "FK",
+    "createdAt": "Created",
+    "updatedAt": "Updated",
+    "comment": "Comment",
+    "loadingDatabases": "Reading databases",
+    "loadingTables": "Preparing tables",
+    "loadFailed": "Could not load catalog",
+    "retry": "Try again",
+    "noVisibleDatabases": "No visible databases",
+    "noVisibleDatabasesDescription": "Check the connection user's permissions or refresh the catalog.",
+    "refreshCatalog": "Refresh catalog",
+    "noDatabaseSelected": "No database selected",
+    "selectDatabaseDescription": "Select a database from the object tree or database list.",
+    "noTables": "No tables in this database",
+    "noTablesDescription": "Check table-view permissions or refresh the catalog.",
+    "query": "Query",
+    "fitAll": "Fit all",
+    "fitAllDescription": "Compactly fit all columns to current content.",
+    "resetWidths": "Reset widths",
+    "resetWidthsDescription": "Remove saved column widths for this view.",
+    "searchDatabase": "Search database",
+    "searchTable": "Search table, comment, engine, or collation",
+    "databaseSummary": "{databases} databases • {tables} tables",
+    "tableSummary": "{tables} tables • about {rows} rows • {size}",
+    "columnResizeHint": "Drag a column divider to resize; double-click it for Excel-style auto fit. Widths are stored locally for this table.",
+    "records": "{count} records"
   }
 }

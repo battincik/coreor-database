@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { ChevronRight } from 'lucide-react';
 import { shortcutLabel, type ShortcutId } from '@/lib/shortcuts';
 import type { LucideIcon } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 
 export interface AppContextMenuItem {
   id: string;
@@ -89,6 +90,7 @@ function MenuItems({
   autoFocus?: boolean;
   maxHeight?: number;
 }) {
+  const {t}=useLanguage();
   const menuItems = visibleItems(items);
   const selectable = menuItems.filter(item => !item.separator);
   const [submenu, setSubmenu] = useState<SubmenuState | null>(null);
@@ -222,7 +224,7 @@ function MenuItems({
                 role="menuitem"
                 data-menu-id={item.id}
                 aria-disabled={item.disabled || undefined}
-                title={item.disabled ? item.disabledReason || 'Bu işlem şu anda kullanılamıyor.' : undefined}
+                title={item.disabled ? item.disabledReason || t('contextMenu.unavailable') : undefined}
                 className={`flex min-h-7 w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] outline-none transition-colors ${item.disabled
                   ? 'cursor-not-allowed text-zinc-700'
                   : item.danger
