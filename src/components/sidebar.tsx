@@ -25,6 +25,7 @@ import { publishCoreorNotification } from '@/lib/notificationStore';
 import { useLanguage } from '@/context/LanguageContext';
 
 const objectExplorerKey = (serverId: string, databaseName: string) => `${serverId}:${databaseName}`;
+type Translator = (key: string, values?: Record<string, string | number>) => string;
 
 type ObjectSearchType = 'all' | 'server' | 'database' | DatabaseSchemaObject['kind'];
 
@@ -104,7 +105,7 @@ function initials(name?: string | null, email?: string | null) {
     .join('');
 }
 
-function objectTemplate(engine: DatabaseEngine, databaseName: string, type: string, tableName = 'new_object') {
+function objectTemplate(engine: DatabaseEngine, databaseName: string, type: string, t: Translator, tableName = 'new_object') {
   const family = databaseEngineFamily(engine);
   const object = quoteDatabaseIdentifier(tableName, engine);
   const table = qualifiedDatabaseTable(databaseName, tableName, engine);
@@ -113,7 +114,7 @@ function objectTemplate(engine: DatabaseEngine, databaseName: string, type: stri
   if (type === 'procedure') return family === 'mysql' ? `DELIMITER //\nCREATE PROCEDURE ${object}()\nBEGIN\n  SELECT CURRENT_TIMESTAMP;\nEND //\nDELIMITER ;` : family === 'mssql' ? `CREATE PROCEDURE ${object}\nAS\nBEGIN\n  SET NOCOUNT ON;\n  SELECT SYSUTCDATETIME() AS current_time;\nEND;` : `CREATE PROCEDURE ${object}()\nLANGUAGE SQL\nAS $$\n  SELECT CURRENT_TIMESTAMP;\n$$;`;
   if (type === 'function') return family === 'mssql' ? `CREATE FUNCTION ${object}()\nRETURNS DATETIME2\nAS\nBEGIN\n  RETURN SYSUTCDATETIME();\nEND;` : `CREATE FUNCTION ${object}()\nRETURNS TIMESTAMP\n${family === 'mysql' ? 'DETERMINISTIC\nRETURN CURRENT_TIMESTAMP' : 'LANGUAGE SQL\nAS $$ SELECT CURRENT_TIMESTAMP $$'};`;
   if (type === 'trigger') return `CREATE TRIGGER ${object}\n${family === 'mssql' ? 'ON' : 'BEFORE INSERT ON'} ${qualifiedDatabaseTable(databaseName, 'target_table', engine)}\n${family === 'mssql' ? 'AFTER INSERT\nAS\nBEGIN\n  SET NOCOUNT ON;\nEND;' : 'FOR EACH ROW\nBEGIN\n  -- trigger body\nEND;'}`;
-  if (type === 'event') return family === 'mysql' ? `CREATE EVENT ${object}\nON SCHEDULE EVERY 1 DAY\nDO\n  SELECT CURRENT_TIMESTAMP;` : `-- ${databaseEngineLabel(engine)} zamanlanmış görevleri için sunucu scheduler/agent kullanın.`;
+  if (type === 'event') return family === 'mysql' ? `CREATE EVENT ${object}\nON SCHEDULE EVERY 1 DAY\nDO\n  SELECT CURRENT_TIMESTAMP;` : `-- ${t('sidebar.sqlTemplates.scheduledTaskHelp',{engine:databaseEngineLabel(engine)})}`;
   return `CREATE INDEX ${object}\nON ${qualifiedDatabaseTable(databaseName, 'target_table', engine)} (${quoteDatabaseIdentifier('column_name', engine)});`;
 }
 
@@ -124,7 +125,7 @@ function objectQualifiedName(engine: DatabaseEngine, databaseName: string, objec
   return `${quoteDatabaseIdentifier(schema, engine)}.${quoteDatabaseIdentifier(object.name, engine)}`;
 }
 
-function objectDefinitionSql(engine: DatabaseEngine, databaseName: string, object: DatabaseSchemaObject) {
+function objectDefinitionSql(engine: DatabaseEngine, databaseName: string, object: DatabaseSchemaObject, t: Translator) {
   const family = databaseEngineFamily(engine);
   const qualified = objectQualifiedName(engine, databaseName, object);
   if (family === 'mysql') {
@@ -135,7 +136,7 @@ function objectDefinitionSql(engine: DatabaseEngine, databaseName: string, objec
   if (object.kind === 'view') return `SELECT pg_get_viewdef('${(object.schema || 'public').replaceAll("'", "''")}.${object.name.replaceAll("'", "''")}'::regclass, true) AS definition;`;
   if (object.kind === 'trigger' && object.tableName) return `SELECT pg_get_triggerdef(t.oid, true) AS definition\nFROM pg_trigger t\nJOIN pg_class c ON c.oid=t.tgrelid\nJOIN pg_namespace n ON n.oid=c.relnamespace\nWHERE n.nspname=${sqlText(object.schema || 'public')} AND c.relname=${sqlText(object.tableName)} AND t.tgname=${sqlText(object.name)};`;
   if (object.kind === 'procedure' || object.kind === 'function') return `SELECT pg_get_functiondef(p.oid) AS definition\nFROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace\nWHERE n.nspname=${sqlText(object.schema || 'public')} AND p.proname=${sqlText(object.name)};`;
-  return `-- PostgreSQL tablo DDL'si yapı ekranındaki kolon/index/FK metadata'sından incelenebilir.\nSELECT * FROM information_schema.columns\nWHERE table_schema=${sqlText(object.schema || 'public')} AND table_name=${sqlText(object.name)}\nORDER BY ordinal_position;`;
+  return `-- ${t('sidebar.sqlTemplates.postgresTableDdlHelp')}\nSELECT * FROM information_schema.columns\nWHERE table_schema=${sqlText(object.schema || 'public')} AND table_name=${sqlText(object.name)}\nORDER BY ordinal_position;`;
 }
 
 function objectDependencySql(engine: DatabaseEngine, databaseName: string, object: DatabaseSchemaObject) {
@@ -146,14 +147,14 @@ function objectDependencySql(engine: DatabaseEngine, databaseName: string, objec
   return `SELECT pg_describe_object(classid,objid,objsubid) AS dependentObject, pg_describe_object(refclassid,refobjid,refobjsubid) AS referencedObject, deptype\nFROM pg_depend\nWHERE pg_describe_object(refclassid,refobjid,refobjsubid) ILIKE '%${name}%';`;
 }
 
-function objectRenameTemplate(engine: DatabaseEngine, databaseName: string, object: DatabaseSchemaObject) {
+function objectRenameTemplate(engine: DatabaseEngine, databaseName: string, object: DatabaseSchemaObject, t: Translator) {
   const family = databaseEngineFamily(engine);
   const qualified = objectQualifiedName(engine, databaseName, object);
   const next = quoteDatabaseIdentifier(`${object.name}_renamed`, engine);
   if (family === 'mysql' && (object.kind === 'table' || object.kind === 'view')) return `RENAME TABLE ${qualified} TO ${quoteDatabaseIdentifier(databaseName, engine)}.${next};`;
   if (family === 'mssql') return `EXEC sp_rename N'${(object.schema || 'dbo').replaceAll("'", "''")}.${object.name.replaceAll("'", "''")}', N'${object.name.replaceAll("'", "''")}_renamed';`;
   if (family === 'postgresql' && (object.kind === 'table' || object.kind === 'view')) return `ALTER ${object.kind === 'view' ? 'VIEW' : 'TABLE'} ${qualified} RENAME TO ${next};`;
-  return `-- Bu nesne türü için güvenli rename sözdizimi motor/sürüme göre değişir.\n-- Yeni ad: ${object.name}_renamed`;
+  return `-- ${t('sidebar.sqlTemplates.renameUnavailable')}\n-- ${t('sidebar.sqlTemplates.newName',{name:`${object.name}_renamed`})}`;
 }
 
 function objectDropSql(engine: DatabaseEngine, databaseName: string, object: DatabaseSchemaObject) {
@@ -229,7 +230,7 @@ function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: Cr
         <footer className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3">
           <Button variant="ghost" size="sm" disabled={state.busy} onClick={onClose}>{t('common.cancel')}</Button>
           <Button size="sm" disabled={!validName || !optionsValid || state.busy} onClick={() => void onCreate()}>
-            {state.busy && <Activity className="mr-1.5 h-3.5 w-3.5 animate-spin" />}Oluştur
+            {state.busy && <Activity className="mr-1.5 h-3.5 w-3.5 animate-spin" />}{t('common.create')}
           </Button>
         </footer>
       </div>
@@ -240,12 +241,12 @@ function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: Cr
 
 export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatabase, selectedTable }: SidebarProps) {
   const { workspaceKey, user } = useDesktop();
-  const { t, language } = useLanguage();
+  const { t, language, formatNumber } = useLanguage();
   const compactCount = useCallback((value: number) => compactCountBase(value, language), [language]);
   const compactBytes = useCallback((value: number | null | undefined) => compactBytesBase(value, language), [language]);
   const compactSize = useCallback((value: string | number | null | undefined) => compactSizeBase(value, language), [language]);
   const objectMetadataText = useCallback((object: DatabaseSchemaObject, detail?: DatabaseTable) => objectMetadataTextBase(object, detail, language, t('query.rows')), [language, t]);
-  const objectSearchTypes = useMemo(() => objectSearchTypes.map(option => ({ ...option, label: t(option.labelKey) })), [t]);
+  const objectSearchTypes = useMemo(() => OBJECT_SEARCH_TYPES.map(option => ({ ...option, label: t(option.labelKey) })), [t]);
   const context = useContext(DatabaseContext)!;
   const { openContextMenu } = useAppContextMenu();
   const toast = useCoreorToast();
@@ -595,7 +596,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const recalculateServerSizes = useCallback(async (server: DatabaseServerConfig) => {
     if (!workspaceKey) return;
     const databases = server.databases || [];
-    const toastId = toast.show({ title: t('sidebar.storage.serverCalculating'), description: `${databases.length} veritabanı sırayla güncelleniyor.`, loading: true, persistent: true });
+    const toastId = toast.show({ title: t('sidebar.storage.serverCalculating'), description: t('sidebar.storage.serverProgress',{count:formatNumber(databases.length)}), loading: true, persistent: true });
     try {
       for (const database of databases) {
         await recalculateDatabaseStorage(server.id, database.name, workspaceKey);
@@ -606,7 +607,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         persistent: false,
         variant: 'success',
         title: t('sidebar.storage.serverUpdated'),
-        description: `${server.name} • ${databases.length} veritabanı`,
+        description: t('sidebar.storage.serverResult',{server:server.name,count:formatNumber(databases.length)}),
         duration: 3500
       });
     } catch (error) {
@@ -644,7 +645,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       [
         { id: 'activate', label: t('sidebar.menu.activateServer'), icon: Server, onSelect: () => setActiveServerId(server.id) },
         { id: 'create-db', label: t('sidebar.menu.createDatabase'), icon: Plus, onSelect: () => setCreateDatabase({ server, name: '', charset: databaseEngineFamily(server.databaseType) === 'mysql' ? 'utf8mb4' : 'UTF8', collation: '', owner: '', busy: false, error: null }) },
-        { id: 'query', label: t('sidebar.menu.serverQuery'), icon: Code2, onSelect: () => openSql(server, null, `${server.name} sorgu`, '') },
+        { id: 'query', label: t('sidebar.menu.serverQuery'), icon: Code2, onSelect: () => openSql(server, null, t('sidebar.editor.serverQuery',{server:server.name}), '') },
         { id: 'refresh', label: t('sidebar.menu.refreshCatalog'), icon: RefreshCw, onSelect: () => void refreshServer(server) },
         { id: 'recalculate-sizes', label: t('sidebar.menu.recalculateAllSizes'), icon: HardDrive, onSelect: () => void recalculateServerSizes(server) },
         { id: 'sep1', separator: true },
@@ -672,7 +673,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           danger: true,
           onSelect: () => setProfileConfirmation({
             title: t('sidebar.profile.removeTitle'),
-            description: `"${server.name}" profili yalnızca bu bilgisayardaki Coreor bağlantı kasasından kaldırılacak. MySQL sunucusu, veritabanları ve tablolar silinmez.`,
+            description: t('sidebar.profile.removeDescription',{server:server.name}),
             confirmLabel: t('sidebar.profile.removeConfirm'),
             tone: 'danger',
             onConfirm: () => removeServer(server.id)
@@ -696,7 +697,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
             onTableSelect(null);
           }
         },
-        { id: 'query', label: t('sidebar.menu.newSqlQuery'), icon: Code2, onSelect: () => openSql(server, database, `${database} sorgu`, '') },
+        { id: 'query', label: t('sidebar.menu.newSqlQuery'), icon: Code2, onSelect: () => openSql(server, database, t('sidebar.editor.databaseQuery',{database}), '') },
         {
           id: 'schema',
           label: t('sidebar.menu.openSchemaGraph'),
@@ -713,22 +714,22 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           label: t('sidebar.menu.createNew'),
           icon: Plus,
           children: [
-            ['table', 'Tablo', Table2],
-            ['view', 'View', View],
-            ['procedure', 'Stored procedure', Zap],
-            ['function', 'Function', FunctionSquare],
-            ['trigger', 'Trigger', Activity],
-            ['event', 'Event / zamanlanmış olay', Sparkles],
-            ['index', 'İndeks', KeyRound]
-          ].map(([type, label, icon]) => ({ id: `new-${type}`, label: String(label), icon: icon as typeof Plus, onSelect: () => openSql(server, database, `Yeni ${label}`, objectTemplate(server.databaseType || 'mysql', database, String(type))) }))
+            ['table', t('database.table'), Table2],
+            ['view', t('database.view'), View],
+            ['procedure', t('database.procedure'), Zap],
+            ['function', t('database.function'), FunctionSquare],
+            ['trigger', t('database.trigger'), Activity],
+            ['event', t('sidebar.groups.eventScheduled'), Sparkles],
+            ['index', t('database.index'), KeyRound]
+          ].map(([type, label, icon]) => ({ id: `new-${type}`, label: String(label), icon: icon as typeof Plus, onSelect: () => openSql(server, database, t('sidebar.editor.newObject',{object:String(label)}), objectTemplate(server.databaseType || 'mysql', database, String(type), t)) }))
         },
         {
           id: 'routines',
           label: t('sidebar.menu.runRoutines'),
           icon: Braces,
           children: [
-            { id: 'call', label: t('sidebar.menu.callProcedure'), icon: Zap, onSelect: () => openSql(server, database, 'Procedure çağır', databaseEngineFamily(server.databaseType) === 'postgresql' ? 'CALL procedure_name();' : 'CALL procedure_name();') },
-            { id: 'function', label: t('sidebar.menu.runFunction'), icon: FunctionSquare, onSelect: () => openSql(server, database, 'Function çalıştır', 'SELECT function_name();') }
+            { id: 'call', label: t('sidebar.menu.callProcedure'), icon: Zap, onSelect: () => openSql(server, database, t('sidebar.editor.procedureCall'), databaseEngineFamily(server.databaseType) === 'postgresql' ? 'CALL procedure_name();' : 'CALL procedure_name();') },
+            { id: 'function', label: t('sidebar.menu.runFunction'), icon: FunctionSquare, onSelect: () => openSql(server, database, t('sidebar.editor.functionRun'), 'SELECT function_name();') }
           ]
         },
         {
@@ -757,11 +758,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         { id: 'sep-danger', separator: true },
         {
           id: 'drop-database',
-          label: 'Veritabanını sil (DROP DATABASE)',
+          label: t('sidebar.menu.dropDatabase'),
           icon: Trash2,
           danger: true,
           onSelect: () => setConfirmation({
-            title: `${database} veritabanını sil`,
+            title: t('sidebar.menu.dropDatabaseTitle',{database}),
             description: t('sidebar.menu.dropDatabaseDescription'),
             expectedText: database,
             sql: `DROP DATABASE ${quoteDatabaseIdentifier(database, server.databaseType || 'mysql')};`,
@@ -805,29 +806,29 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           }
         },
         { id: 'query', label: t('sidebar.menu.selectQuery'), icon: Code2, onSelect: () => openSql(server, database, `${table} SELECT`, `SELECT * FROM ${qualified}\nLIMIT 100;`) },
-        { id: 'ddl', label: t('sidebar.menu.showDdlMetadata'), icon: FileCode2, onSelect: () => openSql(server, database, `${table} DDL`, objectDefinitionSql(engine, database, { name: table, kind: 'table' }), true) },
-        { id: 'copy-ddl', label: 'CREATE TABLE kopyala', icon: Copy, disabled: databaseEngineFamily(engine) !== 'mysql', disabledReason: 'Doğrudan SHOW CREATE TABLE bu motor ailesinde kullanılamıyor.', onSelect: async () => { if (!workspaceKey) return; const result = await executeDatabaseQuery(server.id, objectDefinitionSql(engine, database, { name: table, kind: 'table' }), workspaceKey, database); const text = result.rows.flatMap(row => Object.values(row)).filter(value => typeof value === 'string').map(String).at(-1) || ''; if (text) await navigator.clipboard.writeText(text); } },
-        { id: 'dependencies', label: t('sidebar.menu.queryDependencies'), icon: Network, onSelect: () => openSql(server, database, `${table} bağımlılıklar`, objectDependencySql(engine, database, { name: table, kind: 'table' }), true) },
-        { id: 'rename', label: t('sidebar.menu.renameDraft'), icon: Wrench, disabled: Boolean(server.readOnly), disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : undefined, onSelect: () => openSql(server, database, `${table} rename`, objectRenameTemplate(engine, database, { name: table, kind: 'table' })) },
+        { id: 'ddl', label: t('sidebar.menu.showDdlMetadata'), icon: FileCode2, onSelect: () => openSql(server, database, `${table} DDL`, objectDefinitionSql(engine, database, { name: table, kind: 'table' }, t), true) },
+        { id: 'copy-ddl', label: t('sidebar.menu.copyCreateTable'), icon: Copy, disabled: databaseEngineFamily(engine) !== 'mysql', disabledReason: t('sidebar.menu.showCreateUnavailable'), onSelect: async () => { if (!workspaceKey) return; const result = await executeDatabaseQuery(server.id, objectDefinitionSql(engine, database, { name: table, kind: 'table' }, t), workspaceKey, database); const text = result.rows.flatMap(row => Object.values(row)).filter(value => typeof value === 'string').map(String).at(-1) || ''; if (text) await navigator.clipboard.writeText(text); } },
+        { id: 'dependencies', label: t('sidebar.menu.queryDependencies'), icon: Network, onSelect: () => openSql(server, database, t('sidebar.editor.dependencies',{object:table}), objectDependencySql(engine, database, { name: table, kind: 'table' }), true) },
+        { id: 'rename', label: t('sidebar.menu.renameDraft'), icon: Wrench, disabled: Boolean(server.readOnly), disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : undefined, onSelect: () => openSql(server, database, `${table} rename`, objectRenameTemplate(engine, database, { name: table, kind: 'table' }, t)) },
         { id: 'insert-row', label: t('sidebar.menu.insertRow'), icon: Plus, shortcut: 'insertRow', disabled: Boolean(server.readOnly), disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : undefined, onSelect: () => { setActiveServerId(server.id); onDatabaseSelect(database); onTableSelect(table); window.dispatchEvent(new CustomEvent('coreor:request-insert-table-row', { detail: { databaseName: database, tableName: table } })); } },
         {
           id: 'new',
           label: t('sidebar.menu.createNew'),
           icon: Plus,
           children: [
-            ['table', 'Tablo', Table2],
-            ['view', 'View', View],
-            ['procedure', 'Stored procedure', Zap],
-            ['function', 'Function', FunctionSquare],
-            ['trigger', 'Trigger', Activity],
-            ['event', 'Event', Sparkles],
-            ['index', 'İndeks', KeyRound]
-          ].map(([type, label, icon]) => ({ id: `new-${type}`, label: String(label), icon: icon as typeof Plus, onSelect: () => openSql(server, database, `Yeni ${label}`, objectTemplate(engine, database, String(type))) }))
+            ['table', t('database.table'), Table2],
+            ['view', t('database.view'), View],
+            ['procedure', t('database.procedure'), Zap],
+            ['function', t('database.function'), FunctionSquare],
+            ['trigger', t('database.trigger'), Activity],
+            ['event', t('database.event'), Sparkles],
+            ['index', t('database.index'), KeyRound]
+          ].map(([type, label, icon]) => ({ id: `new-${type}`, label: String(label), icon: icon as typeof Plus, onSelect: () => openSql(server, database, t('sidebar.editor.newObject',{object:String(label)}), objectTemplate(engine, database, String(type), t)) }))
         },
         { id: 'routines', label: t('sidebar.menu.runRoutines'), icon: Braces, onSelect: () => openSql(server, database, `${table} rutin`, `CALL routine_name(${quoteDatabaseIdentifier('parameter', engine)});`) },
         { id: 'sep1', separator: true },
-        { id: 'truncate', label: t('sidebar.menu.emptyTable'), icon: Trash2, danger: true, onSelect: () => runDangerous(server, database, table, `TRUNCATE TABLE ${qualified};`, `${table} tablosunu boşalt`, t('sidebar.menu.emptyTableDescription'), t('sidebar.menu.emptyTableConfirm')) },
-        { id: 'drop', label: t('sidebar.menu.dropTable'), icon: Trash2, danger: true, onSelect: () => runDangerous(server, database, table, `DROP TABLE ${qualified};`, `${table} tablosunu düşür`, t('sidebar.menu.dropTableDescription'), t('sidebar.menu.dropTableConfirm')) },
+        { id: 'truncate', label: t('sidebar.menu.emptyTable'), icon: Trash2, danger: true, onSelect: () => runDangerous(server, database, table, `TRUNCATE TABLE ${qualified};`, t('sidebar.menu.emptyTableTitle',{table}), t('sidebar.menu.emptyTableDescription'), t('sidebar.menu.emptyTableConfirm')) },
+        { id: 'drop', label: t('sidebar.menu.dropTable'), icon: Trash2, danger: true, onSelect: () => runDangerous(server, database, table, `DROP TABLE ${qualified};`, t('sidebar.menu.dropTableTitle',{table}), t('sidebar.menu.dropTableDescription'), t('sidebar.menu.dropTableConfirm')) },
         { id: 'sep2', separator: true },
         {
           id: 'export',
@@ -854,7 +855,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         { id: 'copy-table', label: t('common.copy'), icon: Copy, children: [
           { id: 'copy-table-name', label: t('sidebar.menu.tableName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(table) },
           { id: 'copy-qualified', label: t('sidebar.menu.fullTableName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(qualified) },
-          { id: 'copy-select', label: 'SELECT taslağı', icon: Code2, onSelect: () => navigator.clipboard.writeText(`SELECT * FROM ${qualified}\nLIMIT 100;`) }
+          { id: 'copy-select', label: t('sidebar.menu.selectDraft'), icon: Code2, onSelect: () => navigator.clipboard.writeText(`SELECT * FROM ${qualified}\nLIMIT 100;`) }
         ] },
         { id: 'sep3', separator: true },
         { id: 'expand', label: t('sidebar.menu.expandDatabase'), icon: ChevronDown, onSelect: () => expandDatabase(server, database) },
@@ -874,27 +875,27 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     openContextMenu(event, [
       {
         id: 'open',
-        label: object.kind === 'view' ? 'Verileri aç' : 'Aç / çalıştır',
+        label: object.kind === 'view' ? t('sidebar.menu.openData') : t('sidebar.menu.openOrRun'),
         icon: object.kind === 'view' ? View : object.kind === 'procedure' ? Zap : object.kind === 'function' ? FunctionSquare : Activity,
         onSelect: () => {
           setActiveServerId(server.id); onDatabaseSelect(database);
           if (object.kind === 'view') onTableSelect(object.name);
-          else if (object.kind === 'procedure') openSql(server, database, `${object.name} çağır`, `CALL ${qualified}();`);
-          else if (object.kind === 'function') openSql(server, database, `${object.name} çalıştır`, `SELECT ${qualified}();`);
-          else openSql(server, database, `${object.name} tanımı`, objectDefinitionSql(engine, database, object), true);
+          else if (object.kind === 'procedure') openSql(server, database, t('sidebar.editor.callObject',{object:object.name}), `CALL ${qualified}();`);
+          else if (object.kind === 'function') openSql(server, database, t('sidebar.editor.runObject',{object:object.name}), `SELECT ${qualified}();`);
+          else openSql(server, database, t('sidebar.editor.definition',{object:object.name}), objectDefinitionSql(engine, database, object, t), true);
         }
       },
       { id: 'new-query', label: t('sidebar.menu.newQuery'), icon: Code2, shortcut: 'newQuery', onSelect: () => openSql(server, database, `${object.name} sorgu`, '') },
-      { id: 'definition', label: t('sidebar.menu.showDefinition'), icon: FileCode2, onSelect: () => openSql(server, database, `${object.name} DDL`, objectDefinitionSql(engine, database, object), true) },
-      { id: 'copy-definition', label: 'CREATE / DDL kopyala', icon: Copy, disabled: databaseEngineFamily(engine) !== 'mysql' && object.kind === 'table', disabledReason: 'Bu motor tablo CREATE DDL’sini doğrudan katalog fonksiyonuyla vermiyor.', onSelect: async () => {
+      { id: 'definition', label: t('sidebar.menu.showDefinition'), icon: FileCode2, onSelect: () => openSql(server, database, `${object.name} DDL`, objectDefinitionSql(engine, database, object, t), true) },
+      { id: 'copy-definition', label: t('sidebar.menu.copyDdl'), icon: Copy, disabled: databaseEngineFamily(engine) !== 'mysql' && object.kind === 'table', disabledReason: t('sidebar.menu.ddlUnavailable'), onSelect: async () => {
         if (!workspaceKey) return;
-        const result = await executeDatabaseQuery(server.id, objectDefinitionSql(engine, database, object), workspaceKey, database);
+        const result = await executeDatabaseQuery(server.id, objectDefinitionSql(engine, database, object, t), workspaceKey, database);
         const text = result.rows.flatMap(row => Object.values(row)).filter(value => typeof value === 'string').map(String).at(-1) || object.definition || '';
         if (text) await navigator.clipboard.writeText(text);
       } },
-      { id: 'dependencies', label: t('sidebar.menu.queryDependencies'), icon: Network, onSelect: () => openSql(server, database, `${object.name} bağımlılıklar`, objectDependencySql(engine, database, object), true) },
+      { id: 'dependencies', label: t('sidebar.menu.queryDependencies'), icon: Network, onSelect: () => openSql(server, database, t('sidebar.editor.dependencies',{object:object.name}), objectDependencySql(engine, database, object), true) },
       { id: 'sep-edit', separator: true },
-      { id: 'rename', label: t('sidebar.menu.renameDraft'), icon: Wrench, disabled: Boolean(server.readOnly) || !canRename, disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : t('sidebar.menu.renameUnavailable'), onSelect: () => openSql(server, database, `${object.name} rename`, objectRenameTemplate(engine, database, object)) },
+      { id: 'rename', label: t('sidebar.menu.renameDraft'), icon: Wrench, disabled: Boolean(server.readOnly) || !canRename, disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : t('sidebar.menu.renameUnavailable'), onSelect: () => openSql(server, database, `${object.name} rename`, objectRenameTemplate(engine, database, object, t)) },
       { id: 'copy', label: t('common.copy'), icon: Copy, children: [
         { id: 'copy-name', label: t('sidebar.menu.objectName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(object.name) },
         { id: 'copy-qualified', label: t('sidebar.menu.fullObjectName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(qualified) },
@@ -903,31 +904,31 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       { id: 'sep-danger', separator: true },
       {
         id: 'drop',
-        label: `${object.kind} nesnesini sil`,
+        label: t('sidebar.menu.dropObjectKind',{kind:t(`database.${object.kind}`)}),
         icon: Trash2,
         danger: true,
         disabled: Boolean(server.readOnly),
         disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : undefined,
-        onSelect: () => runDangerous(server, database, object.name, objectDropSql(engine, database, object), `${object.name} nesnesini sil`, `${object.kind} nesnesi sunucudan kalıcı olarak kaldırılacak.`, 'Nesneyi sil')
+        onSelect: () => runDangerous(server, database, object.name, objectDropSql(engine, database, object), t('sidebar.menu.dropObjectTitle',{object:object.name}), t('sidebar.menu.dropObjectDescription',{kind:t(`database.${object.kind}`)}), t('sidebar.menu.dropObject'))
       }
     ], `${object.kind.toUpperCase()} • ${object.schema ? `${object.schema}.` : ''}${object.name}`);
   };
 
-  const objectGroupDefinitions = [
-    { kind: 'table' as const, label: 'Tables', icon: Table2 },
-    { kind: 'view' as const, label: 'Views', icon: View },
-    { kind: 'procedure' as const, label: 'Procedures', icon: Zap },
-    { kind: 'function' as const, label: 'Functions', icon: FunctionSquare },
-    { kind: 'trigger' as const, label: 'Triggers', icon: Activity },
-    { kind: 'event' as const, label: 'Events', icon: Sparkles }
-  ];
+  const objectGroupDefinitions = useMemo(() => [
+    { kind: 'table' as const, label: t('sidebar.groups.tables'), singular: t('database.table'), icon: Table2 },
+    { kind: 'view' as const, label: t('sidebar.groups.views'), singular: t('database.view'), icon: View },
+    { kind: 'procedure' as const, label: t('sidebar.groups.procedures'), singular: t('database.procedure'), icon: Zap },
+    { kind: 'function' as const, label: t('sidebar.groups.functions'), singular: t('database.function'), icon: FunctionSquare },
+    { kind: 'trigger' as const, label: t('sidebar.groups.triggers'), singular: t('database.trigger'), icon: Activity },
+    { kind: 'event' as const, label: t('sidebar.groups.events'), singular: t('database.event'), icon: Sparkles }
+  ], [t]);
 
   const objectGroupMenu = (event: React.MouseEvent, server: DatabaseServerConfig, database: string, kind: DatabaseSchemaObject['kind']) => {
     const definition = objectGroupDefinitions.find(item => item.kind === kind);
     const label = definition?.label || kind;
     openContextMenu(event, [
-      { id: 'new', label: `Yeni ${label.slice(0, -1) || label}`, icon: Plus, disabled: Boolean(server.readOnly), disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : undefined, onSelect: () => openSql(server, database, `Yeni ${kind}`, objectTemplate(server.databaseType || 'mysql', database, kind)) },
-      { id: 'query', label: t('sidebar.menu.newSqlQuery'), icon: Code2, shortcut: 'newQuery', onSelect: () => openSql(server, database, `${database} sorgu`, '') },
+      { id: 'new', label: t('sidebar.menu.newObject',{object:definition?.singular || label}), icon: Plus, disabled: Boolean(server.readOnly), disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : undefined, onSelect: () => openSql(server, database, t('sidebar.editor.newObject',{object:definition?.singular || kind}), objectTemplate(server.databaseType || 'mysql', database, kind, t)) },
+      { id: 'query', label: t('sidebar.menu.newSqlQuery'), icon: Code2, shortcut: 'newQuery', onSelect: () => openSql(server, database, t('sidebar.editor.databaseQuery',{database}), '') },
       { id: 'sep', separator: true },
       { id: 'refresh', label: t('sidebar.menu.refreshObjects'), icon: RefreshCw, shortcut: 'refresh', onSelect: () => void loadObjects(server, database, true) },
       { id: 'copy-db', label: t('sidebar.menu.copyDatabaseName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(database) }
@@ -981,7 +982,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         </div>
         <div ref={searchFilterRef} className="relative mt-2">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" />
-          <Input ref={searchRef} value={search} onChange={event => setSearch(event.target.value)} className="h-8 rounded-xl border-zinc-800 bg-black/30 pl-8 pr-[7.3rem] text-[10px]" placeholder="Nesne ara…" />
+          <Input ref={searchRef} value={search} onChange={event => setSearch(event.target.value)} className="h-8 rounded-xl border-zinc-800 bg-black/30 pl-8 pr-[7.3rem] text-[10px]" placeholder={t('sidebar.searchObjects')} />
           <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
             {search && <button type="button" className="flex h-6 w-6 items-center justify-center rounded-md text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" title={t('sidebar.clearSearch')} onClick={() => setSearch('')}><X className="h-3 w-3" /></button>}
             <button type="button" aria-expanded={searchFilterOpen} className={`flex h-6 max-w-24 items-center gap-1.5 rounded-lg border px-2 text-[8px] font-medium transition ${searchAll ? 'border-zinc-800 bg-zinc-900/80 text-zinc-500 hover:text-zinc-300' : 'border-cyan-500/25 bg-cyan-500/10 text-cyan-300'}`} onClick={() => setSearchFilterOpen(previous => !previous)} title={t('sidebar.filterSearchTypes')}>
@@ -1012,12 +1013,12 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         {isServersLoading && !servers.length ? (
           <div className="flex h-32 items-center justify-center gap-2 text-[10px] text-zinc-600">
             <Activity className="h-3.5 w-3.5 animate-spin" />
-            Bağlantı kasası okunuyor…
+            {t('sidebar.loadingVault')}
           </div>
         ) : !filteredServers.length ? (
           <div className="p-6 text-center">
             <Server className="mx-auto h-7 w-7 text-zinc-700" />
-            <div className="mt-3 text-[10px] text-zinc-500">{objectFilterActive ? 'Arama veya tür filtresiyle eşleşen kayıt yok.' : 'Henüz sunucu eklenmedi.'}</div>
+            <div className="mt-3 text-[10px] text-zinc-500">{objectFilterActive ? t('sidebar.noSearchMatches') : t('sidebar.noServersYet')}</div>
           </div>
         ) : (
           filteredServers.map(server => {
@@ -1035,7 +1036,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                     <span className="rounded bg-zinc-900 px-1.5 py-0.5 text-[8px] text-zinc-500">{databaseEngineLabel(server.databaseType)}</span>
                     <span
                       className="flex shrink-0 items-center gap-1 rounded bg-blue-500/[0.06] px-1.5 py-0.5 font-mono text-[8px] tabular-nums text-blue-300/80"
-                      title="Katalogdaki veritabanlarının toplam veri + indeks boyutu. Fiziksel sunucu disk kapasitesi değildir."
+                      title={t('sidebar.catalogSizeTooltip')}
                     >
                       <HardDrive className="h-2.5 w-2.5" />
                       {compactSize((server.databases || []).reduce((sum, database) => sum + (Number(database.totalSizeMB) || 0), 0))}
@@ -1100,9 +1101,9 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                                 onClick={() => {
                                   setActiveServerId(server.id); onDatabaseSelect(database.name);
                                   if (object.kind === 'table' || object.kind === 'view') onTableSelect(object.name);
-                                  else if (object.kind === 'procedure') openSql(server, database.name, `${object.name} çağır`, `CALL ${objectQualifiedName(server.databaseType || 'mysql', database.name, object)}();`);
-                                  else if (object.kind === 'function') openSql(server, database.name, `${object.name} çalıştır`, `SELECT ${objectQualifiedName(server.databaseType || 'mysql', database.name, object)}();`);
-                                  else openSql(server, database.name, `${object.name} tanımı`, objectDefinitionSql(server.databaseType || 'mysql', database.name, object), true);
+                                  else if (object.kind === 'procedure') openSql(server, database.name, t('sidebar.editor.callObject',{object:object.name}), `CALL ${objectQualifiedName(server.databaseType || 'mysql', database.name, object)}();`);
+                                  else if (object.kind === 'function') openSql(server, database.name, t('sidebar.editor.runObject',{object:object.name}), `SELECT ${objectQualifiedName(server.databaseType || 'mysql', database.name, object)}();`);
+                                  else openSql(server, database.name, t('sidebar.editor.definition',{object:object.name}), objectDefinitionSql(server.databaseType || 'mysql', database.name, object, t), true);
                                 }}
                                 onContextMenu={event => objectMenu(event, server, database.name, object)}
                               >
@@ -1115,7 +1116,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                             };
                             return (
                               <div className="ml-5 border-l border-zinc-900 pl-1">
-                                {objectLoading.has(key) && !loaded && <div className="flex h-7 items-center gap-2 px-2 text-[8px] text-zinc-700"><Activity className="h-3 w-3 animate-spin" />Nesneler yükleniyor…</div>}
+                                {objectLoading.has(key) && !loaded && <div className="flex h-7 items-center gap-2 px-2 text-[8px] text-zinc-700"><Activity className="h-3 w-3 animate-spin" />{t('sidebar.objectsLoading')}</div>}
                                 {preferences.objectExplorerGrouped ? objectGroupDefinitions.filter(group => searchTypeEnabled(group.kind) && (!normalizedSearch || sortedObjects.some(object => object.kind === group.kind))).map(group => {
                                   const GroupIcon = group.icon;
                                   const items = sortedObjects.filter(object => object.kind === group.kind);
@@ -1135,7 +1136,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                                       </div>
                                       {groupOpen && (
                                         <div className="ml-5 border-l border-zinc-900/80 pl-1">
-                                          {items.length ? items.map(object => renderObject(object, GroupIcon)) : <div className="px-2 py-1.5 text-[8px] text-zinc-800">Nesne yok</div>}
+                                          {items.length ? items.map(object => renderObject(object, GroupIcon)) : <div className="px-2 py-1.5 text-[8px] text-zinc-800">{t('sidebar.noObjects')}</div>}
                                         </div>
                                       )}
                                     </div>
@@ -1145,7 +1146,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
                                     {sortedObjects.length ? sortedObjects.map(object => {
                                       const definition = objectGroupDefinitions.find(group => group.kind === object.kind);
                                       return renderObject(object, definition?.icon || FileCode2);
-                                    }) : <div className="px-2 py-2 text-[8px] text-zinc-800">Nesne yok</div>}
+                                    }) : <div className="px-2 py-2 text-[8px] text-zinc-800">{t('sidebar.noObjects')}</div>}
                                   </div>
                                 )}
                               </div>
@@ -1172,11 +1173,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
             <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-zinc-950 ${online ? 'bg-emerald-400' : 'bg-red-400'}`} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[11px] font-semibold text-zinc-100">{user?.name || 'Coreor kullanıcısı'}</div>
-            <div className="truncate text-[9px] text-zinc-600">{user?.email || 'E-posta paylaşılmadı'}</div>
+            <div className="truncate text-[11px] font-semibold text-zinc-100">{user?.name || t('sidebar.coreorUser')}</div>
+            <div className="truncate text-[9px] text-zinc-600">{user?.email || t('sidebar.emailNotShared')}</div>
             <div className={`mt-1 flex items-center gap-1 text-[8px] font-medium ${online ? 'text-emerald-400' : 'text-red-400'}`}>
               {online ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              {online ? 'Bağlı' : 'Çevrimdışı'}
+              {online ? t('common.connected') : t('common.offline')}
             </div>
           </div>
           <ChevronDown className={`h-3.5 w-3.5 text-zinc-600 transition ${profileOpen ? 'rotate-180' : ''}`} />
@@ -1185,11 +1186,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           <div className="absolute bottom-[calc(100%+7px)] left-2 right-2 z-[220] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
             <div className="border-b border-zinc-800 px-3 py-2.5">
               <div className="flex items-center justify-between text-[9px]">
-                <span className="text-zinc-500">Bağlantı durumu</span>
-                <span className={online ? 'text-emerald-400' : 'text-red-400'}>{online ? 'İnternet bağlı' : 'İnternet yok'}</span>
+                <span className="text-zinc-500">{t('sidebar.connectionStatus')}</span>
+                <span className={online ? 'text-emerald-400' : 'text-red-400'}>{online ? t('sidebar.internetConnected') : t('sidebar.noInternet')}</span>
               </div>
               <div className="mt-2 flex items-center justify-between text-[9px]">
-                <span className="text-zinc-500">Kayıtlı sunucu</span>
+                <span className="text-zinc-500">{t('sidebar.registeredServers')}</span>
                 <span className="text-zinc-300">{servers.length}</span>
               </div>
             </div>
@@ -1202,7 +1203,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
               }}
             >
               <Settings2 className="h-3.5 w-3.5" />
-              Ayarları aç
+              {t('sidebar.openSettings')}
             </button>
             <button
               type="button"
@@ -1214,11 +1215,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
               }}
             >
               <Plus className="h-3.5 w-3.5" />
-              Yeni sunucu ekle
+              {t('sidebar.newServer')}
             </button>
             <button type="button" className="flex h-9 w-full items-center gap-2 border-t border-zinc-800 px-3 text-[10px] text-red-400 hover:bg-red-500/[0.06]" onClick={() => { setProfileOpen(false); void import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().close()); }}>
               <LogOut className="h-3.5 w-3.5" />
-              Uygulamayı kapat
+              {t('sidebar.closeApplication')}
             </button>
           </div>
         )}
@@ -1249,11 +1250,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           const collation = createDatabase.collation.trim();
           const owner = createDatabase.owner.trim();
           if (charset && !/^[A-Za-z0-9_.-]+$/.test(charset)) {
-            setCreateDatabase({ ...createDatabase, error: 'Character set geçersiz karakter içeriyor.' });
+            setCreateDatabase({ ...createDatabase, error: t('sidebar.invalidCharset') });
             return;
           }
           if (collation && !/^[A-Za-z0-9_.-]+$/.test(collation)) {
-            setCreateDatabase({ ...createDatabase, error: 'Collation geçersiz karakter içeriyor.' });
+            setCreateDatabase({ ...createDatabase, error: t('sidebar.invalidCollation') });
             return;
           }
 
@@ -1275,7 +1276,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
             await refreshServer(createDatabase.server);
             setCreateDatabase(null);
           } catch (error) {
-            setCreateDatabase(previous => (previous ? { ...previous, busy: false, error: error instanceof Error ? error.message : 'Veritabanı oluşturulamadı.' } : null));
+            setCreateDatabase(previous => (previous ? { ...previous, busy: false, error: error instanceof Error ? error.message : t('sidebar.createDatabaseFailed') } : null));
           }
         }}
       />

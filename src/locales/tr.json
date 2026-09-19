@@ -172,11 +172,25 @@
       "emptyTableConfirm": "Tabloyu boşalt",
       "dropTableDescription": "Tablo yapısı, verileri, indeksleri ve bağlı nesneleri kalıcı olarak silinebilir.",
       "dropTableConfirm": "Tabloyu sil",
-      "renameUnavailable": "Bu nesne türünde güvenli rename motor/sürüme göre değişiyor."
+      "renameUnavailable": "Bu nesne türünde güvenli rename motor/sürüme göre değişiyor.",
+      "dropDatabase": "Veritabanını sil (DROP DATABASE)",
+      "dropDatabaseTitle": "{database} veritabanını sil",
+      "copyCreateTable": "CREATE TABLE kopyala",
+      "showCreateUnavailable": "Doğrudan SHOW CREATE TABLE bu motor ailesinde kullanılamıyor.",
+      "emptyTableTitle": "{table} tablosunu boşalt",
+      "dropTableTitle": "{table} tablosunu düşür",
+      "selectDraft": "SELECT taslağı",
+      "copyDdl": "CREATE / DDL kopyala",
+      "ddlUnavailable": "Bu motor tablo CREATE DDL’sini doğrudan katalog fonksiyonuyla vermiyor.",
+      "dropObjectKind": "{kind} nesnesini sil",
+      "dropObjectTitle": "{object} nesnesini sil",
+      "dropObjectDescription": "{kind} nesnesi sunucudan kalıcı olarak kaldırılacak.",
+      "newObject": "Yeni {object}"
     },
     "profile": {
       "removeTitle": "Bağlantı profilini kaldır",
-      "removeConfirm": "Profili kaldır"
+      "removeConfirm": "Profili kaldır",
+      "removeDescription": "\"{server}\" profili yalnızca bu bilgisayardaki Coreor bağlantı kasasından kaldırılacak. Uzak veritabanı sunucusu, veritabanları ve tablolar silinmez."
     },
     "storage": {
       "databaseCalculating": "Veritabanı boyutu hesaplanıyor",
@@ -197,7 +211,9 @@
       "physicalInnoDb": "fiziksel InnoDB",
       "exact": "kesin",
       "databaseResult": "{database} • {size} • {tables} tablo • {rowMode} {failed} {source}",
-      "tableResult": "{table} • {size} • {rows} satır {exact} {source}"
+      "tableResult": "{table} • {size} • {rows} satır {exact} {source}",
+      "serverProgress": "{count} veritabanı sırayla güncelleniyor.",
+      "serverResult": "{server} • {count} veritabanı"
     },
     "workspaceNotReady": "Yerel çalışma alanı hazır değil.",
     "readOnlyConnection": "Bağlantı salt-okunur.",
@@ -208,7 +224,45 @@
     "coreorUser": "Coreor kullanıcısı",
     "emailNotShared": "E-posta paylaşılmadı",
     "internetConnected": "İnternet bağlı",
-    "noInternet": "İnternet yok"
+    "noInternet": "İnternet yok",
+    "catalogSizeTooltip": "Katalogdaki veritabanlarının toplam veri + indeks boyutu. Fiziksel sunucu disk kapasitesi değildir.",
+    "objectCount": "{count} nesne",
+    "objectsLoading": "Nesneler yükleniyor…",
+    "noObjects": "Nesne yok",
+    "connectionStatus": "Bağlantı durumu",
+    "registeredServers": "Kayıtlı sunucu",
+    "openSettings": "Ayarları aç",
+    "closeApplication": "Uygulamayı kapat",
+    "searchObjects": "Nesne ara…",
+    "invalidCharset": "Character set geçersiz karakter içeriyor.",
+    "invalidCollation": "Collation geçersiz karakter içeriyor.",
+    "createDatabaseFailed": "Veritabanı oluşturulamadı.",
+    "groups": {
+      "tables": "Tablolar",
+      "views": "View'lar",
+      "procedures": "Procedure'lar",
+      "functions": "Function'lar",
+      "triggers": "Trigger'lar",
+      "events": "Event'ler",
+      "eventScheduled": "Event / zamanlanmış olay"
+    },
+    "sqlTemplates": {
+      "scheduledTaskHelp": "{engine} zamanlanmış görevleri için sunucu scheduler/agent kullanın.",
+      "postgresTableDdlHelp": "PostgreSQL tablo DDL'si yapı ekranındaki kolon/index/FK metadata'sından incelenebilir.",
+      "renameUnavailable": "Bu nesne türü için güvenli rename sözdizimi motor/sürüme göre değişir.",
+      "newName": "Yeni ad: {name}"
+    },
+    "editor": {
+      "serverQuery": "{server} sorgu",
+      "databaseQuery": "{database} sorgu",
+      "procedureCall": "Procedure çağır",
+      "functionRun": "Function çalıştır",
+      "newObject": "Yeni {object}",
+      "dependencies": "{object} bağımlılıklar",
+      "callObject": "{object} çağır",
+      "runObject": "{object} çalıştır",
+      "definition": "{object} tanımı"
+    }
   },
   "query": {
     "affectedRows": "{count} satır etkilendi",

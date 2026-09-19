@@ -172,11 +172,25 @@
       "emptyTableConfirm": "Empty table",
       "dropTableDescription": "The table structure, data, indexes, and related objects may be permanently deleted.",
       "dropTableConfirm": "Drop table",
-      "renameUnavailable": "Safe rename syntax varies by engine/driver for this object type."
+      "renameUnavailable": "Safe rename syntax varies by engine/driver for this object type.",
+      "dropDatabase": "Drop database (DROP DATABASE)",
+      "dropDatabaseTitle": "Delete database {database}",
+      "copyCreateTable": "Copy CREATE TABLE",
+      "showCreateUnavailable": "Direct SHOW CREATE TABLE is not available for this engine family.",
+      "emptyTableTitle": "Empty table {table}",
+      "dropTableTitle": "Drop table {table}",
+      "selectDraft": "SELECT draft",
+      "copyDdl": "Copy CREATE / DDL",
+      "ddlUnavailable": "This engine does not expose table CREATE DDL directly through the catalog function.",
+      "dropObjectKind": "Delete {kind} object",
+      "dropObjectTitle": "Delete {object}",
+      "dropObjectDescription": "The {kind} object will be permanently removed from the server.",
+      "newObject": "New {object}"
     },
     "profile": {
       "removeTitle": "Remove connection profile",
-      "removeConfirm": "Remove profile"
+      "removeConfirm": "Remove profile",
+      "removeDescription": "Profile \"{server}\" will only be removed from the Coreor connection vault on this computer. The remote database server, databases, and tables will not be deleted."
     },
     "storage": {
       "databaseCalculating": "Calculating database size",
@@ -197,7 +211,9 @@
       "physicalInnoDb": "physical InnoDB",
       "exact": "exact",
       "databaseResult": "{database} • {size} • {tables} tables • {rowMode} {failed} {source}",
-      "tableResult": "{table} • {size} • {rows} rows {exact} {source}"
+      "tableResult": "{table} • {size} • {rows} rows {exact} {source}",
+      "serverProgress": "Updating {count} databases sequentially.",
+      "serverResult": "{server} • {count} databases"
     },
     "workspaceNotReady": "Local workspace is not ready.",
     "readOnlyConnection": "Connection is read-only.",
@@ -208,7 +224,45 @@
     "coreorUser": "Coreor user",
     "emailNotShared": "Email not shared",
     "internetConnected": "Internet connected",
-    "noInternet": "No internet connection"
+    "noInternet": "No internet connection",
+    "catalogSizeTooltip": "Total data + index size of databases in the catalog. This is not the physical disk capacity of the server.",
+    "objectCount": "{count} objects",
+    "objectsLoading": "Loading objects…",
+    "noObjects": "No objects",
+    "connectionStatus": "Connection status",
+    "registeredServers": "Saved servers",
+    "openSettings": "Open settings",
+    "closeApplication": "Close application",
+    "searchObjects": "Search objects…",
+    "invalidCharset": "Character set contains invalid characters.",
+    "invalidCollation": "Collation contains invalid characters.",
+    "createDatabaseFailed": "Database could not be created.",
+    "groups": {
+      "tables": "Tables",
+      "views": "Views",
+      "procedures": "Procedures",
+      "functions": "Functions",
+      "triggers": "Triggers",
+      "events": "Events",
+      "eventScheduled": "Event / scheduled event"
+    },
+    "sqlTemplates": {
+      "scheduledTaskHelp": "Use the server scheduler/agent for {engine} scheduled tasks.",
+      "postgresTableDdlHelp": "PostgreSQL table DDL can be inspected from column/index/FK metadata in the structure view.",
+      "renameUnavailable": "Safe rename syntax for this object type varies by engine/driver.",
+      "newName": "New name: {name}"
+    },
+    "editor": {
+      "serverQuery": "{server} query",
+      "databaseQuery": "{database} query",
+      "procedureCall": "Call procedure",
+      "functionRun": "Run function",
+      "newObject": "New {object}",
+      "dependencies": "{object} dependencies",
+      "callObject": "Call {object}",
+      "runObject": "Run {object}",
+      "definition": "{object} definition"
+    }
   },
   "query": {
     "affectedRows": "{count} rows affected",
