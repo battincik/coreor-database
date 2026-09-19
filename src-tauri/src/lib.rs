@@ -51,7 +51,7 @@ struct DesktopConfig {
     max_page_size: usize,
     #[serde(default)]
     vault: VaultPreferences,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     connections: Vec<Value>,
 }
 
