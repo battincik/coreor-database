@@ -783,7 +783,23 @@
     "lastQueryEmpty": "Son sorgu —",
     "limitedEngineMetrics": "{engine} için gelişmiş motor metrikleri henüz sınırlı.",
     "storageMetricDescription": "Seçili veritabanının veri + indeks boyutu. Sunucu toplamı ve InnoDB ayrılmış boş alanı ayrıntılarda gösterilir.",
-    "storageLogicalDescription": "Katalog/performance metadata üzerinden hesaplanan veritabanı veri + indeks toplamı. Fiziksel disk kapasitesi değildir."
+    "storageLogicalDescription": "Katalog/performance metadata üzerinden hesaplanan veritabanı veri + indeks toplamı. Fiziksel disk kapasitesi değildir.",
+    "lastCheck": "Son kontrol",
+    "host": "Host",
+    "tls": "TLS",
+    "currentScope": "Aktif hedef",
+    "maximum": "Maksimum",
+    "rejected": "Reddedilen",
+    "threadEmpty": "Thread —",
+    "dirty": "Dirty",
+    "hitRatio": "Hit ratio",
+    "storage": "Depolama",
+    "data": "Veri",
+    "source": "Kaynak",
+    "catalogCache": "Katalog cache",
+    "inProgress": "Devam ediyor",
+    "idle": "Beklemede",
+    "time": "Zaman"
   },
   "statusGuide": {
     "title": "Durum rehberi",
@@ -803,7 +819,9 @@
     "gridDescription": "Aktif tablo sayfası, sayfa boyutu, toplam satır, filtre ve sıralama durumunu gösterir.",
     "sqlSummary": "SQL özeti",
     "sqlSummaryDescription": "Bu uygulama oturumundaki kullanıcı işlemleri üzerinden başarı oranı, hata, uyarı ve sorgu süreleri hesaplanır.",
-    "notSelected": "Seçilmedi"
+    "notSelected": "Seçilmedi",
+    "sqlSessionSummary": "{operations} işlem • {errors} hata",
+    "privacyNote": "Arka plan durum kontrolleri SQL günlüğüne eklenmez; parola ve hassas bağlantı bilgileri tooltip içinde gösterilmez."
   },
   "window": {
     "minimize": "Küçült",
@@ -845,7 +863,13 @@
     "genericMeaning": "Bu kayıt Coreor Database tarafından önemli bir uygulama veya veritabanı olayını izlemek için oluşturuldu.",
     "genericCause": "Kaynağa ve teknik metadata alanlarına göre olayın nedeni değişebilir.",
     "genericAction": "Sunucu, veritabanı, kod ve zaman bilgisini kullanarak ilgili çalışma alanını kontrol edin.",
-    "backToEditor": "Editöre dön"
+    "backToEditor": "Editöre dön",
+    "info": "Bilgi",
+    "source": "Kaynak",
+    "code": "Kod",
+    "errors": "Hatalar",
+    "summary": "{total} kayıt • {unread} okunmamış",
+    "localHistoryNote": "Bu kayıt Coreor Database tarafından yerel bildirim geçmişine yazılmıştır. SQL/performans bildirimleri cihazdaki şifreli workspace kasasında tutulur; toast kapansa bile buradan incelenebilir."
   },
   "maintenance": {
     "title": "Bakım merkezi",

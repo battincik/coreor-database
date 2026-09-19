@@ -23,11 +23,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
-function severityLabel(value: CoreorNotificationSeverity) {
-  if (value === 'error' || value === 'danger') return 'Hata';
-  if (value === 'warning') return 'Uyarı';
-  if (value === 'success') return 'Başarılı';
-  return 'Bilgi';
+function severityLabel(value: CoreorNotificationSeverity, t: (key: string) => string) {
+  if (value === 'error' || value === 'danger') return t('common.error');
+  if (value === 'warning') return t('common.warning');
+  if (value === 'success') return t('common.success');
+  return t('notificationCenter.info');
 }
 
 function severityClass(value: CoreorNotificationSeverity) {
@@ -81,7 +81,7 @@ function notificationGuidance(notification: CoreorNotification, t: (key: string)
 }
 
 function Detail({ notification }: { notification: CoreorNotification | null }) {
-  const { t } = useLanguage();
+  const { t, formatDate } = useLanguage();
   if (!notification) return <div className="flex h-full items-center justify-center text-xs text-zinc-700">{t('notificationCenter.selectForDetails')}</div>;
   const guidance = notificationGuidance(notification, t);
   return (
@@ -89,8 +89,8 @@ function Detail({ notification }: { notification: CoreorNotification | null }) {
       <div className="mx-auto max-w-4xl space-y-5">
         <header>
           <div className="flex items-center gap-2">
-            <span className={`rounded-lg border px-2 py-1 text-[9px] ${severityClass(notification.severity)}`}>{severityLabel(notification.severity)}</span>
-            <span className="text-[9px] text-zinc-600">{new Date(notification.createdAt).toLocaleString('tr-TR')}</span>
+            <span className={`rounded-lg border px-2 py-1 text-[9px] ${severityClass(notification.severity)}`}>{severityLabel(notification.severity, t)}</span>
+            <span className="text-[9px] text-zinc-600">{formatDate(notification.createdAt, { dateStyle: 'medium', timeStyle: 'medium' })}</span>
           </div>
           <h1 className="mt-3 text-xl font-semibold text-zinc-100">{notification.title}</h1>
           {notification.description && <p className="mt-2 max-w-3xl text-[11px] leading-5 text-zinc-400">{notification.description}</p>}
@@ -98,10 +98,10 @@ function Detail({ notification }: { notification: CoreorNotification | null }) {
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            ['Kaynak', notification.source],
-            ['Sunucu', notification.serverName || '—'],
-            ['Veritabanı', notification.databaseName || 'Sunucu geneli'],
-            ['Kod', notification.code || '—']
+            [t('notificationCenter.source'), notification.source],
+            [t('statusGuide.server'), notification.serverName || '—'],
+            [t('database.database'), notification.databaseName || t('query.serverScope')],
+            [t('notificationCenter.code'), notification.code || '—']
           ].map(([label, value]) => <div key={label} className="rounded-xl border border-zinc-800 bg-black/20 p-3"><div className="text-[8px] uppercase tracking-wider text-zinc-700">{label}</div><div className="mt-1 break-all text-[10px] text-zinc-300">{value}</div></div>)}
         </section>
 
@@ -121,7 +121,7 @@ function Detail({ notification }: { notification: CoreorNotification | null }) {
         </section>}
 
         <section className="rounded-2xl border border-zinc-800 bg-black/20 p-4 text-[10px] leading-5 text-zinc-500">
-          Bu kayıt Coreor Database tarafından yerel bildirim geçmişine yazılmıştır. SQL/performans bildirimleri cihazdaki şifreli workspace kasasında tutulur; toast kapansa bile buradan incelenebilir.
+          {t('notificationCenter.localHistoryNote')}
         </section>
       </div>
     </div>
@@ -129,7 +129,7 @@ function Detail({ notification }: { notification: CoreorNotification | null }) {
 }
 
 function NotificationHistoryContent() {
-  const { t } = useLanguage();
+  const { t, language, formatDate } = useLanguage();
   const router = useRouter();
   const notifications = useSyncExternalStore(subscribeNotifications, getNotificationsSnapshot, getNotificationsServerSnapshot);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -156,7 +156,7 @@ function NotificationHistoryContent() {
   }, [notifications.length]);
 
   const visible = useMemo(() => {
-    const search = query.trim().toLocaleLowerCase('tr-TR');
+    const search = query.trim().toLocaleLowerCase(language);
     return notifications.filter(item => {
       if (filter === 'unread' && item.readAt) return false;
       if (filter === 'warning' && item.severity !== 'warning') return false;
@@ -164,9 +164,9 @@ function NotificationHistoryContent() {
       if (!search) return true;
       return [item.title, item.description, item.serverName, item.databaseName, item.code, item.source]
         .filter(Boolean)
-        .some(value => String(value).toLocaleLowerCase('tr-TR').includes(search));
+        .some(value => String(value).toLocaleLowerCase(language).includes(search));
     });
-  }, [notifications, query, filter]);
+  }, [notifications, query, filter, language]);
 
   const selected = notifications.find(item => item.id === selectedId) || null;
   const unread = notifications.filter(item => !item.readAt).length;
@@ -174,9 +174,9 @@ function NotificationHistoryContent() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-zinc-950 text-zinc-100">
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-zinc-800 px-3">
-        <Button variant="ghost" size="sm" className="h-8 px-2 text-[10px]" onClick={() => router.push('/editor/')}><ArrowLeft className="mr-1.5 h-3.5 w-3.5" />{t('notificationCenter.backToEditor', 'Back to editor')}</Button>
+        <Button variant="ghost" size="sm" className="h-8 px-2 text-[10px]" onClick={() => router.push('/editor/')}><ArrowLeft className="mr-1.5 h-3.5 w-3.5" />{t('notificationCenter.backToEditor')}</Button>
         <Bell className="h-4 w-4 text-cyan-400" />
-        <div className="min-w-0 flex-1"><div className="text-[12px] font-semibold">{t('notificationCenter.title')}</div><div className="text-[8px] text-zinc-600">{notifications.length} kayıt • {unread} okunmamış</div></div>
+        <div className="min-w-0 flex-1"><div className="text-[12px] font-semibold">{t('notificationCenter.title')}</div><div className="text-[8px] text-zinc-600">{t('notificationCenter.summary', { total: notifications.length, unread })}</div></div>
         <Button variant="ghost" size="sm" className="h-8 text-[9px]" onClick={markAllNotificationsRead}><CheckCheck className="mr-1.5 h-3.5 w-3.5" />{t('notificationCenter.markAllReadShort')}</Button>
         <Button variant="ghost" size="sm" className="h-8 text-[9px] text-red-400" onClick={() => { clearNotifications(); setSelectedId(null); }}><Trash2 className="mr-1.5 h-3.5 w-3.5" />{t('notificationCenter.clearHistory')}</Button>
       </header>
@@ -184,14 +184,14 @@ function NotificationHistoryContent() {
       <div className="flex min-h-0 flex-1">
         <aside className="flex w-[min(390px,36vw)] min-w-[280px] flex-col border-r border-zinc-800">
           <div className="space-y-2 border-b border-zinc-800 p-2">
-            <div className="relative"><Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-700" /><Input value={query} onChange={event => setQuery(event.target.value)} placeholder="Bildirimlerde ara" className="h-8 pl-8 text-[10px]" /></div>
-            <div className="flex gap-1">{(['all','unread','warning','error'] as const).map(value => <button key={value} type="button" onClick={() => setFilter(value)} className={`rounded px-2 py-1 text-[8px] ${filter === value ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-600 hover:text-zinc-300'}`}>{value === 'all' ? 'Tümü' : value === 'unread' ? 'Okunmamış' : value === 'warning' ? 'Uyarılar' : 'Hatalar'}</button>)}</div>
+            <div className="relative"><Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-700" /><Input value={query} onChange={event => setQuery(event.target.value)} placeholder={t('notificationCenter.search')} className="h-8 pl-8 text-[10px]" /></div>
+            <div className="flex gap-1">{(['all','unread','warning','error'] as const).map(value => <button key={value} type="button" onClick={() => setFilter(value)} className={`rounded px-2 py-1 text-[8px] ${filter === value ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-600 hover:text-zinc-300'}`}>{value === 'all' ? t('common.all') : value === 'unread' ? t('notificationCenter.unread') : value === 'warning' ? t('notificationCenter.warnings') : t('notificationCenter.errors')}</button>)}</div>
           </div>
           <div className="coreor-scrollbar min-h-0 flex-1 overflow-y-auto">
             {visible.map(item => (
               <button key={item.id} type="button" onClick={() => { setSelectedId(item.id); markNotificationRead(item.id); }} className={`flex w-full gap-2 border-b border-zinc-900 px-3 py-3 text-left hover:bg-white/[0.025] ${selectedId === item.id ? 'bg-cyan-500/[0.05]' : !item.readAt ? 'bg-cyan-500/[0.02]' : ''}`}>
                 <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${severityClass(item.severity)}`}>{item.severity === 'error' || item.severity === 'danger' ? <XCircle className="h-3.5 w-3.5" /> : <CircleAlert className="h-3.5 w-3.5" />}</span>
-                <span className="min-w-0 flex-1"><span className={`block truncate text-[10px] font-medium ${item.readAt ? 'text-zinc-400' : 'text-zinc-100'}`}>{item.title}</span><span className="mt-0.5 block truncate text-[8px] text-zinc-600">{item.description || item.source}</span><span className="mt-1 block text-[8px] text-zinc-700">{new Date(item.createdAt).toLocaleString('tr-TR')}</span></span>
+                <span className="min-w-0 flex-1"><span className={`block truncate text-[10px] font-medium ${item.readAt ? 'text-zinc-400' : 'text-zinc-100'}`}>{item.title}</span><span className="mt-0.5 block truncate text-[8px] text-zinc-600">{item.description || item.source}</span><span className="mt-1 block text-[8px] text-zinc-700">{formatDate(item.createdAt, { dateStyle: 'short', timeStyle: 'short' })}</span></span>
               </button>
             ))}
           </div>

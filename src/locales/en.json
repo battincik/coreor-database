@@ -783,7 +783,23 @@
     "lastQueryEmpty": "Last query —",
     "limitedEngineMetrics": "Advanced engine metrics for {engine} are currently limited.",
     "storageMetricDescription": "Data + index size for the selected database. Server total and InnoDB allocated free space are shown in details.",
-    "storageLogicalDescription": "Database data + index total calculated from catalog/performance metadata. This is not physical disk capacity."
+    "storageLogicalDescription": "Database data + index total calculated from catalog/performance metadata. This is not physical disk capacity.",
+    "lastCheck": "Last check",
+    "host": "Host",
+    "tls": "TLS",
+    "currentScope": "Active target",
+    "maximum": "Maximum",
+    "rejected": "Rejected",
+    "threadEmpty": "Threads —",
+    "dirty": "Dirty",
+    "hitRatio": "Hit ratio",
+    "storage": "Storage",
+    "data": "Data",
+    "source": "Source",
+    "catalogCache": "Catalog cache",
+    "inProgress": "In progress",
+    "idle": "Idle",
+    "time": "Time"
   },
   "statusGuide": {
     "title": "Status guide",
@@ -803,7 +819,9 @@
     "gridDescription": "Shows active table page, page size, total rows, filters, and sorting.",
     "sqlSummary": "SQL summary",
     "sqlSummaryDescription": "Calculates success rate, errors, warnings, and query durations from user operations in this application session.",
-    "notSelected": "Not selected"
+    "notSelected": "Not selected",
+    "sqlSessionSummary": "{operations} operations • {errors} errors",
+    "privacyNote": "Background status checks are not added to the SQL log; passwords and sensitive connection data are not shown in tooltips."
   },
   "window": {
     "minimize": "Minimize",
@@ -845,7 +863,13 @@
     "genericMeaning": "This record was created by Coreor Database to track an important application or database event.",
     "genericCause": "The cause depends on the source and technical metadata fields.",
     "genericAction": "Use the server, database, code, and timestamp to inspect the related workspace.",
-    "backToEditor": "Back to editor"
+    "backToEditor": "Back to editor",
+    "info": "Info",
+    "source": "Source",
+    "code": "Code",
+    "errors": "Errors",
+    "summary": "{total} records • {unread} unread",
+    "localHistoryNote": "This record was written to the local notification history by Coreor Database. SQL/performance notifications are stored in the encrypted workspace vault on this device and remain available here after the toast closes."
   },
   "maintenance": {
     "title": "Maintenance center",

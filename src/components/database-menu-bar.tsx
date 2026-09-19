@@ -162,9 +162,9 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
   return <>
     <div data-coreor-app-chrome="top" className="relative z-[2147483000] flex h-8 shrink-0 select-none items-stretch border-b border-zinc-800 bg-zinc-950/95 text-[11px] text-zinc-400 shadow-sm backdrop-blur">
       {platform.os === 'macos' && <div className="flex shrink-0 items-center gap-2 px-3" data-tauri-drag-region>
-        <button type="button" className="h-3 w-3 rounded-full bg-red-500/90 ring-1 ring-red-400/30 transition hover:bg-red-400" onClick={() => void windowAction('close')} title="Kapat" aria-label={t('common.close')} />
-        <button type="button" className="h-3 w-3 rounded-full bg-amber-400/90 ring-1 ring-amber-300/30 transition hover:bg-amber-300" onClick={() => void windowAction('minimize')} title={t('window.minimize')} aria-label="Küçült" />
-        <button type="button" className="h-3 w-3 rounded-full bg-emerald-500/90 ring-1 ring-emerald-400/30 transition hover:bg-emerald-400" onClick={() => void windowAction('maximize')} title={t('window.maximizeRestore')} aria-label="Büyüt veya geri yükle" />
+        <button type="button" className="h-3 w-3 rounded-full bg-red-500/90 ring-1 ring-red-400/30 transition hover:bg-red-400" onClick={() => void windowAction('close')} title={t('common.close')} aria-label={t('common.close')} />
+        <button type="button" className="h-3 w-3 rounded-full bg-amber-400/90 ring-1 ring-amber-300/30 transition hover:bg-amber-300" onClick={() => void windowAction('minimize')} title={t('window.minimize')} aria-label={t('window.minimize')} />
+        <button type="button" className="h-3 w-3 rounded-full bg-emerald-500/90 ring-1 ring-emerald-400/30 transition hover:bg-emerald-400" onClick={() => void windowAction('maximize')} title={t('window.maximizeRestore')} aria-label={t('window.maximizeRestore')} />
       </div>}
       <div className="coreor-hide-scrollbar flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto pl-2">
       <div className="mr-1 flex min-w-44 max-w-64 shrink-0 items-center gap-2"><Database className="h-3.5 w-3.5 shrink-0 text-emerald-400" /><SearchSelect value={activeServerId || ''} options={serverOptions} onValueChange={serverId => setActiveServerId(serverId || null)} placeholder={t('topbar.connectionSelect')} searchPlaceholder={t('topbar.connectionSearch')} emptyText={t('topbar.noSavedServer')} className="min-w-0 flex-1" triggerClassName="min-h-7 h-7 rounded-lg border-zinc-800/80 bg-black/20 px-2 [&>span]:py-0" dropdownMinWidth={390} showDescriptionInTrigger={false} /></div>
@@ -190,9 +190,9 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
       </div>
       <DatabaseNotificationBell />
       {platform.os !== 'macos' && <div className="flex shrink-0 items-center border-l border-zinc-800 bg-black/15">
-        <button type="button" className={windowButton} onClick={() => void windowAction('minimize')} title={t('window.minimize')} aria-label="Küçült"><Minus className="h-3.5 w-3.5" strokeWidth={1.7} /></button>
-        <button type="button" className={windowButton} onClick={() => void windowAction('maximize')} title={t('window.maximizeRestore')} aria-label="Büyüt veya geri yükle"><Square className="h-3 w-3" strokeWidth={1.7} /></button>
-        <button type="button" className={`${windowButton} hover:!bg-red-600 hover:!text-white`} onClick={() => void windowAction('close')} title="Kapat" aria-label={t('common.close')}><X className="h-4 w-4" strokeWidth={1.7} /></button>
+        <button type="button" className={windowButton} onClick={() => void windowAction('minimize')} title={t('window.minimize')} aria-label={t('window.minimize')}><Minus className="h-3.5 w-3.5" strokeWidth={1.7} /></button>
+        <button type="button" className={windowButton} onClick={() => void windowAction('maximize')} title={t('window.maximizeRestore')} aria-label={t('window.maximizeRestore')}><Square className="h-3 w-3" strokeWidth={1.7} /></button>
+        <button type="button" className={`${windowButton} hover:!bg-red-600 hover:!text-white`} onClick={() => void windowAction('close')} title={t('common.close')} aria-label={t('common.close')}><X className="h-4 w-4" strokeWidth={1.7} /></button>
       </div>}
     </div>
     {usersOpen && <DatabaseUserManagerModal open={usersOpen} onClose={() => setUsersOpen(false)} serverId={activeServerId} accountId={workspaceKey} databases={databases} />}
