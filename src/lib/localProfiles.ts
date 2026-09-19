@@ -7,9 +7,10 @@ function cloneProfiles(servers: DatabaseServerConfig[]) {
   return structuredClone(servers);
 }
 
-export async function readLocalServerProfiles() {
+export async function readLocalServerProfiles(): Promise<DatabaseServerConfig[]> {
   const config = await readDesktopConfig();
-  return cloneProfiles(config.connections as DatabaseServerConfig[]);
+  const connections = Array.isArray(config.connections) ? config.connections : [];
+  return cloneProfiles(connections as DatabaseServerConfig[]);
 }
 
 export async function writeLocalServerProfiles(servers: DatabaseServerConfig[]) {
