@@ -6,9 +6,10 @@ import { createPortal } from 'react-dom';
 import { Pencil, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useLanguage } from '@/context/LanguageContext';
 
 export function CoreorInputModal({
-  open, title, description, initialValue, placeholder, confirmLabel = 'Kaydet', onClose, onConfirm
+  open, title, description, initialValue, placeholder, confirmLabel, onClose, onConfirm
 }: {
   open: boolean;
   title: string;
@@ -19,6 +20,8 @@ export function CoreorInputModal({
   onClose: () => void;
   onConfirm: (value: string) => void | Promise<void>;
 }) {
+  const { t } = useLanguage();
+  const resolvedConfirmLabel = confirmLabel || t('common.save');
   const [value, setValue] = useState(initialValue);
   const [busy, setBusy] = useState(false);
   useModalEscape(open, onClose, busy);
@@ -28,7 +31,7 @@ export function CoreorInputModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[710] flex items-center justify-center p-4">
-      <button type="button" className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={busy ? undefined : onClose} aria-label="Kapat" />
+      <button type="button" className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={busy ? undefined : onClose} aria-label={t('common.close')} />
       <form className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-[0_24px_100px_rgba(0,0,0,.72)]" onSubmit={async event => {
         event.preventDefault();
         if (!normalized || busy) return;
@@ -41,7 +44,7 @@ export function CoreorInputModal({
           <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}><X className="h-4 w-4" /></Button>
         </header>
         <div className="p-5"><Input autoFocus value={value} onChange={event => setValue(event.target.value)} placeholder={placeholder} className="h-10 bg-black/30 text-xs" maxLength={80} onFocus={event => event.currentTarget.select()} /></div>
-        <footer className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3"><Button type="button" variant="ghost" size="sm" onClick={onClose}>İptal</Button><Button type="submit" size="sm" disabled={!normalized || busy}>{confirmLabel}</Button></footer>
+        <footer className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3"><Button type="button" variant="ghost" size="sm" onClick={onClose}>{t('common.cancel')}</Button><Button type="submit" size="sm" disabled={!normalized || busy}>{resolvedConfirmLabel}</Button></footer>
       </form>
     </div>,
     document.body

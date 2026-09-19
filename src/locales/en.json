@@ -1354,7 +1354,10 @@
     "sqlFailed": "SQL cell failed.",
     "noCells": "No notebook cells found.",
     "imported": "Imported notebook",
-    "importFailed": "Notebook could not be imported."
+    "importFailed": "Notebook could not be imported.",
+    "newNotebook": "New SQL Notebook",
+    "defaultMarkdown": "# New note\\n\\nWrite your description in Markdown.",
+    "deleteNotebook": "Delete notebook"
   },
   "tableData": {
     "clearSort": "Clear sorting",
@@ -1574,7 +1577,15 @@
     "allGenerated": "All columns are generated automatically, so the row will be inserted with server defaults.",
     "no": "no",
     "workspaceNotReady": "Local workspace is not ready.",
-    "insertFailed": "Row could not be inserted."
+    "insertFailed": "Row could not be inserted.",
+    "invalidJson": "{field} expects valid JSON.",
+    "numberRequired": "Enter a numeric value for {field}.",
+    "invalidNumber": "{field} expects a valid number.",
+    "booleanRequired": "Use true/false or 1/0 for {field}.",
+    "failed": "Row could not be inserted.",
+    "description": "{database}.{table} • The INSERT statement is built in the native layer using safe identifier/literal rules.",
+    "generatedOnly": "All columns are generated, so the row will be inserted using server defaults.",
+    "add": "Add row"
   },
   "ui": {
     "sqlEditorLabel": "SQL query editor",
@@ -1783,7 +1794,17 @@
     "readerDescription": "Can use query and data-reading tools.",
     "viewer": "Viewer",
     "viewerDescription": "Read-only catalog and data access.",
-    "suspended": "Suspended"
+    "suspended": "Suspended",
+    "owner": "Owner",
+    "fullAccess": "Full access",
+    "analyst": "Analyst",
+    "analystDescription": "Can use query and data-reading tools.",
+    "summary": "{members} members • {databases} databases",
+    "youOwn": "You own this",
+    "member": "Member",
+    "title": "Organizations",
+    "search": "Search organizations…",
+    "notSelected": "No organization selected to manage."
   },
   "settingsExtra": {
     "cloudFeatures": "Cloud Sync • Team Workspaces • Shared Snippets",
@@ -1857,7 +1878,14 @@
     "all": "All releases",
     "releasedFilter": "Released",
     "preparingFilter": "Preparing",
-    "closedFilter": "Closed"
+    "closedFilter": "Closed",
+    "addedTitle": "Added",
+    "changedTitle": "Changed",
+    "fixedTitle": "Fixed",
+    "removedTitle": "Removed",
+    "securityTitle": "Security & protection",
+    "notesTitle": "What you should know",
+    "summaryTitle": "Release summary"
   },
   "whatsNew": {
     "treeTitle": "Coreor Database release tree",

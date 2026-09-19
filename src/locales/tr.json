@@ -1354,7 +1354,10 @@
     "sqlFailed": "SQL hücresi çalıştırılamadı.",
     "noCells": "Notebook hücreleri bulunamadı.",
     "imported": "İçe aktarılan notebook",
-    "importFailed": "Notebook içe aktarılamadı."
+    "importFailed": "Notebook içe aktarılamadı.",
+    "newNotebook": "Yeni SQL Notebook",
+    "defaultMarkdown": "# Yeni not\\n\\nAçıklamanızı Markdown olarak yazın.",
+    "deleteNotebook": "Notebook’u sil"
   },
   "tableData": {
     "clearSort": "Sıralamayı temizle",
@@ -1574,7 +1577,15 @@
     "allGenerated": "Bütün kolonlar otomatik üretildiği için sunucunun varsayılan değerleriyle satır eklenecek.",
     "no": "hayır",
     "workspaceNotReady": "Yerel çalışma alanı hazır değil.",
-    "insertFailed": "Satır eklenemedi."
+    "insertFailed": "Satır eklenemedi.",
+    "invalidJson": "{field} geçerli JSON bekliyor.",
+    "numberRequired": "{field} için sayısal değer girin.",
+    "invalidNumber": "{field} geçerli bir sayı bekliyor.",
+    "booleanRequired": "{field} için true/false veya 1/0 kullanın.",
+    "failed": "Satır eklenemedi.",
+    "description": "{database}.{table} • INSERT sorgusu native katmanda güvenli identifier/literal kurallarıyla oluşturulur.",
+    "generatedOnly": "Bütün kolonlar otomatik üretildiği için sunucunun varsayılan değerleriyle satır eklenecek.",
+    "add": "Satırı ekle"
   },
   "ui": {
     "sqlEditorLabel": "SQL sorgu editörü",
@@ -1783,7 +1794,17 @@
     "readerDescription": "Sorgu ve veri okuma araçlarını kullanabilir.",
     "viewer": "Görüntüleyici",
     "viewerDescription": "Salt okunur katalog ve veri erişimi.",
-    "suspended": "Askıda"
+    "suspended": "Askıda",
+    "owner": "Sahip",
+    "fullAccess": "Tam yetki",
+    "analyst": "Analist",
+    "analystDescription": "Sorgu ve veri okuma araçlarını kullanabilir.",
+    "summary": "{members} üye • {databases} veritabanı",
+    "youOwn": "Sahibi sizsiniz",
+    "member": "Üyesiniz",
+    "title": "Organizasyonlar",
+    "search": "Organizasyon ara…",
+    "notSelected": "Yönetilecek organizasyon seçilmedi."
   },
   "settingsExtra": {
     "cloudFeatures": "Cloud Sync • Team Workspaces • Shared Snippets",
@@ -1857,7 +1878,14 @@
     "all": "Bütün sürümler",
     "releasedFilter": "Yayınlanan",
     "preparingFilter": "Hazırlanan",
-    "closedFilter": "Kapatılan"
+    "closedFilter": "Kapatılan",
+    "addedTitle": "Gelenler",
+    "changedTitle": "Değişenler",
+    "fixedTitle": "Düzeltilenler",
+    "removedTitle": "Kaldırılanlar",
+    "securityTitle": "Güvenlik ve koruma",
+    "notesTitle": "Bilmeniz gerekenler",
+    "summaryTitle": "Sürüm özeti"
   },
   "whatsNew": {
     "treeTitle": "Coreor Database sürüm ağacı",
