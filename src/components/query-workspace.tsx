@@ -115,10 +115,11 @@ function locateStatements(sql: string, statements: string[]) {
 
 function metadataMutationScope(sql: string, currentDatabase: string | null) {
   const clean = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
-  const schemaMutation = /^(?:CREATE|ALTER|DROP|RENAME)\s+(?:DATABASE|SCHEMA|TABLE|VIEW|INDEX|PROCEDURE|FUNCTION|TRIGGER|EVENT)\b/i.test(clean)
-    || /^RENAME\s+TABLE\b/i.test(clean);
-  if (!schemaMutation) return undefined;
-  if (/^(?:CREATE|ALTER|DROP|RENAME)\s+(?:DATABASE|SCHEMA)\b/i.test(clean)) return null;
+  const head = clean.slice(0, 180);
+  const mutatingVerb = /^(?:CREATE|ALTER|DROP|RENAME)\b/i.test(head);
+  const schemaObject = /\b(?:DATABASE|SCHEMA|TABLE|VIEW|INDEX|PROCEDURE|FUNCTION|TRIGGER|EVENT)\b/i.test(head);
+  if (!mutatingVerb || !schemaObject) return undefined;
+  if (/\b(?:DATABASE|SCHEMA)\b/i.test(head)) return null;
   return currentDatabase;
 }
 
