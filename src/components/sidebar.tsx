@@ -97,6 +97,21 @@ interface CreateDatabaseState {
   error: string | null;
 }
 
+interface RenameDatabaseState {
+  server: DatabaseServerConfig;
+  currentName: string;
+  nextName: string;
+  busy: boolean;
+  error: string | null;
+}
+
+function databaseRenameSql(engine: DatabaseEngine, currentName: string, nextName: string) {
+  const family = databaseEngineFamily(engine);
+  if (family === 'postgresql') return `ALTER DATABASE ${quoteDatabaseIdentifier(currentName, engine)} RENAME TO ${quoteDatabaseIdentifier(nextName, engine)};`;
+  if (family === 'mssql') return `ALTER DATABASE ${quoteDatabaseIdentifier(currentName, engine)} MODIFY NAME = ${quoteDatabaseIdentifier(nextName, engine)};`;
+  return null;
+}
+
 function initials(name?: string | null, email?: string | null) {
   return (name?.trim() || email?.trim() || 'C')
     .split(/\s+/)
@@ -239,6 +254,50 @@ function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: Cr
   );
 }
 
+function RenameDatabaseModal({ state, onChange, onClose, onRename }: { state: RenameDatabaseState | null; onChange: (state: RenameDatabaseState) => void; onClose: () => void; onRename: () => void | Promise<void> }) {
+  const { t } = useLanguage();
+  useModalEscape(Boolean(state), onClose, Boolean(state?.busy));
+  if (!state || typeof document === 'undefined') return null;
+  const family = databaseEngineFamily(state.server.databaseType || 'mysql');
+  const supported = family === 'postgresql' || family === 'mssql';
+  const validName = /^[A-Za-z0-9_$-]+$/.test(state.nextName);
+  const unchanged = state.nextName.trim() === state.currentName;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[610] flex items-center justify-center p-2 sm:p-4">
+      <button type="button" className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={state.busy ? undefined : onClose} />
+      <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+        <header className="flex items-center gap-3 border-b border-zinc-800 px-5 py-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10"><Database className="h-4 w-4 text-cyan-300" /></div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold">{t('sidebar.renameDatabaseTitle')}</h2>
+            <p className="mt-0.5 truncate text-[9px] text-zinc-600">{state.server.name} • {state.currentName}</p>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8" disabled={state.busy} onClick={onClose}><X className="h-4 w-4" /></Button>
+        </header>
+        <div className="space-y-4 p-5">
+          <label className="block text-[10px] text-zinc-400">
+            {t('sidebar.newDatabaseName')}
+            <Input autoFocus value={state.nextName} onChange={event => onChange({ ...state, nextName: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono" />
+            <span className="mt-1 block text-[8px] text-zinc-700">{t('sidebar.databaseNameRules')}</span>
+          </label>
+          <div className={`rounded-xl border px-3 py-2 text-[9px] leading-4 ${supported ? 'border-zinc-800 bg-black/20 text-zinc-500' : 'border-amber-500/20 bg-amber-500/[0.06] text-amber-300'}`}>
+            {supported ? t('sidebar.renameDatabaseDescription') : t('sidebar.renameDatabaseMysqlUnsupported')}
+          </div>
+          {state.error && <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[10px] text-red-300">{state.error}</div>}
+        </div>
+        <footer className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3">
+          <Button variant="ghost" size="sm" disabled={state.busy} onClick={onClose}>{t('common.cancel')}</Button>
+          <Button size="sm" disabled={!supported || !validName || unchanged || state.busy} onClick={() => void onRename()}>
+            {state.busy && <Activity className="mr-1.5 h-3.5 w-3.5 animate-spin" />}{t('sidebar.menu.renameDatabase')}
+          </Button>
+        </footer>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatabase, selectedTable }: SidebarProps) {
   const { workspaceKey, user } = useDesktop();
   const { t, language, formatNumber } = useLanguage();
@@ -268,6 +327,8 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const [confirmation, setConfirmation] = useState<DatabaseActionConfirmation | null>(null);
   const [profileConfirmation, setProfileConfirmation] = useState<CoreorConfirmation | null>(null);
   const [createDatabase, setCreateDatabase] = useState<CreateDatabaseState | null>(null);
+  const [renameDatabase, setRenameDatabase] = useState<RenameDatabaseState | null>(null);
+  const metadataRefreshTimersRef = useRef<Map<string, number>>(new Map());
   const [online, setOnline] = useState(true);
   const catalogBootstrapKeyRef = useRef<string | null>(null);
 
@@ -475,6 +536,51 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
     setDatabaseObjects(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => !key.startsWith(`${server.id}:`))));
     await preloadServerObjects(nextServer, response.databases);
   }, [workspaceKey, setServers, preloadServerObjects]);
+
+  const refreshMetadata = useCallback(async (server: DatabaseServerConfig, databaseName: string | null) => {
+    if (!workspaceKey) return;
+    const response = await fetchServerTables(server.id, workspaceKey);
+    setServers(previous => previous.map(item => item.id === server.id ? { ...item, databases: response.databases } : item));
+    if (!databaseName || !response.databases.some(database => database.name === databaseName)) {
+      setDatabaseObjects(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => !key.startsWith(`${server.id}:`))));
+      return;
+    }
+    const key = objectExplorerKey(server.id, databaseName);
+    setDatabaseObjects(previous => {
+      const next = { ...previous };
+      delete next[key];
+      return next;
+    });
+    try {
+      const objects = await fetchDatabaseObjects(server.id, databaseName, workspaceKey, true);
+      setDatabaseObjects(previous => ({ ...previous, [key]: objects.objects }));
+    } catch {
+      // Catalog refresh remains valid even if advanced object metadata is denied.
+    }
+  }, [workspaceKey, setServers]);
+
+  useEffect(() => {
+    const handleInvalidation = (event: Event) => {
+      const detail = (event as CustomEvent<{ serverId?: string; databaseName?: string | null }>).detail;
+      if (!detail?.serverId) return;
+      const server = servers.find(item => item.id === detail.serverId);
+      if (!server) return;
+      const key = `${detail.serverId}:${detail.databaseName || '*'}`;
+      const existing = metadataRefreshTimersRef.current.get(key);
+      if (existing) window.clearTimeout(existing);
+      const timer = window.setTimeout(() => {
+        metadataRefreshTimersRef.current.delete(key);
+        void refreshMetadata(server, detail.databaseName ?? null);
+      }, 250);
+      metadataRefreshTimersRef.current.set(key, timer);
+    };
+    window.addEventListener('coreor:database-metadata-invalidated', handleInvalidation);
+    return () => {
+      window.removeEventListener('coreor:database-metadata-invalidated', handleInvalidation);
+      for (const timer of metadataRefreshTimersRef.current.values()) window.clearTimeout(timer);
+      metadataRefreshTimersRef.current.clear();
+    };
+  }, [servers, refreshMetadata]);
 
   useEffect(() => {
     if (!workspaceKey || !activeServerId) return;
@@ -747,6 +853,14 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         { id: 'collapse', label: t('sidebar.menu.collapseObjectGroups'), icon: ChevronRight, onSelect: () => collapseDatabase(server, database) },
         { id: 'copy-db', label: t('sidebar.menu.copyDatabaseName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(database) },
         { id: 'copy-db-quoted', label: t('sidebar.menu.copyQuotedDatabaseName'), icon: Code2, onSelect: () => navigator.clipboard.writeText(quoteDatabaseIdentifier(database, server.databaseType || 'mysql')) },
+        {
+          id: 'rename-database',
+          label: t('sidebar.menu.renameDatabase'),
+          icon: Wrench,
+          disabled: Boolean(server.readOnly),
+          disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : undefined,
+          onSelect: () => setRenameDatabase({ server, currentName: database, nextName: database, busy: false, error: null })
+        },
         { id: 'recalculate-size', label: t('sidebar.menu.recalculateSize'), icon: HardDrive, onSelect: () => void recalculateDatabaseSize(server, database) },
         { id: 'maintenance-center', label: t('sidebar.menu.maintenanceCenter'), icon: Wrench, onSelect: () => {
           setActiveServerId(server.id);
@@ -1237,6 +1351,43 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       />
       <DatabaseActionConfirmModal action={confirmation} onClose={() => setConfirmation(null)} />
       <CoreorConfirmModal action={profileConfirmation} onClose={() => setProfileConfirmation(null)} />
+      <RenameDatabaseModal
+        state={renameDatabase}
+        onChange={setRenameDatabase}
+        onClose={() => setRenameDatabase(null)}
+        onRename={async () => {
+          if (!renameDatabase || !workspaceKey) return;
+          const currentName = renameDatabase.currentName;
+          const nextName = renameDatabase.nextName.trim();
+          const engine = renameDatabase.server.databaseType || 'mysql';
+          if (nextName === currentName) return;
+          if ((renameDatabase.server.databases || []).some(database => database.name === nextName)) {
+            setRenameDatabase(previous => previous ? { ...previous, error: t('sidebar.renameDatabaseExists', { database: nextName }) } : null);
+            return;
+          }
+          const sql = databaseRenameSql(engine, currentName, nextName);
+          if (!sql) {
+            setRenameDatabase(previous => previous ? { ...previous, error: t('sidebar.renameDatabaseMysqlUnsupported') } : null);
+            return;
+          }
+          setRenameDatabase(previous => previous ? { ...previous, busy: true, error: null } : null);
+          try {
+            await executeDatabaseQuery(renameDatabase.server.id, sql, workspaceKey, null);
+            if (selectedDatabase === currentName) { onTableSelect(null); onDatabaseSelect(nextName); }
+            await refreshMetadata(renameDatabase.server, null);
+            setExpandedDatabases(previous => {
+              const next = new Set(previous);
+              next.delete(`${renameDatabase.server.id}:${currentName}`);
+              next.add(`${renameDatabase.server.id}:${nextName}`);
+              return next;
+            });
+            setRenameDatabase(null);
+            toast.show({ variant: 'success', title: t('sidebar.renameDatabaseSuccess'), description: `${currentName} → ${nextName}` });
+          } catch (error) {
+            setRenameDatabase(previous => previous ? { ...previous, busy: false, error: error instanceof Error ? error.message : t('sidebar.renameDatabaseFailed') } : null);
+          }
+        }}
+      />
       <CreateDatabaseModal
         state={createDatabase}
         onChange={setCreateDatabase}
