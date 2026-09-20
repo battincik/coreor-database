@@ -107,7 +107,7 @@ interface RenameDatabaseState {
 
 function databaseRenameSql(engine: DatabaseEngine, currentName: string, nextName: string) {
   const family = databaseEngineFamily(engine);
-  if (family === 'postgresql') return `ALTER DATABASE ${quoteDatabaseIdentifier(currentName, engine)} RENAME TO ${quoteDatabaseIdentifier(nextName, engine)};`;
+  if (family === 'postgresql' && engine !== 'cockroachdb') return `ALTER DATABASE ${quoteDatabaseIdentifier(currentName, engine)} RENAME TO ${quoteDatabaseIdentifier(nextName, engine)};`;
   if (family === 'mssql') return `ALTER DATABASE ${quoteDatabaseIdentifier(currentName, engine)} MODIFY NAME = ${quoteDatabaseIdentifier(nextName, engine)};`;
   return null;
 }
@@ -259,7 +259,7 @@ function RenameDatabaseModal({ state, onChange, onClose, onRename }: { state: Re
   useModalEscape(Boolean(state), onClose, Boolean(state?.busy));
   if (!state || typeof document === 'undefined') return null;
   const family = databaseEngineFamily(state.server.databaseType || 'mysql');
-  const supported = family === 'postgresql' || family === 'mssql';
+  const supported = (family === 'postgresql' && state.server.databaseType !== 'cockroachdb') || family === 'mssql';
   const validName = /^[A-Za-z0-9_$-]+$/.test(state.nextName);
   const unchanged = state.nextName.trim() === state.currentName;
 
@@ -282,7 +282,7 @@ function RenameDatabaseModal({ state, onChange, onClose, onRename }: { state: Re
             <span className="mt-1 block text-[8px] text-zinc-700">{t('sidebar.databaseNameRules')}</span>
           </label>
           <div className={`rounded-xl border px-3 py-2 text-[9px] leading-4 ${supported ? 'border-zinc-800 bg-black/20 text-zinc-500' : 'border-amber-500/20 bg-amber-500/[0.06] text-amber-300'}`}>
-            {supported ? t('sidebar.renameDatabaseDescription') : t('sidebar.renameDatabaseMysqlUnsupported')}
+            {supported ? t('sidebar.renameDatabaseDescription') : t('sidebar.renameDatabaseUnsupported', { engine: databaseEngineLabel(state.server.databaseType) })}
           </div>
           {state.error && <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[10px] text-red-300">{state.error}</div>}
         </div>
@@ -1367,7 +1367,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           }
           const sql = databaseRenameSql(engine, currentName, nextName);
           if (!sql) {
-            setRenameDatabase(previous => previous ? { ...previous, error: t('sidebar.renameDatabaseMysqlUnsupported') } : null);
+            setRenameDatabase(previous => previous ? { ...previous, error: t('sidebar.renameDatabaseUnsupported', { engine: databaseEngineLabel(engine) }) } : null);
             return;
           }
           setRenameDatabase(previous => previous ? { ...previous, busy: true, error: null } : null);
