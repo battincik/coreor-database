@@ -268,10 +268,10 @@
     "renameDatabaseTitle": "Rename database",
     "newDatabaseName": "New database name",
     "renameDatabaseDescription": "The rename is applied directly on the server. Open tabs that still reference the old name may need to be reselected.",
-    "renameDatabaseMysqlUnsupported": "MySQL/MariaDB does not provide a native, safe RENAME DATABASE command. Automatic table moves are not performed because they can break views, triggers, routines, and database-level privileges.",
     "renameDatabaseExists": "A database named {database} already exists.",
     "renameDatabaseSuccess": "Database renamed",
-    "renameDatabaseFailed": "Database could not be renamed."
+    "renameDatabaseFailed": "Database could not be renamed.",
+    "renameDatabaseUnsupported": "Coreor does not enable a direct, safe database rename flow for {engine}. On engines such as MySQL/MariaDB, table-move workarounds are not applied automatically because they can break views, triggers, routines, and database-level privileges."
   },
   "query": {
     "affectedRows": "{count} rows affected",
