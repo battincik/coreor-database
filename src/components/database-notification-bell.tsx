@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, CheckCheck, ChevronRight, CircleAlert, Clock3, XCircle } from 'lucide-react';
+import { Bell, CheckCheck, ChevronRight, CircleAlert, Clock3, Copy, XCircle } from 'lucide-react';
 import {
   getNotificationsServerSnapshot,
   getNotificationsSnapshot,
   markAllNotificationsRead,
   markNotificationRead,
   subscribeNotifications,
+  formatCoreorNotificationReport,
   type CoreorNotification
 } from '@/lib/notificationStore';
 import { useLanguage } from '@/context/LanguageContext';
@@ -100,25 +101,38 @@ export function DatabaseNotificationBell() {
 
           <div className="coreor-scrollbar min-h-0 flex-1 overflow-y-auto">
             {visible.length ? visible.map(notification => (
-              <button
-                key={notification.id}
-                type="button"
-                onClick={() => openNotification(notification.id)}
-                className={`group flex w-full gap-2.5 border-b border-zinc-900 px-3 py-2.5 text-left transition hover:bg-white/[0.025] ${notification.readAt ? '' : 'bg-cyan-500/[0.025]'}`}
-              >
-                <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${tone(notification)}`}>
-                  {notification.severity === 'error' || notification.severity === 'danger' ? <XCircle className="h-3.5 w-3.5" /> : notification.severity === 'warning' ? <CircleAlert className="h-3.5 w-3.5" /> : <Clock3 className="h-3.5 w-3.5" />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2">
-                    <span className={`min-w-0 flex-1 truncate text-[10px] font-medium ${notification.readAt ? 'text-zinc-400' : 'text-zinc-100'}`}>{notification.title}</span>
-                    <span className="shrink-0 text-[8px] text-zinc-700">{timeLabel(notification.createdAt,language,t)}</span>
+              <div key={notification.id} className={`relative border-b border-zinc-900 ${notification.readAt ? '' : 'bg-cyan-500/[0.025]'}`}>
+                <button
+                  type="button"
+                  onClick={() => openNotification(notification.id)}
+                  className="group flex w-full gap-2.5 px-3 py-2.5 pr-16 text-left transition hover:bg-white/[0.025]"
+                >
+                  <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${tone(notification)}`}>
+                    {notification.severity === 'error' || notification.severity === 'danger' ? <XCircle className="h-3.5 w-3.5" /> : notification.severity === 'warning' ? <CircleAlert className="h-3.5 w-3.5" /> : <Clock3 className="h-3.5 w-3.5" />}
                   </span>
-                  {notification.description && <span className="mt-0.5 block truncate text-[8px] text-zinc-600">{notification.description}</span>}
-                  <span className="mt-1 block truncate text-[8px] text-zinc-700">{[notification.serverName, notification.databaseName, notification.code].filter(Boolean).join(' • ') || notification.source}</span>
-                </span>
-                <ChevronRight className="mt-1 h-3 w-3 shrink-0 text-zinc-800 transition group-hover:text-zinc-500" />
-              </button>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className={`min-w-0 flex-1 truncate text-[10px] font-medium ${notification.readAt ? 'text-zinc-400' : 'text-zinc-100'}`}>{notification.title}</span>
+                      <span className="shrink-0 text-[8px] text-zinc-700">{timeLabel(notification.createdAt,language,t)}</span>
+                    </span>
+                    {notification.description && <span className="mt-0.5 block truncate text-[8px] text-zinc-600">{notification.description}</span>}
+                    <span className="mt-1 block truncate text-[8px] text-zinc-700">{[notification.serverName, notification.databaseName, notification.code].filter(Boolean).join(' • ') || notification.source}</span>
+                  </span>
+                  <ChevronRight className="mt-1 h-3 w-3 shrink-0 text-zinc-800 transition group-hover:text-zinc-500" />
+                </button>
+                <button
+                  type="button"
+                  className="absolute right-8 top-2.5 rounded p-1.5 text-zinc-700 transition hover:bg-zinc-900 hover:text-zinc-200"
+                  title={t('common.copy')}
+                  aria-label={t('common.copy')}
+                  onClick={event => {
+                    event.stopPropagation();
+                    void navigator.clipboard.writeText(formatCoreorNotificationReport(notification));
+                  }}
+                >
+                  <Copy className="h-3 w-3" />
+                </button>
+              </div>
             )) : <div className="flex h-full min-h-40 items-center justify-center text-[10px] text-zinc-700">{t('notificationCenter.empty')}</div>}
           </div>
 
