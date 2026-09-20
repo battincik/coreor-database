@@ -144,11 +144,25 @@ fn returns_rows(sql: &str) -> bool {
     ["select", "show", "describe", "desc", "explain", "with", "pragma", "exec", "execute"].iter().any(|x| s.starts_with(x))
 }
 
+fn mysql_prepared_statement_unsupported(error: &sqlx::Error) -> bool {
+    let text = error.to_string().to_ascii_lowercase();
+    text.contains("1295")
+        || text.contains("er_unsupported_ps")
+        || text.contains("prepared statement protocol")
+        || text.contains("not supported in the prepared statement protocol")
+}
+
 pub async fn execute_on(conn: &mut NativeConnection, sql: &str, limit: usize) -> Result<Value, String> {
     match conn {
         NativeConnection::MySql(c) => {
             if returns_rows(sql) {
-                let rows = sqlx::query(sql).fetch_all(&mut *c).await.map_err(|e| e.to_string())?;
+                let rows = match sqlx::query(sql).fetch_all(&mut *c).await {
+                    Ok(rows) => rows,
+                    Err(error) if mysql_prepared_statement_unsupported(&error) => {
+                        sqlx::raw_sql(sql).fetch_all(&mut *c).await.map_err(|raw_error| raw_error.to_string())?
+                    }
+                    Err(error) => return Err(error.to_string()),
+                };
                 let out = rows.into_iter().take(limit).map(|row| {
                     let mut obj=Map::new();
                     for (i,col) in row.columns().iter().enumerate(){ obj.insert(col.name().to_string(), mysql_cell(&row,i)); }
@@ -156,7 +170,13 @@ pub async fn execute_on(conn: &mut NativeConnection, sql: &str, limit: usize) ->
                 }).collect::<Vec<_>>();
                 Ok(json!({"rows":out,"affectedRows":0}))
             } else {
-                let r=sqlx::query(sql).execute(&mut *c).await.map_err(|e| e.to_string())?;
+                let r = match sqlx::query(sql).execute(&mut *c).await {
+                    Ok(result) => result,
+                    Err(error) if mysql_prepared_statement_unsupported(&error) => {
+                        sqlx::raw_sql(sql).execute(&mut *c).await.map_err(|raw_error| raw_error.to_string())?
+                    }
+                    Err(error) => return Err(error.to_string()),
+                };
                 Ok(json!({"rows":[],"affectedRows":r.rows_affected(),"insertId":r.last_insert_id()}))
             }
         }
