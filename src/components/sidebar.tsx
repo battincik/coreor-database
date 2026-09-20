@@ -10,6 +10,7 @@ import { useDesktop } from '@/context/DesktopContext';
 import { Button } from '@/components/ui/button';
 import { CoreorConfirmModal, type CoreorConfirmation } from '@/components/ui/coreor-confirm-modal';
 import { Input } from '@/components/ui/input';
+import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ServerCreateModal } from '@/components/server-create-modal';
 import { DatabaseActionConfirmModal, type DatabaseActionConfirmation } from '@/components/database-action-confirm-modal';
@@ -101,15 +102,96 @@ interface RenameDatabaseState {
   server: DatabaseServerConfig;
   currentName: string;
   nextName: string;
+  charset: string;
+  collation: string;
   busy: boolean;
   error: string | null;
 }
 
 function databaseRenameSql(engine: DatabaseEngine, currentName: string, nextName: string) {
   const family = databaseEngineFamily(engine);
-  if (family === 'postgresql' && engine !== 'cockroachdb') return `ALTER DATABASE ${quoteDatabaseIdentifier(currentName, engine)} RENAME TO ${quoteDatabaseIdentifier(nextName, engine)};`;
+  if (family === 'postgresql') return `ALTER DATABASE ${quoteDatabaseIdentifier(currentName, engine)} RENAME TO ${quoteDatabaseIdentifier(nextName, engine)};`;
   if (family === 'mssql') return `ALTER DATABASE ${quoteDatabaseIdentifier(currentName, engine)} MODIFY NAME = ${quoteDatabaseIdentifier(nextName, engine)};`;
   return null;
+}
+
+interface DatabaseCharsetOption extends SearchSelectOption<string> {
+  defaultCollation?: string;
+}
+
+interface DatabaseCollationOption extends SearchSelectOption<string> {
+  charset?: string;
+  isDefault?: boolean;
+}
+
+function databaseOptionText(row: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = row[key];
+    if (typeof value === 'string' || typeof value === 'number') return String(value);
+  }
+  return '';
+}
+
+function useDatabaseEncodingOptions(server: DatabaseServerConfig | null, accountId: string | null | undefined, enabled: boolean) {
+  const { t } = useLanguage();
+  const [charsets, setCharsets] = useState<DatabaseCharsetOption[]>([]);
+  const [collations, setCollations] = useState<DatabaseCollationOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!enabled || !server || !accountId) return;
+    let cancelled = false;
+    const family = databaseEngineFamily(server.databaseType || 'mysql');
+    setLoading(true);
+    setError(null);
+    void (async () => {
+      if (family === 'mysql') {
+        const [charsetResult, collationResult] = await Promise.all([
+          executeDatabaseQuery(server.id, 'SHOW CHARACTER SET;', accountId, null),
+          executeDatabaseQuery(server.id, 'SHOW COLLATION;', accountId, null)
+        ]);
+        if (cancelled) return;
+        setCharsets(charsetResult.rows.map(row => {
+          const value = databaseOptionText(row, 'Charset', 'CHARACTER_SET_NAME', 'charset');
+          const description = databaseOptionText(row, 'Description', 'DESCRIPTION');
+          const defaultCollation = databaseOptionText(row, 'Default collation', 'DEFAULT_COLLATE_NAME', 'Default_collation');
+          const maxLength = databaseOptionText(row, 'Maxlen', 'MAXLEN');
+          return { value, label: value, description, badge: maxLength ? `${maxLength} byte` : undefined, defaultCollation, keywords: [description, defaultCollation] };
+        }).filter(option => option.value));
+        setCollations(collationResult.rows.map(row => {
+          const value = databaseOptionText(row, 'Collation', 'COLLATION_NAME', 'collation');
+          const charset = databaseOptionText(row, 'Charset', 'CHARACTER_SET_NAME', 'charset');
+          const defaultFlag = databaseOptionText(row, 'Default', 'IS_DEFAULT');
+          return { value, label: value, charset, isDefault: /^(yes|1)$/i.test(defaultFlag), description: charset, badge: /^(yes|1)$/i.test(defaultFlag) ? t('common.default') : undefined, keywords: [charset] };
+        }).filter(option => option.value));
+        return;
+      }
+      if (family === 'mssql') {
+        const result = await executeDatabaseQuery(server.id, 'SELECT name AS Collation, description AS Description FROM sys.fn_helpcollations() ORDER BY name;', accountId, null);
+        if (cancelled) return;
+        setCharsets([]);
+        setCollations(result.rows.map(row => {
+          const value = databaseOptionText(row, 'Collation', 'name');
+          return { value, label: value, description: databaseOptionText(row, 'Description', 'description') };
+        }).filter(option => option.value));
+        return;
+      }
+      if (server.databaseType === 'cockroachdb') {
+        if (!cancelled) { setCharsets([{ value: 'UTF8', label: 'UTF8' }]); setCollations([]); }
+        return;
+      }
+      const result = await executeDatabaseQuery(server.id, `SELECT DISTINCT pg_encoding_to_char(i) AS "Charset" FROM generate_series(0, 100) AS g(i) WHERE pg_encoding_to_char(i) <> '' ORDER BY 1;`, accountId, null);
+      if (cancelled) return;
+      setCharsets(result.rows.map(row => { const value = databaseOptionText(row, 'Charset', 'charset'); return { value, label: value }; }).filter(option => option.value));
+      setCollations([]);
+    })().catch(failure => {
+      if (!cancelled) setError(failure instanceof Error ? failure.message : t('sidebar.databaseOptionsFailed'));
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [server?.id, server?.databaseType, accountId, enabled, t]);
+
+  return { charsets, collations, loading, error };
 }
 
 function initials(name?: string | null, email?: string | null) {
@@ -177,14 +259,18 @@ function objectDropSql(engine: DatabaseEngine, databaseName: string, object: Dat
   return `DROP ${keyword} ${objectQualifiedName(engine, databaseName, object)};`;
 }
 
-function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: CreateDatabaseState | null; onChange: (state: CreateDatabaseState) => void; onClose: () => void; onCreate: () => void | Promise<void> }) {
+function CreateDatabaseModal({ state, accountId, onChange, onClose, onCreate }: { state: CreateDatabaseState | null; accountId?: string | null; onChange: (state: CreateDatabaseState) => void; onClose: () => void; onCreate: () => void | Promise<void> }) {
   const { t } = useLanguage();
   useModalEscape(Boolean(state), onClose, Boolean(state?.busy));
   if (!state || typeof document === 'undefined') return null;
   const family = databaseEngineFamily(state.server.databaseType);
-  const supportsCharset = family === 'mysql';
+  const { charsets, collations, loading: optionsLoading, error: optionsError } = useDatabaseEncodingOptions(state.server, accountId, true);
+  const supportsCharset = family === 'mysql' || (family === 'postgresql' && state.server.databaseType !== 'cockroachdb');
   const supportsOwner = family === 'postgresql' && state.server.databaseType !== 'cockroachdb';
   const supportsCollation = family === 'mysql' || family === 'mssql';
+  const charsetOptions = charsets.some(option => option.value === state.charset) || !state.charset ? charsets : [{ value: state.charset, label: state.charset }, ...charsets];
+  const filteredCollations = collations.filter(option => !option.charset || !state.charset || option.charset === state.charset);
+  const collationOptions: SearchSelectOption<string>[] = [{ value: '', label: t('sidebar.serverDefault') }, ...filteredCollations];
   const validName = /^[A-Za-z0-9_$-]+$/.test(state.name);
   const safeOption = (value: string) => !value || /^[A-Za-z0-9_.-]+$/.test(value);
   const optionsValid = safeOption(state.charset) && safeOption(state.collation) && (!state.owner || state.owner.length <= 128);
@@ -217,14 +303,35 @@ function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: Cr
 
           {(supportsCharset || supportsCollation || supportsOwner) && (
             <div className="grid gap-3 sm:grid-cols-2">
-              {supportsCharset && <label className="text-[10px] text-zinc-400">
-                Character set
-                <Input value={state.charset} onChange={event => onChange({ ...state, charset: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono text-[10px]" placeholder="utf8mb4" />
-              </label>}
-              {supportsCollation && <label className="text-[10px] text-zinc-400">
-                {t('database.collation')} <span className="text-zinc-700">({t('sidebar.optional')})</span>
-                <Input value={state.collation} onChange={event => onChange({ ...state, collation: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono text-[10px]" placeholder={family === 'mysql' ? 'utf8mb4_unicode_ci' : t('sidebar.serverDefault')} />
-              </label>}
+              {supportsCharset && <div className="text-[10px] text-zinc-400">
+                <div className="mb-1.5">{t('sidebar.characterSet')}</div>
+                <SearchSelect
+                  value={state.charset}
+                  options={charsetOptions}
+                  onValueChange={value => {
+                    const selected = charsets.find(option => option.value === value);
+                    const nextCollation = family === 'mysql' ? selected?.defaultCollation || '' : state.collation;
+                    onChange({ ...state, charset: value, collation: nextCollation, error: null });
+                  }}
+                  searchPlaceholder={t('sidebar.searchCharset')}
+                  emptyText={optionsLoading ? t('common.loading') : t('common.noResults')}
+                  triggerClassName="min-h-9 font-mono"
+                  dropdownMinWidth={360}
+                />
+              </div>}
+              {supportsCollation && <div className="text-[10px] text-zinc-400">
+                <div className="mb-1.5">{t('database.collation')} <span className="text-zinc-700">({t('sidebar.optional')})</span></div>
+                <SearchSelect
+                  value={state.collation}
+                  options={collationOptions}
+                  onValueChange={value => onChange({ ...state, collation: value, error: null })}
+                  searchPlaceholder={t('sidebar.searchCollation')}
+                  emptyText={optionsLoading ? t('common.loading') : t('common.noResults')}
+                  triggerClassName="min-h-9 font-mono"
+                  dropdownMinWidth={420}
+                  dropdownMaxWidth={620}
+                />
+              </div>}
               {supportsOwner && <label className="text-[10px] text-zinc-400 sm:col-span-2">
                 {t('sidebar.owner')} <span className="text-zinc-700">({t('sidebar.optional')})</span>
                 <Input value={state.owner} onChange={event => onChange({ ...state, owner: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono text-[10px]" placeholder={t('sidebar.currentUser')} />
@@ -239,7 +346,7 @@ function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: Cr
             {family === 'mssql' && t('sidebar.mssqlDatabaseHint')}
           </div>
 
-          {state.error && <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[10px] text-red-300">{state.error}</div>}
+          {(state.error || optionsError) && <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[10px] text-red-300">{state.error || optionsError}</div>}
         </div>
 
         <footer className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3">
@@ -254,14 +361,22 @@ function CreateDatabaseModal({ state, onChange, onClose, onCreate }: { state: Cr
   );
 }
 
-function RenameDatabaseModal({ state, onChange, onClose, onRename }: { state: RenameDatabaseState | null; onChange: (state: RenameDatabaseState) => void; onClose: () => void; onRename: () => void | Promise<void> }) {
+function RenameDatabaseModal({ state, accountId, onChange, onClose, onRename }: { state: RenameDatabaseState | null; accountId?: string | null; onChange: (state: RenameDatabaseState) => void; onClose: () => void; onRename: () => void | Promise<void> }) {
   const { t } = useLanguage();
   useModalEscape(Boolean(state), onClose, Boolean(state?.busy));
   if (!state || typeof document === 'undefined') return null;
   const family = databaseEngineFamily(state.server.databaseType || 'mysql');
-  const supported = (family === 'postgresql' && state.server.databaseType !== 'cockroachdb') || family === 'mssql';
+  const database = (state.server.databases || []).find(item => item.name === state.currentName);
+  const { charsets, collations, loading: optionsLoading, error: optionsError } = useDatabaseEncodingOptions(state.server, accountId, true);
+  const supportsCharset = family === 'mysql';
+  const supportsCollation = family === 'mysql' || family === 'mssql';
+  const charsetOptions = charsets.some(option => option.value === state.charset) || !state.charset ? charsets : [{ value: state.charset, label: state.charset }, ...charsets];
+  const filteredCollations = collations.filter(option => !option.charset || !state.charset || option.charset === state.charset);
+  const collationOptions: SearchSelectOption<string>[] = [{ value: '', label: t('sidebar.serverDefault') }, ...filteredCollations];
   const validName = /^[A-Za-z0-9_$-]+$/.test(state.nextName);
-  const unchanged = state.nextName.trim() === state.currentName;
+  const nameUnchanged = state.nextName.trim() === state.currentName;
+  const settingsChanged = (supportsCharset && state.charset !== (database?.defaultCharset || '')) || (supportsCollation && state.collation !== (database?.defaultCollation || ''));
+  const unchanged = nameUnchanged && !settingsChanged;
 
   return createPortal(
     <div className="fixed inset-0 z-[610] flex items-center justify-center p-2 sm:p-4">
@@ -270,7 +385,7 @@ function RenameDatabaseModal({ state, onChange, onClose, onRename }: { state: Re
         <header className="flex items-center gap-3 border-b border-zinc-800 px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10"><Database className="h-4 w-4 text-cyan-300" /></div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-semibold">{t('sidebar.renameDatabaseTitle')}</h2>
+            <h2 className="text-sm font-semibold">{t('sidebar.editDatabaseTitle')}</h2>
             <p className="mt-0.5 truncate text-[9px] text-zinc-600">{state.server.name} • {state.currentName}</p>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8" disabled={state.busy} onClick={onClose}><X className="h-4 w-4" /></Button>
@@ -281,15 +396,45 @@ function RenameDatabaseModal({ state, onChange, onClose, onRename }: { state: Re
             <Input autoFocus value={state.nextName} onChange={event => onChange({ ...state, nextName: event.target.value, error: null })} className="mt-1.5 h-9 bg-black/25 font-mono" />
             <span className="mt-1 block text-[8px] text-zinc-700">{t('sidebar.databaseNameRules')}</span>
           </label>
-          <div className={`rounded-xl border px-3 py-2 text-[9px] leading-4 ${supported ? 'border-zinc-800 bg-black/20 text-zinc-500' : 'border-amber-500/20 bg-amber-500/[0.06] text-amber-300'}`}>
-            {supported ? t('sidebar.renameDatabaseDescription') : t('sidebar.renameDatabaseUnsupported', { engine: databaseEngineLabel(state.server.databaseType) })}
+          {(supportsCharset || supportsCollation) && <div className="grid gap-3 sm:grid-cols-2">
+            {supportsCharset && <div className="text-[10px] text-zinc-400">
+              <div className="mb-1.5">{t('sidebar.characterSet')}</div>
+              <SearchSelect
+                value={state.charset}
+                options={charsetOptions}
+                onValueChange={value => {
+                  const selected = charsets.find(option => option.value === value);
+                  onChange({ ...state, charset: value, collation: selected?.defaultCollation || '', error: null });
+                }}
+                searchPlaceholder={t('sidebar.searchCharset')}
+                emptyText={optionsLoading ? t('common.loading') : t('common.noResults')}
+                triggerClassName="min-h-9 font-mono"
+                dropdownMinWidth={360}
+              />
+            </div>}
+            {supportsCollation && <div className="text-[10px] text-zinc-400">
+              <div className="mb-1.5">{t('database.collation')}</div>
+              <SearchSelect
+                value={state.collation}
+                options={collationOptions}
+                onValueChange={value => onChange({ ...state, collation: value, error: null })}
+                searchPlaceholder={t('sidebar.searchCollation')}
+                emptyText={optionsLoading ? t('common.loading') : t('common.noResults')}
+                triggerClassName="min-h-9 font-mono"
+                dropdownMinWidth={420}
+                dropdownMaxWidth={620}
+              />
+            </div>}
+          </div>}
+          <div className={`rounded-xl border px-3 py-2 text-[9px] leading-4 ${family === 'mysql' ? 'border-amber-500/20 bg-amber-500/[0.06] text-amber-200' : 'border-zinc-800 bg-black/20 text-zinc-500'}`}>
+            {family === 'mysql' ? t('sidebar.mysqlRenameMigrationWarning') : t('sidebar.renameDatabaseDescription')}
           </div>
-          {state.error && <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[10px] text-red-300">{state.error}</div>}
+          {(state.error || optionsError) && <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[10px] text-red-300">{state.error || optionsError}</div>}
         </div>
         <footer className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3">
           <Button variant="ghost" size="sm" disabled={state.busy} onClick={onClose}>{t('common.cancel')}</Button>
-          <Button size="sm" disabled={!supported || !validName || unchanged || state.busy} onClick={() => void onRename()}>
-            {state.busy && <Activity className="mr-1.5 h-3.5 w-3.5 animate-spin" />}{t('sidebar.menu.renameDatabase')}
+          <Button size="sm" disabled={!validName || unchanged || state.busy} onClick={() => void onRename()}>
+            {state.busy && <Activity className="mr-1.5 h-3.5 w-3.5 animate-spin" />}{t('common.save')}
           </Button>
         </footer>
       </div>
@@ -855,11 +1000,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         { id: 'copy-db-quoted', label: t('sidebar.menu.copyQuotedDatabaseName'), icon: Code2, onSelect: () => navigator.clipboard.writeText(quoteDatabaseIdentifier(database, server.databaseType || 'mysql')) },
         {
           id: 'rename-database',
-          label: t('sidebar.menu.renameDatabase'),
+          label: t('sidebar.menu.editDatabase'),
           icon: Wrench,
           disabled: Boolean(server.readOnly),
           disabledReason: server.readOnly ? t('sidebar.readOnlyConnection') : undefined,
-          onSelect: () => setRenameDatabase({ server, currentName: database, nextName: database, busy: false, error: null })
+          onSelect: () => { const info = (server.databases || []).find(item => item.name === database); setRenameDatabase({ server, currentName: database, nextName: database, charset: info?.defaultCharset || (databaseEngineFamily(server.databaseType) === 'mysql' ? 'utf8mb4' : ''), collation: info?.defaultCollation || '', busy: false, error: null }); }
         },
         { id: 'recalculate-size', label: t('sidebar.menu.recalculateSize'), icon: HardDrive, onSelect: () => void recalculateDatabaseSize(server, database) },
         { id: 'maintenance-center', label: t('sidebar.menu.maintenanceCenter'), icon: Wrench, onSelect: () => {
@@ -1353,6 +1498,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       <CoreorConfirmModal action={profileConfirmation} onClose={() => setProfileConfirmation(null)} />
       <RenameDatabaseModal
         state={renameDatabase}
+        accountId={workspaceKey}
         onChange={setRenameDatabase}
         onClose={() => setRenameDatabase(null)}
         onRename={async () => {
@@ -1360,46 +1506,86 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           const currentName = renameDatabase.currentName;
           const nextName = renameDatabase.nextName.trim();
           const engine = renameDatabase.server.databaseType || 'mysql';
-          if (nextName === currentName) return;
-          if ((renameDatabase.server.databases || []).some(database => database.name === nextName)) {
+          const family = databaseEngineFamily(engine);
+          const charset = renameDatabase.charset.trim();
+          const collation = renameDatabase.collation.trim();
+          const nameChanged = nextName !== currentName;
+          if (nameChanged && (renameDatabase.server.databases || []).some(database => database.name === nextName)) {
             setRenameDatabase(previous => previous ? { ...previous, error: t('sidebar.renameDatabaseExists', { database: nextName }) } : null);
             return;
           }
-          const sql = databaseRenameSql(engine, currentName, nextName);
-          if (!sql) {
-            setRenameDatabase(previous => previous ? { ...previous, error: t('sidebar.renameDatabaseUnsupported', { engine: databaseEngineLabel(engine) }) } : null);
-            return;
-          }
+          if (charset && !/^[A-Za-z0-9_.-]+$/.test(charset)) { setRenameDatabase(previous => previous ? { ...previous, error: t('sidebar.invalidCharset') } : null); return; }
+          if (collation && !/^[A-Za-z0-9_.-]+$/.test(collation)) { setRenameDatabase(previous => previous ? { ...previous, error: t('sidebar.invalidCollation') } : null); return; }
           setRenameDatabase(previous => previous ? { ...previous, busy: true, error: null } : null);
+          let activeName = currentName;
+          let createdMysqlTarget = false;
+          let movedMysqlTables = false;
           try {
-            await executeDatabaseQuery(renameDatabase.server.id, sql, workspaceKey, null);
-            if (selectedDatabase === currentName) { onTableSelect(null); onDatabaseSelect(nextName); }
-            if (renameDatabase.server.databaseName === currentName) {
-              await updateServer({ ...renameDatabase.server, databaseName: nextName });
+            if (nameChanged && family === 'mysql') {
+              const objects = await fetchDatabaseObjects(renameDatabase.server.id, currentName, workspaceKey, true);
+              const blocking = objects.objects.filter(object => object.kind !== 'table');
+              if (blocking.length) {
+                const kinds = Array.from(new Set(blocking.map(object => object.kind))).join(', ');
+                throw new Error(t('sidebar.mysqlRenameBlocked', { count: blocking.length, kinds }));
+              }
+              let createSql = `CREATE DATABASE ${quoteDatabaseIdentifier(nextName, engine)}`;
+              if (charset) createSql += ` CHARACTER SET ${charset}`;
+              if (collation) createSql += ` COLLATE ${collation}`;
+              createSql += ';';
+              await executeDatabaseQuery(renameDatabase.server.id, createSql, workspaceKey, null);
+              createdMysqlTarget = true;
+              const tables = objects.objects.filter(object => object.kind === 'table').map(object => object.name);
+              if (tables.length) {
+                const moves = tables.map(table => `${qualifiedDatabaseTable(currentName, table, engine)} TO ${qualifiedDatabaseTable(nextName, table, engine)}`);
+                await executeDatabaseQuery(renameDatabase.server.id, `RENAME TABLE ${moves.join(', ')};`, workspaceKey, null);
+                movedMysqlTables = true;
+              }
+              await executeDatabaseQuery(renameDatabase.server.id, `DROP DATABASE ${quoteDatabaseIdentifier(currentName, engine)};`, workspaceKey, null);
+              activeName = nextName;
+            } else if (nameChanged) {
+              const sql = databaseRenameSql(engine, currentName, nextName);
+              if (!sql) throw new Error(t('sidebar.renameDatabaseUnsupported', { engine: databaseEngineLabel(engine) }));
+              await executeDatabaseQuery(renameDatabase.server.id, sql, workspaceKey, null);
+              activeName = nextName;
+            }
+
+            if (family === 'mysql' && !nameChanged) {
+              let alterSql = `ALTER DATABASE ${quoteDatabaseIdentifier(activeName, engine)}`;
+              if (charset) alterSql += ` CHARACTER SET ${charset}`;
+              if (collation) alterSql += ` COLLATE ${collation}`;
+              if (charset || collation) await executeDatabaseQuery(renameDatabase.server.id, `${alterSql};`, workspaceKey, null);
+            } else if (family === 'mssql' && collation) {
+              await executeDatabaseQuery(renameDatabase.server.id, `ALTER DATABASE ${quoteDatabaseIdentifier(activeName, engine)} COLLATE ${collation};`, workspaceKey, null);
+            }
+
+            if (selectedDatabase === currentName) { onTableSelect(null); onDatabaseSelect(activeName); }
+            if (renameDatabase.server.databaseName === currentName && nameChanged) {
+              await updateServer({ ...renameDatabase.server, databaseName: activeName });
               setDatabaseObjects(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => !key.startsWith(`${renameDatabase.server.id}:`))));
             } else {
-              await refreshMetadata(renameDatabase.server, null);
+              await refreshMetadata(renameDatabase.server, nameChanged ? null : activeName);
             }
-            setExpandedDatabases(previous => {
-              const next = new Set(previous);
-              next.delete(`${renameDatabase.server.id}:${currentName}`);
-              next.add(`${renameDatabase.server.id}:${nextName}`);
-              return next;
-            });
-            setExpandedObjectGroups(previous => {
-              const oldPrefix = `${renameDatabase.server.id}:${currentName}:`;
-              const newPrefix = `${renameDatabase.server.id}:${nextName}:`;
-              return new Set([...previous].map(key => key.startsWith(oldPrefix) ? `${newPrefix}${key.slice(oldPrefix.length)}` : key));
-            });
+            if (nameChanged) {
+              setExpandedDatabases(previous => { const next = new Set(previous); next.delete(`${renameDatabase.server.id}:${currentName}`); next.add(`${renameDatabase.server.id}:${activeName}`); return next; });
+              setExpandedObjectGroups(previous => {
+                const oldPrefix = `${renameDatabase.server.id}:${currentName}:`;
+                const newPrefix = `${renameDatabase.server.id}:${activeName}:`;
+                return new Set([...previous].map(key => key.startsWith(oldPrefix) ? `${newPrefix}${key.slice(oldPrefix.length)}` : key));
+              });
+            }
             setRenameDatabase(null);
-            toast.show({ variant: 'success', title: t('sidebar.renameDatabaseSuccess'), description: `${currentName} → ${nextName}` });
+            toast.show({ variant: 'success', title: t('sidebar.databaseUpdated'), description: nameChanged ? `${currentName} → ${activeName}` : activeName });
           } catch (error) {
+            if (family === 'mysql' && nameChanged && createdMysqlTarget && !movedMysqlTables) {
+              try { await executeDatabaseQuery(renameDatabase.server.id, `DROP DATABASE ${quoteDatabaseIdentifier(nextName, engine)};`, workspaceKey, null); } catch { /* preserve primary failure */ }
+            }
             setRenameDatabase(previous => previous ? { ...previous, busy: false, error: error instanceof Error ? error.message : t('sidebar.renameDatabaseFailed') } : null);
           }
         }}
       />
       <CreateDatabaseModal
         state={createDatabase}
+        accountId={workspaceKey}
         onChange={setCreateDatabase}
         onClose={() => setCreateDatabase(null)}
         onCreate={async () => {
@@ -1425,7 +1611,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
             if (collation) createSql += ` COLLATE ${collation}`;
           } else if (family === 'postgresql' && engine !== 'cockroachdb') {
             if (owner) createSql += ` OWNER ${quoteDatabaseIdentifier(owner, engine)}`;
-            createSql += " ENCODING 'UTF8'";
+            createSql += ` ENCODING '${charset || 'UTF8'}'`;
           } else if (family === 'mssql' && collation) {
             createSql += ` COLLATE ${collation}`;
           }
