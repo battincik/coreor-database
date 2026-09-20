@@ -1376,6 +1376,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
             if (selectedDatabase === currentName) { onTableSelect(null); onDatabaseSelect(nextName); }
             if (renameDatabase.server.databaseName === currentName) {
               await updateServer({ ...renameDatabase.server, databaseName: nextName });
+              setDatabaseObjects(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => !key.startsWith(`${renameDatabase.server.id}:`))));
             } else {
               await refreshMetadata(renameDatabase.server, null);
             }
@@ -1384,6 +1385,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
               next.delete(`${renameDatabase.server.id}:${currentName}`);
               next.add(`${renameDatabase.server.id}:${nextName}`);
               return next;
+            });
+            setExpandedObjectGroups(previous => {
+              const oldPrefix = `${renameDatabase.server.id}:${currentName}:`;
+              const newPrefix = `${renameDatabase.server.id}:${nextName}:`;
+              return new Set([...previous].map(key => key.startsWith(oldPrefix) ? `${newPrefix}${key.slice(oldPrefix.length)}` : key));
             });
             setRenameDatabase(null);
             toast.show({ variant: 'success', title: t('sidebar.renameDatabaseSuccess'), description: `${currentName} → ${nextName}` });
