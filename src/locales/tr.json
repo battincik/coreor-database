@@ -279,6 +279,7 @@
     "databaseOptionsFailed": "Veritabanı karakter seti / collation seçenekleri yüklenemedi.",
     "mysqlRenameMigrationWarning": "MySQL/MariaDB’de yerleşik RENAME DATABASE yoktur. Ad değişirse Coreor hedef veritabanını oluşturur, base tabloları tek bir RENAME TABLE işlemiyle taşır ve boş kalan kaynak veritabanını siler. View, trigger, routine, function veya event varsa işlem engellenir. Veritabanı seviyesindeki GRANT yetkileri otomatik taşınmaz; bunları ayrıca kontrol edin.",
     "mysqlRenameBlocked": "Güvenli yeniden adlandırma engellendi: {count} tablo dışı veritabanı nesnesi bulundu ({kinds}). Yeniden adlandırmadan önce bu nesneleri açıkça taşıyın veya yeniden oluşturun.",
+    "mysqlRenameCatalogIncomplete": "Güvenli yeniden adlandırma durduruldu: katalog tablolar olduğunu bildiriyor ancak taşınabilir base tablo listesi doğrulanamadı. Kataloğu yenileyip tekrar deneyin.",
     "databaseUpdated": "Veritabanı güncellendi"
   },
   "query": {
