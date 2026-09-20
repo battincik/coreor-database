@@ -57,9 +57,16 @@ interface DatabaseRequestError extends Error {
   queryMeta?: DatabaseQueryMeta;
 }
 
+export interface DatabaseQueryExecutionContext {
+  statementStartLine?: number;
+  statementIndex?: number;
+  statementCount?: number;
+}
+
 interface RequestOptions {
   requestKey?: string;
   connectionDatabase?: string | null;
+  executionContext?: DatabaseQueryExecutionContext;
 }
 
 export interface FetchTableDataOptions {
@@ -146,6 +153,21 @@ function resultMetrics(action: DatabaseApiAction, result: unknown) {
   return {};
 }
 
+function inferSqlErrorLocation(message: string | undefined, sql: string) {
+  if (!message) return {} as { line?: number; column?: number };
+  const direct = /\bline\s+(\d+)(?:\s*[,;:]?\s*(?:column|col)\s+(\d+))?/i.exec(message);
+  if (direct) return { line: Number(direct[1]), column: direct[2] ? Number(direct[2]) : undefined };
+  const position = /\bposition\s*[:=]?\s*(\d+)\b/i.exec(message);
+  if (!position) return {} as { line?: number; column?: number };
+  const offset = Math.max(0, Math.min(sql.length, Number(position[1]) - 1));
+  const prefix = sql.slice(0, offset);
+  const lastNewline = prefix.lastIndexOf('\n');
+  return {
+    line: prefix.split('\n').length,
+    column: offset - lastNewline
+  };
+}
+
 function recordStatements(options: {
   statements: DatabaseQueryStatement[];
   action: DatabaseApiAction;
@@ -156,10 +178,18 @@ function recordStatements(options: {
   durationMs: number;
   result?: unknown;
   error?: DatabaseRequestError;
+  executionContext?: DatabaseQueryExecutionContext;
 }) {
   const metrics = options.result ? resultMetrics(options.action, options.result) : {};
   options.statements.forEach((statement, index) => {
     const isLast = index === options.statements.length - 1;
+    const location = options.level === 'error' ? inferSqlErrorLocation(options.error?.message, statement.sql) : {};
+    const statementStartLine = options.executionContext?.statementStartLine;
+    const errorLine = location.line
+      ? statementStartLine
+        ? statementStartLine + location.line - 1
+        : location.line
+      : undefined;
     recordActivity({
       level: options.level,
       title: statement.label || actionTitle(options.action),
@@ -174,7 +204,12 @@ function recordStatements(options: {
       durationMs: isLast ? options.durationMs : undefined,
       rowCount: isLast ? metrics.rowCount : undefined,
       affectedRows: isLast ? metrics.affectedRows : undefined,
-      errorCode: options.error?.code
+      errorCode: options.error?.code,
+      statementStartLine,
+      errorLine,
+      errorColumn: location.column,
+      statementIndex: options.executionContext?.statementIndex,
+      statementCount: options.executionContext?.statementCount
     });
   });
 }
@@ -200,7 +235,8 @@ async function requestDatabaseApi<T>(
     recordStatements({
       statements: queryMeta?.statements?.length ? queryMeta.statements : fallbackStatements(action, payload, server),
       action, level: 'success', server, databaseName, tableName,
-      durationMs: Math.max(0, Math.round(performance.now() - startedAt)), result
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)), result,
+      executionContext: options.executionContext
     });
     return result;
   } catch (error) {
@@ -218,7 +254,8 @@ async function requestDatabaseApi<T>(
     recordStatements({
       statements: normalizedError.queryMeta?.statements?.length ? normalizedError.queryMeta.statements : fallbackStatements(action, payload, server),
       action, level: 'error', server, databaseName, tableName,
-      durationMs: Math.max(0, Math.round(performance.now() - startedAt)), error: normalizedError
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)), error: normalizedError,
+      executionContext: options.executionContext
     });
     throw normalizedError;
   } finally {
@@ -446,9 +483,20 @@ export async function mutateTableSchema(serverId: string, input: TableSchemaMuta
   return result;
 }
 
-export async function executeDatabaseQuery(serverId: string, sql: string, accountId?: string | null, databaseName?: string | null) {
+export async function executeDatabaseQuery(
+  serverId: string,
+  sql: string,
+  accountId?: string | null,
+  databaseName?: string | null,
+  executionContext?: DatabaseQueryExecutionContext
+) {
   const server = await requireServer(accountId, serverId);
   if (!sql.trim()) throw new Error('Çalıştırılacak SQL sorgusu boş olamaz.');
   const selectedDatabase = databaseName === undefined ? server.databaseName || undefined : databaseName;
-  return requestDatabaseApi<QueryExecutionResult>(server, 'query', { database: selectedDatabase, sql }, { connectionDatabase: selectedDatabase });
+  return requestDatabaseApi<QueryExecutionResult>(
+    server,
+    'query',
+    { database: selectedDatabase, sql },
+    { connectionDatabase: selectedDatabase, executionContext }
+  );
 }
