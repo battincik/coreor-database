@@ -187,7 +187,8 @@
       "dropObjectTitle": "{object} nesnesini sil",
       "dropObjectDescription": "{kind} nesnesi sunucudan kalıcı olarak kaldırılacak.",
       "newObject": "Yeni {object}",
-      "renameDatabase": "Veritabanını yeniden adlandır"
+      "renameDatabase": "Veritabanını yeniden adlandır",
+      "editDatabase": "Veritabanını düzenle…"
     },
     "profile": {
       "removeTitle": "Bağlantı profilini kaldır",
@@ -271,7 +272,14 @@
     "renameDatabaseExists": "{database} adında bir veritabanı zaten var.",
     "renameDatabaseSuccess": "Veritabanı yeniden adlandırıldı",
     "renameDatabaseFailed": "Veritabanı yeniden adlandırılamadı.",
-    "renameDatabaseUnsupported": "{engine} için Coreor doğrudan ve güvenli veritabanı yeniden adlandırmayı etkinleştirmiyor. MySQL/MariaDB gibi motorlarda tablo taşıma yaklaşımı view, trigger, routine ve veritabanı yetkilerini bozabileceği için otomatik uygulanmaz."
+    "renameDatabaseUnsupported": "{engine} için doğrudan yeniden adlandırma bu akışta desteklenmiyor.",
+    "editDatabaseTitle": "Veritabanını düzenle",
+    "searchCharset": "Karakter setlerinde ara…",
+    "searchCollation": "Collation ara…",
+    "databaseOptionsFailed": "Veritabanı karakter seti / collation seçenekleri yüklenemedi.",
+    "mysqlRenameMigrationWarning": "MySQL/MariaDB’de yerleşik RENAME DATABASE yoktur. Ad değişirse Coreor hedef veritabanını oluşturur, base tabloları tek bir RENAME TABLE işlemiyle taşır ve boş kalan kaynak veritabanını siler. View, trigger, routine, function veya event varsa işlem engellenir. Veritabanı seviyesindeki GRANT yetkileri otomatik taşınmaz; bunları ayrıca kontrol edin.",
+    "mysqlRenameBlocked": "Güvenli yeniden adlandırma engellendi: {count} tablo dışı veritabanı nesnesi bulundu ({kinds}). Yeniden adlandırmadan önce bu nesneleri açıkça taşıyın veya yeniden oluşturun.",
+    "databaseUpdated": "Veritabanı güncellendi"
   },
   "query": {
     "affectedRows": "{count} satır etkilendi",
