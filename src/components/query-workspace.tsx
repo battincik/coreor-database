@@ -103,6 +103,25 @@ function splitStatements(sql: string) {
   return result;
 }
 
+function locateStatements(sql: string, statements: string[]) {
+  let searchFrom = 0;
+  return statements.map(statement => {
+    const index = sql.indexOf(statement, searchFrom);
+    if (index < 0) return { startLine: undefined as number | undefined };
+    searchFrom = index + statement.length;
+    return { startLine: sql.slice(0, index).split('\n').length };
+  });
+}
+
+function metadataMutationScope(sql: string, currentDatabase: string | null) {
+  const clean = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+  const schemaMutation = /^(?:CREATE|ALTER|DROP|RENAME)\s+(?:DATABASE|SCHEMA|TABLE|VIEW|INDEX|PROCEDURE|FUNCTION|TRIGGER|EVENT)\b/i.test(clean)
+    || /^RENAME\s+TABLE\b/i.test(clean);
+  if (!schemaMutation) return undefined;
+  if (/^(?:CREATE|ALTER|DROP|RENAME)\s+(?:DATABASE|SCHEMA)\b/i.test(clean)) return null;
+  return currentDatabase;
+}
+
 function operationType(sql: string) {
   const clean = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
   if (/^DROP\s+(TABLE|DATABASE)\b/i.test(clean)) return 'drop' as const;
@@ -255,21 +274,44 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     if (!selectedServer || !accountId || !assertWritable(statements)) return;
     onChange({ isRunning: true, error: null, runImmediately: false, serverId: selectedServer.id });
     const sets: ResultSet[] = [];
+    const locations = locateStatements(tab.sql, statements);
+    let metadataRefreshRequested = false;
+    let metadataDatabase: string | null = tab.databaseName;
     for (let index = 0; index < statements.length; index += 1) {
       const statement = statements[index];
       if (requiresApproval(statement)) return;
       await takeSnapshot(statement);
       try {
-        const result = await executeDatabaseQuery(selectedServer.id, statement, accountId, tab.databaseName);
+        const result = await executeDatabaseQuery(
+          selectedServer.id,
+          statement,
+          accountId,
+          tab.databaseName,
+          {
+            statementStartLine: locations[index]?.startLine,
+            statementIndex: index + 1,
+            statementCount: statements.length
+          }
+        );
         sets.push({ id: createId('result'), sql: statement, label: t('queryWorkspace.resultNumber', { number: index + 1 }), result, error: null });
+        const refreshScope = metadataMutationScope(statement, tab.databaseName);
+        if (refreshScope !== undefined) {
+          metadataRefreshRequested = true;
+          if (refreshScope === null) metadataDatabase = null;
+        }
       } catch (error) {
         sets.push({ id: createId('result'), sql: statement, label: t('queryWorkspace.resultNumber', { number: index + 1 }), result: null, error: error instanceof Error ? error.message : t('queryWorkspace.queryFailed') });
         break;
       }
     }
     setResultSets(sets); setActiveResultId(sets[0]?.id || null);
+    if (metadataRefreshRequested) {
+      window.dispatchEvent(new CustomEvent('coreor:database-metadata-invalidated', {
+        detail: { serverId: selectedServer.id, databaseName: metadataDatabase }
+      }));
+    }
     const first = sets[0]; onChange({ isRunning: false, error: first?.error || null, result: first?.result || null, updatedAt: new Date().toISOString() });
-  }, [selectedServer, accountId, tab.databaseName, onChange, requiresApproval, takeSnapshot, assertWritable]);
+  }, [selectedServer, accountId, tab.databaseName, tab.sql, onChange, requiresApproval, takeSnapshot, assertWritable]);
 
   const executeNow = useCallback(async (skipDryRun = false) => {
     if (!selectedServer || !accountId || tab.isRunning || !tab.sql.trim()) return;
