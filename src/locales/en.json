@@ -187,7 +187,8 @@
       "dropObjectTitle": "Delete {object}",
       "dropObjectDescription": "The {kind} object will be permanently removed from the server.",
       "newObject": "New {object}",
-      "renameDatabase": "Rename database"
+      "renameDatabase": "Rename database",
+      "editDatabase": "Edit database…"
     },
     "profile": {
       "removeTitle": "Remove connection profile",
@@ -271,7 +272,14 @@
     "renameDatabaseExists": "A database named {database} already exists.",
     "renameDatabaseSuccess": "Database renamed",
     "renameDatabaseFailed": "Database could not be renamed.",
-    "renameDatabaseUnsupported": "Coreor does not enable a direct, safe database rename flow for {engine}. On engines such as MySQL/MariaDB, table-move workarounds are not applied automatically because they can break views, triggers, routines, and database-level privileges."
+    "renameDatabaseUnsupported": "Direct database rename is not supported for {engine} in this flow.",
+    "editDatabaseTitle": "Edit database",
+    "searchCharset": "Search character sets…",
+    "searchCollation": "Search collations…",
+    "databaseOptionsFailed": "Database character set / collation options could not be loaded.",
+    "mysqlRenameMigrationWarning": "MySQL/MariaDB has no native RENAME DATABASE. When the name changes, Coreor creates the target database, moves base tables in one RENAME TABLE operation, then removes the empty source database. The operation is blocked when views, triggers, routines, functions, or events are present. Database-level GRANT privileges are not moved automatically; review them separately.",
+    "mysqlRenameBlocked": "Safe rename was blocked because {count} non-table database objects were found ({kinds}). Move or recreate those objects explicitly before renaming.",
+    "databaseUpdated": "Database updated"
   },
   "query": {
     "affectedRows": "{count} rows affected",
