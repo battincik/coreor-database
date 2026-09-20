@@ -268,10 +268,10 @@
     "renameDatabaseTitle": "Veritabanını yeniden adlandır",
     "newDatabaseName": "Yeni veritabanı adı",
     "renameDatabaseDescription": "Ad değişikliği sunucuda doğrudan uygulanır. Açık sekmeler eski adı kullanıyorsa yeniden seçmeniz gerekebilir.",
-    "renameDatabaseMysqlUnsupported": "MySQL/MariaDB yerleşik ve güvenli bir RENAME DATABASE komutu sunmaz. Otomatik tablo taşıma; view, trigger, routine ve veritabanı yetkilerini bozabileceği için bu işlem otomatik çalıştırılmaz.",
     "renameDatabaseExists": "{database} adında bir veritabanı zaten var.",
     "renameDatabaseSuccess": "Veritabanı yeniden adlandırıldı",
-    "renameDatabaseFailed": "Veritabanı yeniden adlandırılamadı."
+    "renameDatabaseFailed": "Veritabanı yeniden adlandırılamadı.",
+    "renameDatabaseUnsupported": "{engine} için Coreor doğrudan ve güvenli veritabanı yeniden adlandırmayı etkinleştirmiyor. MySQL/MariaDB gibi motorlarda tablo taşıma yaklaşımı view, trigger, routine ve veritabanı yetkilerini bozabileceği için otomatik uygulanmaz."
   },
   "query": {
     "affectedRows": "{count} satır etkilendi",
