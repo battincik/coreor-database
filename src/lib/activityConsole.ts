@@ -23,6 +23,11 @@ export interface ActivityEntry {
   rowCount?: number;
   affectedRows?: number;
   errorCode?: string;
+  statementStartLine?: number;
+  errorLine?: number;
+  errorColumn?: number;
+  statementIndex?: number;
+  statementCount?: number;
 }
 
 export type NewActivityEntry = Omit<ActivityEntry, 'id' | 'timestamp' | 'sql'> & {
