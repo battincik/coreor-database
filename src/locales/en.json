@@ -279,6 +279,7 @@
     "databaseOptionsFailed": "Database character set / collation options could not be loaded.",
     "mysqlRenameMigrationWarning": "MySQL/MariaDB has no native RENAME DATABASE. When the name changes, Coreor creates the target database, moves base tables in one RENAME TABLE operation, then removes the empty source database. The operation is blocked when views, triggers, routines, functions, or events are present. Database-level GRANT privileges are not moved automatically; review them separately.",
     "mysqlRenameBlocked": "Safe rename was blocked because {count} non-table database objects were found ({kinds}). Move or recreate those objects explicitly before renaming.",
+    "mysqlRenameCatalogIncomplete": "Safe rename was stopped: the catalog reports tables, but the movable base-table list could not be verified. Refresh the catalog and try again.",
     "databaseUpdated": "Database updated"
   },
   "query": {
