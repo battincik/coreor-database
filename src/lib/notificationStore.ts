@@ -19,6 +19,12 @@ export interface CoreorNotification {
   tableName?: string;
   code?: string;
   durationMs?: number;
+  sql?: string;
+  statementStartLine?: number;
+  errorLine?: number;
+  errorColumn?: number;
+  statementIndex?: number;
+  statementCount?: number;
   metadata: Array<{ label: string; value: string }>;
 }
 
@@ -41,6 +47,10 @@ function createId() {
   return `notification-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function positiveInteger(value: number | undefined) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.trunc(value) : undefined;
+}
+
 function normalize(input: CoreorNotification): CoreorNotification {
   return {
     ...input,
@@ -50,6 +60,12 @@ function normalize(input: CoreorNotification): CoreorNotification {
     description: input.description ? String(input.description) : undefined,
     createdAt: input.createdAt || new Date().toISOString(),
     readAt: input.readAt || null,
+    sql: input.sql ? String(input.sql).slice(0, 50_000) : undefined,
+    statementStartLine: positiveInteger(input.statementStartLine),
+    errorLine: positiveInteger(input.errorLine),
+    errorColumn: positiveInteger(input.errorColumn),
+    statementIndex: positiveInteger(input.statementIndex),
+    statementCount: positiveInteger(input.statementCount),
     metadata: Array.isArray(input.metadata)
       ? input.metadata.slice(0, 12).map(item => ({ label: String(item.label), value: String(item.value ?? '—') }))
       : []
@@ -94,6 +110,34 @@ export function publishCoreorNotification(input: NewCoreorNotification) {
   persist();
   emit();
   return record;
+}
+
+export function formatCoreorNotificationReport(notification: CoreorNotification) {
+  const lines = [
+    '# Coreor Database Diagnostic',
+    '',
+    `- Time: ${notification.createdAt}`,
+    `- Severity: ${notification.severity}`,
+    `- Source: ${notification.source}`,
+    `- Code: ${notification.code || '—'}`,
+    `- Server: ${notification.serverName || notification.serverId || '—'}`,
+    `- Database: ${notification.databaseName || 'server scope'}`,
+    `- Table: ${notification.tableName || '—'}`
+  ];
+  if (notification.durationMs !== undefined) lines.push(`- Duration: ${notification.durationMs} ms`);
+  if (notification.statementIndex) lines.push(`- Statement: ${notification.statementIndex}${notification.statementCount ? `/${notification.statementCount}` : ''}`);
+  if (notification.statementStartLine) lines.push(`- Statement start: line ${notification.statementStartLine}`);
+  if (notification.errorLine) lines.push(`- Error location: line ${notification.errorLine}${notification.errorColumn ? `, column ${notification.errorColumn}` : ''}`);
+  if (notification.description) lines.push('', '## Message', '', notification.description);
+  if (notification.sql) {
+    const safeSql = notification.sql.replaceAll('```', '``\u200b`');
+    lines.push('', '## SQL', '', '```sql', safeSql, '```');
+  }
+  if (notification.metadata.length) {
+    lines.push('', '## Metadata', '');
+    for (const item of notification.metadata) lines.push(`- ${item.label}: ${item.value}`);
+  }
+  return lines.join('\n');
 }
 
 export function markNotificationRead(id: string) {
