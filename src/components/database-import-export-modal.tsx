@@ -178,6 +178,22 @@ function splitSqlStatements(source: string) {
   return statements.slice(0, MAX_SQL_STATEMENTS);
 }
 
+function locateSqlStatements(source: string, statements: string[]) {
+  let searchFrom = 0;
+  return statements.map(statement => {
+    const index = source.indexOf(statement, searchFrom);
+    if (index < 0) return { startLine: undefined as number | undefined };
+    searchFrom = index + statement.length;
+    return { startLine: source.slice(0, index).split('\n').length };
+  });
+}
+
+function sqlChangesMetadata(sql: string) {
+  const clean = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+  return /^(?:CREATE|ALTER|DROP|RENAME)\b/i.test(clean)
+    && /\b(?:DATABASE|SCHEMA|TABLE|VIEW|INDEX|PROCEDURE|FUNCTION|TRIGGER|EVENT)\b/i.test(clean.slice(0, 180));
+}
+
 function inferType(values: unknown[], t: (key: string, values?: Record<string, string | number>) => string) {
   const present = values
     .filter(value => value !== null && value !== undefined && String(value).trim() !== '')
@@ -338,6 +354,7 @@ export function DatabaseImportExportModal({
   const [sourceHeaders, setSourceHeaders] = useState<string[]>([]);
   const [sourceRows, setSourceRows] = useState<unknown[][]>([]);
   const [sqlStatements, setSqlStatements] = useState<string[]>([]);
+  const [sqlSource, setSqlSource] = useState('');
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [importMode, setImportMode] = useState<'insert' | 'ignore' | 'replace'>('insert');
   const [fileName, setFileName] = useState('');
@@ -406,6 +423,7 @@ export function DatabaseImportExportModal({
     setSourceHeaders([]);
     setSourceRows([]);
     setSqlStatements([]);
+    setSqlSource('');
     setMapping({});
     setDelimiter('');
 
@@ -439,6 +457,7 @@ export function DatabaseImportExportModal({
       } else {
         const statements = splitSqlStatements(text);
         if (!statements.length) throw new Error(t('importExport.noExecutableSql'));
+        setSqlSource(text);
         if (statements.length >= MAX_SQL_STATEMENTS) {
           setMessage(t('importExport.safetyLimit',{count:formatNumber(MAX_SQL_STATEMENTS)}));
         }
@@ -459,16 +478,29 @@ export function DatabaseImportExportModal({
     try {
       if (format === 'sql') {
         setProgress({ current: 0, total: sqlStatements.length, affected: 0 });
+        const locations = locateSqlStatements(sqlSource, sqlStatements);
         let affected = 0;
+        let metadataChanged = false;
         for (let index = 0; index < sqlStatements.length; index += 1) {
           const result = await executeDatabaseQuery(
             serverId,
             sqlStatements[index],
             accountId,
-            database
+            database,
+            {
+              statementStartLine: locations[index]?.startLine,
+              statementIndex: index + 1,
+              statementCount: sqlStatements.length
+            }
           );
+          if (sqlChangesMetadata(sqlStatements[index])) metadataChanged = true;
           affected += Number(result.affectedRows || 0);
           setProgress({ current: index + 1, total: sqlStatements.length, affected });
+        }
+        if (metadataChanged) {
+          window.dispatchEvent(new CustomEvent('coreor:database-metadata-invalidated', {
+            detail: { serverId, databaseName: database }
+          }));
         }
         setMessage(t('importExport.sqlExecuted',{statements:formatNumber(sqlStatements.length),affected:formatNumber(affected)}));
         return;
