@@ -85,6 +85,12 @@ export function DatabaseNotificationMonitor() {
         tableName: latest.tableName,
         code: latest.errorCode || 'DATABASE_ERROR',
         durationMs: latest.durationMs,
+        sql: latest.sql,
+        statementStartLine: latest.statementStartLine,
+        errorLine: latest.errorLine,
+        errorColumn: latest.errorColumn,
+        statementIndex: latest.statementIndex,
+        statementCount: latest.statementCount,
         metadata: [
           { label: t('notificationMonitor.server'), value: latest.serverName || '—' },
           { label: t('notificationMonitor.target'), value: latest.databaseName || 'sunucu geneli' },
