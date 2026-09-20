@@ -1374,7 +1374,11 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           try {
             await executeDatabaseQuery(renameDatabase.server.id, sql, workspaceKey, null);
             if (selectedDatabase === currentName) { onTableSelect(null); onDatabaseSelect(nextName); }
-            await refreshMetadata(renameDatabase.server, null);
+            if (renameDatabase.server.databaseName === currentName) {
+              await updateServer({ ...renameDatabase.server, databaseName: nextName });
+            } else {
+              await refreshMetadata(renameDatabase.server, null);
+            }
             setExpandedDatabases(previous => {
               const next = new Set(previous);
               next.delete(`${renameDatabase.server.id}:${currentName}`);
