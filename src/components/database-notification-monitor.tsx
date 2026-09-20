@@ -122,6 +122,10 @@ export function DatabaseNotificationMonitor() {
         tableName: latest.tableName,
         code: 'SLOW_SQL',
         durationMs: latest.durationMs,
+        sql: latest.sql,
+        statementStartLine: latest.statementStartLine,
+        statementIndex: latest.statementIndex,
+        statementCount: latest.statementCount,
         metadata: [
           { label: t('notificationMonitor.server'), value: latest.serverName || '—' },
           { label: t('notificationMonitor.duration'), value: `${latest.durationMs} ms` },
