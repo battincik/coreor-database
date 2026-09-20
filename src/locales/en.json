@@ -186,7 +186,8 @@
       "dropObjectKind": "Delete {kind} object",
       "dropObjectTitle": "Delete {object}",
       "dropObjectDescription": "The {kind} object will be permanently removed from the server.",
-      "newObject": "New {object}"
+      "newObject": "New {object}",
+      "renameDatabase": "Rename database"
     },
     "profile": {
       "removeTitle": "Remove connection profile",
@@ -263,7 +264,14 @@
       "callObject": "Call {object}",
       "runObject": "Run {object}",
       "definition": "{object} definition"
-    }
+    },
+    "renameDatabaseTitle": "Rename database",
+    "newDatabaseName": "New database name",
+    "renameDatabaseDescription": "The rename is applied directly on the server. Open tabs that still reference the old name may need to be reselected.",
+    "renameDatabaseMysqlUnsupported": "MySQL/MariaDB does not provide a native, safe RENAME DATABASE command. Automatic table moves are not performed because they can break views, triggers, routines, and database-level privileges.",
+    "renameDatabaseExists": "A database named {database} already exists.",
+    "renameDatabaseSuccess": "Database renamed",
+    "renameDatabaseFailed": "Database could not be renamed."
   },
   "query": {
     "affectedRows": "{count} rows affected",
