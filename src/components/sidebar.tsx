@@ -261,10 +261,11 @@ function objectDropSql(engine: DatabaseEngine, databaseName: string, object: Dat
 
 function CreateDatabaseModal({ state, accountId, onChange, onClose, onCreate }: { state: CreateDatabaseState | null; accountId?: string | null; onChange: (state: CreateDatabaseState) => void; onClose: () => void; onCreate: () => void | Promise<void> }) {
   const { t } = useLanguage();
+  const encodingOptions = useDatabaseEncodingOptions(state?.server || null, accountId, Boolean(state));
   useModalEscape(Boolean(state), onClose, Boolean(state?.busy));
   if (!state || typeof document === 'undefined') return null;
   const family = databaseEngineFamily(state.server.databaseType);
-  const { charsets, collations, loading: optionsLoading, error: optionsError } = useDatabaseEncodingOptions(state.server, accountId, true);
+  const { charsets, collations, loading: optionsLoading, error: optionsError } = encodingOptions;
   const supportsCharset = family === 'mysql' || (family === 'postgresql' && state.server.databaseType !== 'cockroachdb');
   const supportsOwner = family === 'postgresql' && state.server.databaseType !== 'cockroachdb';
   const supportsCollation = family === 'mysql' || family === 'mssql';
@@ -363,11 +364,12 @@ function CreateDatabaseModal({ state, accountId, onChange, onClose, onCreate }: 
 
 function RenameDatabaseModal({ state, accountId, onChange, onClose, onRename }: { state: RenameDatabaseState | null; accountId?: string | null; onChange: (state: RenameDatabaseState) => void; onClose: () => void; onRename: () => void | Promise<void> }) {
   const { t } = useLanguage();
+  const encodingOptions = useDatabaseEncodingOptions(state?.server || null, accountId, Boolean(state));
   useModalEscape(Boolean(state), onClose, Boolean(state?.busy));
   if (!state || typeof document === 'undefined') return null;
   const family = databaseEngineFamily(state.server.databaseType || 'mysql');
   const database = (state.server.databases || []).find(item => item.name === state.currentName);
-  const { charsets, collations, loading: optionsLoading, error: optionsError } = useDatabaseEncodingOptions(state.server, accountId, true);
+  const { charsets, collations, loading: optionsLoading, error: optionsError } = encodingOptions;
   const supportsCharset = family === 'mysql';
   const supportsCollation = family === 'mysql' || family === 'mssql';
   const charsetOptions = charsets.some(option => option.value === state.charset) || !state.charset ? charsets : [{ value: state.charset, label: state.charset }, ...charsets];
@@ -1522,11 +1524,29 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
           let movedMysqlTables = false;
           try {
             if (nameChanged && family === 'mysql') {
+              const catalogDatabase = (renameDatabase.server.databases || []).find(database => database.name === currentName);
               const objects = await fetchDatabaseObjects(renameDatabase.server.id, currentName, workspaceKey, true);
-              const blocking = objects.objects.filter(object => object.kind !== 'table');
+              const catalogViews = (catalogDatabase?.tableDetails || []).filter(table => /VIEW/i.test(table.tableType)).map(table => table.tableName);
+              const objectBlocking = objects.objects.filter(object => object.kind !== 'table');
+              const blockingKeys = new Set(objectBlocking.map(object => `${object.kind}:${object.name}`));
+              const blocking = [...objectBlocking];
+              for (const view of catalogViews) {
+                const key = `view:${view}`;
+                if (!blockingKeys.has(key)) blocking.push({ name: view, kind: 'view' as const });
+              }
               if (blocking.length) {
                 const kinds = Array.from(new Set(blocking.map(object => object.kind))).join(', ');
                 throw new Error(t('sidebar.mysqlRenameBlocked', { count: blocking.length, kinds }));
+              }
+              const catalogBaseTables = (catalogDatabase?.tableDetails || []).length
+                ? (catalogDatabase?.tableDetails || []).filter(table => !/VIEW/i.test(table.tableType)).map(table => table.tableName)
+                : (catalogDatabase?.tables || []);
+              const tables = Array.from(new Set([
+                ...catalogBaseTables,
+                ...objects.objects.filter(object => object.kind === 'table').map(object => object.name)
+              ]));
+              if ((catalogDatabase?.tableCount || 0) > 0 && tables.length === 0) {
+                throw new Error(t('sidebar.mysqlRenameCatalogIncomplete'));
               }
               let createSql = `CREATE DATABASE ${quoteDatabaseIdentifier(nextName, engine)}`;
               if (charset) createSql += ` CHARACTER SET ${charset}`;
@@ -1534,7 +1554,6 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
               createSql += ';';
               await executeDatabaseQuery(renameDatabase.server.id, createSql, workspaceKey, null);
               createdMysqlTarget = true;
-              const tables = objects.objects.filter(object => object.kind === 'table').map(object => object.name);
               if (tables.length) {
                 const moves = tables.map(table => `${qualifiedDatabaseTable(currentName, table, engine)} TO ${qualifiedDatabaseTable(nextName, table, engine)}`);
                 await executeDatabaseQuery(renameDatabase.server.id, `RENAME TABLE ${moves.join(', ')};`, workspaceKey, null);
