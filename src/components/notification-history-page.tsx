@@ -9,7 +9,7 @@ import { AppContextMenuProvider } from '@/components/app-context-menu';
 import { CoreorToastProvider } from '@/components/ui/coreor-toast';
 import { DatabaseNotificationMonitor } from '@/components/database-notification-monitor';
 import { RuntimeCompatibility } from '@/components/runtime-compatibility';
-import { ArrowLeft, Bell, CheckCheck, CircleAlert, Search, Trash2, XCircle } from 'lucide-react';
+import { ArrowLeft, Bell, Check, CheckCheck, CircleAlert, Copy, Search, Trash2, XCircle } from 'lucide-react';
 import {
   clearNotifications,
   getNotificationsServerSnapshot,
@@ -17,6 +17,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   subscribeNotifications,
+  formatCoreorNotificationReport,
   type CoreorNotification,
   type CoreorNotificationSeverity
 } from '@/lib/notificationStore';
@@ -82,8 +83,16 @@ function notificationGuidance(notification: CoreorNotification, t: (key: string)
 
 function Detail({ notification }: { notification: CoreorNotification | null }) {
   const { t, formatDate } = useLanguage();
+  const [copied, setCopied] = useState(false);
+  useEffect(() => setCopied(false), [notification?.id]);
   if (!notification) return <div className="flex h-full items-center justify-center text-xs text-zinc-700">{t('notificationCenter.selectForDetails')}</div>;
   const guidance = notificationGuidance(notification, t);
+  const sqlLines = notification.sql?.split('\n').slice(0, 240) || [];
+  const copyReport = async () => {
+    await navigator.clipboard.writeText(formatCoreorNotificationReport(notification));
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  };
   return (
     <div className="coreor-scrollbar h-full overflow-y-auto p-5">
       <div className="mx-auto max-w-4xl space-y-5">
@@ -92,8 +101,16 @@ function Detail({ notification }: { notification: CoreorNotification | null }) {
             <span className={`rounded-lg border px-2 py-1 text-[9px] ${severityClass(notification.severity)}`}>{severityLabel(notification.severity, t)}</span>
             <span className="text-[9px] text-zinc-600">{formatDate(notification.createdAt, { dateStyle: 'medium', timeStyle: 'medium' })}</span>
           </div>
-          <h1 className="mt-3 text-xl font-semibold text-zinc-100">{notification.title}</h1>
-          {notification.description && <p className="mt-2 max-w-3xl text-[11px] leading-5 text-zinc-400">{notification.description}</p>}
+          <div className="mt-3 flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-semibold text-zinc-100">{notification.title}</h1>
+              {notification.description && <p className="mt-2 max-w-3xl text-[11px] leading-5 text-zinc-400">{notification.description}</p>}
+            </div>
+            <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-[9px]" onClick={() => void copyReport()}>
+              {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? t('common.success') : t('common.copy')}
+            </Button>
+          </div>
         </header>
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -112,6 +129,27 @@ function Detail({ notification }: { notification: CoreorNotification | null }) {
             [t('notificationCenter.whatToCheck'), guidance.action]
           ].map(([title, text]) => <div key={title} className="rounded-2xl border border-zinc-800 bg-black/20 p-4"><div className="text-[9px] font-semibold text-zinc-300">{title}</div><p className="mt-2 text-[10px] leading-5 text-zinc-500">{text}</p></div>)}
         </section>
+
+        {notification.sql && <section className="overflow-hidden rounded-2xl border border-zinc-800 bg-black/20">
+          <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+            <div className="text-[11px] font-semibold">SQL</div>
+            <div className="font-mono text-[8px] text-zinc-600">
+              {notification.statementIndex ? `#${notification.statementIndex}${notification.statementCount ? `/${notification.statementCount}` : ''}` : ''}
+              {notification.errorLine ? ` • L${notification.errorLine}${notification.errorColumn ? `:${notification.errorColumn}` : ''}` : notification.statementStartLine ? ` • L${notification.statementStartLine}` : ''}
+            </div>
+          </div>
+          <div className="coreor-scrollbar max-h-[360px] overflow-auto bg-black/30 py-2 font-mono text-[10px] leading-5">
+            {sqlLines.map((line, index) => {
+              const absoluteLine = (notification.statementStartLine || 1) + index;
+              const active = notification.errorLine === absoluteLine;
+              return <div key={index} className={`flex min-w-max px-3 ${active ? 'bg-red-500/10 text-red-200' : 'text-zinc-400'}`}>
+                <span className={`mr-4 w-10 shrink-0 select-none text-right ${active ? 'text-red-400' : 'text-zinc-700'}`}>{absoluteLine}</span>
+                <code className="whitespace-pre">{line || ' '}</code>
+              </div>;
+            })}
+            {notification.sql.split('\n').length > sqlLines.length && <div className="px-4 py-2 text-[9px] text-zinc-700">…</div>}
+          </div>
+        </section>}
 
         {notification.metadata.length > 0 && <section className="rounded-2xl border border-zinc-800 bg-black/20">
           <div className="border-b border-zinc-800 px-4 py-3 text-[11px] font-semibold">{t('notificationCenter.technicalDetails')}</div>
