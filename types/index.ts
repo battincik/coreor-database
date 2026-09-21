@@ -40,6 +40,7 @@ export interface DatabaseConnectionPayload {
   database?: string | null;
   sslMode: DatabaseSslMode;
   connectTimeoutMs?: number;
+  poolMaxConnections?: number;
   readOnly?: boolean;
 }
 
@@ -170,6 +171,12 @@ export interface DatabaseServerConfig {
   version?: string;
   sslMode?: DatabaseSslMode;
   connectionTimeoutMs?: number;
+  /** Coreor-side maximum concurrent connections for this server profile. */
+  poolMaxConnections?: number;
+  /** Last max_connections value observed during an explicit connection test. */
+  serverMaxConnections?: number;
+  /** ISO timestamp of the last successful explicit connection test. */
+  connectionTestedAt?: string;
   readOnly?: boolean;
   visibleTo?: string[];
   organizationId?: string | null;
