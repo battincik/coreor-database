@@ -254,7 +254,7 @@ export function SqlNotebookModal({ open, onClose, serverId, accountId, databases
     if (!cell || cell.type !== 'sql' || !cell.content.trim() || cell.isRunning) return;
     updateCell(cellId, { isRunning: true, error: null });
     try {
-      const result = await executeDatabaseQuery(serverId, cell.content, accountId, activeDocument.databaseName);
+      const result = await executeDatabaseQuery(serverId, cell.content, accountId, activeDocument.databaseName, { activityOrigin: 'user' });
       const resultColumns = result.fields?.map(field => field.name) || Object.keys(result.rows[0] || {});
       const numericColumn = resultColumns.find(column => result.rows.some(row => Number.isFinite(Number(row[column])))) || '';
       updateCell(cellId, {
