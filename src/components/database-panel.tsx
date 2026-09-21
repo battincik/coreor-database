@@ -62,6 +62,7 @@ function normalizeQueryTabs(items: unknown[]): EditorQueryTab[] {
       serverId: typeof value.serverId === 'string' ? value.serverId : null,
       databaseName: typeof value.databaseName === 'string' ? value.databaseName : null,
       sql: String(value.sql || ''),
+      executionMode: value.executionMode === 'prepared' ? 'prepared' : 'text',
       isRunning: false,
       error: typeof value.error === 'string' ? value.error : null,
       result: value.result && typeof value.result === 'object' ? value.result : null,
@@ -135,6 +136,7 @@ export function DatabasePanel({
       serverId,
       databaseName: databaseName || null,
       sql: detail.sql || '',
+      executionMode: detail.executionMode === 'prepared' ? 'prepared' : 'text',
       isRunning: false,
       runImmediately: detail.runImmediately,
       error: null,
@@ -165,7 +167,7 @@ export function DatabasePanel({
   }, [queryTabs, activeTab, selectedTable, selectedDatabase, setActiveTab]);
 
   const duplicateQueryTab = useCallback((tab: EditorQueryTab) => {
-    createQueryTab({ serverId: tab.serverId, databaseName: tab.databaseName, title: t('panel.copyTitle',{title:tab.title}), sql: tab.sql });
+    createQueryTab({ serverId: tab.serverId, databaseName: tab.databaseName, title: t('panel.copyTitle',{title:tab.title}), sql: tab.sql, executionMode: tab.executionMode ?? 'text' });
   }, [createQueryTab]);
 
   useEffect(() => {
