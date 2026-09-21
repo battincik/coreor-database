@@ -158,7 +158,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   const { openContextMenu } = useAppContextMenu();
   const { t, formatNumber, language } = useLanguage();
   const toast = useCoreorToast();
-  const { preferences } = useAppPreferences();
+  const { preferences, setPreferences } = useAppPreferences();
   const autoRunHandled = useRef(false);
   const [history, setHistory] = useState<StoredQuery[]>([]);
   const [favorites, setFavorites] = useState<StoredQuery[]>([]);
@@ -199,6 +199,12 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       badge: 'COM_STMT'
     }
   ], [t]);
+  const queryLimitOptions = useMemo<SearchSelectOption[]>(() => [100, 250, 500, 1000, 2000, 5000, 10000, 25000, 50000].map(value => ({
+    value: String(value),
+    label: t('queryWorkspace.resultLimitRows', { count: formatNumber(value) }),
+    description: value <= 1000 ? t('queryWorkspace.resultLimitFast') : value <= 5000 ? t('queryWorkspace.resultLimitBalanced') : t('queryWorkspace.resultLimitLarge'),
+    badge: value === 5000 ? t('common.default') : undefined
+  })), [formatNumber, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -469,6 +475,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       <div className="w-48 shrink-0"><SearchSelect value={selectedServer?.id || ''} options={serverOptions} onValueChange={serverId => onChange({ serverId: serverId || null, databaseName: null, executionMode: 'text', result: null })} triggerClassName="h-7 min-h-7" showDescriptionInTrigger={false}/></div>
       <div className="w-52 shrink-0"><SearchSelect value={tab.databaseName || ''} options={databaseOptions} onValueChange={databaseName => onChange({ databaseName: databaseName || null, result: null })} triggerClassName="h-7 min-h-7" showDescriptionInTrigger={false}/></div>
       {supportsProtocolSelection && <div className="w-44 shrink-0"><SearchSelect value={executionMode} options={executionModeOptions} onValueChange={value => onChange({ executionMode: value === 'prepared' ? 'prepared' : 'text', result: null })} triggerClassName="h-7 min-h-7 font-mono" showDescriptionInTrigger={false}/></div>}
+      <div className="w-40 shrink-0"><SearchSelect value={String(preferences.queryResultLimit)} options={queryLimitOptions} onValueChange={value => setPreferences({ queryResultLimit: Number(value) || 5000 })} triggerClassName="h-7 min-h-7 font-mono" showDescriptionInTrigger={false}/></div>
       <span className="ml-auto flex items-center gap-2 text-[9px] text-zinc-600">{selectedServer?.readOnly && <span className="rounded bg-amber-500/10 px-2 py-1 text-amber-300">READ ONLY</span>}<span className={preferences.dryRunMutations ? 'text-emerald-400' : ''}>Dry-run {preferences.dryRunMutations ? t('queryWorkspace.enabled') : t('queryWorkspace.disabled')}</span><span>•</span><span>{preferences.autoSchemaSnapshots ? t('query.snapshotEnabled') : t('queryWorkspace.snapshotOff')}</span></span>
     </div>
 
