@@ -58,7 +58,7 @@ function cleanMarkdownText(value: string) {
     .trim();
 }
 
-function classifySection(heading: string, text: string): DetailCategory {
+function classifySection(heading: string, text: string, language: string): DetailCategory {
   const value = `${heading} ${text}`.toLocaleLowerCase(language);
   if (/kaldır|çıkar|silindi|sona er|artık kullanılm|yerini .* bırak/.test(value)) return 'removed';
   if (/düzelt|hata|sorun|çözüm|uyumluluk|boşluk|çök|başarısız/.test(value)) return 'fixed';
@@ -68,7 +68,7 @@ function classifySection(heading: string, text: string): DetailCategory {
   return 'added';
 }
 
-function parseReleaseBody(body: string): ParsedReleaseBody {
+function parseReleaseBody(body: string, language: string): ParsedReleaseBody {
   if (!body.trim()) return EMPTY_DETAILS;
   const result: ParsedReleaseBody = { added: [], changed: [], fixed: [], removed: [], security: [], notes: [] };
   const dedupe = new Set<string>();
@@ -82,7 +82,7 @@ function parseReleaseBody(body: string): ParsedReleaseBody {
     const normalized = text.toLocaleLowerCase(language);
     if (dedupe.has(normalized)) return;
     dedupe.add(normalized);
-    result[classifySection(heading, text)].push(text);
+    result[classifySection(heading, text, language)].push(text);
   };
 
   for (const rawLine of lines) {
@@ -107,7 +107,7 @@ function versionParts(version: string) {
   return match ? match.slice(1).map(Number) : [-1, -1, -1];
 }
 
-function compareVersions(left: string, right: string) {
+function compareVersions(left: string, right: string, language: string) {
   const a = versionParts(left);
   const b = versionParts(right);
   for (let index = 0; index < 3; index += 1) {
@@ -121,20 +121,20 @@ function majorOf(version: string) {
   return match ? `${match[1]}.x` : 'Sürümlendirilmemiş';
 }
 
-function formatDate(value: string | null) {
-  if (!value) return 'Tarih yok';
-  return new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(value));
+function formatDate(value: string | null, language: string) {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat(language, { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(value));
 }
 
-function statusInfo(status: ReleasePullRequestStatus, draft: boolean) {
+function statusInfo(status: ReleasePullRequestStatus, draft: boolean, t: (key: string) => string) {
   if (status === 'released') return { label: t('releaseNotes.released'), icon: CheckCircle2, className: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' };
   if (status === 'in-progress') return { label: draft ? 'Taslak' : 'Hazırlanıyor', icon: FileClock, className: 'border-cyan-500/25 bg-cyan-500/10 text-cyan-300' };
   return { label: t('releaseNotes.closedUnmerged'), icon: XCircle, className: 'border-zinc-700 bg-zinc-900 text-zinc-400' };
 }
 
 function ReleaseDetails({ pullRequest }: { pullRequest: ReleasePullRequest }) {
-  const { t } = useLanguage();
-  const details = useMemo(() => parseReleaseBody(pullRequest.body), [pullRequest.body]);
+  const { t, language } = useLanguage();
+  const details = useMemo(() => parseReleaseBody(pullRequest.body, language), [pullRequest.body, language]);
   const visibleCategories = categoryConfig.filter(category => details[category.key].length > 0);
 
   return (
@@ -176,7 +176,7 @@ function ReleaseDetails({ pullRequest }: { pullRequest: ReleasePullRequest }) {
         <span>•</span>
         <span>{pullRequest.author}</span>
         <span>•</span>
-        <span>{formatDate(pullRequest.mergedAt || pullRequest.updatedAt)}</span>
+        <span>{formatDate(pullRequest.mergedAt || pullRequest.updatedAt, language)}</span>
         <a href={pullRequest.url} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300">
           GitHub PR açıklamasını aç
           <ExternalLink className="h-3 w-3" />
@@ -241,11 +241,11 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
       .map(([major, releases]) => ({
         major,
         releases: releases.sort((left, right) => {
-          const versionOrder = compareVersions(left.version, right.version);
+          const versionOrder = compareVersions(left.version, right.version, language);
           return versionOrder || right.number - left.number;
         })
       }));
-  }, [filtered]);
+  }, [filtered, language]);
 
   const counts = useMemo(
     () => ({
@@ -368,7 +368,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
                   <div className="border-t border-zinc-800 px-3 py-3">
                     {majorGroup.releases.map(pullRequest => {
                       const releaseOpen = openReleases.has(pullRequest.number);
-                      const status = statusInfo(pullRequest.status, pullRequest.draft);
+                      const status = statusInfo(pullRequest.status, pullRequest.draft, t);
                       const StatusIcon = status.icon;
                       return (
                         <article key={pullRequest.number} className="relative ml-3 border-l border-zinc-800 pb-3 pl-5 last:pb-0">
@@ -389,7 +389,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
                                 <h3 className="mt-1.5 text-[11px] font-semibold text-zinc-100">{pullRequest.title}</h3>
                                 <p className="mt-1 line-clamp-2 text-[9px] leading-4 text-zinc-600">{pullRequest.summary}</p>
                               </div>
-                              <span className="shrink-0 text-[8px] text-zinc-700">{formatDate(pullRequest.mergedAt || pullRequest.updatedAt)}</span>
+                              <span className="shrink-0 text-[8px] text-zinc-700">{formatDate(pullRequest.mergedAt || pullRequest.updatedAt, language)}</span>
                             </button>
                             {releaseOpen && <ReleaseDetails pullRequest={pullRequest} />}
                           </div>
@@ -408,7 +408,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
         <GitPullRequest className="h-3.5 w-3.5 text-cyan-400" />
         <span>Kaynak: {data?.repository}</span>
         <span>•</span>
-        <span>Son okuma: {data ? formatDate(data.fetchedAt) : '—'}</span>
+        <span>Son okuma: {data ? formatDate(data.fetchedAt, language) : '—'}</span>
         <span className="ml-auto">
           Sürüm ve PR tek kayıt olarak gösterilir; yeni PR başlık veya açıklamasında <span className="font-mono text-zinc-400">x.y.z</span> sürümü bulunmalıdır.
         </span>
