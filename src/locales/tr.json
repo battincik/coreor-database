@@ -1364,7 +1364,11 @@
     "timingConnections": "Bağ.",
     "timingReused": "yeniden",
     "timingNew": "yeni",
-    "timingPoolTitle": "Pool: {total} toplam, {idle} boşta, {inUse} kullanımda, {waiters} bekleyen, {failed} bağlantı oluşturma hatası"
+    "timingPoolTitle": "Pool: {total} toplam, {idle} boşta, {inUse} kullanımda, {waiters} bekleyen, {failed} bağlantı oluşturma hatası",
+    "resultLimitRows": "{count} satır",
+    "resultLimitFast": "Daha küçük sonuç; aktarım, çözümleme ve ekrana çizim daha hızlıdır.",
+    "resultLimitBalanced": "Normal SQL editörü kullanımı için dengeli sonuç boyutu.",
+    "resultLimitLarge": "Büyük sonuçlar veritabanı, ağ ve arayüz gecikmesini artırabilir."
   },
   "notebookExtra": {
     "chartColumns": "Grafik için kategori ve sayısal değer kolonu seçin.",
