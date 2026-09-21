@@ -60,7 +60,7 @@ export function SearchSelect<T extends string | number = string>({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const selected = options.find(option => option.value === value);
+  const selected = options.find(option => String(option.value) === String(value));
   const usePortal = portal || dropdownMinWidth > 340;
   const resolvedPlaceholder = placeholder ?? t('control.select.placeholder');
   const resolvedSearchPlaceholder = searchPlaceholder ?? t('control.select.search');
@@ -169,7 +169,7 @@ export function SearchSelect<T extends string | number = string>({
         {filtered.length === 0 ? (
           <div className="px-4 py-10 text-center text-[10px] text-zinc-600">{resolvedEmptyText}</div>
         ) : filtered.map(option => {
-          const active = option.value === value;
+          const active = String(option.value) === String(value);
           return (
             <button
               key={String(option.value)}
