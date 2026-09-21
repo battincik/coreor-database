@@ -444,6 +444,33 @@ export interface TableSchemaMutationResponse {
   _meta?: DatabaseQueryMeta;
 }
 
+export interface QueryExecutionPoolMetrics {
+  total: number;
+  idle: number;
+  inUse: number;
+  waiters: number;
+  createFailed: number;
+}
+
+export interface QueryExecutionTimings {
+  /** Time spent acquiring a connection. For MySQL this is pool wait / reconnect time. */
+  acquireMs?: number;
+  /** SQL send -> first server response. Includes server execution plus network round-trip to first response. */
+  queryRoundTripMs?: number;
+  /** Remaining result transfer and client-side row decoding. */
+  fetchDecodeMs?: number;
+  /** Total time inside the native database layer, including connection acquisition. */
+  nativeTotalMs?: number;
+  /** Tauri IPC + frontend overhead outside the native database layer. */
+  clientOverheadMs?: number;
+  /** End-to-end request duration observed by the frontend. */
+  totalMs?: number;
+  pooled?: boolean;
+  poolReused?: boolean;
+  tls?: boolean;
+  pool?: QueryExecutionPoolMetrics;
+}
+
 export interface QueryExecutionResult {
   rows: Record<string, unknown>[];
   affectedRows?: number;
@@ -451,6 +478,7 @@ export interface QueryExecutionResult {
   warningStatus?: number;
   fields?: Array<{ name: string; type: string | number }>;
   maximumRows?: number;
+  timings?: QueryExecutionTimings;
   _meta?: DatabaseQueryMeta;
 }
 
