@@ -84,6 +84,7 @@ function normalizeServer(server: DatabaseServerConfig): DatabaseServerConfig {
     version: server.version || definition.defaultVersion,
     port: server.port || definition.defaultPort,
     organizationId: server.organizationId || null,
+    poolMaxConnections: Math.min(32, Math.max(1, server.poolMaxConnections ?? 6), Math.max(1, server.serverMaxConnections ?? 32)),
     databases: normalizeCatalog(server.databases)
   };
 }
@@ -160,7 +161,9 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
       version: server.version || definition.defaultVersion, host: server.host?.trim(),
       port: server.port ?? definition.defaultPort, username: server.username?.trim(), password: server.password,
       databaseName: server.databaseName?.trim(), sslMode: server.sslMode ?? 'preferred',
-      connectionTimeoutMs: server.connectionTimeoutMs ?? 20_000, visibleTo: server.visibleTo || [],
+      connectionTimeoutMs: server.connectionTimeoutMs ?? 20_000,
+      poolMaxConnections: Math.min(32, Math.max(1, server.poolMaxConnections ?? 6), Math.max(1, server.serverMaxConnections ?? 32)),
+      serverMaxConnections: server.serverMaxConnections, connectionTestedAt: server.connectionTestedAt, visibleTo: server.visibleTo || [],
       organizationId: server.organizationId || null, databases: [], createdAt: now, updatedAt: now
     };
     await persistServer(nextServer, true);
