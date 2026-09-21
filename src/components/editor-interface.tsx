@@ -165,13 +165,13 @@ function EditorWorkspace() {
               label: t('editor.openCommandPalette'),
               icon: Code,
               shortcut: 'commandPalette',
-              onSelect: () => window.dispatchEvent(new Event(TOGGLE_COMMAND_PALETTE_EVENT))
+              onSelect: () => { window.dispatchEvent(new Event(TOGGLE_COMMAND_PALETTE_EVENT)); }
             },
             {
               id: 'settings',
               label: t('commandPalette.openSettings'),
               icon: Settings2,
-              onSelect: () => window.dispatchEvent(new Event(OPEN_SETTINGS_MODAL_EVENT))
+              onSelect: () => { window.dispatchEvent(new Event(OPEN_SETTINGS_MODAL_EVENT)); }
             },
             {
               id: 'refresh-view',
