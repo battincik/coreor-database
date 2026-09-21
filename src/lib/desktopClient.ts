@@ -82,6 +82,14 @@ export function desktopConfigPath(): Promise<string> {
   return invokeDesktop<string>('config_path');
 }
 
+export function sqlLogPath(): Promise<string> {
+  return invokeDesktop<string>('sql_log_path');
+}
+
+export function appendSqlLog(line: string): Promise<void> {
+  return invokeDesktop<void>('append_sql_log', { line });
+}
+
 export function readLocalVaultStatus(): Promise<LocalVaultStatus> {
   return invokeDesktop<LocalVaultStatus>('vault_status');
 }
