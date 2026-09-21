@@ -134,6 +134,9 @@
   :root[data-syntax-theme='monokai'] { --coreor-editor-bg: #272822; --coreor-editor-fg: #f8f8f2; --coreor-editor-selection: rgba(73, 72, 62, .9); }
   :root[data-syntax-theme='github-dark'] { --coreor-editor-bg: #0d1117; --coreor-editor-fg: #c9d1d9; --coreor-editor-selection: rgba(56, 139, 253, .28); }
   :root[data-syntax-theme='github-light'] { --coreor-editor-bg: #ffffff; --coreor-editor-fg: #24292f; --coreor-editor-selection: rgba(9, 105, 218, .18); }
+  /* AMOLED application theme always keeps the SQL editor surface true black.
+     Syntax themes still control token colors and selection color. */
+  :root[data-coreor-theme='amoled'] { --coreor-editor-bg: #000000; }
 }
 
 @layer base {
