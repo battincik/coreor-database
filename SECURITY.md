@@ -41,9 +41,15 @@ The optional Coreor Account API is a separate trust boundary. Local DB credentia
 
 ## Credential storage
 
-Connection profiles currently live in the local Tauri application configuration area. Treat the local OS account as part of the trust boundary and do not claim that the current configuration is a hardware-backed secret vault.
+Connection profiles are stored in a local AES-256-GCM encrypted vault. The device key is kept outside that vault by the operating-system credential backend:
 
-A future hardening goal is integration with platform credential stores such as Windows Credential Manager, macOS Keychain and Linux Secret Service.
+- Windows Credential Manager,
+- macOS Keychain,
+- Linux Secret Service through `secret-tool`.
+
+Passwords are removed from connection profiles returned to the renderer and are resolved by the native Tauri process when a database command needs them.
+
+The local operating-system account remains part of the trust boundary. Do not describe this design as hardware-backed unless the active platform credential backend itself provides and guarantees that property.
 
 ## SQL safety
 
