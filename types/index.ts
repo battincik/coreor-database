@@ -178,6 +178,8 @@ export interface DatabaseServerConfig {
   updatedAt?: string;
 }
 
+export type DatabaseQueryExecutionMode = 'text' | 'prepared';
+
 export interface DatabaseQueryStatement {
   sql: string;
   parameters?: unknown[];
@@ -458,6 +460,7 @@ export interface EditorQueryTab {
   serverId: string | null;
   databaseName: string | null;
   sql: string;
+  executionMode?: DatabaseQueryExecutionMode;
   isRunning: boolean;
   runImmediately?: boolean;
   error?: string | null;
