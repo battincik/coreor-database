@@ -490,7 +490,8 @@ export function DatabaseImportExportModal({
             {
               statementStartLine: locations[index]?.startLine,
               statementIndex: index + 1,
-              statementCount: sqlStatements.length
+              statementCount: sqlStatements.length,
+              activityOrigin: 'user'
             }
           );
           if (sqlChangesMetadata(sqlStatements[index])) metadataChanged = true;
