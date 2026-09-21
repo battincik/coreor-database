@@ -7,7 +7,7 @@ mod window_state;
 use database::DatabaseRequest;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{fs, fs::OpenOptions, io::Write, path::PathBuf, time::Duration};
+use std::{fs, fs::OpenOptions, io::Write, path::PathBuf, sync::{Mutex, OnceLock}, time::Duration};
 use tauri::{Manager, State};
 use transactions::TransactionStore;
 
@@ -162,6 +162,12 @@ fn config_path(app: tauri::AppHandle) -> Result<String, String> {
     Ok(config_file(&app)?.to_string_lossy().into_owned())
 }
 
+static SQL_LOG_IO_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn sql_log_io_lock() -> &'static Mutex<()> {
+    SQL_LOG_IO_LOCK.get_or_init(|| Mutex::new(()))
+}
+
 fn sql_log_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_log_dir().map_err(|e| e.to_string())?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -190,6 +196,7 @@ fn append_sql_log(app: tauri::AppHandle, line: String) -> Result<(), String> {
     if line.len() > 200_000 {
         return Err("SQL günlük kaydı izin verilen boyutu aşıyor.".into());
     }
+    let _guard = sql_log_io_lock().lock().map_err(|_| "SQL günlük I/O kilidi kullanılamıyor.".to_string())?;
     let path = sql_log_file(&app)?;
     rotate_sql_log_if_needed(&path)?;
     let mut file = OpenOptions::new()
