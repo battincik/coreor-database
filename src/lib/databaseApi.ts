@@ -65,6 +65,7 @@ export interface DatabaseQueryExecutionContext {
   statementCount?: number;
   executionMode?: DatabaseQueryExecutionMode;
   resultLimit?: number;
+  activityOrigin?: 'user' | 'internal';
 }
 
 interface RequestOptions {
@@ -216,6 +217,12 @@ function recordStatements(options: {
       : undefined;
     recordActivity({
       level: options.level,
+      kind: options.level === 'error'
+        ? 'error'
+        : options.action === 'query' && options.executionContext?.activityOrigin === 'user'
+          ? 'user-query'
+          : 'internal-query',
+      category: options.action === 'query' ? 'query' : undefined,
       title: statement.label || actionTitle(options.action),
       message: options.level === 'error' ? options.error?.message || translateRuntime('apiErrors.queryFailed') : translateRuntime('apiErrors.executedSuccessfully',{server:options.server.name}),
       serverId: options.server.id,
