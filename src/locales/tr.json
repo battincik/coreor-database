@@ -1343,7 +1343,12 @@
     "rowsMayBeAffected": "{count} satır etkilenebilir.",
     "sourceTable": "Kaynak tablo: {table}",
     "dryRunResult": "Dry-run sonucu",
-    "rowsCount": "{count} satır"
+    "rowsCount": "{count} satır",
+    "executionModeText": "Text",
+    "executionModeTextDescription": "MySQL text protokolü (COM_QUERY)",
+    "executionModeDefault": "Varsayılan",
+    "executionModePrepared": "Prepared",
+    "executionModePreparedDescription": "Sunucu taraflı prepared statement protokolü"
   },
   "notebookExtra": {
     "chartColumns": "Grafik için kategori ve sayısal değer kolonu seçin.",
