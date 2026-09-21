@@ -395,7 +395,13 @@
     "access": "Access",
     "readOnlyAccess": "Read only",
     "readWriteAccess": "Read and write",
-    "saveChanges": "Save changes"
+    "saveChanges": "Save changes",
+    "poolConnections": "Pool connections",
+    "poolConnectionsDetected": "Server max_connections: {serverMax}. Coreor can use at most {appMax} connections for this profile.",
+    "poolConnectionsBeforeTest": "Coreor supports up to {appMax} pooled connections. Test the connection to discover the server limit.",
+    "connectionTestRequired": "Test the connection successfully before saving this server profile.",
+    "connectionCapacityDetail": "Server limit {serverMax}; selected pool {selected}; allowed profile maximum {cap}.",
+    "connectionCapacityUnavailable": "The server connection limit could not be detected. Coreor's application limit still applies."
   },
   "database": {
     "bufferPool": "Buffer pool",
