@@ -75,6 +75,53 @@ const TABS: Array<{ id: AutomationCenterTab; labelKey: string; icon: React.Compo
   { id: 'masking', labelKey: 'automation.masking', icon: ShieldCheck },
   { id: 'shortcuts', labelKey: 'automation.tab.shortcuts', icon: KeyRound }
 ];
+function splitCsv(value: string) {
+  const items: string[] = [];
+  let current = '';
+  let quote: '"' | "'" | null = null;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (quote) {
+      if (character === quote) {
+        if (value[index + 1] === quote) {
+          current += quote;
+          index += 1;
+        } else {
+          quote = null;
+        }
+      } else {
+        current += character;
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === ',') {
+      items.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += character;
+  }
+
+  if (current.length || value.endsWith(',')) items.push(current.trim());
+  return items;
+}
+
+function downloadText(filename: string, content: string, type = 'text/plain;charset=utf-8') {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 const SHORTCUT_REFERENCE: Array<[ShortcutId, string]> = [
   ['commandPalette', 'automation.shortcut.commandPalette'],
   ['runQuery', 'automation.shortcut.runQuery'],
@@ -220,5 +267,5 @@ export function DatabaseAutomationCenterModal({ open, onClose, initialTab = 'his
     return <div className="space-y-4"><div className="rounded-xl border border-cyan-500/15 bg-cyan-500/[0.04] p-4 text-[11px] leading-5 text-zinc-400">{t('automation.shortcutsInfo')} <b className="text-cyan-300">{detectPlatform() === 'mac' ? 'macOS' : detectPlatform() === 'windows' ? 'Windows' : 'Linux'}</b>{t('automation.platformShortcutInfo')}</div><div className="grid gap-2 md:grid-cols-2">{SHORTCUT_REFERENCE.map(([id,labelKey])=><div key={id} className="flex items-center gap-4 rounded-xl border border-zinc-800 p-3"><div className="min-w-0 flex-1 text-xs font-medium">{t(labelKey)}</div><kbd className="rounded-lg border border-zinc-700 bg-black/30 px-2 py-1 font-mono text-[10px] text-cyan-300">{shortcutLabel(id)}</kbd></div>)}</div></div>;
   };
 
-  return createPortal(<div className="fixed inset-0 z-[345] flex items-center justify-center p-2 sm:p-3"><button className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}/><div className="relative z-10 flex h-[calc(100dvh-16px)] max-h-[900px] w-[calc(100vw-16px)] max-w-[1460px] min-w-0 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl sm:h-[calc(100dvh-24px)] sm:w-[calc(100vw-24px)]"><aside className="w-[clamp(180px,20vw,240px)] shrink-0 overflow-y-auto border-r border-zinc-800 bg-black/20 p-2"><div className="p-3"><div className="text-sm font-semibold">{t('automation.operationsCenter')}</div><div className="mt-1 text-[9px] text-zinc-600">Coreor Database 2.1.1</div></div>{TABS.map(item=>{const Icon=item.icon;return <button key={item.id} onClick={()=>{setTab(item.id);setMessage(null);setError(null);}} className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[11px] ${tab===item.id?'bg-cyan-500/10 text-cyan-100':'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200'}`}><Icon className="h-4 w-4"/>{item.label}</button>})}</aside><main className="flex min-w-0 flex-1 flex-col"><header className="flex h-12 shrink-0 items-center border-b border-zinc-800 px-4"><div className="text-sm font-semibold">{TABS.find(item=>item.id===tab)?.label}</div><Button variant="ghost" size="icon" className="ml-auto" onClick={onClose}><X className="h-4 w-4"/></Button></header>{message&&<div className="border-b border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-2 text-[10px] text-emerald-300"><CheckCircle2 className="mr-2 inline h-3.5 w-3.5"/>{message}</div>}{error&&<div className="border-b border-red-500/20 bg-red-500/[0.06] px-4 py-2 text-[10px] text-red-300">{error}</div>}<div className="min-h-0 flex-1 overflow-y-auto p-5">{renderTab()}</div></main></div></div>,document.body);
+  return createPortal(<div className="fixed inset-0 z-[345] flex items-center justify-center p-2 sm:p-3"><button className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}/><div className="relative z-10 flex h-[calc(100dvh-16px)] max-h-[900px] w-[calc(100vw-16px)] max-w-[1460px] min-w-0 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl sm:h-[calc(100dvh-24px)] sm:w-[calc(100vw-24px)]"><aside className="w-[clamp(180px,20vw,240px)] shrink-0 overflow-y-auto border-r border-zinc-800 bg-black/20 p-2"><div className="p-3"><div className="text-sm font-semibold">{t('automation.operationsCenter')}</div><div className="mt-1 text-[9px] text-zinc-600">Coreor Database</div></div>{TABS.map(item=>{const Icon=item.icon;return <button key={item.id} onClick={()=>{setTab(item.id);setMessage(null);setError(null);}} className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[11px] ${tab===item.id?'bg-cyan-500/10 text-cyan-100':'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200'}`}><Icon className="h-4 w-4"/>{t(item.labelKey)}</button>})}</aside><main className="flex min-w-0 flex-1 flex-col"><header className="flex h-12 shrink-0 items-center border-b border-zinc-800 px-4"><div className="text-sm font-semibold">{t(TABS.find(item=>item.id===tab)?.labelKey || 'automation.operationsCenter')}</div><Button variant="ghost" size="icon" className="ml-auto" onClick={onClose}><X className="h-4 w-4"/></Button></header>{message&&<div className="border-b border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-2 text-[10px] text-emerald-300"><CheckCircle2 className="mr-2 inline h-3.5 w-3.5"/>{message}</div>}{error&&<div className="border-b border-red-500/20 bg-red-500/[0.06] px-4 py-2 text-[10px] text-red-300">{error}</div>}<div className="min-h-0 flex-1 overflow-y-auto p-5">{renderTab()}</div></main></div></div>,document.body);
 }
