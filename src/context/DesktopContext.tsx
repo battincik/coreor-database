@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { initializeDatabaseAutomationStore } from '@/lib/databaseAutomation';
 import { initializeNotificationStore } from '@/lib/notificationStore';
+import { isDesktopRuntime } from '@/lib/desktopClient';
 
 export interface DesktopUser {
   id: string;
@@ -29,13 +30,21 @@ export function DesktopProvider({ children }: { children: React.ReactNode }) {
   const user: DesktopUser = auth.user || LOCAL_USER;
 
   useEffect(() => {
+    if (!isDesktopRuntime()) {
+      setNativeWorkspaceReady(false);
+      return;
+    }
+
     let active = true;
     void Promise.all([
       initializeDatabaseAutomationStore(),
       initializeNotificationStore()
     ])
-      .catch(error => console.error('Native workspace hazırlanamadı:', error))
-      .finally(() => { if (active) setNativeWorkspaceReady(true); });
+      .then(() => { if (active) setNativeWorkspaceReady(true); })
+      .catch(error => {
+        setNativeWorkspaceReady(false);
+        console.error('Native workspace hazırlanamadı:', error);
+      });
     return () => { active = false; };
   }, []);
 
