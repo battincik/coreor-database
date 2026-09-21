@@ -155,6 +155,18 @@ function resultMetrics(action: DatabaseApiAction, result: unknown) {
   return {};
 }
 
+function enrichClientTimings(result: unknown, totalMs: number) {
+  if (!result || typeof result !== 'object') return;
+  const payload = result as { timings?: QueryExecutionResult['timings'] };
+  if (!payload.timings) return;
+  const nativeTotalMs = typeof payload.timings.nativeTotalMs === 'number' ? payload.timings.nativeTotalMs : totalMs;
+  payload.timings = {
+    ...payload.timings,
+    totalMs,
+    clientOverheadMs: Math.max(0, totalMs - nativeTotalMs)
+  };
+}
+
 function inferSqlErrorLocation(message: string | undefined, sql: string) {
   if (!message) return {} as { line?: number; column?: number };
   const direct = /\bline\s+(\d+)(?:\s*[,;:]?\s*(?:column|col)\s+(\d+))?/i.exec(message);
@@ -192,6 +204,9 @@ function recordStatements(options: {
         ? statementStartLine + location.line - 1
         : location.line
       : undefined;
+    const resultTimings = isLast && options.action === 'query'
+      ? (options.result as QueryExecutionResult | undefined)?.timings
+      : undefined;
     recordActivity({
       level: options.level,
       title: statement.label || actionTitle(options.action),
@@ -204,6 +219,7 @@ function recordStatements(options: {
       sql: statement.sql,
       parameters: statement.parameters,
       durationMs: isLast ? options.durationMs : undefined,
+      timings: resultTimings,
       rowCount: isLast ? metrics.rowCount : undefined,
       affectedRows: isLast ? metrics.affectedRows : undefined,
       errorCode: options.error?.code,
@@ -233,11 +249,13 @@ async function requestDatabaseApi<T>(
 
   try {
     const result = await desktopDatabaseRequest<T>({ action, connection: createConnectionPayload(server, options.connectionDatabase), ...payload });
+    const durationMs = Math.max(0, performance.now() - startedAt);
+    enrichClientTimings(result, durationMs);
     const queryMeta = (result as { _meta?: DatabaseQueryMeta } | null)?._meta;
     recordStatements({
       statements: queryMeta?.statements?.length ? queryMeta.statements : fallbackStatements(action, payload, server),
       action, level: 'success', server, databaseName, tableName,
-      durationMs: Math.max(0, Math.round(performance.now() - startedAt)), result,
+      durationMs: Math.round(durationMs), result,
       executionContext: options.executionContext
     });
     return result;
