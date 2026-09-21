@@ -50,8 +50,12 @@ export interface CloudVaultReadiness {
   masterPasswordStored: boolean;
 }
 
+export function isDesktopRuntime() {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
 function assertDesktopRuntime() {
-  if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) {
+  if (!isDesktopRuntime()) {
     throw new Error('Bu işlem Coreor Database masaüstü istemcisinde çalıştırılmalıdır.');
   }
 }
