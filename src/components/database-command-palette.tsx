@@ -131,6 +131,7 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
   }, [open, activeServer, workspaceKey]);
 
   const allItems = useMemo<PaletteItem[]>(() => {
+    const objectServerId = activeServer?.id || '';
     const items: PaletteItem[] = [
       { id: 'new-query', category: 'commands', label: t('commandPalette.newQuery'), description: selectedDatabase ? t('commandPalette.newQueryInDatabase',{database:selectedDatabase}) : t('commandPalette.newQueryServerScope'), keywords: 'new yeni query sorgu sql editor create', icon: <Code className="h-4 w-4" />, shortcut: 'newQuery', disabled: !activeServer, run: () => openQueryTab({ serverId: activeServerId, databaseName: selectedDatabase, title: selectedDatabase ? t('commandPalette.queryTitle',{database:selectedDatabase}) : t('commandPalette.generalQuery') }) },
       { id: 'settings-tls', category: 'commands', label: t('commandPalette.tlsSettings'), description: t('commandPalette.tlsSettingsDescription'), keywords: 'settings ayarlar tls ssl connection bağlantı security güvenlik', icon: <Settings className="h-4 w-4" />, run: () => dispatchDatabaseTool(OPEN_SETTINGS_MODAL_EVENT, { tab: 'servers' }) },
@@ -177,7 +178,7 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
             window.requestAnimationFrame(() => onTableSelect(table));
           }
         });
-      for (const object of objectIndex[`${activeServer.id}:${database.name}`] || []) {
+      for (const object of objectIndex[`${objectServerId}:${database.name}`] || []) {
         if (object.kind === 'table') continue;
         items.push({
           id: `object:${database.name}:${object.kind}:${object.schema || ''}:${object.name}`,
@@ -192,7 +193,7 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
             else {
               const target = qualifiedSqlName(database.name, object.name);
               const sql = object.kind === 'procedure' ? `CALL ${target}();` : object.kind === 'function' ? `SELECT ${target}();` : object.definition || `-- ${object.kind}: ${object.name}`;
-              openQueryTab({ serverId: activeServer.id, databaseName: database.name, title: `${object.name} • ${object.kind}`, sql });
+              openQueryTab({ serverId: objectServerId, databaseName: database.name, title: `${object.name} • ${object.kind}`, sql });
             }
           }
         });
