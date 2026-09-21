@@ -1,6 +1,7 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
+use mysql_async::{prelude::Queryable, Conn as MySqlConnection, OptsBuilder as MySqlOptsBuilder, Row as MySqlRow, SslOpts as MySqlSslOpts, Value as MySqlValue};
 use sqlx::{Column, Connection as SqlxConnection, Row};
 use std::time::{Duration, Instant};
 use tiberius::{AuthMethod, Client, Config, EncryptionLevel};
@@ -42,7 +43,7 @@ pub struct DatabaseRequest {
 }
 
 pub enum NativeConnection {
-    MySql(sqlx::MySqlConnection),
+    MySql(MySqlConnection),
     Postgres(sqlx::PgConnection),
     Mssql(MssqlClient),
 }
@@ -50,10 +51,43 @@ pub enum NativeConnection {
 fn is_pg(engine: &str) -> bool { matches!(engine, "postgresql" | "cockroachdb") }
 fn is_mssql(engine: &str) -> bool { engine == "mssql" }
 
-fn mysql_url(c: &Connection, database: Option<&str>) -> String {
-    let db = database.or(c.database.as_deref()).unwrap_or("");
-    let ssl = match c.ssl_mode.as_str() { "disabled" => "DISABLED", "preferred" => "PREFERRED", _ => "REQUIRED" };
-    format!("mysql://{}:{}@{}:{}/{}?ssl-mode={}", urlencoding::encode(&c.username), urlencoding::encode(&c.password), c.host, c.port, db, ssl)
+fn mysql_opts(c: &Connection, database: Option<&str>, tls: bool) -> MySqlOptsBuilder {
+    let db = database.or(c.database.as_deref()).filter(|value| !value.is_empty()).map(ToOwned::to_owned);
+    let mut opts = MySqlOptsBuilder::default()
+        .ip_or_hostname(c.host.clone())
+        .tcp_port(c.port)
+        .user(Some(c.username.clone()))
+        .pass(Some(c.password.clone()))
+        .db_name(db)
+        .prefer_socket(false)
+        .stmt_cache_size(Some(128));
+    if tls {
+        opts = opts.ssl_opts(Some(MySqlSslOpts::default()));
+    }
+    opts
+}
+
+async fn connect_mysql_once(c: &Connection, database: Option<&str>, tls: bool) -> Result<MySqlConnection, String> {
+    tokio::time::timeout(
+        Duration::from_millis(c.connect_timeout_ms),
+        MySqlConnection::new(mysql_opts(c, database, tls)),
+    )
+    .await
+    .map_err(|_| "MySQL bağlantısı zaman aşımına uğradı.".to_string())?
+    .map_err(|error| error.to_string())
+}
+
+async fn open_mysql(c: &Connection, database: Option<&str>) -> Result<MySqlConnection, String> {
+    match c.ssl_mode.as_str() {
+        "disabled" => connect_mysql_once(c, database, false).await,
+        "preferred" => match connect_mysql_once(c, database, true).await {
+            Ok(connection) => Ok(connection),
+            Err(tls_error) => connect_mysql_once(c, database, false)
+                .await
+                .map_err(|plain_error| format!("TLS bağlantısı başarısız ({tls_error}); şifresiz bağlantı denemesi de başarısız ({plain_error}).")),
+        },
+        _ => connect_mysql_once(c, database, true).await,
+    }
 }
 
 fn postgres_url(c: &Connection, database: Option<&str>) -> String {
@@ -81,27 +115,49 @@ pub async fn open_native(c: &Connection, database: Option<&str>) -> Result<Nativ
             .await.map_err(|_| "PostgreSQL bağlantısı zaman aşımına uğradı.".to_string())?.map_err(|e| e.to_string())?;
         return Ok(NativeConnection::Postgres(conn));
     }
-    let conn = tokio::time::timeout(Duration::from_millis(c.connect_timeout_ms), sqlx::MySqlConnection::connect(&mysql_url(c, database)))
-        .await.map_err(|_| "MySQL bağlantısı zaman aşımına uğradı.".to_string())?.map_err(|e| e.to_string())?;
+    let conn = open_mysql(c, database).await?;
     Ok(NativeConnection::MySql(conn))
 }
 
-fn mysql_cell(row: &sqlx::mysql::MySqlRow, i: usize) -> Value {
-    if let Ok(v) = row.try_get::<Option<String>, _>(i) { return v.map(Value::String).unwrap_or(Value::Null); }
-    if let Ok(v) = row.try_get::<Option<i64>, _>(i) { return v.map(|x| json!(x)).unwrap_or(Value::Null); }
-    if let Ok(v) = row.try_get::<Option<u64>, _>(i) { return v.map(|x| json!(x)).unwrap_or(Value::Null); }
-    if let Ok(v) = row.try_get::<Option<f64>, _>(i) { return v.map(|x| json!(x)).unwrap_or(Value::Null); }
-    if let Ok(v) = row.try_get::<Option<bool>, _>(i) { return v.map(|x| json!(x)).unwrap_or(Value::Null); }
-    if let Ok(v) = row.try_get::<Option<NaiveDateTime>, _>(i) { return v.map(|x| json!(x.to_string())).unwrap_or(Value::Null); }
-    if let Ok(v) = row.try_get::<Option<NaiveDate>, _>(i) { return v.map(|x| json!(x.to_string())).unwrap_or(Value::Null); }
-    if let Ok(v) = row.try_get::<Option<NaiveTime>, _>(i) { return v.map(|x| json!(x.to_string())).unwrap_or(Value::Null); }
-    if let Ok(v) = row.try_get::<Option<Vec<u8>>, _>(i) {
-        return v.map(|bytes| match String::from_utf8(bytes.clone()) {
+fn mysql_value(value: &MySqlValue) -> Value {
+    match value {
+        MySqlValue::NULL => Value::Null,
+        MySqlValue::Bytes(bytes) => match String::from_utf8(bytes.clone()) {
             Ok(text) => Value::String(text),
-            Err(_) => json!({"type":"binary","base64":base64::Engine::encode(&base64::engine::general_purpose::STANDARD,bytes)})
-        }).unwrap_or(Value::Null);
+            Err(_) => json!({"type":"binary","base64":base64::Engine::encode(&base64::engine::general_purpose::STANDARD,bytes)}),
+        },
+        MySqlValue::Int(value) => json!(value),
+        MySqlValue::UInt(value) => json!(value),
+        MySqlValue::Float(value) => json!(value),
+        MySqlValue::Double(value) => json!(value),
+        MySqlValue::Date(year, month, day, hour, minute, second, micros) => {
+            if *hour == 0 && *minute == 0 && *second == 0 && *micros == 0 {
+                json!(format!("{year:04}-{month:02}-{day:02}"))
+            } else if *micros == 0 {
+                json!(format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}"))
+            } else {
+                json!(format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}.{micros:06}"))
+            }
+        }
+        MySqlValue::Time(negative, days, hour, minute, second, micros) => {
+            let total_hours = days.saturating_mul(24) + u32::from(*hour);
+            let sign = if *negative { "-" } else { "" };
+            if *micros == 0 {
+                json!(format!("{sign}{total_hours:02}:{minute:02}:{second:02}"))
+            } else {
+                json!(format!("{sign}{total_hours:02}:{minute:02}:{second:02}.{micros:06}"))
+            }
+        }
     }
-    Value::Null
+}
+
+fn mysql_row(row: MySqlRow) -> Value {
+    let mut object = Map::new();
+    for (index, column) in row.columns_ref().iter().enumerate() {
+        let value = row.as_ref(index).map(mysql_value).unwrap_or(Value::Null);
+        object.insert(column.name_str().to_string(), value);
+    }
+    Value::Object(object)
 }
 
 fn pg_cell(row: &sqlx::postgres::PgRow, i: usize) -> Value {
@@ -144,42 +200,59 @@ fn returns_rows(sql: &str) -> bool {
     ["select", "show", "describe", "desc", "explain", "with", "pragma", "exec", "execute"].iter().any(|x| s.starts_with(x))
 }
 
-fn mysql_prepared_statement_unsupported(error: &sqlx::Error) -> bool {
-    let text = error.to_string().to_ascii_lowercase();
-    text.contains("1295")
-        || text.contains("er_unsupported_ps")
-        || text.contains("prepared statement protocol")
-        || text.contains("not supported in the prepared statement protocol")
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QueryExecutionMode {
+    Text,
+    Prepared,
 }
 
-pub async fn execute_on(conn: &mut NativeConnection, sql: &str, limit: usize) -> Result<Value, String> {
-    match conn {
-        NativeConnection::MySql(c) => {
-            if returns_rows(sql) {
-                let rows = match sqlx::query(sql).fetch_all(&mut *c).await {
-                    Ok(rows) => rows,
-                    Err(error) if mysql_prepared_statement_unsupported(&error) => {
-                        sqlx::raw_sql(sql).fetch_all(&mut *c).await.map_err(|raw_error| raw_error.to_string())?
-                    }
-                    Err(error) => return Err(error.to_string()),
-                };
-                let out = rows.into_iter().take(limit).map(|row| {
-                    let mut obj=Map::new();
-                    for (i,col) in row.columns().iter().enumerate(){ obj.insert(col.name().to_string(), mysql_cell(&row,i)); }
-                    Value::Object(obj)
-                }).collect::<Vec<_>>();
-                Ok(json!({"rows":out,"affectedRows":0}))
-            } else {
-                let r = match sqlx::query(sql).execute(&mut *c).await {
-                    Ok(result) => result,
-                    Err(error) if mysql_prepared_statement_unsupported(&error) => {
-                        sqlx::raw_sql(sql).execute(&mut *c).await.map_err(|raw_error| raw_error.to_string())?
-                    }
-                    Err(error) => return Err(error.to_string()),
-                };
-                Ok(json!({"rows":[],"affectedRows":r.rows_affected(),"insertId":r.last_insert_id()}))
-            }
+impl QueryExecutionMode {
+    fn from_payload(value: Option<&Value>) -> Self {
+        match value.and_then(Value::as_str) {
+            Some("prepared") => Self::Prepared,
+            _ => Self::Text,
         }
+    }
+}
+
+async fn execute_mysql(
+    connection: &mut MySqlConnection,
+    sql: &str,
+    limit: usize,
+    mode: QueryExecutionMode,
+) -> Result<Value, String> {
+    let mut result = match mode {
+        QueryExecutionMode::Text => connection.query_iter(sql).await.map_err(|error| error.to_string())?,
+        QueryExecutionMode::Prepared => connection.exec_iter(sql, ()).await.map_err(|error| error.to_string())?,
+    };
+    let affected_rows = result.affected_rows();
+    let insert_id = result.last_insert_id();
+    let warning_status = result.warnings();
+
+    let rows = if returns_rows(sql) {
+        let rows: Vec<MySqlRow> = result.collect().await.map_err(|error| error.to_string())?;
+        rows.into_iter().take(limit).map(mysql_row).collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+    result.drop_result().await.map_err(|error| error.to_string())?;
+
+    Ok(json!({
+        "rows": rows,
+        "affectedRows": affected_rows,
+        "insertId": insert_id,
+        "warningStatus": warning_status
+    }))
+}
+
+pub async fn execute_on_mode(
+    conn: &mut NativeConnection,
+    sql: &str,
+    limit: usize,
+    mode: QueryExecutionMode,
+) -> Result<Value, String> {
+    match conn {
+        NativeConnection::MySql(connection) => execute_mysql(connection, sql, limit, mode).await,
         NativeConnection::Postgres(c) => {
             if returns_rows(sql) {
                 let rows=sqlx::query(sql).fetch_all(&mut *c).await.map_err(|e| e.to_string())?;
@@ -207,10 +280,24 @@ pub async fn execute_on(conn: &mut NativeConnection, sql: &str, limit: usize) ->
     }
 }
 
-pub async fn execute_sql(c: &Connection, sql: &str, database: Option<&str>, limit: usize) -> Result<Value,String> {
+pub async fn execute_on(conn: &mut NativeConnection, sql: &str, limit: usize) -> Result<Value, String> {
+    execute_on_mode(conn, sql, limit, QueryExecutionMode::Text).await
+}
+
+pub async fn execute_sql_mode(
+    c: &Connection,
+    sql: &str,
+    database: Option<&str>,
+    limit: usize,
+    mode: QueryExecutionMode,
+) -> Result<Value,String> {
     let mut conn=open_native(c,database).await?;
     if c.read_only && is_mutating(sql) { return Err("Bu bağlantı salt okunur modda.".into()); }
-    execute_on(&mut conn,sql,limit).await
+    execute_on_mode(&mut conn,sql,limit,mode).await
+}
+
+pub async fn execute_sql(c: &Connection, sql: &str, database: Option<&str>, limit: usize) -> Result<Value,String> {
+    execute_sql_mode(c, sql, database, limit, QueryExecutionMode::Text).await
 }
 
 fn strip_leading_sql_comments(mut sql: &str) -> &str {
@@ -1002,7 +1089,7 @@ pub async fn execute_action(request:DatabaseRequest,max_rows:usize,max_page:usiz
  "insert-row"=>insert_row(&c,&p).await,
  "delete-rows"=>delete_rows(&c,&p).await,
  "alter-table"=>alter_table(&c,&p,max_rows).await,
- "query"=>{let sql=payload_str(&p,"sql")?;execute_sql(&c,sql,p.get("database").and_then(Value::as_str),max_rows).await},
+ "query"=>{let sql=payload_str(&p,"sql")?;let mode=QueryExecutionMode::from_payload(p.get("executionMode"));execute_sql_mode(&c,sql,p.get("database").and_then(Value::as_str),max_rows,mode).await},
  other=>workbench(&c,other,&p,max_rows).await
  }
 }
