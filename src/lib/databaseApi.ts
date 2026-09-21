@@ -6,6 +6,7 @@ import type {
   DatabaseConnectionPayload,
   DatabaseQueryMeta,
   DatabaseQueryStatement,
+  DatabaseQueryExecutionMode,
   DatabaseObjectsResponse,
   DatabaseServerConfig,
   QueryExecutionResult,
@@ -61,6 +62,7 @@ export interface DatabaseQueryExecutionContext {
   statementStartLine?: number;
   statementIndex?: number;
   statementCount?: number;
+  executionMode?: DatabaseQueryExecutionMode;
 }
 
 interface RequestOptions {
@@ -496,7 +498,7 @@ export async function executeDatabaseQuery(
   return requestDatabaseApi<QueryExecutionResult>(
     server,
     'query',
-    { database: selectedDatabase, sql },
+    { database: selectedDatabase, sql, executionMode: executionContext?.executionMode ?? 'text' },
     { connectionDatabase: selectedDatabase, executionContext }
   );
 }
