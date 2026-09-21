@@ -333,7 +333,8 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
             statementIndex: index + 1,
             statementCount: statements.length,
             executionMode,
-            resultLimit: preferences.queryResultLimit
+            resultLimit: preferences.queryResultLimit,
+            activityOrigin: 'user'
           }
         );
         sets.push({ id: createId('result'), sql: statement, label: t('queryWorkspace.resultNumber', { number: index + 1 }), result, error: null });
