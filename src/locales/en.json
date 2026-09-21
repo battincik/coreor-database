@@ -1349,7 +1349,7 @@
     "executionModeDefault": "Default",
     "executionModePrepared": "Prepared",
     "executionModePreparedDescription": "Server-side prepared statement protocol",
-    "timingQuery": "Query",
+    "timingQuery": "Query RTT",
     "timingQueryDescription": "SQL send to first server response; includes server execution and the first network round-trip.",
     "timingFetch": "Fetch",
     "timingAcquire": "Pool",
