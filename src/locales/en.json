@@ -1343,7 +1343,12 @@
     "rowsMayBeAffected": "{count} rows may be affected.",
     "sourceTable": "Source table: {table}",
     "dryRunResult": "Dry-run result",
-    "rowsCount": "{count} rows"
+    "rowsCount": "{count} rows",
+    "executionModeText": "Text",
+    "executionModeTextDescription": "MySQL text protocol (COM_QUERY)",
+    "executionModeDefault": "Default",
+    "executionModePrepared": "Prepared",
+    "executionModePreparedDescription": "Server-side prepared statement protocol"
   },
   "notebookExtra": {
     "chartColumns": "Select category and numeric value columns for the chart.",
