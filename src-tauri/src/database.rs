@@ -26,12 +26,15 @@ pub struct Connection {
     pub ssl_mode: String,
     #[serde(default = "default_connect_timeout")]
     pub connect_timeout_ms: u64,
+    #[serde(default = "default_pool_max_connections")]
+    pub pool_max_connections: usize,
     #[serde(default)]
     pub read_only: bool,
 }
 
 fn default_ssl_mode() -> String { "preferred".into() }
 fn default_connect_timeout() -> u64 { 20_000 }
+fn default_pool_max_connections() -> usize { 6 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -87,20 +90,17 @@ fn mysql_pool_registry() -> &'static AsyncMutex<HashMap<String, MySqlPoolEntry>>
     MYSQL_POOLS.get_or_init(|| AsyncMutex::new(HashMap::new()))
 }
 
-fn mysql_pool_key(c: &Connection, database: Option<&str>) -> String {
-    let database = database.or(c.database.as_deref()).unwrap_or("");
-    let identity = c.server_id.as_deref()
+fn mysql_pool_key(c: &Connection) -> String {
+    c.server_id.as_deref()
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
-        .unwrap_or_else(|| format!("{}:{}:{}", c.host, c.port, c.username));
-    format!("{identity}\0{database}")
+        .unwrap_or_else(|| format!("{}:{}:{}", c.host, c.port, c.username))
 }
 
-fn mysql_pool_fingerprint(c: &Connection, database: Option<&str>) -> String {
-    let database = database.or(c.database.as_deref()).unwrap_or("");
+fn mysql_pool_fingerprint(c: &Connection) -> String {
     let raw = format!(
         "{}\0{}\0{}\0{}\0{}\0{}",
-        c.host, c.port, c.username, c.password, database, c.ssl_mode
+        c.host, c.port, c.username, c.password, c.ssl_mode, c.pool_max_connections.clamp(1, 32)
     );
     let digest = ring::digest::digest(&ring::digest::SHA256, raw.as_bytes());
     digest.as_ref().iter().map(|byte| format!("{byte:02x}")).collect()
@@ -117,10 +117,10 @@ fn mysql_pool_snapshot(pool: &MySqlPool) -> MySqlPoolSnapshot {
     }
 }
 
-fn mysql_opts(c: &Connection, database: Option<&str>, tls: bool) -> MySqlOptsBuilder {
-    let db = database.or(c.database.as_deref()).filter(|value| !value.is_empty()).map(ToOwned::to_owned);
+fn mysql_opts(c: &Connection, tls: bool) -> MySqlOptsBuilder {
+    let max_connections = c.pool_max_connections.clamp(1, 32);
     let pool_opts = MySqlPoolOpts::default()
-        .with_constraints(MySqlPoolConstraints::new(0, 6).expect("geçerli MySQL pool sınırları"))
+        .with_constraints(MySqlPoolConstraints::new(0, max_connections).expect("geçerli MySQL pool sınırları"))
         .with_inactive_connection_ttl(Duration::from_secs(180))
         .with_ttl_check_interval(Duration::from_secs(30))
         .with_reset_connection(true);
@@ -129,7 +129,6 @@ fn mysql_opts(c: &Connection, database: Option<&str>, tls: bool) -> MySqlOptsBui
         .tcp_port(c.port)
         .user(Some(c.username.clone()))
         .pass(Some(c.password.clone()))
-        .db_name(db)
         .prefer_socket(false)
         .tcp_keepalive(Some(Duration::from_secs(30)))
         .tcp_nodelay(true)
@@ -141,17 +140,17 @@ fn mysql_opts(c: &Connection, database: Option<&str>, tls: bool) -> MySqlOptsBui
     opts
 }
 
-fn new_mysql_pool(c: &Connection, database: Option<&str>, tls: bool) -> MySqlPoolEntry {
+fn new_mysql_pool(c: &Connection, tls: bool) -> MySqlPoolEntry {
     MySqlPoolEntry {
-        fingerprint: mysql_pool_fingerprint(c, database),
-        pool: MySqlPool::new(mysql_opts(c, database, tls)),
+        fingerprint: mysql_pool_fingerprint(c),
+        pool: MySqlPool::new(mysql_opts(c, tls)),
         tls,
     }
 }
 
-async fn install_mysql_pool(c: &Connection, database: Option<&str>, tls: bool) -> MySqlPoolEntry {
-    let key = mysql_pool_key(c, database);
-    let entry = new_mysql_pool(c, database, tls);
+async fn install_mysql_pool(c: &Connection, tls: bool) -> MySqlPoolEntry {
+    let key = mysql_pool_key(c);
+    let entry = new_mysql_pool(c, tls);
     let previous = {
         let mut pools = mysql_pool_registry().lock().await;
         pools.insert(key, entry.clone())
@@ -165,9 +164,9 @@ async fn install_mysql_pool(c: &Connection, database: Option<&str>, tls: bool) -
     entry
 }
 
-async fn cached_mysql_pool(c: &Connection, database: Option<&str>) -> Option<MySqlPoolEntry> {
-    let key = mysql_pool_key(c, database);
-    let fingerprint = mysql_pool_fingerprint(c, database);
+async fn cached_mysql_pool(c: &Connection) -> Option<MySqlPoolEntry> {
+    let key = mysql_pool_key(c);
+    let fingerprint = mysql_pool_fingerprint(c);
     let mut pools = mysql_pool_registry().lock().await;
     if pools.get(&key).map(|entry| entry.fingerprint.as_str()) == Some(fingerprint.as_str()) {
         return pools.get(&key).cloned();
@@ -184,41 +183,45 @@ async fn cached_mysql_pool(c: &Connection, database: Option<&str>) -> Option<MyS
 
 async fn acquire_mysql_pool_connection(
     entry: &MySqlPoolEntry,
+    database: Option<&str>,
     timeout_ms: u64,
 ) -> Result<(MySqlConnection, bool, MySqlPoolSnapshot), String> {
     let before = mysql_pool_snapshot(&entry.pool);
     let reused = before.idle > 0;
-    let connection = tokio::time::timeout(
+    let mut connection = tokio::time::timeout(
         Duration::from_millis(timeout_ms),
         entry.pool.get_conn(),
     )
     .await
     .map_err(|_| "MySQL bağlantı havuzu zaman aşımına uğradı.".to_string())?
     .map_err(|error| error.to_string())?;
+    if let Some(database) = database.filter(|value| !value.is_empty()) {
+        connection.select_db(database).await.map_err(|error| error.to_string())?;
+    }
     Ok((connection, reused, mysql_pool_snapshot(&entry.pool)))
 }
 
 async fn open_mysql(c: &Connection, database: Option<&str>) -> Result<(MySqlConnection, ConnectionAcquireMetrics), String> {
     let started = Instant::now();
     let initial_tls = c.ssl_mode.as_str() != "disabled";
-    let mut entry = match cached_mysql_pool(c, database).await {
+    let mut entry = match cached_mysql_pool(c).await {
         Some(entry) => entry,
-        None => install_mysql_pool(c, database, initial_tls).await,
+        None => install_mysql_pool(c, initial_tls).await,
     };
 
-    let first = acquire_mysql_pool_connection(&entry, c.connect_timeout_ms).await;
+    let first = acquire_mysql_pool_connection(&entry, database, c.connect_timeout_ms).await;
     let (connection, reused, snapshot) = match first {
         Ok(value) => value,
         Err(first_error) => {
             // Stale/broken pooled connections are replaced once before surfacing an error.
-            entry = install_mysql_pool(c, database, entry.tls).await;
-            match acquire_mysql_pool_connection(&entry, c.connect_timeout_ms).await {
+            entry = install_mysql_pool(c, entry.tls).await;
+            match acquire_mysql_pool_connection(&entry, database, c.connect_timeout_ms).await {
                 Ok(value) => value,
                 Err(second_error) if c.ssl_mode == "preferred" && entry.tls => {
                     // Preferred TLS resolves once per pool. If TLS is unavailable, cache the plain pool
                     // instead of paying a failed TLS handshake on every query.
-                    entry = install_mysql_pool(c, database, false).await;
-                    acquire_mysql_pool_connection(&entry, c.connect_timeout_ms).await
+                    entry = install_mysql_pool(c, false).await;
+                    acquire_mysql_pool_connection(&entry, database, c.connect_timeout_ms).await
                         .map_err(|plain_error| format!(
                             "TLS bağlantısı başarısız ({first_error}; {second_error}); şifresiz bağlantı denemesi de başarısız ({plain_error})."
                         ))?
