@@ -143,12 +143,31 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     if (!workspaceKey) throw new Error(translateRuntime('sidebar.workspaceNotReady'));
     setIsAddingServer(true);
     try {
-      await createDatabaseServer(server, workspaceKey); setActiveServerId(server.id);
-      if (loadInitialCatalog) try { await fetchServerTables(server.id, workspaceKey); }
-      catch (error) {
-        recordActivity({ level: 'warning', category: 'connection', title: translateRuntime('databaseContext.catalogAfterSaveFailed'), message: error instanceof Error ? error.message : translateRuntime('databaseContext.initialConnectionFailed'), serverId: server.id, serverName: server.name, host: server.host });
-      }
+      await createDatabaseServer(server, workspaceKey);
+      setActiveServerId(server.id);
+
+      // Make the saved profile available immediately. Full catalog discovery is intentionally
+      // non-blocking because information_schema on large servers can take noticeably longer.
       await loadServers();
+
+      if (loadInitialCatalog) {
+        void (async () => {
+          try {
+            await fetchServerTables(server.id, workspaceKey);
+            await loadServers();
+          } catch (error) {
+            recordActivity({
+              level: 'warning',
+              category: 'connection',
+              title: translateRuntime('databaseContext.catalogAfterSaveFailed'),
+              message: error instanceof Error ? error.message : translateRuntime('databaseContext.initialConnectionFailed'),
+              serverId: server.id,
+              serverName: server.name,
+              host: server.host
+            });
+          }
+        })();
+      }
     } finally { setIsAddingServer(false); }
   };
 
