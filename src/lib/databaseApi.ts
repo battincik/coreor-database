@@ -119,6 +119,11 @@ function createConnectionPayload(server: DatabaseServerConfig, databaseOverride?
     database: databaseOverride === undefined ? server.databaseName?.trim() || undefined : databaseOverride,
     sslMode: server.sslMode ?? 'preferred',
     connectTimeoutMs: server.connectionTimeoutMs ?? 20_000,
+    poolMaxConnections: Math.min(
+      32,
+      Math.max(1, server.poolMaxConnections ?? 6),
+      Math.max(1, server.serverMaxConnections ?? 32)
+    ),
     readOnly: Boolean(server.readOnly)
   };
 }
@@ -366,6 +371,9 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
     databaseName: server.databaseName?.trim(),
     sslMode: server.sslMode ?? 'preferred',
     connectionTimeoutMs: server.connectionTimeoutMs ?? 20_000,
+    poolMaxConnections: Math.min(32, Math.max(1, server.poolMaxConnections ?? 6), Math.max(1, server.serverMaxConnections ?? 32)),
+    serverMaxConnections: server.serverMaxConnections,
+    connectionTestedAt: server.connectionTestedAt,
     readOnly: Boolean(server.readOnly),
     visibleTo: server.visibleTo ?? [],
     organizationId: server.organizationId ?? null,
@@ -391,7 +399,7 @@ export async function deleteDatabaseServer(serverId: string, accountId?: string 
 
 export async function testDatabaseConnection(server: DatabaseServerConfig) {
   const port = server.port ?? databaseEngineDefinition(server.databaseType).defaultPort;
-  return requestDatabaseApi<{ connection: { version?: string; databaseName?: string | null; currentUser?: string }; _meta?: DatabaseQueryMeta }>(server, 'test', {}, { requestKey: `connection-test:${server.host}:${port}` });
+  return requestDatabaseApi<{ connection: { version?: string; databaseName?: string | null; currentUser?: string; maxConnections?: number | null }; _meta?: DatabaseQueryMeta }>(server, 'test', {}, { requestKey: `connection-test:${server.host}:${port}` });
 }
 
 export async function testStoredDatabaseConnection(serverId: string, accountId?: string | null) {
