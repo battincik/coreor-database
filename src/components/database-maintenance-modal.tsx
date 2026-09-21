@@ -167,7 +167,7 @@ export function DatabaseMaintenanceModal({
     setOverall({ completed: 0, total: 0, success: 0, failed: 0 });
     setTableProgress({});
     setLogs([]);
-  }, [open, initialDatabase, initialTable, server?.id, server?.databaseType, server?.readOnly, databases, t]);
+  }, [open, initialDatabase, initialTable, server?.id, server?.databaseType, server?.readOnly, t]);
 
   useEffect(() => {
     if (!databaseName || !database) return;
