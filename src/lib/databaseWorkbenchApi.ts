@@ -42,6 +42,7 @@ function connectionPayload(server: DatabaseServerConfig, database?: string | nul
     database: database === undefined ? server.databaseName?.trim() || undefined : database,
     sslMode: server.sslMode ?? 'required',
     connectTimeoutMs: server.connectionTimeoutMs ?? 20_000,
+    poolMaxConnections: Math.min(32, Math.max(1, server.poolMaxConnections ?? 6), Math.max(1, server.serverMaxConnections ?? 32)),
     readOnly: Boolean(server.readOnly)
   };
 }
