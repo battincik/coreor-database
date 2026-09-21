@@ -19,6 +19,9 @@ Notable changes to Coreor Database are tracked here.
 - Open-source project documentation and Apache-2.0 metadata.
 
 ### Performance
+- Increased the default SQL activity log retention to 1,000 entries and made the limit configurable up to 10,000.
+- Added category-aware SQL activity logging for user queries, internal queries, errors, information and warnings.
+- Added optional rotating `sql.log` disk persistence and SQL syntax highlighting in the bottom activity console.
 - Added reusable MySQL-family connection pools with per-profile concurrency limits.
 - Deduplicated identical table-data requests and removed duplicate first-page loads.
 - Applied SQL editor result limits before fetching rows from MySQL-family servers.
