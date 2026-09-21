@@ -146,7 +146,6 @@ export function DatabasePanel({
     };
     setQueryTabs(previous => [...previous.slice(-19), tab]);
     setActiveTab(`query:${id}`);
-    return id;
   }, [selectedDatabase, activeServerId, servers, setActiveTab]);
 
   const updateQueryTab = useCallback((id: string, patch: Partial<EditorQueryTab>) => {
