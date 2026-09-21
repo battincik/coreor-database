@@ -42,7 +42,7 @@ React / Next.js static UI
         ▼
 Rust native application
         │
-        ├── sqlx: MySQL / MariaDB / TiDB
+        ├── mysql_async: MySQL / MariaDB / TiDB
         ├── sqlx: PostgreSQL / CockroachDB
         └── Tiberius: Microsoft SQL Server
         │
