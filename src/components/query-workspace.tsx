@@ -27,7 +27,7 @@ import {
   Wand2,
   XCircle
 } from 'lucide-react';
-import type { DatabaseServerConfig, EditorQueryTab, QueryExecutionResult, TableInfo } from 'types';
+import type { DatabaseQueryExecutionMode, DatabaseServerConfig, EditorQueryTab, QueryExecutionResult, TableInfo } from 'types';
 import { executeDatabaseQuery, fetchTableInfo } from '@/lib/databaseApi';
 import { databaseEngineDefinition, quoteDatabaseIdentifier } from '@/lib/databaseEngines';
 import { useAppContextMenu } from '@/components/app-context-menu';
@@ -180,9 +180,25 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   const databases = selectedServer?.databases || [];
   const selectedDatabase = databases.find(database => database.name === tab.databaseName) || null;
   const engine = selectedServer?.databaseType || 'mysql';
+  const supportsProtocolSelection = engine === 'mysql' || engine === 'mariadb' || engine === 'tidb';
+  const executionMode: DatabaseQueryExecutionMode = supportsProtocolSelection && tab.executionMode === 'prepared' ? 'prepared' : 'text';
   const token = useMemo(() => cursorToken(tab.sql, cursor), [tab.sql, cursor]);
   const serverOptions = useMemo<SearchSelectOption[]>(() => servers.map(server => ({ value: server.id, label: server.name, description: `${server.host}:${server.port}`, badge: databaseEngineDefinition(server.databaseType).label })), [servers]);
   const databaseOptions = useMemo<SearchSelectOption[]>(() => [{ value: '', label: t('query.serverScope') }, ...databases.map(database => ({ value: database.name, label: database.name, description: t('queryWorkspace.tableCount', { count: formatNumber(database.tableCount) }) }))], [databases, formatNumber, t]);
+  const executionModeOptions = useMemo<SearchSelectOption[]>(() => [
+    {
+      value: 'text',
+      label: t('queryWorkspace.executionModeText'),
+      description: t('queryWorkspace.executionModeTextDescription'),
+      badge: t('queryWorkspace.executionModeDefault')
+    },
+    {
+      value: 'prepared',
+      label: t('queryWorkspace.executionModePrepared'),
+      description: t('queryWorkspace.executionModePreparedDescription'),
+      badge: 'COM_STMT'
+    }
+  ], [t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -291,7 +307,8 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
           {
             statementStartLine: locations[index]?.startLine,
             statementIndex: index + 1,
-            statementCount: statements.length
+            statementCount: statements.length,
+            executionMode
           }
         );
         sets.push({ id: createId('result'), sql: statement, label: t('queryWorkspace.resultNumber', { number: index + 1 }), result, error: null });
@@ -312,7 +329,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       }));
     }
     const first = sets[0]; onChange({ isRunning: false, error: first?.error || null, result: first?.result || null, updatedAt: new Date().toISOString() });
-  }, [selectedServer, accountId, tab.databaseName, tab.sql, onChange, requiresApproval, takeSnapshot, assertWritable]);
+  }, [selectedServer, accountId, tab.databaseName, tab.sql, executionMode, onChange, requiresApproval, takeSnapshot, assertWritable]);
 
   const executeNow = useCallback(async (skipDryRun = false) => {
     if (!selectedServer || !accountId || tab.isRunning || !tab.sql.trim()) return;
@@ -323,7 +340,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       if (mutation) {
         onChange({ isRunning: true, error: null });
         try {
-          const preview = await executeDatabaseQuery(selectedServer.id, mutation.preview, accountId, tab.databaseName);
+          const preview = await executeDatabaseQuery(selectedServer.id, mutation.preview, accountId, tab.databaseName, { executionMode });
           setDryRunPending({ statement: statements[0], preview, table: mutation.table });
           setResultSets([{ id: 'dry-run', sql: mutation.preview, label: t('queryWorkspace.dryRunPreview'), result: preview, error: null, dryRun: true }]); setActiveResultId('dry-run');
           onChange({ isRunning: false, result: preview, error: null });
@@ -332,7 +349,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       }
     }
     await executeStatements(statements);
-  }, [selectedServer, accountId, tab.isRunning, tab.sql, tab.databaseName, preferences.dryRunMutations, onChange, recordHistory, executeStatements, assertWritable]);
+  }, [selectedServer, accountId, tab.isRunning, tab.sql, tab.databaseName, executionMode, preferences.dryRunMutations, onChange, recordHistory, executeStatements, assertWritable]);
 
   const runQuery = useCallback(() => {
     const statements = splitStatements(tab.sql);
@@ -417,8 +434,9 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setLibrary(library === 'history' ? null : 'history')}><History className="mr-1 h-3.5 w-3.5"/>{t('query.history')}</Button>
       <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setLibrary(library === 'favorites' ? null : 'favorites')}><BookOpen className="mr-1 h-3.5 w-3.5"/>{t('query.favorites')}</Button>
       <button type="button" className="flex h-7 items-center gap-1 rounded px-2 text-[9px] text-zinc-500 hover:bg-zinc-900" onClick={() => setDiagnosticsOpen(previous => !previous)}><CheckCircle2 className="h-3.5 w-3.5 text-cyan-400"/>LSP <span className={diagnosticCounts.errors ? 'text-red-400' : 'text-emerald-400'}>{diagnosticCounts.errors}</span>/<span className="text-amber-400">{diagnosticCounts.warnings}</span></button>
-      <div className="w-48 shrink-0"><SearchSelect value={selectedServer?.id || ''} options={serverOptions} onValueChange={serverId => onChange({ serverId: serverId || null, databaseName: null, result: null })} triggerClassName="h-7 min-h-7" showDescriptionInTrigger={false}/></div>
+      <div className="w-48 shrink-0"><SearchSelect value={selectedServer?.id || ''} options={serverOptions} onValueChange={serverId => onChange({ serverId: serverId || null, databaseName: null, executionMode: 'text', result: null })} triggerClassName="h-7 min-h-7" showDescriptionInTrigger={false}/></div>
       <div className="w-52 shrink-0"><SearchSelect value={tab.databaseName || ''} options={databaseOptions} onValueChange={databaseName => onChange({ databaseName: databaseName || null, result: null })} triggerClassName="h-7 min-h-7" showDescriptionInTrigger={false}/></div>
+      {supportsProtocolSelection && <div className="w-44 shrink-0"><SearchSelect value={executionMode} options={executionModeOptions} onValueChange={value => onChange({ executionMode: value === 'prepared' ? 'prepared' : 'text', result: null })} triggerClassName="h-7 min-h-7 font-mono" showDescriptionInTrigger={false}/></div>}
       <span className="ml-auto flex items-center gap-2 text-[9px] text-zinc-600">{selectedServer?.readOnly && <span className="rounded bg-amber-500/10 px-2 py-1 text-amber-300">READ ONLY</span>}<span className={preferences.dryRunMutations ? 'text-emerald-400' : ''}>Dry-run {preferences.dryRunMutations ? t('queryWorkspace.enabled') : t('queryWorkspace.disabled')}</span><span>•</span><span>{preferences.autoSchemaSnapshots ? t('query.snapshotEnabled') : t('queryWorkspace.snapshotOff')}</span></span>
     </div>
 
