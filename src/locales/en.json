@@ -921,7 +921,13 @@
     "catalogCache": "Catalog cache",
     "inProgress": "In progress",
     "idle": "Idle",
-    "time": "Time"
+    "time": "Time",
+    "logError": "ERROR",
+    "logWarning": "WARN",
+    "logUserQuery": "USER",
+    "logInternalQuery": "APP",
+    "logInfo": "INFO",
+    "application": "Coreor"
   },
   "statusGuide": {
     "title": "Status guide",
