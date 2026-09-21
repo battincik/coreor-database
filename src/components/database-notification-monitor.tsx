@@ -109,7 +109,10 @@ export function DatabaseNotificationMonitor() {
       });
       return;
     }
-    if ((latest.durationMs || 0) >= 1500) {
+    const queryDurationMs = latest.timings?.queryRoundTripMs;
+    if (typeof queryDurationMs === 'number' && queryDurationMs >= 1500) {
+      const timing = latest.timings;
+      const pool = timing?.pool;
       const archived = publishCoreorNotification({
         id: `slow-${latest.id}`,
         severity: 'warning',
@@ -121,16 +124,20 @@ export function DatabaseNotificationMonitor() {
         databaseName: latest.databaseName,
         tableName: latest.tableName,
         code: 'SLOW_SQL',
-        durationMs: latest.durationMs,
+        durationMs: queryDurationMs,
         sql: latest.sql,
         statementStartLine: latest.statementStartLine,
         statementIndex: latest.statementIndex,
         statementCount: latest.statementCount,
         metadata: [
           { label: t('notificationMonitor.server'), value: latest.serverName || '—' },
-          { label: t('notificationMonitor.duration'), value: `${latest.durationMs} ms` },
-          { label: t('notificationMonitor.rows'), value: latest.rowCount ?? latest.affectedRows ?? '—' },
-          { label: t('notificationMonitor.source'), value: t('notificationMonitor.localSqlLog') }
+          { label: t('notificationMonitor.queryRoundTrip'), value: `${queryDurationMs.toFixed(1)} ms` },
+          { label: t('notificationMonitor.poolAcquire'), value: timing?.acquireMs === undefined ? '—' : `${timing.acquireMs.toFixed(1)} ms` },
+          { label: t('notificationMonitor.fetchDecode'), value: timing?.fetchDecodeMs === undefined ? '—' : `${timing.fetchDecodeMs.toFixed(1)} ms` },
+          { label: t('notificationMonitor.clientOverhead'), value: timing?.clientOverheadMs === undefined ? '—' : `${timing.clientOverheadMs.toFixed(1)} ms` },
+          { label: t('notificationMonitor.totalDuration'), value: timing?.totalMs === undefined ? (latest.durationMs === undefined ? '—' : `${latest.durationMs} ms`) : `${timing.totalMs.toFixed(1)} ms` },
+          { label: t('notificationMonitor.poolState'), value: pool ? `${pool.inUse} / ${pool.total} • idle ${pool.idle} • wait ${pool.waiters}` : '—' },
+          { label: t('notificationMonitor.rows'), value: latest.rowCount ?? latest.affectedRows ?? '—' }
         ]
       });
       dispatchCoreorToast({
