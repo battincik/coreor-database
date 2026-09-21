@@ -52,6 +52,7 @@ let entries: ActivityEntry[] = [];
 let hydrated = false;
 let hydrationPromise: Promise<void> | null = null;
 let clearGeneration = 0;
+let persistTimer: number | null = null;
 
 function activityLimit() {
   return getAppPreferences().activityLogLimit;
@@ -159,11 +160,25 @@ function hydrate() {
   });
 }
 
-function persist() {
+function flushPersist() {
   if (typeof window === 'undefined') return;
+  persistTimer = null;
   void (hydrationPromise ?? Promise.resolve())
     .then(() => writeWorkspaceCollection('activity-log', 'global', entries.slice(-activityLimit())))
     .catch(() => undefined);
+}
+
+function persist(immediate = false) {
+  if (typeof window === 'undefined') return;
+  if (persistTimer !== null) {
+    window.clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+  if (immediate) {
+    flushPersist();
+    return;
+  }
+  persistTimer = window.setTimeout(flushPersist, 350);
 }
 
 function notify() {
@@ -200,7 +215,7 @@ export function clearActivities() {
   clearGeneration += 1;
   entries = [];
   if (typeof window !== 'undefined') window.sessionStorage.removeItem(STORAGE_KEY);
-  persist();
+  persist(true);
   notify();
 }
 
