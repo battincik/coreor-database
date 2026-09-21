@@ -7,7 +7,7 @@ mod window_state;
 use database::DatabaseRequest;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{fs, path::PathBuf, time::Duration};
+use std::{fs, fs::OpenOptions, io::Write, path::PathBuf, time::Duration};
 use tauri::{Manager, State};
 use transactions::TransactionStore;
 
@@ -162,6 +162,46 @@ fn config_path(app: tauri::AppHandle) -> Result<String, String> {
     Ok(config_file(&app)?.to_string_lossy().into_owned())
 }
 
+fn sql_log_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app.path().app_log_dir().map_err(|e| e.to_string())?;
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("sql.log"))
+}
+
+fn rotate_sql_log_if_needed(path: &PathBuf) -> Result<(), String> {
+    const MAX_SQL_LOG_BYTES: u64 = 25 * 1024 * 1024;
+    if !path.exists() || fs::metadata(path).map_err(|e| e.to_string())?.len() < MAX_SQL_LOG_BYTES {
+        return Ok(());
+    }
+    let rotated = path.with_extension("log.1");
+    if rotated.exists() {
+        fs::remove_file(&rotated).map_err(|e| e.to_string())?;
+    }
+    fs::rename(path, rotated).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn sql_log_path(app: tauri::AppHandle) -> Result<String, String> {
+    Ok(sql_log_file(&app)?.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn append_sql_log(app: tauri::AppHandle, line: String) -> Result<(), String> {
+    if line.len() > 200_000 {
+        return Err("SQL günlük kaydı izin verilen boyutu aşıyor.".into());
+    }
+    let path = sql_log_file(&app)?;
+    rotate_sql_log_if_needed(&path)?;
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(|e| e.to_string())?;
+    file.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
+    file.write_all(b"\n").map_err(|e| e.to_string())?;
+    file.flush().map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn read_config(app: tauri::AppHandle) -> Result<DesktopConfig, String> {
     let mut config = read_config_settings(&app)?;
@@ -273,6 +313,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             platform_info,
             config_path,
+            sql_log_path,
+            append_sql_log,
             read_config,
             write_config,
             vault_status,
