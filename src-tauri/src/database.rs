@@ -198,7 +198,11 @@ async fn acquire_mysql_pool_connection(
     .map_err(|_| "MySQL bağlantı havuzu zaman aşımına uğradı.".to_string())?
     .map_err(|error| error.to_string())?;
     if let Some(database) = database.filter(|value| !value.is_empty()) {
-        connection.select_db(database).await.map_err(|error| error.to_string())?;
+        let database_identifier = format!("`{}`", database.replace('`', "``"));
+        connection
+            .query_drop(format!("USE {database_identifier}"))
+            .await
+            .map_err(|error| error.to_string())?;
     }
     Ok((connection, reused, mysql_pool_snapshot(&entry.pool)))
 }
