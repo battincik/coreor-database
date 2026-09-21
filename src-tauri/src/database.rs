@@ -391,6 +391,32 @@ fn returns_rows(sql: &str) -> bool {
     ["select", "show", "describe", "desc", "explain", "with", "pragma", "exec", "execute"].iter().any(|x| s.starts_with(x))
 }
 
+fn limit_read_statement(sql: &str, engine: &str, maximum_rows: usize) -> String {
+    let trimmed = sql.trim().trim_end_matches(';').trim_end();
+    let normalized = strip_leading_sql_comments(trimmed).trim_start();
+    let lower = normalized.to_ascii_lowercase();
+
+    // SQL Server requires TOP/OFFSET rewriting, so leave arbitrary user SQL untouched there.
+    if is_mssql(engine) || !lower.starts_with("select") {
+        return trimmed.to_string();
+    }
+
+    // Never rewrite SELECT forms whose LIMIT placement is not safely append-only.
+    let tokens = lower
+        .split(|character: char| !(character.is_ascii_alphanumeric() || character == '_'))
+        .filter(|token| !token.is_empty())
+        .collect::<Vec<_>>();
+    if tokens.iter().any(|token| *token == "limit" || *token == "fetch" || *token == "into")
+        || lower.contains(" for update")
+        || lower.contains(" for share")
+        || lower.contains(" lock in share mode")
+    {
+        return trimmed.to_string();
+    }
+
+    format!("{trimmed} LIMIT {}", maximum_rows.max(1))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QueryExecutionMode {
     Text,
@@ -1331,7 +1357,19 @@ pub async fn execute_action(request:DatabaseRequest,max_rows:usize,max_page:usiz
  "insert-row"=>insert_row(&c,&p).await,
  "delete-rows"=>delete_rows(&c,&p).await,
  "alter-table"=>alter_table(&c,&p,max_rows).await,
- "query"=>{let sql=payload_str(&p,"sql")?;let mode=QueryExecutionMode::from_payload(p.get("executionMode"));execute_sql_mode(&c,sql,p.get("database").and_then(Value::as_str),max_rows,mode).await},
+ "query"=>{
+   let sql=payload_str(&p,"sql")?;
+   let requested=p.get("resultLimit").and_then(Value::as_u64).unwrap_or(max_rows as u64);
+   let result_limit=requested.clamp(1,max_rows.max(1) as u64) as usize;
+   let limited_sql=limit_read_statement(sql,&c.engine,result_limit);
+   let mode=QueryExecutionMode::from_payload(p.get("executionMode"));
+   let mut response=execute_sql_mode(&c,&limited_sql,p.get("database").and_then(Value::as_str),result_limit,mode).await?;
+   if let Some(object)=response.as_object_mut(){
+      object.insert("maximumRows".into(),json!(result_limit));
+      object.insert("_meta".into(),json!({"statements":[{"label":"SQL editörü sorgusu","sql":limited_sql}]}));
+   }
+   Ok(response)
+ },
  other=>workbench(&c,other,&p,max_rows).await
  }
 }
