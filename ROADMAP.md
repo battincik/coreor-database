@@ -18,7 +18,7 @@ This roadmap describes direction, not guaranteed dates.
 - Stabilize Windows, macOS and Linux CI.
 - Finalize platform icons, signing and notarization.
 - Improve custom title-bar behavior per platform.
-- Add platform-native credential storage.
+- Harden and validate platform-native credential storage, recovery and Linux Secret Service prerequisites.
 - Validate packaging on common Linux distributions.
 
 ### Daily database workflow
