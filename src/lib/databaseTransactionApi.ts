@@ -58,6 +58,7 @@ export async function beginDatabaseTransaction(serverId: string, accountId?: str
     });
     recordActivity({
       level: 'success',
+      kind: 'internal-query',
       category: 'query',
       title: 'Transaction başlatıldı',
       message: `${server.name} üzerinde transaction oturumu açıldı.`,
@@ -95,6 +96,7 @@ export async function executeDatabaseTransactionQuery(serverId: string, transact
     const result = await requestTransaction<DatabaseTransactionQueryResponse>({ action: 'transaction-query', transactionId, sql });
     recordActivity({
       level: 'success',
+      kind: 'user-query',
       category: 'query',
       title: 'Transaction sorgusu',
       message: `${server.name} üzerinde açık transaction içinde çalıştırıldı.`,
@@ -135,6 +137,7 @@ async function finishDatabaseTransaction(serverId: string, transactionId: string
     const result = await requestTransaction<DatabaseTransactionFinishResponse>({ action, transactionId });
     recordActivity({
       level: 'success',
+      kind: 'internal-query',
       category: 'query',
       title: action === 'transaction-commit' ? 'Transaction commit edildi' : 'Transaction geri alındı',
       message: `${result.statementCount} statement ile tamamlandı.`,
