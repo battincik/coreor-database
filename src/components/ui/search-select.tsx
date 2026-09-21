@@ -169,7 +169,7 @@ export function SearchSelect<T extends string | number = string>({
         {filtered.length === 0 ? (
           <div className="px-4 py-10 text-center text-[10px] text-zinc-600">{resolvedEmptyText}</div>
         ) : filtered.map(option => {
-          const active = String(option.value) === String(value);
+          const active = option === selected;
           return (
             <button
               key={String(option.value)}
