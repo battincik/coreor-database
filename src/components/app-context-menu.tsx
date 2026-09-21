@@ -59,12 +59,23 @@ interface MenuBounds {
   bottom: number;
 }
 
-function menuBounds(): MenuBounds {
+function menuBounds(anchorY?: number): MenuBounds {
   const margin = 8;
   const topChrome = document.querySelector<HTMLElement>('[data-coreor-app-chrome="top"]')?.getBoundingClientRect();
   const bottomChrome = document.querySelector<HTMLElement>('[data-coreor-app-chrome="bottom"]')?.getBoundingClientRect();
-  const top = Math.max(margin, topChrome ? topChrome.bottom + 4 : margin);
-  const bottom = Math.min(window.innerHeight - margin, bottomChrome ? bottomChrome.top - 4 : window.innerHeight - margin);
+
+  // A context menu opened from inside app chrome must be allowed to render over that
+  // chrome. Otherwise a menu opened from SQL Log is clamped above the whole bottom bar.
+  const insideTopChrome = Boolean(topChrome && anchorY !== undefined && anchorY >= topChrome.top && anchorY <= topChrome.bottom);
+  const insideBottomChrome = Boolean(bottomChrome && anchorY !== undefined && anchorY >= bottomChrome.top && anchorY <= bottomChrome.bottom);
+
+  const top = insideTopChrome
+    ? margin
+    : Math.max(margin, topChrome ? topChrome.bottom + 4 : margin);
+  const bottom = insideBottomChrome
+    ? window.innerHeight - margin
+    : Math.min(window.innerHeight - margin, bottomChrome ? bottomChrome.top - 4 : window.innerHeight - margin);
+
   return {
     left: margin,
     right: Math.max(margin, window.innerWidth - margin),
@@ -116,7 +127,7 @@ function MenuItems({
     const anchor = rootRef.current.querySelector<HTMLElement>(`[data-menu-id="${CSS.escape(item.id)}"]`);
     if (!anchor) return;
     const rect = anchor.getBoundingClientRect();
-    const bounds = menuBounds();
+    const bounds = menuBounds(rect.top);
     setSubmenuPosition({
       x: rect.right - 4,
       y: rect.top,
@@ -136,7 +147,7 @@ function MenuItems({
   useLayoutEffect(() => {
     if (!submenu || !submenuRef.current) return;
     const rect = submenuRef.current.getBoundingClientRect();
-    const bounds = menuBounds();
+    const bounds = menuBounds(submenu.anchorTop);
     const overlap = 4;
 
     const fitsRight = submenu.anchorRight + rect.width - overlap <= bounds.right;
@@ -289,7 +300,7 @@ export function AppContextMenuProvider({ children }: { children: React.ReactNode
       if (!nextItems.length) return;
       const x = event.clientX;
       const y = event.clientY;
-      const bounds = menuBounds();
+      const bounds = menuBounds(y);
       setMenuPosition({
         x,
         y,
@@ -327,7 +338,7 @@ export function AppContextMenuProvider({ children }: { children: React.ReactNode
   useLayoutEffect(() => {
     if (!menu || !menuRef.current) return;
     const rect = menuRef.current.getBoundingClientRect();
-    const bounds = menuBounds();
+    const bounds = menuBounds(menu.y);
     const nextX = clampValue(menu.x, bounds.left, bounds.right - rect.width);
     const nextY = clampValue(menu.y, bounds.top, bounds.bottom - rect.height);
     const maxHeight = Math.max(120, Math.min(520, bounds.bottom - bounds.top - (menu.title ? 34 : 0)));
