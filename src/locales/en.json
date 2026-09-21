@@ -1348,7 +1348,17 @@
     "executionModeTextDescription": "MySQL text protocol (COM_QUERY)",
     "executionModeDefault": "Default",
     "executionModePrepared": "Prepared",
-    "executionModePreparedDescription": "Server-side prepared statement protocol"
+    "executionModePreparedDescription": "Server-side prepared statement protocol",
+    "timingQuery": "Query",
+    "timingQueryDescription": "SQL send to first server response; includes server execution and the first network round-trip.",
+    "timingFetch": "Fetch",
+    "timingAcquire": "Pool",
+    "timingClient": "Client",
+    "timingTotal": "Total",
+    "timingConnections": "Conn",
+    "timingReused": "reuse",
+    "timingNew": "new",
+    "timingPoolTitle": "Pool: {total} total, {idle} idle, {inUse} in use, {waiters} waiting, {failed} create failures"
   },
   "notebookExtra": {
     "chartColumns": "Select category and numeric value columns for the chart.",
@@ -1632,7 +1642,13 @@
     "measurement": "Measurement",
     "health": "Health",
     "serverStatusFailed": "Could not retrieve server status.",
-    "engine": "Engine"
+    "engine": "Engine",
+    "queryRoundTrip": "Query round-trip",
+    "poolAcquire": "Pool acquire",
+    "fetchDecode": "Fetch / decode",
+    "clientOverhead": "Client / IPC",
+    "totalDuration": "End-to-end",
+    "poolState": "Pool state"
   },
   "panel": {
     "preparing": "Preparing workspace",
