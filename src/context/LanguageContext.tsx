@@ -22,7 +22,7 @@ export const SUPPORTED_LANGUAGES: SupportedLanguage[] = (Object.entries(LOCALE_M
     const meta = tree.meta as LocaleTree | undefined;
     const nativeName = typeof meta?.nativeName === 'string' ? meta.nativeName : code;
     const direction: LocaleDirection = meta?.direction === 'rtl' ? 'rtl' : 'ltr';
-    let englishName = code;
+    let englishName: string = code;
     try {
       englishName = new Intl.DisplayNames(['en'], { type: 'language' }).of(code) || code;
     } catch {
