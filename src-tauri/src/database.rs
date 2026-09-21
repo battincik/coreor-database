@@ -1,7 +1,7 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-use mysql_async::{prelude::Queryable, Conn as MySqlConnection, OptsBuilder as MySqlOptsBuilder, Row as MySqlRow, SslOpts as MySqlSslOpts, Value as MySqlValue};
+use mysql_async::{consts::{ColumnFlags as MySqlColumnFlags, ColumnType as MySqlColumnType}, prelude::Queryable, Column as MySqlColumn, Conn as MySqlConnection, OptsBuilder as MySqlOptsBuilder, Row as MySqlRow, SslOpts as MySqlSslOpts, Value as MySqlValue};
 use sqlx::{Column, Connection as SqlxConnection, Row};
 use std::time::{Duration, Instant};
 use tiberius::{AuthMethod, Client, Config, EncryptionLevel};
@@ -119,19 +119,50 @@ pub async fn open_native(c: &Connection, database: Option<&str>) -> Result<Nativ
     Ok(NativeConnection::MySql(conn))
 }
 
-fn mysql_value(value: &MySqlValue) -> Value {
+fn mysql_bytes_value(bytes: &[u8], column: &MySqlColumn) -> Value {
+    use MySqlColumnType::*;
+    let text = std::str::from_utf8(bytes).ok();
+    match column.column_type() {
+        MYSQL_TYPE_TINY | MYSQL_TYPE_SHORT | MYSQL_TYPE_LONG | MYSQL_TYPE_LONGLONG | MYSQL_TYPE_INT24 | MYSQL_TYPE_YEAR => {
+            if let Some(text) = text {
+                if column.flags().contains(MySqlColumnFlags::UNSIGNED_FLAG) {
+                    if let Ok(value) = text.parse::<u64>() { return json!(value); }
+                } else if let Ok(value) = text.parse::<i64>() {
+                    return json!(value);
+                }
+            }
+        }
+        MYSQL_TYPE_FLOAT | MYSQL_TYPE_DOUBLE => {
+            if let Some(text) = text {
+                if let Ok(value) = text.parse::<f64>() { return json!(value); }
+            }
+        }
+        // DECIMAL/NEWDECIMAL deliberately stay strings so arbitrary precision is preserved.
+        MYSQL_TYPE_DECIMAL | MYSQL_TYPE_NEWDECIMAL => {}
+        _ => {}
+    }
+
+    match text {
+        Some(text) => Value::String(text.to_string()),
+        None => json!({
+            "type":"binary",
+            "base64":base64::Engine::encode(&base64::engine::general_purpose::STANDARD,bytes)
+        }),
+    }
+}
+
+fn mysql_value(value: &MySqlValue, column: &MySqlColumn) -> Value {
     match value {
         MySqlValue::NULL => Value::Null,
-        MySqlValue::Bytes(bytes) => match String::from_utf8(bytes.clone()) {
-            Ok(text) => Value::String(text),
-            Err(_) => json!({"type":"binary","base64":base64::Engine::encode(&base64::engine::general_purpose::STANDARD,bytes)}),
-        },
+        MySqlValue::Bytes(bytes) => mysql_bytes_value(bytes, column),
         MySqlValue::Int(value) => json!(value),
         MySqlValue::UInt(value) => json!(value),
         MySqlValue::Float(value) => json!(value),
         MySqlValue::Double(value) => json!(value),
         MySqlValue::Date(year, month, day, hour, minute, second, micros) => {
-            if *hour == 0 && *minute == 0 && *second == 0 && *micros == 0 {
+            use MySqlColumnType::*;
+            let date_only = matches!(column.column_type(), MYSQL_TYPE_DATE | MYSQL_TYPE_NEWDATE);
+            if date_only {
                 json!(format!("{year:04}-{month:02}-{day:02}"))
             } else if *micros == 0 {
                 json!(format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}"))
@@ -154,7 +185,7 @@ fn mysql_value(value: &MySqlValue) -> Value {
 fn mysql_row(row: MySqlRow) -> Value {
     let mut object = Map::new();
     for (index, column) in row.columns_ref().iter().enumerate() {
-        let value = row.as_ref(index).map(mysql_value).unwrap_or(Value::Null);
+        let value = row.as_ref(index).map(|value| mysql_value(value, column)).unwrap_or(Value::Null);
         object.insert(column.name_str().to_string(), value);
     }
     Value::Object(object)
@@ -215,34 +246,49 @@ impl QueryExecutionMode {
     }
 }
 
-async fn execute_mysql(
-    connection: &mut MySqlConnection,
-    sql: &str,
+async fn finish_mysql_result<P>(
+    mut result: mysql_async::QueryResult<'_, '_, P>,
+    returns_rows: bool,
     limit: usize,
-    mode: QueryExecutionMode,
-) -> Result<Value, String> {
-    let mut result = match mode {
-        QueryExecutionMode::Text => connection.query_iter(sql).await.map_err(|error| error.to_string())?,
-        QueryExecutionMode::Prepared => connection.exec_iter(sql, ()).await.map_err(|error| error.to_string())?,
-    };
+) -> Result<Value, String>
+where
+    P: mysql_async::Protocol + Unpin,
+{
     let affected_rows = result.affected_rows();
     let insert_id = result.last_insert_id();
     let warning_status = result.warnings();
-
-    let rows = if returns_rows(sql) {
+    let rows = if returns_rows {
         let rows: Vec<MySqlRow> = result.collect().await.map_err(|error| error.to_string())?;
         rows.into_iter().take(limit).map(mysql_row).collect::<Vec<_>>()
     } else {
         Vec::new()
     };
     result.drop_result().await.map_err(|error| error.to_string())?;
-
     Ok(json!({
         "rows": rows,
         "affectedRows": affected_rows,
         "insertId": insert_id,
         "warningStatus": warning_status
     }))
+}
+
+async fn execute_mysql(
+    connection: &mut MySqlConnection,
+    sql: &str,
+    limit: usize,
+    mode: QueryExecutionMode,
+) -> Result<Value, String> {
+    let row_result = returns_rows(sql);
+    match mode {
+        QueryExecutionMode::Text => {
+            let result = connection.query_iter(sql).await.map_err(|error| error.to_string())?;
+            finish_mysql_result(result, row_result, limit).await
+        }
+        QueryExecutionMode::Prepared => {
+            let result = connection.exec_iter(sql, ()).await.map_err(|error| error.to_string())?;
+            finish_mysql_result(result, row_result, limit).await
+        }
+    }
 }
 
 pub async fn execute_on_mode(
