@@ -6,6 +6,7 @@ export type AppThemeName = 'amoled' | 'graphite' | 'midnight' | 'nord' | 'solari
 export type AppFontFamily = 'system' | 'inter' | 'geist' | 'mono' | 'cascadia' | 'fira-code' | 'humanist' | 'serif';
 export type SyntaxThemeName = 'coreor' | 'dracula' | 'nord' | 'monokai' | 'github-dark' | 'github-light';
 export type PerformanceRefreshSeconds = 1 | 3 | 5 | 10 | 15 | 30;
+export type ActivityLogLimit = 500 | 1000 | 2500 | 5000 | 10000;
 
 export interface AppPreferences {
   theme: AppThemeName;
@@ -39,10 +40,16 @@ export interface AppPreferences {
   liveNotifications: boolean;
   performanceRefreshSeconds: PerformanceRefreshSeconds;
   developerToolsEnabled: boolean;
+  activityLogLimit: ActivityLogLimit;
+  activityLogPersistToDisk: boolean;
+  activityLogErrors: boolean;
+  activityLogUserQueries: boolean;
+  activityLogInternalQueries: boolean;
+  activityLogInfo: boolean;
 }
 
-const STORAGE_KEY = 'coreor:app-preferences:v8';
-const LEGACY_STORAGE_KEYS = ['coreor:app-preferences:v7', 'coreor:app-preferences:v6', 'coreor:app-preferences:v5', 'coreor:app-preferences:v4', 'coreor:app-preferences:v3'];
+const STORAGE_KEY = 'coreor:app-preferences:v9';
+const LEGACY_STORAGE_KEYS = ['coreor:app-preferences:v8', 'coreor:app-preferences:v7', 'coreor:app-preferences:v6', 'coreor:app-preferences:v5', 'coreor:app-preferences:v4', 'coreor:app-preferences:v3'];
 const listeners = new Set<() => void>();
 const DEFAULTS: AppPreferences = {
   theme: 'amoled', syntaxTheme: 'coreor', fontFamily: 'system', uiFontSize: 12,
@@ -53,7 +60,13 @@ const DEFAULTS: AppPreferences = {
   requireSecondApproval: true, productionAlterApproval: true, autoSchemaSnapshots: true,
   queryResultLimit: 5000, importBatchSize: 250, rememberPanelSizes: true, rememberQueryWorkspace: true,
   defaultReadOnlyConnections: false, liveNotifications: true, performanceRefreshSeconds: 10,
-  developerToolsEnabled: false
+  developerToolsEnabled: false,
+  activityLogLimit: 1000,
+  activityLogPersistToDisk: false,
+  activityLogErrors: true,
+  activityLogUserQueries: true,
+  activityLogInternalQueries: true,
+  activityLogInfo: true
 };
 let snapshot: AppPreferences = DEFAULTS;
 let hydrated = false;
@@ -69,6 +82,12 @@ function normalizeRefresh(value: unknown): PerformanceRefreshSeconds {
   return allowed.includes(numeric as PerformanceRefreshSeconds) ? numeric as PerformanceRefreshSeconds : DEFAULTS.performanceRefreshSeconds;
 }
 
+function normalizeActivityLogLimit(value: unknown): ActivityLogLimit {
+  const allowed: ActivityLogLimit[] = [500, 1000, 2500, 5000, 10000];
+  const numeric = Number(value);
+  return allowed.includes(numeric as ActivityLogLimit) ? numeric as ActivityLogLimit : DEFAULTS.activityLogLimit;
+}
+
 function normalize(value: Partial<AppPreferences> | null | undefined): AppPreferences {
   const source = value || {};
   return {
@@ -81,7 +100,8 @@ function normalize(value: Partial<AppPreferences> | null | undefined): AppPrefer
     sidebarSize: clamp(source.sidebarSize, DEFAULTS.sidebarSize, 12, 45),
     queryResultLimit: Math.trunc(clamp(source.queryResultLimit, DEFAULTS.queryResultLimit, 100, 50000)),
     importBatchSize: Math.trunc(clamp(source.importBatchSize, DEFAULTS.importBatchSize, 25, 1000)),
-    performanceRefreshSeconds: normalizeRefresh(source.performanceRefreshSeconds)
+    performanceRefreshSeconds: normalizeRefresh(source.performanceRefreshSeconds),
+    activityLogLimit: normalizeActivityLogLimit(source.activityLogLimit)
   };
 }
 
