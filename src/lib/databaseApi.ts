@@ -63,6 +63,7 @@ export interface DatabaseQueryExecutionContext {
   statementIndex?: number;
   statementCount?: number;
   executionMode?: DatabaseQueryExecutionMode;
+  resultLimit?: number;
 }
 
 interface RequestOptions {
@@ -524,7 +525,12 @@ export async function executeDatabaseQuery(
   return requestDatabaseApi<QueryExecutionResult>(
     server,
     'query',
-    { database: selectedDatabase, sql, executionMode: executionContext?.executionMode ?? 'text' },
+    {
+      database: selectedDatabase,
+      sql,
+      executionMode: executionContext?.executionMode ?? 'text',
+      resultLimit: executionContext?.resultLimit
+    },
     { connectionDatabase: selectedDatabase, executionContext }
   );
 }
