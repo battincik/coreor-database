@@ -19,6 +19,9 @@ Notable changes to Coreor Database are tracked here.
 - Open-source project documentation and Apache-2.0 metadata.
 
 ### Performance
+- Added reusable MySQL-family connection pools with per-profile concurrency limits.
+- Deduplicated identical table-data requests and removed duplicate first-page loads.
+- Applied SQL editor result limits before fetching rows from MySQL-family servers.
 - Lazy and cached database-object discovery.
 - Reduced repeated metadata connections and polling.
 - Heavy UI tools load on demand.
@@ -26,6 +29,7 @@ Notable changes to Coreor Database are tracked here.
 - Native resource profiling support for Windows.
 
 ### Security
+- Added an AES-256-GCM local connection vault backed by platform credential storage for the device key.
 - Native read-only enforcement.
 - Guest-first account design; account availability does not control local DB access.
 - Architecture guard prevents reintroduction of hosted database API routes and Node DB drivers.
