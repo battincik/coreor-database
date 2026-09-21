@@ -395,7 +395,13 @@
     "access": "Erişim",
     "readOnlyAccess": "Salt okunur",
     "readWriteAccess": "Okuma ve yazma",
-    "saveChanges": "Değişiklikleri kaydet"
+    "saveChanges": "Değişiklikleri kaydet",
+    "poolConnections": "Pool bağlantısı",
+    "poolConnectionsDetected": "Sunucu max_connections: {serverMax}. Coreor bu profil için en fazla {appMax} bağlantı kullanabilir.",
+    "poolConnectionsBeforeTest": "Coreor en fazla {appMax} havuz bağlantısını destekler. Sunucu limitini öğrenmek için bağlantıyı test edin.",
+    "connectionTestRequired": "Bu sunucu profilini kaydetmeden önce bağlantıyı başarıyla test edin.",
+    "connectionCapacityDetail": "Sunucu limiti {serverMax}; seçilen pool {selected}; profil için izin verilen üst sınır {cap}.",
+    "connectionCapacityUnavailable": "Sunucunun bağlantı limiti belirlenemedi. Coreor uygulama sınırı yine uygulanır."
   },
   "database": {
     "bufferPool": "Buffer pool",
