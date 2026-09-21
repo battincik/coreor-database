@@ -63,9 +63,9 @@ export function SearchSelect<T extends string | number = string>({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const selected = options.find(option => String(option.value) === String(value));
-  const displayLabel = triggerLabel ?? selected?.label ?? resolvedPlaceholder;
   const usePortal = portal || dropdownMinWidth > 340;
   const resolvedPlaceholder = placeholder ?? t('control.select.placeholder');
+  const displayLabel = triggerLabel ?? selected?.label ?? resolvedPlaceholder;
   const resolvedSearchPlaceholder = searchPlaceholder ?? t('control.select.search');
   const resolvedEmptyText = emptyText ?? t('control.select.empty');
 
