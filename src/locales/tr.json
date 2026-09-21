@@ -401,7 +401,8 @@
     "poolConnectionsBeforeTest": "Coreor en fazla {appMax} havuz bağlantısını destekler. Sunucu limitini öğrenmek için bağlantıyı test edin.",
     "connectionTestRequired": "Bu sunucu profilini kaydetmeden önce bağlantıyı başarıyla test edin.",
     "connectionCapacityDetail": "Sunucu limiti {serverMax}; seçilen pool {selected}; profil için izin verilen üst sınır {cap}.",
-    "connectionCapacityUnavailable": "Sunucunun bağlantı limiti belirlenemedi. Coreor uygulama sınırı yine uygulanır."
+    "connectionCapacityUnavailable": "Sunucunun bağlantı limiti belirlenemedi. Coreor uygulama sınırı yine uygulanır.",
+    "serverConnectionCapacity": "Sunucu max_connections: {serverMax}."
   },
   "database": {
     "bufferPool": "Buffer pool",
