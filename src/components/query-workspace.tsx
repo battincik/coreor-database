@@ -225,10 +225,28 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   useEffect(() => { setColumnCache({}); }, [selectedServer?.id, tab.databaseName]);
   useEffect(() => {
     if (!preferences.autocomplete || !selectedServer || !tab.databaseName || !accountId || (!suggestionsOpen && !tab.sql.trim())) return;
-    for (const tableName of (selectedDatabase?.tables || []).slice(0, 24)) {
-      if (columnCache[tableName]) continue;
-      void fetchTableInfo(selectedServer.id, tab.databaseName, tableName, accountId).then(info => setColumnCache(previous => ({ ...previous, [tableName]: info }))).catch(() => undefined);
-    }
+    const pendingTables = (selectedDatabase?.tables || []).filter(tableName => !columnCache[tableName]).slice(0, 12);
+    if (!pendingTables.length) return;
+
+    let cancelled = false;
+    let cursor = 0;
+    const poolSize = Math.min(32, Math.max(1, selectedServer.poolMaxConnections ?? 6));
+    const workerCount = Math.min(4, Math.max(1, Math.floor(poolSize / 2)), pendingTables.length);
+    const worker = async () => {
+      while (!cancelled) {
+        const index = cursor++;
+        const tableName = pendingTables[index];
+        if (!tableName) return;
+        try {
+          const info = await fetchTableInfo(selectedServer.id, tab.databaseName!, tableName, accountId);
+          if (!cancelled) setColumnCache(previous => previous[tableName] ? previous : ({ ...previous, [tableName]: info }));
+        } catch {
+          // Autocomplete prefetch is opportunistic and must never block the editor.
+        }
+      }
+    };
+    void Promise.all(Array.from({ length: workerCount }, () => worker()));
+    return () => { cancelled = true; };
   }, [preferences.autocomplete, selectedServer, tab.databaseName, accountId, suggestionsOpen, selectedDatabase, columnCache, tab.sql]);
 
   const diagnostics = useMemo(() => selectedServer ? analyzeSqlDocument(tab.sql, { engine, currentDatabase: tab.databaseName, databases, tableInfo: columnCache }) : [], [tab.sql, engine, tab.databaseName, databases, columnCache, selectedServer]);
