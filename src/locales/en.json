@@ -1364,7 +1364,11 @@
     "timingConnections": "Conn",
     "timingReused": "reuse",
     "timingNew": "new",
-    "timingPoolTitle": "Pool: {total} total, {idle} idle, {inUse} in use, {waiters} waiting, {failed} create failures"
+    "timingPoolTitle": "Pool: {total} total, {idle} idle, {inUse} in use, {waiters} waiting, {failed} create failures",
+    "resultLimitRows": "{count} rows",
+    "resultLimitFast": "Smaller result set; faster transfer, decode and rendering.",
+    "resultLimitBalanced": "Balanced result size for normal SQL editor use.",
+    "resultLimitLarge": "Large result sets can increase database, network and UI latency."
   },
   "notebookExtra": {
     "chartColumns": "Select category and numeric value columns for the chart.",
