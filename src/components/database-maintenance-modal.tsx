@@ -91,8 +91,8 @@ function operationDefinitions(engine: DatabaseEngine | undefined, t: (key: strin
   ];
 }
 
-function defaultOperations(engine: DatabaseEngine | undefined, readOnly: boolean) {
-  const definitions = operationDefinitions(engine);
+function defaultOperations(engine: DatabaseEngine | undefined, readOnly: boolean, t: (key: string) => string) {
+  const definitions = operationDefinitions(engine, t);
   if (readOnly) return definitions.filter(operation => operation.readOnlySafe).map(operation => operation.id);
   if (databaseEngineFamily(engine) === 'mssql') return definitions.filter(operation => operation.id === 'update-statistics').map(operation => operation.id);
   return definitions.filter(operation => operation.id === 'analyze' || operation.id === 'check').map(operation => operation.id);
@@ -160,14 +160,14 @@ export function DatabaseMaintenanceModal({
     setDatabaseName(nextDatabase);
     setScope(initialTable ? 'table' : 'database');
     setTableName(initialTable || '');
-    setOperations(defaultOperations(server?.databaseType, Boolean(server?.readOnly)));
+    setOperations(defaultOperations(server?.databaseType, Boolean(server?.readOnly), t));
     setRunning(false);
     setCancelRequested(false);
     cancelRef.current = false;
     setOverall({ completed: 0, total: 0, success: 0, failed: 0 });
     setTableProgress({});
     setLogs([]);
-  }, [open, initialDatabase, initialTable, server?.id]);
+  }, [open, initialDatabase, initialTable, server?.id, server?.databaseType, server?.readOnly, databases, t]);
 
   useEffect(() => {
     if (!databaseName || !database) return;
@@ -248,7 +248,7 @@ export function DatabaseMaintenanceModal({
             id: `${table}:${operation}:${Date.now()}`,
             table,
             operation,
-            status: 'success',
+            status: 'success' as const,
             durationMs,
             message: result.rows.length ? `${result.rows.length} sonuç satırı` : t('maintenance.completed')
           }, ...current].slice(0, 200));
@@ -277,7 +277,7 @@ export function DatabaseMaintenanceModal({
             id: `${table}:${operation}:${Date.now()}`,
             table,
             operation,
-            status: 'error',
+            status: 'error' as const,
             durationMs,
             message
           }, ...current].slice(0, 200));
