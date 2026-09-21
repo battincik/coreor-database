@@ -41,20 +41,15 @@ function statusIcon(level:ActivityEntry['level']){
   if(level==='success')return <CheckCircle2 className="h-3 w-3 text-emerald-400"/>;
   return <Terminal className="h-3 w-3 text-cyan-400"/>;
 }
-function activityTone(item:ActivityEntry){
-  if(item.level==='error')return'border-red-500/20 bg-red-500/[0.035]';
-  if(item.level==='warning')return'border-amber-500/20 bg-amber-500/[0.035]';
-  if(item.level==='info')return'border-sky-500/15 bg-sky-500/[0.025]';
-  if(item.kind==='user-query')return'border-cyan-500/15 bg-cyan-500/[0.018]';
-  if(item.kind==='internal-query')return'border-violet-500/15 bg-violet-500/[0.018]';
-  return'border-zinc-900';
+function activityTone(_item:ActivityEntry){
+  return'border-zinc-900 bg-black';
 }
 function activityKindTone(item:ActivityEntry){
-  if(item.level==='error')return'text-red-300 border-red-500/20 bg-red-500/10';
-  if(item.level==='warning')return'text-amber-300 border-amber-500/20 bg-amber-500/10';
-  if(item.kind==='user-query')return'text-cyan-300 border-cyan-500/20 bg-cyan-500/10';
-  if(item.kind==='internal-query')return'text-violet-300 border-violet-500/20 bg-violet-500/10';
-  return'text-sky-300 border-sky-500/20 bg-sky-500/10';
+  if(item.level==='error')return'text-red-300 border-zinc-800 bg-transparent';
+  if(item.level==='warning')return'text-amber-300 border-zinc-800 bg-transparent';
+  if(item.kind==='user-query')return'text-cyan-300 border-zinc-800 bg-transparent';
+  if(item.kind==='internal-query')return'text-violet-300 border-zinc-800 bg-transparent';
+  return'text-sky-300 border-zinc-800 bg-transparent';
 }
 function downloadLog(){const blob=new Blob([exportActivities()],{type:'application/json'});const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download=`coreor-sql-log-${Date.now()}.json`;anchor.click();URL.revokeObjectURL(url);}
 
@@ -110,7 +105,7 @@ export default function BottomBar({selectedDatabase,selectedTable}:BottomBarProp
   const displayedStorageBytes=selectedStorageBytes??serverStorageBytes;
 
   return <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 text-xs">
-    <div className={`flex flex-col transition-[height] ${consoleOpen?'h-[212px]':'h-8'}`}><div className="flex h-8 shrink-0 items-center border-b border-zinc-800 px-2"><button className="flex items-center gap-2 text-zinc-300" onClick={()=>setConsoleOpen(value=>!value)}><Terminal className="h-3.5 w-3.5"/>{t('bottomBar.sqlLog')} <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px]">{visibleEntries.length}</span>{consoleOpen?<ChevronDown className="h-3 w-3"/>:<ChevronUp className="h-3 w-3"/>}</button>{consoleOpen&&<div className="ml-auto flex items-center gap-1">{(['all','success','errors']as ConsoleFilter[]).map(item=><button key={item} className={`rounded px-2 py-1 text-[9px] ${filter===item?'bg-zinc-800':'text-zinc-600'}`} onClick={()=>setFilter(item)}>{item==='all'?t('common.all'):item==='success'?t('common.success'):t('bottomBar.errors')}</button>)}<Button variant="ghost" size="icon" className="h-6 w-6" onClick={downloadLog}><Download className="h-3.5 w-3.5"/></Button><Button variant="ghost" size="icon" className="h-6 w-6 text-red-400" onClick={clearActivities}><Trash2 className="h-3.5 w-3.5"/></Button></div>}</div>{consoleOpen&&<div className="min-h-0 flex-1 overflow-auto font-mono text-[9px]">{filtered.map(item=>{const expanded=expandedActivityId===item.id;const compactSql=item.sql.replace(/\s+/g,' ').trim();const fallbackText=item.message||item.title;const kindLabel=item.level==='error'?t('bottomBar.logError'):item.level==='warning'?t('bottomBar.logWarning'):item.kind==='user-query'?t('bottomBar.logUserQuery'):item.kind==='internal-query'?t('bottomBar.logInternalQuery'):t('bottomBar.logInfo');return expanded
+    <div className={`flex flex-col bg-black transition-[height] ${consoleOpen?'h-[212px]':'h-8'}`}><div className="flex h-8 shrink-0 items-center border-b border-zinc-800 px-2"><button className="flex items-center gap-2 text-zinc-300" onClick={()=>setConsoleOpen(value=>!value)}><Terminal className="h-3.5 w-3.5"/>{t('bottomBar.sqlLog')} <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px]">{visibleEntries.length}</span>{consoleOpen?<ChevronDown className="h-3 w-3"/>:<ChevronUp className="h-3 w-3"/>}</button>{consoleOpen&&<div className="ml-auto flex items-center gap-1">{(['all','success','errors']as ConsoleFilter[]).map(item=><button key={item} className={`rounded px-2 py-1 text-[9px] ${filter===item?'bg-zinc-800':'text-zinc-600'}`} onClick={()=>setFilter(item)}>{item==='all'?t('common.all'):item==='success'?t('common.success'):t('bottomBar.errors')}</button>)}<Button variant="ghost" size="icon" className="h-6 w-6" onClick={downloadLog}><Download className="h-3.5 w-3.5"/></Button><Button variant="ghost" size="icon" className="h-6 w-6 text-red-400" onClick={clearActivities}><Trash2 className="h-3.5 w-3.5"/></Button></div>}</div>{consoleOpen&&<div className="min-h-0 flex-1 overflow-auto bg-black font-mono text-[9px]">{filtered.map(item=>{const expanded=expandedActivityId===item.id;const compactSql=item.sql.replace(/\s+/g,' ').trim();const fallbackText=item.message||item.title;const kindLabel=item.level==='error'?t('bottomBar.logError'):item.level==='warning'?t('bottomBar.logWarning'):item.kind==='user-query'?t('bottomBar.logUserQuery'):item.kind==='internal-query'?t('bottomBar.logInternalQuery'):t('bottomBar.logInfo');return expanded
           ? <div key={item.id} className={`border-b ${activityTone(item)}`}>
               <button type="button" onClick={()=>setExpandedActivityId(null)} onContextMenu={event=>openActivityMenu(event,item)} className="grid h-7 w-full grid-cols-[18px_80px_minmax(160px,1fr)_80px] items-center gap-1 px-1 text-left transition hover:bg-white/[0.025]" title={t('bottomBar.collapseOneLine')}>
                 <span>{statusIcon(item.level)}</span>
@@ -118,7 +113,7 @@ export default function BottomBar({selectedDatabase,selectedTable}:BottomBarProp
                 <span className="flex min-w-0 items-center gap-2"><span className={`shrink-0 rounded border px-1.5 py-0.5 text-[7px] font-semibold ${activityKindTone(item)}`}>{kindLabel}</span><span className="truncate text-zinc-400">{item.serverName||t('bottomBar.application')} • {item.databaseName||t('query.serverScope')}{item.tableName? ` • ${item.tableName}` : ''}</span></span>
                 <span className="text-right text-zinc-600">{item.timings?.queryRoundTripMs!==undefined?`${formatQueryMs(item.timings.queryRoundTripMs)} ms RTT`:`${item.durationMs??'—'} ms`}</span>
               </button>
-              <button type="button" onClick={()=>setExpandedActivityId(null)} onContextMenu={event=>openActivityMenu(event,item)} className="block w-full border-t border-zinc-900/80 bg-black/25 px-6 py-2 text-left hover:bg-black/35" title={t('bottomBar.collapseOneLine')}>
+              <button type="button" onClick={()=>setExpandedActivityId(null)} onContextMenu={event=>openActivityMenu(event,item)} className="block w-full border-t border-zinc-900/80 bg-black px-6 py-2 text-left hover:bg-zinc-950" title={t('bottomBar.collapseOneLine')}>
                 {item.sql.trim()?<pre className="coreor-sql-syntax whitespace-pre-wrap break-words font-mono text-[9px] leading-4"><code><SqlHighlightedText sql={item.sql}/></code></pre>:<div className={`text-[9px] leading-4 ${item.level==='error'?'text-red-300':item.level==='warning'?'text-amber-300':'text-sky-300'}`}><div className="font-semibold">{item.title}</div>{item.message&&<div className="mt-1 text-zinc-400">{item.message}</div>}</div>}
                 {item.timings&&<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-zinc-900 pt-2 text-[8px] text-zinc-600">
                   <span title={t('queryWorkspace.timingQueryDescription')}>{t('queryWorkspace.timingQuery')} <b className="font-medium text-zinc-400">{formatQueryMs(item.timings.queryRoundTripMs)} ms</b></span>
