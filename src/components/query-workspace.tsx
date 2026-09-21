@@ -308,7 +308,8 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
             statementStartLine: locations[index]?.startLine,
             statementIndex: index + 1,
             statementCount: statements.length,
-            executionMode
+            executionMode,
+            resultLimit: preferences.queryResultLimit
           }
         );
         sets.push({ id: createId('result'), sql: statement, label: t('queryWorkspace.resultNumber', { number: index + 1 }), result, error: null });
@@ -329,7 +330,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       }));
     }
     const first = sets[0]; onChange({ isRunning: false, error: first?.error || null, result: first?.result || null, updatedAt: new Date().toISOString() });
-  }, [selectedServer, accountId, tab.databaseName, tab.sql, executionMode, onChange, requiresApproval, takeSnapshot, assertWritable]);
+  }, [selectedServer, accountId, tab.databaseName, tab.sql, executionMode, preferences.queryResultLimit, onChange, requiresApproval, takeSnapshot, assertWritable]);
 
   const executeNow = useCallback(async (skipDryRun = false) => {
     if (!selectedServer || !accountId || tab.isRunning || !tab.sql.trim()) return;
@@ -340,7 +341,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       if (mutation) {
         onChange({ isRunning: true, error: null });
         try {
-          const preview = await executeDatabaseQuery(selectedServer.id, mutation.preview, accountId, tab.databaseName, { executionMode });
+          const preview = await executeDatabaseQuery(selectedServer.id, mutation.preview, accountId, tab.databaseName, { executionMode, resultLimit: preferences.queryResultLimit });
           setDryRunPending({ statement: statements[0], preview, table: mutation.table });
           setResultSets([{ id: 'dry-run', sql: mutation.preview, label: t('queryWorkspace.dryRunPreview'), result: preview, error: null, dryRun: true }]); setActiveResultId('dry-run');
           onChange({ isRunning: false, result: preview, error: null });
@@ -349,7 +350,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       }
     }
     await executeStatements(statements);
-  }, [selectedServer, accountId, tab.isRunning, tab.sql, tab.databaseName, executionMode, preferences.dryRunMutations, onChange, recordHistory, executeStatements, assertWritable]);
+  }, [selectedServer, accountId, tab.isRunning, tab.sql, tab.databaseName, executionMode, preferences.dryRunMutations, preferences.queryResultLimit, onChange, recordHistory, executeStatements, assertWritable]);
 
   const runQuery = useCallback(() => {
     const statements = splitStatements(tab.sql);
