@@ -1348,7 +1348,17 @@
     "executionModeTextDescription": "MySQL text protokolü (COM_QUERY)",
     "executionModeDefault": "Varsayılan",
     "executionModePrepared": "Prepared",
-    "executionModePreparedDescription": "Sunucu taraflı prepared statement protokolü"
+    "executionModePreparedDescription": "Sunucu taraflı prepared statement protokolü",
+    "timingQuery": "Sorgu",
+    "timingQueryDescription": "SQL gönderiminden sunucunun ilk yanıtına kadar geçen süre; sunucu çalışması ve ilk ağ gidiş-dönüşünü içerir.",
+    "timingFetch": "Aktarım",
+    "timingAcquire": "Pool",
+    "timingClient": "İstemci",
+    "timingTotal": "Toplam",
+    "timingConnections": "Bağ.",
+    "timingReused": "yeniden",
+    "timingNew": "yeni",
+    "timingPoolTitle": "Pool: {total} toplam, {idle} boşta, {inUse} kullanımda, {waiters} bekleyen, {failed} bağlantı oluşturma hatası"
   },
   "notebookExtra": {
     "chartColumns": "Grafik için kategori ve sayısal değer kolonu seçin.",
@@ -1632,7 +1642,13 @@
     "measurement": "Ölçüm",
     "health": "Sağlık",
     "serverStatusFailed": "Sunucu durumu alınamadı.",
-    "engine": "Motor"
+    "engine": "Motor",
+    "queryRoundTrip": "Sorgu gidiş-dönüş",
+    "poolAcquire": "Pool bağlantı alma",
+    "fetchDecode": "Aktarım / çözümleme",
+    "clientOverhead": "İstemci / IPC",
+    "totalDuration": "Uçtan uca",
+    "poolState": "Pool durumu"
   },
   "panel": {
     "preparing": "Çalışma alanı hazırlanıyor",
