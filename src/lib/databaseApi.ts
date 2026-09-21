@@ -357,6 +357,7 @@ export async function fetchDatabaseServers(accountId?: string | null) {
 }
 
 export async function createDatabaseServer(server: DatabaseServerConfig, accountId?: string | null) {
+  if (!server.connectionTestedAt) throw new Error(translateRuntime('server.connectionTestRequired'));
   const now = new Date().toISOString();
   const engine = server.databaseType ?? 'mysql';
   const definition = databaseEngineDefinition(engine);
