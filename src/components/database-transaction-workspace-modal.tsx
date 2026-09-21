@@ -109,7 +109,7 @@ export function DatabaseTransactionWorkspaceModal({ open, onClose, serverId, acc
     setBusy('run'); setError(null); setMessage(null);
     try {
       if (autocommit) {
-        const response = await executeDatabaseQuery(serverId, sql, accountId, databaseName);
+        const response = await executeDatabaseQuery(serverId, sql, accountId, databaseName, { activityOrigin: 'user' });
         setResult(response);
         setMessage(t('transaction.autocommitComplete'));
       } else {
