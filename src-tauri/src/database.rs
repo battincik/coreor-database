@@ -108,10 +108,12 @@ fn mysql_pool_fingerprint(c: &Connection) -> String {
 
 fn mysql_pool_snapshot(pool: &MySqlPool) -> MySqlPoolSnapshot {
     let metrics = pool.metrics();
+    let total = metrics.connection_count.load(Ordering::Relaxed);
+    let idle = metrics.connections_in_pool.load(Ordering::Relaxed);
     MySqlPoolSnapshot {
-        total: metrics.connection_count.load(Ordering::Relaxed),
-        idle: metrics.connections_in_pool.load(Ordering::Relaxed),
-        in_use: metrics.connections_in_use.load(Ordering::Relaxed),
+        total,
+        idle,
+        in_use: total.saturating_sub(idle),
         waiters: metrics.active_wait_requests.load(Ordering::Relaxed),
         create_failed: metrics.create_failed.load(Ordering::Relaxed),
     }
