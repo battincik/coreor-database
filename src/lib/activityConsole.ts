@@ -36,10 +36,11 @@ export interface ActivityEntry {
   statementCount?: number;
 }
 
-export type NewActivityEntry = Omit<ActivityEntry, 'id' | 'timestamp' | 'sql'> & {
+export type NewActivityEntry = Omit<ActivityEntry, 'id' | 'timestamp' | 'sql' | 'kind'> & {
   id?: string;
   timestamp?: string;
   sql?: string;
+  kind?: ActivityKind;
 };
 
 const STORAGE_KEY = 'coreor:sql-console:v2';
