@@ -921,7 +921,13 @@
     "catalogCache": "Katalog cache",
     "inProgress": "Devam ediyor",
     "idle": "Beklemede",
-    "time": "Zaman"
+    "time": "Zaman",
+    "logError": "HATA",
+    "logWarning": "UYARI",
+    "logUserQuery": "KULLANICI",
+    "logInternalQuery": "UYGULAMA",
+    "logInfo": "BİLGİ",
+    "application": "Coreor"
   },
   "statusGuide": {
     "title": "Durum rehberi",
