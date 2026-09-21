@@ -42,6 +42,7 @@ interface ServerCreateModalValues {
   databaseName: string;
   sslMode: DatabaseSslMode;
   connectionTimeoutMs: string;
+  poolMaxConnections: string;
   organizationId: string;
   readOnly: boolean;
 }
@@ -96,7 +97,7 @@ const DEFAULT_ENGINE = databaseEngineDefinition('mysql');
 const DEFAULT_VALUES: ServerCreateModalValues = {
   name: '', databaseType: 'mysql', version: DEFAULT_ENGINE.defaultVersion, host: '',
   port: String(DEFAULT_ENGINE.defaultPort), username: '', password: '', databaseName: '',
-  sslMode: 'preferred', connectionTimeoutMs: '20000', organizationId: '', readOnly: false
+  sslMode: 'preferred', connectionTimeoutMs: '20000', poolMaxConnections: '6', organizationId: '', readOnly: false
 };
 
 const INPUT_CLASS = 'h-10 rounded-xl border-white/10 bg-zinc-950/70 px-3 text-xs text-white placeholder:text-zinc-700 focus-visible:ring-cyan-500/25';
@@ -111,8 +112,26 @@ function valuesFromServer(server?: DatabaseServerConfig | null): ServerCreateMod
     port: String(server.port || definition.defaultPort), username: server.username || '',
     password: server.password || '', databaseName: server.databaseName || '',
     sslMode: server.sslMode || 'preferred', connectionTimeoutMs: String(server.connectionTimeoutMs || 20000),
+    poolMaxConnections: String(server.poolMaxConnections || 6),
     organizationId: server.organizationId || '', readOnly: Boolean(server.readOnly)
   };
+}
+
+const CONNECTION_TEST_FIELDS = new Set<keyof ServerCreateModalValues>([
+  'databaseType', 'host', 'port', 'username', 'password', 'databaseName', 'sslMode', 'connectionTimeoutMs'
+]);
+
+function connectionTestSignature(values: ServerCreateModalValues) {
+  return JSON.stringify([
+    values.databaseType,
+    values.host.trim(),
+    values.port.trim(),
+    values.username.trim(),
+    values.password,
+    values.databaseName.trim(),
+    values.sslMode,
+    values.connectionTimeoutMs
+  ]);
 }
 
 function FormSection({ icon: Icon, title, description, children, className = '' }: {
@@ -143,12 +162,19 @@ export function ServerCreateModal({ open, onClose, onSubmit, initialServer, onUp
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [testedSignature, setTestedSignature] = useState<string | null>(null);
+  const [serverMaxConnections, setServerMaxConnections] = useState<number | null>(null);
+  const [connectionTestedAt, setConnectionTestedAt] = useState<string | null>(null);
   const isEditing = Boolean(initialServer);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
-    if (open) setValues(valuesFromServer(initialServer));
-    setSubmitting(false); setTesting(false); setShowPassword(false); setError(null); setTestResult(null);
+    if (open) {
+      setValues(valuesFromServer(initialServer));
+      setServerMaxConnections(initialServer?.serverMaxConnections ?? null);
+      setConnectionTestedAt(initialServer?.connectionTestedAt ?? null);
+    }
+    setSubmitting(false); setTesting(false); setShowPassword(false); setError(null); setTestResult(null); setTestedSignature(null);
   }, [open, initialServer]);
 
   const selectedEngine = useMemo(() => databaseEngineDefinition(values.databaseType), [values.databaseType]);
@@ -170,23 +196,39 @@ export function ServerCreateModal({ open, onClose, onSubmit, initialServer, onUp
   ], [organizations, t]);
 
   const updateValue = <K extends keyof ServerCreateModalValues>(key: K, value: ServerCreateModalValues[K]) => {
-    setValues(previous => ({ ...previous, [key]: value })); setError(null); setTestResult(null);
+    setValues(previous => ({ ...previous, [key]: value }));
+    setError(null);
+    if (CONNECTION_TEST_FIELDS.has(key)) {
+      setTestResult(null);
+      setTestedSignature(null);
+      setServerMaxConnections(null);
+      setConnectionTestedAt(null);
+    }
   };
 
   const chooseEngine = (engine: DatabaseEngine) => {
     const definition = databaseEngineDefinition(engine);
     setValues(previous => ({ ...previous, databaseType: engine, version: definition.defaultVersion, port: String(definition.defaultPort) }));
-    setError(null); setTestResult(null);
+    setError(null); setTestResult(null); setTestedSignature(null); setServerMaxConnections(null); setConnectionTestedAt(null);
   };
+
+  const discoveredConnectionLimit = serverMaxConnections && serverMaxConnections > 0 ? serverMaxConnections : null;
+  const poolConnectionLimit = Math.max(1, Math.min(32, discoveredConnectionLimit ?? 32));
+  const testPassed = testedSignature === connectionTestSignature(values);
 
   const createServerPayload = (): Omit<DatabaseServerConfig, 'id'> => {
     const port = Number(values.port || selectedEngine.defaultPort);
     const timeout = Number(values.connectionTimeoutMs || 20000);
+    const requestedPool = Number(values.poolMaxConnections || 6);
+    const poolMaxConnections = Math.min(poolConnectionLimit, Math.max(1, Number.isFinite(requestedPool) ? Math.trunc(requestedPool) : 6));
     return {
       name: values.name.trim(), databaseType: values.databaseType, version: values.version,
       host: values.host.trim(), port: Number.isFinite(port) ? port : selectedEngine.defaultPort,
       username: values.username.trim(), password: values.password || undefined, databaseName: values.databaseName.trim(),
       sslMode: values.sslMode, connectionTimeoutMs: Number.isFinite(timeout) ? Math.min(Math.max(timeout, 3000), 60000) : 20000,
+      poolMaxConnections,
+      serverMaxConnections: discoveredConnectionLimit ?? undefined,
+      connectionTestedAt: testPassed ? connectionTestedAt || undefined : undefined,
       organizationId: values.organizationId || null, readOnly: values.readOnly,
       visibleTo: initialServer?.visibleTo || [], databases: initialServer?.databases || [],
       createdAt: initialServer?.createdAt, updatedAt: initialServer?.updatedAt
@@ -194,16 +236,40 @@ export function ServerCreateModal({ open, onClose, onSubmit, initialServer, onUp
   };
 
   const handleTest = async () => {
-    setTesting(true); setError(null); setTestResult(null);
+    setTesting(true); setError(null); setTestResult(null); setTestedSignature(null);
     try {
+      const signature = connectionTestSignature(values);
       const result = await testDatabaseConnection({ id: initialServer?.id || 'connection-test', ...createServerPayload() });
+      const rawMaxConnections = Number(result.connection?.maxConnections);
+      const maxConnections = Number.isFinite(rawMaxConnections) && rawMaxConnections > 0 ? Math.trunc(rawMaxConnections) : null;
+      const testedAt = new Date().toISOString();
+      setServerMaxConnections(maxConnections);
+      setConnectionTestedAt(testedAt);
+      setTestedSignature(signature);
+      if (maxConnections) {
+        const cap = Math.max(1, Math.min(32, maxConnections));
+        setValues(previous => {
+          const requested = Number(previous.poolMaxConnections || 6);
+          const normalized = Math.min(cap, Math.max(1, Number.isFinite(requested) ? Math.trunc(requested) : 6));
+          return { ...previous, poolMaxConnections: String(normalized) };
+        });
+      }
       setTestResult(t('server.connectionSuccessDetail', { version: result.connection?.version || t('server.versionUnavailable'), user: result.connection?.currentUser || values.username }));
-    } catch (testError) { setError(testError instanceof Error ? testError.message : t('server.connectionTestFailed')); }
+    } catch (testError) {
+      setServerMaxConnections(null);
+      setConnectionTestedAt(null);
+      setError(testError instanceof Error ? testError.message : t('server.connectionTestFailed'));
+    }
     finally { setTesting(false); }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); setSubmitting(true); setError(null);
+    event.preventDefault();
+    if (!testPassed) {
+      setError(t('server.connectionTestRequired'));
+      return;
+    }
+    setSubmitting(true); setError(null);
     try {
       const payload = createServerPayload();
       if (initialServer && onUpdate) await onUpdate({ ...initialServer, ...payload, id: initialServer.id }); else await onSubmit(payload);
@@ -260,20 +326,21 @@ export function ServerCreateModal({ open, onClose, onSubmit, initialServer, onUp
             <div className="grid content-start gap-3">
               <FormSection icon={Building2} title={t('server.workspace')} description={t('server.workspaceDescription')}><SearchSelect value={values.organizationId} options={organizationOptions} onValueChange={organizationId => updateValue('organizationId', organizationId)} searchPlaceholder={t('server.searchOrganization')} dropdownMinWidth={380} dropdownMaxWidth={520} /></FormSection>
               <FormSection icon={Network} title={t('server.connectionPolicy')} description={t('server.connectionPolicyDescription')}>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"><div><label className={LABEL_CLASS}>{t('server.tls')}</label><SearchSelect value={values.sslMode} options={tlsOptions} onValueChange={sslMode => updateValue('sslMode', sslMode)} searchPlaceholder={t('server.searchTls')} dropdownMinWidth={380} /></div><div><label className={LABEL_CLASS}>{t('server.timeout')}</label><SearchSelect value={values.connectionTimeoutMs} options={timeoutOptions} onValueChange={connectionTimeoutMs => updateValue('connectionTimeoutMs', connectionTimeoutMs)} searchPlaceholder={t('server.searchTimeout')} dropdownMinWidth={360} /></div></div>
+                <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3"><div><label className={LABEL_CLASS}>{t('server.tls')}</label><SearchSelect value={values.sslMode} options={tlsOptions} onValueChange={sslMode => updateValue('sslMode', sslMode)} searchPlaceholder={t('server.searchTls')} dropdownMinWidth={380} /></div><div><label className={LABEL_CLASS}>{t('server.timeout')}</label><SearchSelect value={values.connectionTimeoutMs} options={timeoutOptions} onValueChange={connectionTimeoutMs => updateValue('connectionTimeoutMs', connectionTimeoutMs)} searchPlaceholder={t('server.searchTimeout')} dropdownMinWidth={360} /></div><div><label className={LABEL_CLASS}>{t('server.poolConnections')}</label><Input type="number" min={1} max={poolConnectionLimit} value={values.poolMaxConnections} onChange={event => updateValue('poolMaxConnections', event.target.value)} onBlur={() => { const raw = Number(values.poolMaxConnections || 6); updateValue('poolMaxConnections', String(Math.min(poolConnectionLimit, Math.max(1, Number.isFinite(raw) ? Math.trunc(raw) : 6)))); }} className={INPUT_CLASS} /></div></div>
+                <div className="mt-2 text-[8px] leading-4 text-zinc-600">{discoveredConnectionLimit ? t('server.poolConnectionsDetected', { serverMax: discoveredConnectionLimit, appMax: poolConnectionLimit }) : t('server.poolConnectionsBeforeTest', { appMax: 32 })}</div>
                 <div className="mt-2.5 rounded-xl border border-amber-500/15 bg-amber-500/[0.04] p-2.5"><CoreorSwitch checked={values.readOnly} onCheckedChange={readOnly => updateValue('readOnly', readOnly)} label={t('server.readOnlyProfile')} description={t('server.readOnlyDescriptionShort')} /></div>
               </FormSection>
             </div>
           </div>
 
-          <div className="mt-3 rounded-xl border border-zinc-800 bg-black/15 p-2.5"><div className="mb-2 text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-600">{t('server.connectionSummary')}</div><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6"><SummaryItem icon={Server} label={t('server.profile')} value={values.name || t('server.unnamedConnection')} /><SummaryItem icon={Network} label={t('server.target')} value={`${values.host || 'host'}:${values.port || selectedEngine.defaultPort}`} mono /><SummaryItem icon={Database} label={t('server.typeAndVersion')} value={`${selectedEngine.label} ${values.version}`} /><SummaryItem icon={Building2} label={t('server.workspace')} value={organizationLabel} /><SummaryItem icon={Clock3} label={t('server.policy')} value={`${tlsLabel} • ${timeoutLabel}`} /><SummaryItem icon={LockKeyhole} label={t('server.access')} value={values.readOnly ? t('server.readOnlyAccess') : t('server.readWriteAccess')} /></div></div>
+          <div className="mt-3 rounded-xl border border-zinc-800 bg-black/15 p-2.5"><div className="mb-2 text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-600">{t('server.connectionSummary')}</div><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-7"><SummaryItem icon={Server} label={t('server.profile')} value={values.name || t('server.unnamedConnection')} /><SummaryItem icon={Network} label={t('server.target')} value={`${values.host || 'host'}:${values.port || selectedEngine.defaultPort}`} mono /><SummaryItem icon={Database} label={t('server.typeAndVersion')} value={`${selectedEngine.label} ${values.version}`} /><SummaryItem icon={Building2} label={t('server.workspace')} value={organizationLabel} /><SummaryItem icon={Clock3} label={t('server.policy')} value={`${tlsLabel} • ${timeoutLabel}`} /><SummaryItem icon={Network} label={t('server.poolConnections')} value={`${values.poolMaxConnections || 6} / ${poolConnectionLimit}`} mono /><SummaryItem icon={LockKeyhole} label={t('server.access')} value={values.readOnly ? t('server.readOnlyAccess') : t('server.readWriteAccess')} /></div></div>
           {error && <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[10px] text-red-300">{error}</div>}
-          {testResult && <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] text-emerald-300"><CheckCircle2 className="h-3.5 w-3.5" />{testResult}</div>}
+          {testResult && <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] text-emerald-300"><div className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5" />{testResult}</div><div className="mt-1 pl-5 text-[8px] text-emerald-200/70">{discoveredConnectionLimit ? t('server.connectionCapacityDetail', { serverMax: discoveredConnectionLimit, selected: values.poolMaxConnections || 6, cap: poolConnectionLimit }) : t('server.connectionCapacityUnavailable')}</div></div>}
         </div>
 
         <footer className="z-10 flex shrink-0 flex-col gap-2 border-t border-white/10 bg-zinc-950 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-          <div className="flex min-w-0 items-center gap-2 text-[8px] text-zinc-600"><Sparkles className="h-3 w-3 shrink-0 text-cyan-400" /><span className="truncate">{selectedEngine.label} {values.version} • {values.host || 'host'}:{values.port || selectedEngine.defaultPort} • {values.readOnly ? 'READ ONLY' : 'READ/WRITE'} • {organizationLabel}</span></div>
-          <div className="flex shrink-0 items-center gap-2"><Button type="button" variant="outline" size="sm" className="h-8 flex-1 gap-1.5 px-3 text-[9px] sm:flex-none" onClick={handleTest} disabled={testing || submitting}>{testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Server className="h-3.5 w-3.5" />}{t('server.testConnection')}</Button><Button type="submit" size="sm" className="h-8 flex-1 px-3 text-[9px] sm:flex-none" disabled={submitting || testing}>{submitting && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}{isEditing ? t('server.saveChanges') : t('server.addServer')}</Button></div>
+          <div className="flex min-w-0 items-center gap-2 text-[8px] text-zinc-600"><Sparkles className="h-3 w-3 shrink-0 text-cyan-400" /><span className="truncate">{selectedEngine.label} {values.version} • {values.host || 'host'}:{values.port || selectedEngine.defaultPort} • Pool {values.poolMaxConnections || 6} • {values.readOnly ? 'READ ONLY' : 'READ/WRITE'} • {organizationLabel}</span></div>
+          <div className="flex shrink-0 items-center gap-2"><Button type="button" variant="outline" size="sm" className="h-8 flex-1 gap-1.5 px-3 text-[9px] sm:flex-none" onClick={handleTest} disabled={testing || submitting}>{testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Server className="h-3.5 w-3.5" />}{t('server.testConnection')}</Button><Button type="submit" size="sm" className="h-8 flex-1 px-3 text-[9px] sm:flex-none" disabled={submitting || testing || !testPassed}>{submitting && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}{isEditing ? t('server.saveChanges') : t('server.addServer')}</Button></div>
         </footer>
       </form>
     </div>
