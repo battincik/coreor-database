@@ -70,6 +70,7 @@ export default function BottomBar({selectedDatabase,selectedTable}:BottomBarProp
     {id:'filter-all',label:t('bottomBar.allRecords'),icon:Terminal,onSelect:()=>setFilter('all')}
   ],item.title||t('bottomBar.sqlOperation'));
   const stats=useMemo(()=>{const successful=entries.filter(item=>item.level==='success').length;const errors=entries.filter(item=>item.level==='error').length;const durations=entries.map(item=>item.durationMs).filter((value):value is number=>typeof value==='number');return{successful,errors,rate:successful+errors?Math.round(successful/(successful+errors)*100):100,average:durations.length?Math.round(durations.reduce((sum,value)=>sum+value,0)/durations.length):0,last:entries.at(-1)};},[entries]);
+  const formatQueryMs=(value:number|undefined)=>typeof value==='number'?value.toLocaleString(language,{minimumFractionDigits:value<10?1:0,maximumFractionDigits:1}):'—';
   useEffect(()=>{if(consoleOpen)endRef.current?.scrollIntoView({block:'end'});},[consoleOpen,filtered.length]);
   const connectionSeconds=startedAt?Math.floor((now-startedAt)/1000):0;const target=selectedDatabase||activeServer?.databaseName||t('query.serverScope');
   const catalogStorageBytes=(activeServer?.databases||[]).reduce((sum,database)=>sum+(Number(database.totalSizeMB)||0)*1024*1024,0);
@@ -85,10 +86,18 @@ export default function BottomBar({selectedDatabase,selectedTable}:BottomBarProp
                 <span>{statusIcon(item.level)}</span>
                 <span className="text-zinc-600">{new Date(item.timestamp).toLocaleTimeString(language)}</span>
                 <span className="truncate text-zinc-400">{item.serverName} • {item.databaseName||t('query.serverScope')}{item.tableName? ` • ${item.tableName}` : ''}</span>
-                <span className="text-right text-zinc-600">{item.durationMs??'—'} ms</span>
+                <span className="text-right text-zinc-600">{item.timings?.queryRoundTripMs!==undefined?`${formatQueryMs(item.timings.queryRoundTripMs)} ms RTT`:`${item.durationMs??'—'} ms`}</span>
               </button>
               <button type="button" onClick={()=>setExpandedActivityId(null)} onContextMenu={event=>openActivityMenu(event,item)} className="block w-full border-t border-zinc-900/80 bg-black/25 px-6 py-2 text-left hover:bg-black/35" title={t('bottomBar.collapseOneLine')}>
                 <code className="block whitespace-pre-wrap break-words font-mono text-[9px] leading-4 text-cyan-300">{item.sql}</code>
+                {item.timings&&<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-zinc-900 pt-2 text-[8px] text-zinc-600">
+                  <span title={t('queryWorkspace.timingQueryDescription')}>{t('queryWorkspace.timingQuery')} <b className="font-medium text-zinc-400">{formatQueryMs(item.timings.queryRoundTripMs)} ms</b></span>
+                  <span>{t('queryWorkspace.timingFetch')} <b className="font-medium text-zinc-400">{formatQueryMs(item.timings.fetchDecodeMs)} ms</b></span>
+                  <span>{t('queryWorkspace.timingAcquire')} <b className="font-medium text-zinc-400">{formatQueryMs(item.timings.acquireMs)} ms</b>{item.timings.pooled?<em className="ml-1 not-italic text-cyan-500/80">{item.timings.poolReused?t('queryWorkspace.timingReused'):t('queryWorkspace.timingNew')}</em>:null}</span>
+                  <span>{t('queryWorkspace.timingClient')} <b className="font-medium text-zinc-400">{formatQueryMs(item.timings.clientOverheadMs)} ms</b></span>
+                  <span>{t('queryWorkspace.timingTotal')} <b className="font-medium text-zinc-300">{formatQueryMs(item.timings.totalMs)} ms</b></span>
+                  {item.timings.pool&&<span title={t('queryWorkspace.timingPoolTitle',{total:item.timings.pool.total,idle:item.timings.pool.idle,inUse:item.timings.pool.inUse,waiters:item.timings.pool.waiters,failed:item.timings.pool.createFailed})}>{t('queryWorkspace.timingConnections')} <b className="font-medium text-zinc-400">{item.timings.pool.inUse}/{item.timings.pool.total}</b></span>}
+                </div>}
               </button>
             </div>
           : <button type="button" key={item.id} onClick={()=>setExpandedActivityId(item.id)} onContextMenu={event=>openActivityMenu(event,item)} className="grid min-h-5 w-full grid-cols-[18px_80px_190px_minmax(300px,1fr)_80px] items-center border-b border-zinc-900 px-1 text-left transition hover:bg-white/[0.025]" title={t('bottomBar.showFullQuery')}>
@@ -96,7 +105,7 @@ export default function BottomBar({selectedDatabase,selectedTable}:BottomBarProp
               <span className="text-zinc-600">{new Date(item.timestamp).toLocaleTimeString(language)}</span>
               <span className="truncate text-zinc-500">{item.serverName} • {item.databaseName||t('query.serverScope')}</span>
               <code className="truncate text-cyan-300">{item.sql.replace(/\s+/g,' ')}</code>
-              <span className="text-right text-zinc-600">{item.durationMs??'—'} ms</span>
+              <span className="text-right text-zinc-600">{item.timings?.queryRoundTripMs!==undefined?`${formatQueryMs(item.timings.queryRoundTripMs)} ms RTT`:`${item.durationMs??'—'} ms`}</span>
             </button>;})}<div ref={endRef}/></div>}</div>
     <div className="flex h-8 border-t border-zinc-800 text-[9px] text-zinc-500"><div className="coreor-hide-scrollbar min-w-0 flex-1 overflow-x-auto"><div className="flex h-full min-w-max items-center divide-x divide-zinc-800">
       <Metric title={t('bottomBar.connectionStatus')} description={t('bottomBar.connectionStatusDescription')} rows={[{label:t('maintenance.status'),value:!activeServer?t('bottomBar.serverNotSelected'):snapshotError?t('bottomBar.healthLimited'):t('common.connected'),tone:snapshotError?'warning':'success'},{label:t('bottomBar.engine'),value:activeServer?databaseEngineLabel(activeServer.databaseType):'—'},{label:t('bottomBar.lastCheck'),value:snapshot?.sampledAt?formatDate(snapshot.sampledAt):'—'},{label:t('common.error'),value:snapshotError||t('bottomBar.none')}]} onTooltip={setTooltip}>{loading?<Loader2 className="h-3 w-3 animate-spin"/>:<Wifi className={`h-3 w-3 ${activeServer?'text-emerald-400':'text-zinc-600'}`}/>} {activeServer?t('common.connected'):t('topbar.noConnection')}</Metric>
