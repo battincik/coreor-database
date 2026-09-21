@@ -371,6 +371,19 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
 
   const activeSet = resultSets.find(item => item.id === activeResultId) || resultSets[0] || null;
   const activeResult = activeSet?.result || tab.result || null;
+  const timings = activeResult?.timings;
+  const timingText = (value: number | undefined) => typeof value === 'number'
+    ? value.toLocaleString(language, { minimumFractionDigits: value < 10 ? 1 : 0, maximumFractionDigits: 1 })
+    : '—';
+  const poolTimingTitle = timings?.pool
+    ? t('queryWorkspace.timingPoolTitle', {
+        total: timings.pool.total,
+        idle: timings.pool.idle,
+        inUse: timings.pool.inUse,
+        waiters: timings.pool.waiters,
+        failed: timings.pool.createFailed
+      })
+    : undefined;
   const columns = activeResult?.fields?.map(field => field.name) || Object.keys(activeResult?.rows?.[0] || {});
   const isFavorite = favorites.some(item => item.sql === tab.sql && item.databaseName === tab.databaseName);
   const toggleFavorite = () => setFavorites(previous => { const next = isFavorite ? previous.filter(item => !(item.sql === tab.sql && item.databaseName === tab.databaseName)) : [{ id: createId(), title: queryTitle(tab.sql), sql: tab.sql, databaseName: tab.databaseName, createdAt: new Date().toISOString() }, ...previous]; writeStored(FAVORITES_KEY, next); return next; });
@@ -451,7 +464,18 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
         </div>
         <div className="flex min-h-0 shrink-0 flex-col border-t border-zinc-800 bg-black/20" style={{ height: resultCollapsed ? 36 : resultHeight }}>
           {!resultCollapsed && <div role="separator" aria-orientation="horizontal" aria-label={t('queryWorkspace.resizeResults')} className="group flex h-1.5 shrink-0 cursor-row-resize touch-none items-center justify-center bg-zinc-950 hover:bg-cyan-500/10" onPointerDown={startResultResize}><GripHorizontal className="h-3 w-3 text-zinc-800 transition group-hover:text-cyan-500" /></div>}
-          <div className="coreor-hide-scrollbar flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-zinc-800 px-2 text-[10px] text-zinc-500"><Terminal className="h-3.5 w-3.5"/>{resultSets.length > 1 ? resultSets.map(item => <button key={item.id} onClick={() => setActiveResultId(item.id)} className={`rounded px-2 py-1 ${activeSet?.id === item.id ? 'bg-cyan-500/10 text-cyan-300' : 'hover:bg-zinc-900'}`}>{item.label}{item.error ? ` • ${t('common.error')}` : item.dryRun ? ` ${t('queryWorkspace.preview')}` : ''}</button>) : <span>{activeSet?.dryRun ? t('queryWorkspace.dryRunResult') : t('queryWorkspace.result')}</span>}<span className="ml-auto shrink-0">{t('queryWorkspace.rowsCount',{count:formatNumber(activeResult?.rows?.length || 0)})}</span><button type="button" className="ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" onClick={() => setResultCollapsed(previous => !previous)} title={resultCollapsed ? t('queryWorkspace.openResults') : t('queryWorkspace.collapseResultsFully')} aria-label={resultCollapsed ? t('queryWorkspace.openResults') : t('queryWorkspace.collapseResults')}>{resultCollapsed ? <ChevronUp className="h-3.5 w-3.5"/> : <ChevronDown className="h-3.5 w-3.5"/>}</button></div>
+          <div className="coreor-hide-scrollbar flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-zinc-800 px-2 text-[10px] text-zinc-500"><Terminal className="h-3.5 w-3.5"/>{resultSets.length > 1 ? resultSets.map(item => <button key={item.id} onClick={() => setActiveResultId(item.id)} className={`rounded px-2 py-1 ${activeSet?.id === item.id ? 'bg-cyan-500/10 text-cyan-300' : 'hover:bg-zinc-900'}`}>{item.label}{item.error ? ` • ${t('common.error')}` : item.dryRun ? ` ${t('queryWorkspace.preview')}` : ''}</button>) : <span>{activeSet?.dryRun ? t('queryWorkspace.dryRunResult') : t('queryWorkspace.result')}</span>}{timings && <span className="ml-auto flex shrink-0 items-center gap-1.5 font-mono text-[9px] text-zinc-600">
+            <span title={t('queryWorkspace.timingQueryDescription')}>{t('queryWorkspace.timingQuery')} <b className="font-medium text-zinc-400">{timingText(timings.queryRoundTripMs)} ms</b></span>
+            <span>•</span>
+            <span>{t('queryWorkspace.timingFetch')} <b className="font-medium text-zinc-400">{timingText(timings.fetchDecodeMs)} ms</b></span>
+            <span>•</span>
+            <span title={poolTimingTitle}>{t('queryWorkspace.timingAcquire')} <b className="font-medium text-zinc-400">{timingText(timings.acquireMs)} ms</b>{timings.pooled ? <em className="ml-1 not-italic text-cyan-500/80">{timings.poolReused ? t('queryWorkspace.timingReused') : t('queryWorkspace.timingNew')}</em> : null}</span>
+            <span>•</span>
+            <span>{t('queryWorkspace.timingClient')} <b className="font-medium text-zinc-400">{timingText(timings.clientOverheadMs)} ms</b></span>
+            <span>•</span>
+            <span>{t('queryWorkspace.timingTotal')} <b className="font-medium text-zinc-300">{timingText(timings.totalMs)} ms</b></span>
+            {timings.pool && <><span>•</span><span title={poolTimingTitle}>{t('queryWorkspace.timingConnections')} <b className="font-medium text-zinc-400">{timings.pool.inUse}/{timings.pool.total}</b></span></>}
+          </span>}<span className={`${timings ? '' : 'ml-auto '}shrink-0`}>{t('queryWorkspace.rowsCount',{count:formatNumber(activeResult?.rows?.length || 0)})}</span><button type="button" className="ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" onClick={() => setResultCollapsed(previous => !previous)} title={resultCollapsed ? t('queryWorkspace.openResults') : t('queryWorkspace.collapseResultsFully')} aria-label={resultCollapsed ? t('queryWorkspace.openResults') : t('queryWorkspace.collapseResults')}>{resultCollapsed ? <ChevronUp className="h-3.5 w-3.5"/> : <ChevronDown className="h-3.5 w-3.5"/>}</button></div>
           {!resultCollapsed && (activeSet?.error || tab.error ? <div className="m-3 rounded border border-red-500/30 bg-red-500/10 p-3 font-mono text-[11px] text-red-300">{activeSet?.error || tab.error}</div> : activeResult?.rows?.length ? <ScrollArea className="min-h-0 flex-1"><div className="min-w-max"><Table size="sm" columnStorageKey={`query-result:${tab.id}:${columns.join('|')}`}><TableHeader><TableRow>{columns.map(column => <TableHead key={column} columnKey={column} className="sticky top-0 z-10 border bg-zinc-950">{column}</TableHead>)}</TableRow></TableHeader><TableBody>{activeResult.rows.map((row, rowIndex) => <TableRow key={rowIndex}>{columns.map(column => <TableCell key={column} className="truncate border font-mono text-[11px]" title={valueText(row[column])} onContextMenu={event => resultCellContextMenu(event, row, column)}>{valueText(row[column])}</TableCell>)}</TableRow>)}</TableBody></Table></div></ScrollArea> : activeResult ? <div className="flex flex-1 items-center justify-center text-xs text-zinc-500">{typeof activeResult.affectedRows === 'number' ? t('query.affectedRows',{count:formatNumber(activeResult.affectedRows)}) : t('query.completed')}</div> : <div className="flex flex-1 items-center justify-center text-xs text-zinc-600">{t('queryWorkspace.resultsHere')}</div>)}
         </div>
       </div>
