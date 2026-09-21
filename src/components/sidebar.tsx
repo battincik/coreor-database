@@ -1148,7 +1148,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       },
       { id: 'new-query', label: t('sidebar.menu.newQuery'), icon: Code2, shortcut: 'newQuery', onSelect: () => openSql(server, database, `${object.name} sorgu`, '') },
       { id: 'definition', label: t('sidebar.menu.showDefinition'), icon: FileCode2, onSelect: () => openSql(server, database, `${object.name} DDL`, objectDefinitionSql(engine, database, object, t), true) },
-      { id: 'copy-definition', label: t('sidebar.menu.copyDdl'), icon: Copy, disabled: databaseEngineFamily(engine) !== 'mysql' && object.kind === 'table', disabledReason: t('sidebar.menu.ddlUnavailable'), onSelect: async () => {
+      { id: 'copy-definition', label: t('sidebar.menu.copyDdl'), icon: Copy, onSelect: async () => {
         if (!workspaceKey) return;
         const result = await executeDatabaseQuery(server.id, objectDefinitionSql(engine, database, object, t), workspaceKey, database);
         const text = result.rows.flatMap(row => Object.values(row)).filter(value => typeof value === 'string').map(String).at(-1) || object.definition || '';
