@@ -34,6 +34,7 @@ import { translateRuntime } from '@/lib/i18nRuntime';
 const inFlightControllers = new Map<string, AbortController>();
 const tableInfoCache = new Map<string, { expiresAt: number; value: TableInfo }>();
 const tableInfoRequests = new Map<string, Promise<TableInfo>>();
+const tableDataRequests = new Map<string, Promise<TableDataResponse>>();
 const TABLE_INFO_CACHE_MS = 15_000;
 const databaseObjectsCache = new Map<string, { expiresAt: number; value: DatabaseObjectsResponse }>();
 const DATABASE_OBJECTS_CACHE_MS = 30_000;
@@ -487,12 +488,36 @@ export async function fetchDatabaseObjects(serverId: string, databaseName: strin
 }
 
 export async function fetchTableData(serverId: string, databaseName: string, tableName: string, accountId?: string | null, options: FetchTableDataOptions = {}) {
-  const server = await requireServer(accountId, serverId);
-  return requestDatabaseApi<TableDataResponse>(server, 'table-data', {
-    database: databaseName, table: tableName, page: options.page ?? 1, pageSize: options.pageSize ?? 100,
-    sorts: options.sorts ?? [], filters: options.filters ?? [], includeTotal: options.includeTotal ?? true,
-    knownTotalRows: options.knownTotalRows
-  }, { requestKey: `table-data:${serverId}:${databaseName}:${tableName}`, connectionDatabase: databaseName });
+  const page = options.page ?? 1;
+  const pageSize = options.pageSize ?? 100;
+  const sorts = options.sorts ?? [];
+  const filters = options.filters ?? [];
+  const includeTotal = options.includeTotal ?? true;
+  const requestIdentity = JSON.stringify([
+    serverId, databaseName, tableName, page, pageSize, sorts, filters, includeTotal, options.knownTotalRows ?? null
+  ]);
+  const pending = tableDataRequests.get(requestIdentity);
+  if (pending) return pending;
+
+  const request = (async () => {
+    const server = await requireServer(accountId, serverId);
+    return requestDatabaseApi<TableDataResponse>(server, 'table-data', {
+      database: databaseName,
+      table: tableName,
+      page,
+      pageSize,
+      sorts,
+      filters,
+      includeTotal,
+      knownTotalRows: options.knownTotalRows
+    }, {
+      requestKey: `table-data:${requestIdentity}`,
+      connectionDatabase: databaseName
+    });
+  })().finally(() => tableDataRequests.delete(requestIdentity));
+
+  tableDataRequests.set(requestIdentity, request);
+  return request;
 }
 
 export async function updateTableCell(serverId: string, input: TableCellUpdateInput, accountId?: string | null) {
