@@ -1349,7 +1349,7 @@
     "executionModeDefault": "Varsayılan",
     "executionModePrepared": "Prepared",
     "executionModePreparedDescription": "Sunucu taraflı prepared statement protokolü",
-    "timingQuery": "Sorgu",
+    "timingQuery": "Sorgu RTT",
     "timingQueryDescription": "SQL gönderiminden sunucunun ilk yanıtına kadar geçen süre; sunucu çalışması ve ilk ağ gidiş-dönüşünü içerir.",
     "timingFetch": "Aktarım",
     "timingAcquire": "Pool",
