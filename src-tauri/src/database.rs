@@ -391,6 +391,37 @@ fn returns_rows(sql: &str) -> bool {
     ["select", "show", "describe", "desc", "explain", "with", "pragma", "exec", "execute"].iter().any(|x| s.starts_with(x))
 }
 
+fn clamp_trailing_limit(sql: &str, maximum_rows: usize) -> Option<String> {
+    let lower = sql.to_ascii_lowercase();
+    let position = lower.rfind("limit")?;
+    if position > 0 {
+        let previous = lower.as_bytes()[position - 1];
+        if previous.is_ascii_alphanumeric() || previous == b'_' { return None; }
+    }
+    let tail = sql[position + 5..].trim();
+    let max = maximum_rows.max(1) as u64;
+
+    if let Some((offset, rows)) = tail.split_once(',') {
+        let offset = offset.trim().parse::<u64>().ok()?;
+        let rows = rows.trim().parse::<u64>().ok()?;
+        return Some(format!("{}LIMIT {}, {}", &sql[..position], offset, rows.min(max)));
+    }
+
+    let pieces = tail.split_whitespace().collect::<Vec<_>>();
+    match pieces.as_slice() {
+        [rows] => {
+            let rows = rows.parse::<u64>().ok()?;
+            Some(format!("{}LIMIT {}", &sql[..position], rows.min(max)))
+        }
+        [rows, offset_keyword, offset] if offset_keyword.eq_ignore_ascii_case("offset") => {
+            let rows = rows.parse::<u64>().ok()?;
+            let offset = offset.parse::<u64>().ok()?;
+            Some(format!("{}LIMIT {} OFFSET {}", &sql[..position], rows.min(max), offset))
+        }
+        _ => None,
+    }
+}
+
 fn limit_read_statement(sql: &str, engine: &str, maximum_rows: usize) -> String {
     let trimmed = sql.trim().trim_end_matches(';').trim_end();
     let normalized = strip_leading_sql_comments(trimmed).trim_start();
@@ -399,6 +430,10 @@ fn limit_read_statement(sql: &str, engine: &str, maximum_rows: usize) -> String 
     // SQL Server requires TOP/OFFSET rewriting, so leave arbitrary user SQL untouched there.
     if is_mssql(engine) || !lower.starts_with("select") {
         return trimmed.to_string();
+    }
+
+    if let Some(limited) = clamp_trailing_limit(trimmed, maximum_rows) {
+        return limited;
     }
 
     // Never rewrite SELECT forms whose LIMIT placement is not safely append-only.
