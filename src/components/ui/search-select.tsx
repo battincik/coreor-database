@@ -62,10 +62,13 @@ export function SearchSelect<T extends string | number = string>({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const selected = options.find(option => String(option.value) === String(value));
+  const selected = options.find(option => Object.is(option.value, value))
+    ?? options.find(option => String(option.value) === String(value));
   const usePortal = portal || dropdownMinWidth > 340;
   const resolvedPlaceholder = placeholder ?? t('control.select.placeholder');
-  const displayLabel = triggerLabel ?? selected?.label ?? resolvedPlaceholder;
+  // The selected option is the source of truth. A custom trigger label is only a fallback.
+  // This prevents a stale externally-computed label from disagreeing with the checked option.
+  const displayLabel = selected?.label ?? triggerLabel ?? resolvedPlaceholder;
   const resolvedSearchPlaceholder = searchPlaceholder ?? t('control.select.search');
   const resolvedEmptyText = emptyText ?? t('control.select.empty');
 
@@ -248,7 +251,7 @@ export function SearchSelect<T extends string | number = string>({
         } ${triggerClassName}`}
       >
         <span className="min-w-0 flex-1 py-1.5">
-          <span className={`block truncate text-[11px] font-semibold ${selected || triggerLabel ? 'text-zinc-100' : 'text-zinc-600'}`}>
+          <span key={String(value)} className={`block truncate text-[11px] font-semibold ${selected || triggerLabel ? 'text-zinc-100' : 'text-zinc-600'}`}>
             {displayLabel}
           </span>
           {showDescriptionInTrigger && selected?.description && <span className="mt-0.5 block truncate text-[9px] text-zinc-600">{selected.description}</span>}
