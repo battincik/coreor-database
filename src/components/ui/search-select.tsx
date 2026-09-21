@@ -18,6 +18,7 @@ interface SearchSelectProps<T extends string | number = string> {
   options: SearchSelectOption<T>[];
   onValueChange: (value: T) => void;
   placeholder?: string;
+  triggerLabel?: string;
   searchPlaceholder?: string;
   emptyText?: string;
   disabled?: boolean;
@@ -43,6 +44,7 @@ export function SearchSelect<T extends string | number = string>({
   options,
   onValueChange,
   placeholder,
+  triggerLabel,
   searchPlaceholder,
   emptyText,
   disabled = false,
@@ -61,6 +63,7 @@ export function SearchSelect<T extends string | number = string>({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const selected = options.find(option => String(option.value) === String(value));
+  const displayLabel = triggerLabel ?? selected?.label ?? resolvedPlaceholder;
   const usePortal = portal || dropdownMinWidth > 340;
   const resolvedPlaceholder = placeholder ?? t('control.select.placeholder');
   const resolvedSearchPlaceholder = searchPlaceholder ?? t('control.select.search');
@@ -235,7 +238,7 @@ export function SearchSelect<T extends string | number = string>({
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={`${open ? t('control.select.close') : t('control.select.open')}: ${selected?.label ?? resolvedPlaceholder}`}
+        aria-label={`${open ? t('control.select.close') : t('control.select.open')}: ${displayLabel}`}
         title={open ? t('control.select.close') : t('control.select.open')}
         onClick={() => setOpen(previous => !previous)}
         className={`flex min-h-10 w-full min-w-0 items-center gap-2.5 rounded-xl border px-3 text-left transition outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -245,8 +248,8 @@ export function SearchSelect<T extends string | number = string>({
         } ${triggerClassName}`}
       >
         <span className="min-w-0 flex-1 py-1.5">
-          <span className={`block truncate text-[11px] font-semibold ${selected ? 'text-zinc-100' : 'text-zinc-600'}`}>
-            {selected?.label || resolvedPlaceholder}
+          <span className={`block truncate text-[11px] font-semibold ${selected || triggerLabel ? 'text-zinc-100' : 'text-zinc-600'}`}>
+            {displayLabel}
           </span>
           {showDescriptionInTrigger && selected?.description && <span className="mt-0.5 block truncate text-[9px] text-zinc-600">{selected.description}</span>}
         </span>
