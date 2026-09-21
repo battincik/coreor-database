@@ -1,7 +1,7 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-use mysql_async::{consts::{ColumnFlags as MySqlColumnFlags, ColumnType as MySqlColumnType}, prelude::Queryable, Column as MySqlColumn, Conn as MySqlConnection, OptsBuilder as MySqlOptsBuilder, Row as MySqlRow, SslOpts as MySqlSslOpts, Value as MySqlValue};
+use mysql_async::{consts::{ColumnFlags as MySqlColumnFlags, ColumnType as MySqlColumnType}, prelude::{Protocol as MySqlProtocol, Queryable}, Column as MySqlColumn, Conn as MySqlConnection, OptsBuilder as MySqlOptsBuilder, Row as MySqlRow, SslOpts as MySqlSslOpts, Value as MySqlValue};
 use sqlx::{Column, Connection as SqlxConnection, Row};
 use std::time::{Duration, Instant};
 use tiberius::{AuthMethod, Client, Config, EncryptionLevel};
@@ -252,7 +252,7 @@ async fn finish_mysql_result<P>(
     limit: usize,
 ) -> Result<Value, String>
 where
-    P: mysql_async::Protocol + Unpin,
+    P: MySqlProtocol + Unpin,
 {
     let affected_rows = result.affected_rows();
     let insert_id = result.last_insert_id();
