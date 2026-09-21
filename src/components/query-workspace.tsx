@@ -150,7 +150,189 @@ function parseAlterTable(sql: string) {
   const full = match[2]; const parts = full.split('.'); return parts.at(-1) || null;
 }
 
-function cursorToken(sql: string, cursor: number) { const match = /([A-Za-z0-9_$`".\[\]-]+)$/.exec(sql.slice(0, cursor)); return { value: match?.[1] || '', start: match ? cursor - match[1].length : cursor }; }
+function cursorToken(sql: string, cursor: number) { const match = /([A-Za-z0-9_'use client';
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AlertTriangle,
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Code2,
+  Copy,
+  Database,
+  FileClock,
+  History,
+  Info,
+  GripHorizontal,
+  Loader2,
+  LockKeyhole,
+  Play,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  StarOff,
+  Terminal,
+  Trash2,
+  Wand2,
+  XCircle
+} from 'lucide-react';
+import type { DatabaseQueryExecutionMode, DatabaseServerConfig, EditorQueryTab, QueryExecutionResult, TableInfo } from 'types';
+import { executeDatabaseQuery, fetchTableInfo } from '@/lib/databaseApi';
+import { databaseEngineDefinition, quoteDatabaseIdentifier } from '@/lib/databaseEngines';
+import { useAppContextMenu } from '@/components/app-context-menu';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
+import { SqlEditor } from '@/components/ui/sql-syntax';
+import { DatabaseActionConfirmModal, type DatabaseActionConfirmation } from '@/components/database-action-confirm-modal';
+import { useAppPreferences } from '@/lib/appPreferences';
+import { toSqlLiteral } from '@/lib/queryWorkspaceEvents';
+import { matchesShortcut } from '@/lib/shortcuts';
+import { approvalRequests, automationId, migrationDrafts, schemaSnapshots } from '@/lib/databaseAutomation';
+import { analyzeSqlDocument, type SqlDiagnostic } from '@/lib/sqlLanguageServer';
+import { useCoreorToast } from '@/components/ui/coreor-toast';
+import { migrateLegacyWorkspaceCollection, readWorkspaceCollection, writeWorkspaceCollection } from '@/lib/nativeWorkspaceStore';
+import { useLanguage } from '@/context/LanguageContext';
+
+interface QueryWorkspaceProps {
+  tab: EditorQueryTab;
+  servers: DatabaseServerConfig[];
+  accountId?: string | null;
+  onChange: (patch: Partial<EditorQueryTab>) => void;
+  onDuplicate: () => void;
+}
+
+interface StoredQuery { id: string; title: string; sql: string; databaseName: string | null; createdAt: string; }
+interface Suggestion { id: string; label: string; insertText: string; detail: string; kind: 'keyword' | 'database' | 'table' | 'column'; }
+interface ResultSet { id: string; sql: string; label: string; result: QueryExecutionResult | null; error: string | null; dryRun?: boolean; }
+
+const HISTORY_KEY = 'coreor:query-history:v3';
+const FAVORITES_KEY = 'coreor:query-favorites:v3';
+const MAX_HISTORY = 150;
+const RESULT_HEIGHT_KEY = 'coreor:query-result-height:v1';
+const SQL_KEYWORDS = ['SELECT','DISTINCT','FROM','WHERE','AND','OR','NOT','NULL','JOIN','LEFT JOIN','RIGHT JOIN','ON','GROUP BY','HAVING','ORDER BY','ASC','DESC','LIMIT','OFFSET','TOP','INSERT INTO','VALUES','UPDATE','SET','DELETE FROM','CREATE TABLE','ALTER TABLE','DROP TABLE','TRUNCATE TABLE','CREATE INDEX','UNIQUE','COUNT','SUM','AVG','MIN','MAX','CASE','WHEN','THEN','ELSE','END','AS','IN','BETWEEN','LIKE','EXISTS','UNION','WITH','EXPLAIN','SHOW TABLES','SHOW CREATE TABLE','DESCRIBE','COMMIT','ROLLBACK'];
+
+function createId(prefix = 'query') { return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? `${prefix}-${crypto.randomUUID()}` : `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`; }
+function valueText(value: unknown) {
+  if (value === null) return '(NULL)';
+  if (value === undefined) return '';
+  if (value && typeof value === 'object') {
+    const binary = value as { type?: unknown; base64?: unknown };
+    if (binary.type === 'binary' && typeof binary.base64 === 'string') {
+      try {
+        const bytes = Uint8Array.from(atob(binary.base64), character => character.charCodeAt(0));
+        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      } catch { return JSON.stringify(value); }
+    }
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+function writeStored(key: string, values: StoredQuery[]) {
+  const collection = key === HISTORY_KEY ? 'query-history' : 'query-favorites';
+  void writeWorkspaceCollection(collection, 'global', values.slice(0, MAX_HISTORY));
+}
+function queryTitle(sql: string) { const text = sql.replace(/\s+/g, ' ').trim(); return text.length > 72 ? `${text.slice(0, 72)}…` : text || 'SQL'; }
+function formatSql(source: string) { return source.trim().replace(/\s+(FROM|WHERE|LEFT JOIN|RIGHT JOIN|INNER JOIN|GROUP BY|HAVING|ORDER BY|LIMIT|VALUES|SET)\s+/gi, '\n$1\n  ').replace(/\s+(AND|OR)\s+/gi, '\n  $1 '); }
+
+function splitStatements(sql: string) {
+  const result: string[] = []; let current = ''; let quote: string | null = null; let comment = false;
+  for (let index = 0; index < sql.length; index += 1) {
+    const char = sql[index]; const next = sql[index + 1];
+    if (!quote && char === '-' && next === '-') comment = true;
+    if (comment && char === '\n') comment = false;
+    if (!comment && (char === "'" || char === '"' || char === '`')) {
+      if (quote === char && sql[index - 1] !== '\\') quote = null; else if (!quote) quote = char;
+    }
+    if (char === ';' && !quote && !comment) { if (current.trim()) result.push(current.trim()); current = ''; }
+    else current += char;
+  }
+  if (current.trim()) result.push(current.trim());
+  return result;
+}
+
+function locateStatements(sql: string, statements: string[]) {
+  let searchFrom = 0;
+  return statements.map(statement => {
+    const index = sql.indexOf(statement, searchFrom);
+    if (index < 0) return { startLine: undefined as number | undefined };
+    searchFrom = index + statement.length;
+    return { startLine: sql.slice(0, index).split('\n').length };
+  });
+}
+
+function metadataMutationScope(sql: string, currentDatabase: string | null) {
+  const clean = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+  const head = clean.slice(0, 180);
+  const mutatingVerb = /^(?:CREATE|ALTER|DROP|RENAME)\b/i.test(head);
+  const schemaObject = /\b(?:DATABASE|SCHEMA|TABLE|VIEW|INDEX|PROCEDURE|FUNCTION|TRIGGER|EVENT)\b/i.test(head);
+  if (!mutatingVerb || !schemaObject) return undefined;
+  if (/\b(?:DATABASE|SCHEMA)\b/i.test(head)) return null;
+  return currentDatabase;
+}
+
+function operationType(sql: string) {
+  const clean = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+  if (/^DROP\s+(TABLE|DATABASE)\b/i.test(clean)) return 'drop' as const;
+  if (/^TRUNCATE\s+TABLE\b/i.test(clean)) return 'truncate' as const;
+  if (/^ALTER\s+TABLE\b/i.test(clean)) return 'production-alter' as const;
+  return null;
+}
+
+function isWriteStatement(sql: string) {
+  const clean = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+  return /^(?:INSERT|UPDATE|DELETE|REPLACE|MERGE|ALTER|CREATE|DROP|TRUNCATE|RENAME|GRANT|REVOKE|CALL|EXEC(?:UTE)?|LOAD\s+DATA|LOCK\s+TABLES|UNLOCK\s+TABLES|SET\s+(?:GLOBAL|SESSION)?\s*(?:TRANSACTION|AUTOCOMMIT)|BEGIN|START\s+TRANSACTION|COMMIT|ROLLBACK)\b/i.test(clean);
+}
+
+function parseMutation(sql: string) {
+  const update = /^UPDATE\s+([^\s]+)\s+SET\s+[\s\S]+?\s+WHERE\s+([\s\S]+)$/i.exec(sql.trim().replace(/;$/, ''));
+  if (update) return { table: update[1], where: update[2], preview: `SELECT * FROM ${update[1]} WHERE ${update[2]} LIMIT 250` };
+  const remove = /^DELETE\s+FROM\s+([^\s]+)\s+WHERE\s+([\s\S]+)$/i.exec(sql.trim().replace(/;$/, ''));
+  if (remove) return { table: remove[1], where: remove[2], preview: `SELECT * FROM ${remove[1]} WHERE ${remove[2]} LIMIT 250` };
+  return null;
+}
+
+function parseAlterTable(sql: string) {
+  const match = /^ALTER\s+TABLE\s+([`"\[]?)([A-Za-z0-9_$.-]+)[`"\]]?/i.exec(sql.trim());
+  if (!match) return null;
+  const full = match[2]; const parts = full.split('.'); return parts.at(-1) || null;
+}
+
+".\[\]-]+)$/.exec(sql.slice(0, cursor)); return { value: match?.[1] || '', start: match ? cursor - match[1].length : cursor }; }
+function referencedCatalogTables(sql: string, tableNames: string[]) {
+  if (!sql.trim() || !tableNames.length) return [] as string[];
+  const known = new Map(tableNames.map(name => [name.toLocaleLowerCase('en-US'), name]));
+  const found = new Set<string>();
+  const clean = sql
+    .replace(/--.*$/gm, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/'(?:''|[^'])*'/g, "''");
+
+  const addIdentifier = (raw: string) => {
+    const normalized = raw
+      .split('.')
+      .at(-1)
+      ?.trim()
+      .replace(/^[`"\[]|[`"\]]$/g, '')
+      .toLocaleLowerCase('en-US');
+    if (!normalized) return;
+    const table = known.get(normalized);
+    if (table) found.add(table);
+  };
+
+  const relationPattern = /\b(?:FROM|JOIN|UPDATE|INTO|TABLE|DESCRIBE|DESC)\s+((?:[`"\[]?[A-Za-z0-9_$-]+[`"\]]?)(?:\s*\.\s*(?:[`"\[]?[A-Za-z0-9_$-]+[`"\]]?))?)/gi;
+  for (const match of clean.matchAll(relationPattern)) addIdentifier(match[1]);
+
+  const dottedPattern = /(?:^|[^A-Za-z0-9_$])([`"\[]?[A-Za-z0-9_$-]+[`"\]]?)\s*\./g;
+  for (const match of clean.matchAll(dottedPattern)) addIdentifier(match[1]);
+
+  return [...found].slice(0, 6);
+}
+
 function suggestionIcon(kind: Suggestion['kind']) { if (kind === 'database') return <Database className="h-3.5 w-3.5 text-purple-400"/>; if (kind === 'table') return <Database className="h-3.5 w-3.5 text-emerald-400"/>; if (kind === 'column') return <Code2 className="h-3.5 w-3.5 text-cyan-400"/>; return <Sparkles className="h-3.5 w-3.5 text-amber-300"/>; }
 function diagnosticIcon(item: SqlDiagnostic) { return item.severity === 'error' ? <XCircle className="h-3.5 w-3.5 text-red-400"/> : item.severity === 'warning' ? <AlertTriangle className="h-3.5 w-3.5 text-amber-400"/> : <Info className="h-3.5 w-3.5 text-cyan-400"/>; }
 
@@ -229,31 +411,31 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     return () => { cancelled = true; };
   }, []);
   useEffect(() => { setColumnCache({}); }, [selectedServer?.id, tab.databaseName]);
+  const referencedTables = useMemo(
+    () => referencedCatalogTables(tab.sql, selectedDatabase?.tables || []),
+    [tab.sql, selectedDatabase?.tables]
+  );
+
   useEffect(() => {
-    if (!preferences.autocomplete || !selectedServer || !tab.databaseName || !accountId || (!suggestionsOpen && !tab.sql.trim())) return;
-    const pendingTables = (selectedDatabase?.tables || []).filter(tableName => !columnCache[tableName]).slice(0, 12);
+    if (!preferences.autocomplete || !selectedServer || !tab.databaseName || !accountId) return;
+    const pendingTables = referencedTables.filter(tableName => !columnCache[tableName]);
     if (!pendingTables.length) return;
 
     let cancelled = false;
-    let cursor = 0;
-    const poolSize = Math.min(32, Math.max(1, selectedServer.poolMaxConnections ?? 6));
-    const workerCount = Math.min(4, Math.max(1, Math.floor(poolSize / 2)), pendingTables.length);
-    const worker = async () => {
-      while (!cancelled) {
-        const index = cursor++;
-        const tableName = pendingTables[index];
-        if (!tableName) return;
+    void Promise.all(
+      pendingTables.map(async tableName => {
         try {
           const info = await fetchTableInfo(selectedServer.id, tab.databaseName!, tableName, accountId);
-          if (!cancelled) setColumnCache(previous => previous[tableName] ? previous : ({ ...previous, [tableName]: info }));
+          if (!cancelled) {
+            setColumnCache(previous => previous[tableName] ? previous : ({ ...previous, [tableName]: info }));
+          }
         } catch {
-          // Autocomplete prefetch is opportunistic and must never block the editor.
+          // Column metadata is optional. Never trigger broad schema prefetch from the SQL editor.
         }
-      }
-    };
-    void Promise.all(Array.from({ length: workerCount }, () => worker()));
+      })
+    );
     return () => { cancelled = true; };
-  }, [preferences.autocomplete, selectedServer, tab.databaseName, accountId, suggestionsOpen, selectedDatabase, columnCache, tab.sql]);
+  }, [preferences.autocomplete, selectedServer?.id, tab.databaseName, accountId, referencedTables, columnCache]);
 
   const diagnostics = useMemo(() => selectedServer ? analyzeSqlDocument(tab.sql, { engine, currentDatabase: tab.databaseName, databases, tableInfo: columnCache }) : [], [tab.sql, engine, tab.databaseName, databases, columnCache, selectedServer]);
   const diagnosticCounts = useMemo(() => ({ errors: diagnostics.filter(item => item.severity === 'error').length, warnings: diagnostics.filter(item => item.severity === 'warning').length, info: diagnostics.filter(item => item.severity === 'info').length }), [diagnostics]);
