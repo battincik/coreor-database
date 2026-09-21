@@ -1,5 +1,6 @@
 'use client';
 
+import type { QueryExecutionTimings } from 'types';
 import { migrateLegacyWorkspaceCollection, readWorkspaceCollection, writeWorkspaceCollection } from '@/lib/nativeWorkspaceStore';
 
 export type ActivityLevel = 'info' | 'success' | 'warning' | 'error' | 'sql';
@@ -20,6 +21,7 @@ export interface ActivityEntry {
   sql: string;
   parameters?: unknown[];
   durationMs?: number;
+  timings?: QueryExecutionTimings;
   rowCount?: number;
   affectedRows?: number;
   errorCode?: string;
