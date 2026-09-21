@@ -401,10 +401,20 @@ impl QueryExecutionMode {
     }
 }
 
+fn set_timing(result: &mut Value, key: &str, value: Value) {
+    let Some(object) = result.as_object_mut() else { return };
+    let timings = object.entry("timings".to_string()).or_insert_with(|| json!({}));
+    if !timings.is_object() { *timings = json!({}); }
+    if let Some(timings) = timings.as_object_mut() {
+        timings.insert(key.to_string(), value);
+    }
+}
+
 async fn finish_mysql_result<P>(
     mut result: mysql_async::QueryResult<'_, '_, P>,
     returns_rows: bool,
     limit: usize,
+    query_round_trip_ms: f64,
 ) -> Result<Value, String>
 where
     P: MySqlProtocol + Unpin,
@@ -412,6 +422,7 @@ where
     let affected_rows = result.affected_rows();
     let insert_id = result.last_insert_id();
     let warning_status = result.warnings();
+    let fetch_started = Instant::now();
     let rows = if returns_rows {
         let rows: Vec<MySqlRow> = result.collect().await.map_err(|error| error.to_string())?;
         rows.into_iter().take(limit).map(mysql_row).collect::<Vec<_>>()
@@ -419,12 +430,15 @@ where
         Vec::new()
     };
     result.drop_result().await.map_err(|error| error.to_string())?;
-    Ok(json!({
+    let mut response = json!({
         "rows": rows,
         "affectedRows": affected_rows,
         "insertId": insert_id,
         "warningStatus": warning_status
-    }))
+    });
+    set_timing(&mut response, "queryRoundTripMs", json!(query_round_trip_ms));
+    set_timing(&mut response, "fetchDecodeMs", json!(elapsed_ms(fetch_started)));
+    Ok(response)
 }
 
 async fn execute_mysql(
@@ -436,12 +450,16 @@ async fn execute_mysql(
     let row_result = returns_rows(sql);
     match mode {
         QueryExecutionMode::Text => {
+            let query_started = Instant::now();
             let result = connection.query_iter(sql).await.map_err(|error| error.to_string())?;
-            finish_mysql_result(result, row_result, limit).await
+            let query_round_trip_ms = elapsed_ms(query_started);
+            finish_mysql_result(result, row_result, limit, query_round_trip_ms).await
         }
         QueryExecutionMode::Prepared => {
+            let query_started = Instant::now();
             let result = connection.exec_iter(sql, ()).await.map_err(|error| error.to_string())?;
-            finish_mysql_result(result, row_result, limit).await
+            let query_round_trip_ms = elapsed_ms(query_started);
+            finish_mysql_result(result, row_result, limit, query_round_trip_ms).await
         }
     }
 }
@@ -492,9 +510,27 @@ pub async fn execute_sql_mode(
     limit: usize,
     mode: QueryExecutionMode,
 ) -> Result<Value,String> {
-    let mut conn=open_native(c,database).await?;
+    let native_started = Instant::now();
+    let (mut conn, acquire) = open_native_timed(c,database).await?;
     if c.read_only && is_mutating(sql) { return Err("Bu bağlantı salt okunur modda.".into()); }
-    execute_on_mode(&mut conn,sql,limit,mode).await
+    let mut response = execute_on_mode(&mut conn,sql,limit,mode).await?;
+    set_timing(&mut response, "acquireMs", json!(acquire.acquire_ms));
+    set_timing(&mut response, "nativeTotalMs", json!(elapsed_ms(native_started)));
+    set_timing(&mut response, "pooled", json!(acquire.pooled));
+    set_timing(&mut response, "poolReused", json!(acquire.reused));
+    if let Some(tls) = acquire.tls {
+        set_timing(&mut response, "tls", json!(tls));
+    }
+    if let Some(pool) = acquire.pool {
+        set_timing(&mut response, "pool", json!({
+            "total": pool.total,
+            "idle": pool.idle,
+            "inUse": pool.in_use,
+            "waiters": pool.waiters,
+            "createFailed": pool.create_failed
+        }));
+    }
+    Ok(response)
 }
 
 pub async fn execute_sql(c: &Connection, sql: &str, database: Option<&str>, limit: usize) -> Result<Value,String> {
