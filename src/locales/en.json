@@ -401,7 +401,8 @@
     "poolConnectionsBeforeTest": "Coreor supports up to {appMax} pooled connections. Test the connection to discover the server limit.",
     "connectionTestRequired": "Test the connection successfully before saving this server profile.",
     "connectionCapacityDetail": "Server limit {serverMax}; selected pool {selected}; allowed profile maximum {cap}.",
-    "connectionCapacityUnavailable": "The server connection limit could not be detected. Coreor's application limit still applies."
+    "connectionCapacityUnavailable": "The server connection limit could not be detected. Coreor's application limit still applies.",
+    "serverConnectionCapacity": "Server max_connections: {serverMax}."
   },
   "database": {
     "bufferPool": "Buffer pool",
