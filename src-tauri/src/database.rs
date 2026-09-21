@@ -1,11 +1,11 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-use mysql_async::{consts::{ColumnFlags as MySqlColumnFlags, ColumnType as MySqlColumnType}, prelude::{Protocol as MySqlProtocol, Queryable}, Column as MySqlColumn, Conn as MySqlConnection, OptsBuilder as MySqlOptsBuilder, Row as MySqlRow, SslOpts as MySqlSslOpts, Value as MySqlValue};
+use mysql_async::{consts::{ColumnFlags as MySqlColumnFlags, ColumnType as MySqlColumnType}, prelude::{Protocol as MySqlProtocol, Queryable}, Column as MySqlColumn, Conn as MySqlConnection, OptsBuilder as MySqlOptsBuilder, Pool as MySqlPool, PoolConstraints as MySqlPoolConstraints, PoolOpts as MySqlPoolOpts, Row as MySqlRow, SslOpts as MySqlSslOpts, Value as MySqlValue};
 use sqlx::{Column, Connection as SqlxConnection, Row};
-use std::time::{Duration, Instant};
+use std::{collections::HashMap, sync::{atomic::Ordering, OnceLock}, time::{Duration, Instant}};
 use tiberius::{AuthMethod, Client, Config, EncryptionLevel};
-use tokio::net::TcpStream;
+use tokio::{net::TcpStream, sync::Mutex as AsyncMutex};
 use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 
 pub type MssqlClient = Client<Compat<TcpStream>>;
@@ -51,8 +51,79 @@ pub enum NativeConnection {
 fn is_pg(engine: &str) -> bool { matches!(engine, "postgresql" | "cockroachdb") }
 fn is_mssql(engine: &str) -> bool { engine == "mssql" }
 
+
+#[derive(Clone)]
+struct MySqlPoolEntry {
+    fingerprint: String,
+    pool: MySqlPool,
+    tls: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct MySqlPoolSnapshot {
+    total: usize,
+    idle: usize,
+    in_use: usize,
+    waiters: usize,
+    create_failed: usize,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct ConnectionAcquireMetrics {
+    acquire_ms: f64,
+    pooled: bool,
+    reused: bool,
+    tls: Option<bool>,
+    pool: Option<MySqlPoolSnapshot>,
+}
+
+static MYSQL_POOLS: OnceLock<AsyncMutex<HashMap<String, MySqlPoolEntry>>> = OnceLock::new();
+
+fn elapsed_ms(started: Instant) -> f64 {
+    started.elapsed().as_secs_f64() * 1000.0
+}
+
+fn mysql_pool_registry() -> &'static AsyncMutex<HashMap<String, MySqlPoolEntry>> {
+    MYSQL_POOLS.get_or_init(|| AsyncMutex::new(HashMap::new()))
+}
+
+fn mysql_pool_key(c: &Connection, database: Option<&str>) -> String {
+    let database = database.or(c.database.as_deref()).unwrap_or("");
+    let identity = c.server_id.as_deref()
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| format!("{}:{}:{}", c.host, c.port, c.username));
+    format!("{identity}\0{database}")
+}
+
+fn mysql_pool_fingerprint(c: &Connection, database: Option<&str>) -> String {
+    let database = database.or(c.database.as_deref()).unwrap_or("");
+    let raw = format!(
+        "{}\0{}\0{}\0{}\0{}\0{}",
+        c.host, c.port, c.username, c.password, database, c.ssl_mode
+    );
+    let digest = ring::digest::digest(&ring::digest::SHA256, raw.as_bytes());
+    digest.as_ref().iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn mysql_pool_snapshot(pool: &MySqlPool) -> MySqlPoolSnapshot {
+    let metrics = pool.metrics();
+    MySqlPoolSnapshot {
+        total: metrics.connection_count.load(Ordering::Relaxed),
+        idle: metrics.connections_in_pool.load(Ordering::Relaxed),
+        in_use: metrics.connections_in_use.load(Ordering::Relaxed),
+        waiters: metrics.active_wait_requests.load(Ordering::Relaxed),
+        create_failed: metrics.create_failed.load(Ordering::Relaxed),
+    }
+}
+
 fn mysql_opts(c: &Connection, database: Option<&str>, tls: bool) -> MySqlOptsBuilder {
     let db = database.or(c.database.as_deref()).filter(|value| !value.is_empty()).map(ToOwned::to_owned);
+    let pool_opts = MySqlPoolOpts::default()
+        .with_constraints(MySqlPoolConstraints::new(0, 6).expect("geçerli MySQL pool sınırları"))
+        .with_inactive_connection_ttl(Duration::from_secs(180))
+        .with_ttl_check_interval(Duration::from_secs(30))
+        .with_reset_connection(true);
     let mut opts = MySqlOptsBuilder::default()
         .ip_or_hostname(c.host.clone())
         .tcp_port(c.port)
@@ -60,6 +131,9 @@ fn mysql_opts(c: &Connection, database: Option<&str>, tls: bool) -> MySqlOptsBui
         .pass(Some(c.password.clone()))
         .db_name(db)
         .prefer_socket(false)
+        .tcp_keepalive(Some(Duration::from_secs(30)))
+        .tcp_nodelay(true)
+        .pool_opts(pool_opts)
         .stmt_cache_size(Some(128));
     if tls {
         opts = opts.ssl_opts(Some(MySqlSslOpts::default()));
@@ -67,27 +141,103 @@ fn mysql_opts(c: &Connection, database: Option<&str>, tls: bool) -> MySqlOptsBui
     opts
 }
 
-async fn connect_mysql_once(c: &Connection, database: Option<&str>, tls: bool) -> Result<MySqlConnection, String> {
-    tokio::time::timeout(
-        Duration::from_millis(c.connect_timeout_ms),
-        MySqlConnection::new(mysql_opts(c, database, tls)),
-    )
-    .await
-    .map_err(|_| "MySQL bağlantısı zaman aşımına uğradı.".to_string())?
-    .map_err(|error| error.to_string())
+fn new_mysql_pool(c: &Connection, database: Option<&str>, tls: bool) -> MySqlPoolEntry {
+    MySqlPoolEntry {
+        fingerprint: mysql_pool_fingerprint(c, database),
+        pool: MySqlPool::new(mysql_opts(c, database, tls)),
+        tls,
+    }
 }
 
-async fn open_mysql(c: &Connection, database: Option<&str>) -> Result<MySqlConnection, String> {
-    match c.ssl_mode.as_str() {
-        "disabled" => connect_mysql_once(c, database, false).await,
-        "preferred" => match connect_mysql_once(c, database, true).await {
-            Ok(connection) => Ok(connection),
-            Err(tls_error) => connect_mysql_once(c, database, false)
-                .await
-                .map_err(|plain_error| format!("TLS bağlantısı başarısız ({tls_error}); şifresiz bağlantı denemesi de başarısız ({plain_error}).")),
-        },
-        _ => connect_mysql_once(c, database, true).await,
+async fn install_mysql_pool(c: &Connection, database: Option<&str>, tls: bool) -> MySqlPoolEntry {
+    let key = mysql_pool_key(c, database);
+    let entry = new_mysql_pool(c, database, tls);
+    let previous = {
+        let mut pools = mysql_pool_registry().lock().await;
+        pools.insert(key, entry.clone())
+    };
+    if let Some(previous) = previous {
+        let old_pool = previous.pool;
+        tokio::spawn(async move {
+            let _ = old_pool.disconnect().await;
+        });
     }
+    entry
+}
+
+async fn cached_mysql_pool(c: &Connection, database: Option<&str>) -> Option<MySqlPoolEntry> {
+    let key = mysql_pool_key(c, database);
+    let fingerprint = mysql_pool_fingerprint(c, database);
+    let mut pools = mysql_pool_registry().lock().await;
+    if pools.get(&key).map(|entry| entry.fingerprint.as_str()) == Some(fingerprint.as_str()) {
+        return pools.get(&key).cloned();
+    }
+    let stale = pools.remove(&key);
+    drop(pools);
+    if let Some(stale) = stale {
+        tokio::spawn(async move {
+            let _ = stale.pool.disconnect().await;
+        });
+    }
+    None
+}
+
+async fn acquire_mysql_pool_connection(
+    entry: &MySqlPoolEntry,
+    timeout_ms: u64,
+) -> Result<(MySqlConnection, bool, MySqlPoolSnapshot), String> {
+    let before = mysql_pool_snapshot(&entry.pool);
+    let reused = before.idle > 0;
+    let connection = tokio::time::timeout(
+        Duration::from_millis(timeout_ms),
+        entry.pool.get_conn(),
+    )
+    .await
+    .map_err(|_| "MySQL bağlantı havuzu zaman aşımına uğradı.".to_string())?
+    .map_err(|error| error.to_string())?;
+    Ok((connection, reused, mysql_pool_snapshot(&entry.pool)))
+}
+
+async fn open_mysql(c: &Connection, database: Option<&str>) -> Result<(MySqlConnection, ConnectionAcquireMetrics), String> {
+    let started = Instant::now();
+    let initial_tls = c.ssl_mode.as_str() != "disabled";
+    let mut entry = match cached_mysql_pool(c, database).await {
+        Some(entry) => entry,
+        None => install_mysql_pool(c, database, initial_tls).await,
+    };
+
+    let first = acquire_mysql_pool_connection(&entry, c.connect_timeout_ms).await;
+    let (connection, reused, snapshot) = match first {
+        Ok(value) => value,
+        Err(first_error) => {
+            // Stale/broken pooled connections are replaced once before surfacing an error.
+            entry = install_mysql_pool(c, database, entry.tls).await;
+            match acquire_mysql_pool_connection(&entry, c.connect_timeout_ms).await {
+                Ok(value) => value,
+                Err(second_error) if c.ssl_mode == "preferred" && entry.tls => {
+                    // Preferred TLS resolves once per pool. If TLS is unavailable, cache the plain pool
+                    // instead of paying a failed TLS handshake on every query.
+                    entry = install_mysql_pool(c, database, false).await;
+                    acquire_mysql_pool_connection(&entry, c.connect_timeout_ms).await
+                        .map_err(|plain_error| format!(
+                            "TLS bağlantısı başarısız ({first_error}; {second_error}); şifresiz bağlantı denemesi de başarısız ({plain_error})."
+                        ))?
+                }
+                Err(second_error) => return Err(format!("{first_error}; yeniden bağlanma başarısız: {second_error}")),
+            }
+        }
+    };
+
+    Ok((
+        connection,
+        ConnectionAcquireMetrics {
+            acquire_ms: elapsed_ms(started),
+            pooled: true,
+            reused,
+            tls: Some(entry.tls),
+            pool: Some(snapshot),
+        },
+    ))
 }
 
 fn postgres_url(c: &Connection, database: Option<&str>) -> String {
@@ -96,7 +246,8 @@ fn postgres_url(c: &Connection, database: Option<&str>) -> String {
     format!("postgres://{}:{}@{}:{}/{}?sslmode={}", urlencoding::encode(&c.username), urlencoding::encode(&c.password), c.host, c.port, db, ssl)
 }
 
-pub async fn open_native(c: &Connection, database: Option<&str>) -> Result<NativeConnection, String> {
+async fn open_native_timed(c: &Connection, database: Option<&str>) -> Result<(NativeConnection, ConnectionAcquireMetrics), String> {
+    let started = Instant::now();
     if is_mssql(&c.engine) {
         let mut cfg = Config::new();
         cfg.host(&c.host);
@@ -108,15 +259,19 @@ pub async fn open_native(c: &Connection, database: Option<&str>) -> Result<Nativ
             .await.map_err(|_| "MSSQL bağlantısı zaman aşımına uğradı.".to_string())?.map_err(|e| e.to_string())?;
         tcp.set_nodelay(true).map_err(|e| e.to_string())?;
         let client = Client::connect(cfg, tcp.compat_write()).await.map_err(|e| e.to_string())?;
-        return Ok(NativeConnection::Mssql(client));
+        return Ok((NativeConnection::Mssql(client), ConnectionAcquireMetrics { acquire_ms: elapsed_ms(started), ..Default::default() }));
     }
     if is_pg(&c.engine) {
         let conn = tokio::time::timeout(Duration::from_millis(c.connect_timeout_ms), sqlx::PgConnection::connect(&postgres_url(c, database)))
             .await.map_err(|_| "PostgreSQL bağlantısı zaman aşımına uğradı.".to_string())?.map_err(|e| e.to_string())?;
-        return Ok(NativeConnection::Postgres(conn));
+        return Ok((NativeConnection::Postgres(conn), ConnectionAcquireMetrics { acquire_ms: elapsed_ms(started), ..Default::default() }));
     }
-    let conn = open_mysql(c, database).await?;
-    Ok(NativeConnection::MySql(conn))
+    let (conn, metrics) = open_mysql(c, database).await?;
+    Ok((NativeConnection::MySql(conn), metrics))
+}
+
+pub async fn open_native(c: &Connection, database: Option<&str>) -> Result<NativeConnection, String> {
+    open_native_timed(c, database).await.map(|(connection, _)| connection)
 }
 
 fn mysql_bytes_value(bytes: &[u8], column: &MySqlColumn) -> Value {
