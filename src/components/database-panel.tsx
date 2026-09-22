@@ -370,7 +370,7 @@ export function DatabasePanel({
       { id: 'sep', separator: true },
       { id: 'copy', label: t('panel.copyDatabaseName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(databaseName) },
       { id: 'copy-quoted', label: t('panel.copyQuotedDatabase'), icon: Code, onSelect: () => navigator.clipboard.writeText(quoteSqlIdentifier(databaseName)) },
-      { id: 'refresh', label: t('panel.refreshCatalog'), icon: RefreshCw, onSelect: () => void loadCatalog() }
+      { id: 'refresh', label: t('sidebar.refreshCatalog'), icon: RefreshCw, onSelect: () => void loadCatalog() }
     ], databaseName);
   };
 
@@ -395,9 +395,9 @@ export function DatabasePanel({
       { id: 'insert', label: t('panel.addRow'), icon: Plus, disabled: Boolean(activeServer?.readOnly), onSelect: () => { setPendingInsertTarget({ databaseName, tableName }); handleTableSelect(databaseName, tableName, 'data'); } },
       { id: 'delete', label: 'DELETE taslağı', icon: Trash2, danger: true, onSelect: () => { createQueryTab({ databaseName, title: `${tableName} DELETE`, sql: `-- ${t('panel.deleteDraftWarning')}\nDELETE FROM ${table}\nWHERE \`primary_key\` = 0\nLIMIT 1;` }); } },
       { id: 'copy', label: t('common.copy'), icon: Copy, children: [
-        { id: 'copy-name', label: t('panel.tableName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(tableName) },
-        { id: 'copy-qualified', label: t('panel.fullTableName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(table) },
-        { id: 'copy-select', label: 'SELECT taslağı', icon: Code, onSelect: () => navigator.clipboard.writeText(`SELECT * FROM ${table}\nLIMIT 100;`) }
+        { id: 'copy-name', label: t('sidebar.menu.tableName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(tableName) },
+        { id: 'copy-qualified', label: t('sidebar.menu.fullTableName'), icon: Copy, onSelect: () => navigator.clipboard.writeText(table) },
+        { id: 'copy-select', label: t('sidebar.menu.selectDraft'), icon: Code, onSelect: () => navigator.clipboard.writeText(`SELECT * FROM ${table}\nLIMIT 100;`) }
       ] }
     ], `${databaseName}.${tableName}`);
   };
