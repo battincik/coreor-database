@@ -47,9 +47,9 @@ Notable changes to Coreor Database are tracked here.
 Prepare release versions with:
 
 ```bash
-npm run version:prepare X.Y.Z
+npm run version:prepare YY.M.RELEASE
 ```
 
-The command synchronizes the npm, Cargo, Tauri and UI version sources, updates both lockfiles, and moves the current Unreleased notes into the new release section. Review the generated diff before creating the Git tag/GitHub Release.
+The command synchronizes the npm, Cargo, Tauri and UI version sources, updates both lockfiles, and moves the current Unreleased notes into the new release section. Coreor versions use `YY.M.RELEASE` (for example `26.9.1`). Review the generated diff before creating the Git tag/GitHub Release.
 
 See [RELEASING.md](RELEASING.md).
