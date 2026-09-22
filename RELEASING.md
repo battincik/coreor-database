@@ -12,6 +12,32 @@ Keep these versions synchronized:
 - `src-tauri/tauri.conf.json`
 - `CHANGELOG.md`
 
+## Prepare the version
+
+Use the version preparation command instead of editing release files by hand:
+
+```bash
+npm run version:prepare 3.1.1
+```
+
+The command requires a stable SemVer version greater than the current version and updates these files atomically after validating that the existing versions are synchronized:
+
+- `package.json`
+- `package-lock.json`
+- `src-tauri/Cargo.toml`
+- `src-tauri/Cargo.lock`
+- `src-tauri/tauri.conf.json`
+- `src/lib/appVersion.ts`
+- `CHANGELOG.md`
+
+It moves the current `Unreleased` changelog entries under the new release version and leaves a fresh `Unreleased` section for subsequent work. An optional release date override is available when needed:
+
+```bash
+npm run version:prepare 3.1.1 -- --date=2026-09-22
+```
+
+Review the resulting diff before running the release workflow. Do not rerun the command for the same version; prepare a newer patch version instead.
+
 ## Validation
 
 From a clean checkout:
@@ -64,7 +90,7 @@ Signing secrets belong in protected CI/release secret stores, never in the repos
 ## Release flow
 
 1. Select a reviewed clean commit.
-2. Update versions and changelog.
+2. Run `npm run version:prepare X.Y.Z` and review the generated version/changelog diff.
 3. Run `npm ci && npm run check`.
 4. Verify cross-platform CI.
 5. Build platform bundles.
