@@ -107,7 +107,7 @@ changes.set('src-tauri/Cargo.toml', cargoToml);
 let cargoLock = read('src-tauri/Cargo.lock');
 cargoLock = replaceRequired(
   cargoLock,
-  /(\[\[package\]\]\nname = "coreor-database"\nversion = ")([^"]+)(")/,
+  /(\[\[package\]\]\r?\nname = "coreor-database"\r?\nversion = ")([^"]+)(")/,
   (_match, before, version, after) => {
     if (version !== currentVersion) fail(`Cargo.lock coreor-database version ${version} does not match package.json ${currentVersion}.`);
     return `${before}${targetVersion}${after}`;
@@ -139,10 +139,11 @@ let changelog = read('CHANGELOG.md');
 if (changelog.includes(`## [${targetVersion}]`)) {
   fail(`CHANGELOG.md already contains a ${targetVersion} release section.`);
 }
+const changelogEol = changelog.includes('\r\n') ? '\r\n' : '\n';
 changelog = replaceRequired(
   changelog,
-  /## \[Unreleased\]\n/,
-  `## [Unreleased]\n\n## [${targetVersion}] - ${releaseDate}\n`,
+  /## \[Unreleased\]\r?\n/,
+  `## [Unreleased]${changelogEol}${changelogEol}## [${targetVersion}] - ${releaseDate}${changelogEol}`,
   'CHANGELOG.md Unreleased section'
 );
 changes.set('CHANGELOG.md', changelog);
