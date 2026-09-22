@@ -1,5 +1,5 @@
 [package]
-name = "coreor-databas"
+name = "coreor-database"
 version = "26.9.1"
 description = "Cross-platform local-first database client"
 authors = ["Coreor Database contributors"]
