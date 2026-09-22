@@ -42,14 +42,14 @@ export function SettingsSidebar({ activeTab }: { activeTab?: string }) {
           <div className="flex min-w-0 items-center gap-2">
             <Settings className="h-4 w-4 text-emerald-400" />
             <div>
-              <h2 className="text-sm font-semibold">{t('settings', 'Ayarlar')}</h2>
+              <h2 className="text-sm font-semibold">{t('app.settings')}</h2>
               <p className="text-[10px] text-muted-foreground">{t('settingsSidebar.subtitle')}</p>
             </div>
           </div>
         </div>
 
         <div className="relative mt-2">
-          <Input placeholder={`${t('search', 'Ara')}…`} value={searchQuery} onChange={event => setSearchQuery(event.target.value)} className="h-8 pr-8 text-xs" />
+          <Input placeholder={`${t('common.search')}…`} value={searchQuery} onChange={event => setSearchQuery(event.target.value)} className="h-8 pr-8 text-xs" />
           <Search className="absolute right-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
         </div>
       </div>
