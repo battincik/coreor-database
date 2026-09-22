@@ -29,7 +29,7 @@ Bu liste ilk dağıtılacak masaüstü sürümü içindir. İlk hedef sürüm `v
 ## 3. Güncelleme
 
 - [ ] Public repo ve yayımlanmış stable GitHub Release tokensız erişilebilir.
-- [ ] Kalıcı updater signing key bakımcı tarafından oluşturuldu, güvenli yedeklendi; public variable/private secrets ayarlandı.
+- [x] Kalıcı updater signing key oluşturuldu (`D:\\Secure\\Coreor\\coreor-updater.key`), public key ayrıldı ve GitHub Actions public variable/private secrets yapılandırıldı.
 - [ ] İmzalı N → N+1 güncellemesi gerçek kurulu uygulamada denendi; veriler, profiller, ayarlar ve sekmeler korundu.
 - [ ] Kontrol açılışta ve seçilen aralıkta çalışıyor; tek seferde tek kontrol yapılıyor.
 - [ ] Private/404/offline/timeout açılışı engellemiyor; yeni sürüm yoksa icon çıkmıyor.
