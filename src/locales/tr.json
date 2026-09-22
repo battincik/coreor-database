@@ -3213,5 +3213,31 @@
         "description": "Transaction ve doğrulama SELECTi içeren yazma şablonu."
       }
     }
+  },
+  "updates": {
+    "settingsTitle": "Güncellemeler ve hata raporlama",
+    "reporting": "Uygulama hatalarını otomatik bildir",
+    "reportingDescription": "Uygulama hataları Coreor’a gönderilir. SQL, parolalar ve sorgu sonuçları gönderilmez. Kapalıyken error.log tutulmaya devam eder.",
+    "interval": "Güncelleme kontrol aralığı",
+    "minutes": "{count} dakika",
+    "idle": "Uygulama güncel",
+    "checking": "Güncellemeler kontrol ediliyor…",
+    "available": "Yeni sürüm hazır",
+    "downloading": "Güncelleme indiriliyor…",
+    "installing": "Güncelleme kuruluyor, uygulama yeniden açılacak…",
+    "error": "Güncelleme kontrol edilemedi",
+    "disabled": "Güncelleyici devre dışı",
+    "devDisabled": "Geliştirme derlemesinde güncelleme ve uzaktan hata gönderimi kapalıdır. Yerel günlük açıktır.",
+    "keyMissing": "Bu derlemede güncelleme imza anahtarı yapılandırılmamış.",
+    "checkNow": "Şimdi kontrol et",
+    "install": "{version} sürümüne güncelle ve yeniden başlat",
+    "busy": "Aktif iş veya kaydedilmemiş değişiklik var. İşleri tamamlayıp tekrar deneyin.",
+    "settingsError": "Ayar okunamadı veya kaydedilemedi. Tekrar deneyin.",
+    "errors": {
+      "check": "GitHub sürüm bilgisine ulaşılamadı. Mevcut sürümü kullanmaya devam edebilirsiniz.",
+      "busy": "Aktif işlem veya kaydedilmemiş değişiklik var. Tamamlayıp yeniden deneyin.",
+      "transaction": "Açık transaction var. Commit veya rollback yaptıktan sonra yeniden deneyin.",
+      "install": "Güncelleme yüklenemedi. Mevcut sürüm korundu; tekrar deneyebilirsiniz."
+    }
   }
 }

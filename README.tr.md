@@ -119,3 +119,7 @@ Gerçek DB şifrelerini, private key'leri, access token'ları veya production ve
 ## Lisans
 
 Coreor Database [Apache License 2.0](LICENSE) altında hazırlanmıştır. Ek bilgi için [NOTICE](NOTICE) ve [docs/LICENSE_GUIDE.md](docs/LICENSE_GUIDE.md) dosyalarına bakın.
+
+### Güncellemeler ve tanılama
+
+Üretim sürümlerinde uygulama hata raporlaması varsayılan açıktır; Ayarlar → Gelişmiş üzerinden kapatılabilir. Ham SQL, parolalar ve sonuç verileri raporlanmaz. Yerel `error.log` ayrı tutulur. İmzalı GitHub Releases güncellemeleri başlangıçta ve seçilen aralıkta kontrol edilir; aktif işler ve açık transaction sırasında kurulum engellenir. Dev derlemeleri güncellemeyi ve uzaktan raporlamayı atlar. [Ayrıntılar ve API sözleşmesi](docs/APP_LIFECYCLE.tr.md) · [İlk sürüm kontrol listesi](docs/FIRST_RELEASE_CHECKLIST.tr.md).

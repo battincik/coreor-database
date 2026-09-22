@@ -1,4 +1,5 @@
 'use client';
+import { useTrackedBusy } from '@/lib/useUpdateActivity';
 
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -124,7 +125,7 @@ export function DatabaseMaintenanceModal({
   const [scope, setScope] = useState<'database' | 'table'>(initialTable ? 'table' : 'database');
   const [tableName, setTableName] = useState(initialTable || '');
   const [operations, setOperations] = useState<DatabaseMaintenanceOperation[]>([]);
-  const [running, setRunning] = useState(false);
+  const [running, setRunning] = useTrackedBusy();
   const [cancelRequested, setCancelRequested] = useState(false);
   const [overall, setOverall] = useState({ completed: 0, total: 0, success: 0, failed: 0 });
   const [tableProgress, setTableProgress] = useState<Record<string, TableProgress>>({});

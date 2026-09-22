@@ -40,6 +40,7 @@ export interface AppPreferences {
   liveNotifications: boolean;
   performanceRefreshSeconds: PerformanceRefreshSeconds;
   developerToolsEnabled: boolean;
+  updateCheckMinutes: number;
   activityLogLimit: ActivityLogLimit;
   activityLogPersistToDisk: boolean;
   activityLogErrors: boolean;
@@ -61,6 +62,7 @@ const DEFAULTS: AppPreferences = {
   queryResultLimit: 5000, importBatchSize: 250, rememberPanelSizes: true, rememberQueryWorkspace: true,
   defaultReadOnlyConnections: false, liveNotifications: true, performanceRefreshSeconds: 10,
   developerToolsEnabled: false,
+  updateCheckMinutes: 60,
   activityLogLimit: 1000,
   activityLogPersistToDisk: false,
   activityLogErrors: true,
@@ -101,7 +103,8 @@ function normalize(value: Partial<AppPreferences> | null | undefined): AppPrefer
     queryResultLimit: Math.trunc(clamp(source.queryResultLimit, DEFAULTS.queryResultLimit, 100, 50000)),
     importBatchSize: Math.trunc(clamp(source.importBatchSize, DEFAULTS.importBatchSize, 25, 1000)),
     performanceRefreshSeconds: normalizeRefresh(source.performanceRefreshSeconds),
-    activityLogLimit: normalizeActivityLogLimit(source.activityLogLimit)
+    activityLogLimit: normalizeActivityLogLimit(source.activityLogLimit),
+    updateCheckMinutes: [15, 30, 60, 120, 240].includes(Number(source.updateCheckMinutes)) ? Number(source.updateCheckMinutes) : 60
   };
 }
 

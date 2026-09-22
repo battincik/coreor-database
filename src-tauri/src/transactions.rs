@@ -126,3 +126,8 @@ pub async fn handle(request:DatabaseRequest,store:&TransactionStore,max_rows:usi
         _=>Err("Desteklenmeyen transaction action.".into())
     }
 }
+
+/// Do not expire/rollback user transactions as a side effect of an update.
+pub async fn has_open_transactions(store: &TransactionStore) -> bool {
+    !store.0.lock().await.is_empty()
+}

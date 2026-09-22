@@ -3213,5 +3213,31 @@
         "description": "Write template with a transaction and validation SELECT."
       }
     }
+  },
+  "updates": {
+    "settingsTitle": "Updates and error reporting",
+    "reporting": "Automatically report application errors",
+    "reportingDescription": "Application errors are sent to Coreor. SQL, passwords and query results are excluded. Local error.log remains enabled when reporting is off.",
+    "interval": "Update check interval",
+    "minutes": "{count} minutes",
+    "idle": "Application is up to date",
+    "checking": "Checking for updates…",
+    "available": "Update available",
+    "downloading": "Downloading update…",
+    "installing": "Installing update; the application will restart…",
+    "error": "Unable to check for updates",
+    "disabled": "Updater disabled",
+    "devDisabled": "Development builds disable updates and remote error reporting. Local logging stays enabled.",
+    "keyMissing": "No update signing public key is configured for this build.",
+    "checkNow": "Check now",
+    "install": "Update to {version} and restart",
+    "busy": "Active work or unsaved changes. Finish your work and try again.",
+    "settingsError": "Unable to read or save the setting. Please retry.",
+    "errors": {
+      "check": "Unable to reach GitHub releases. You can continue using this version.",
+      "busy": "Active work or unsaved changes. Finish your work and try again.",
+      "transaction": "An open transaction exists. Commit or roll back before retrying.",
+      "install": "Update failed. The current version is preserved; you can retry."
+    }
   }
 }

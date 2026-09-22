@@ -1,5 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 'use client';
+import { useUpdateBlocker } from '@/lib/useUpdateActivity';
+import { updateActivity } from '@/lib/updateActivity';
 
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -115,6 +117,7 @@ export function DatabasePanel({
   const [tableInfoLoading, setTableInfoLoading] = useState(false);
   const [tableInfoError, setTableInfoError] = useState<string | null>(null);
   const [queryTabs, setQueryTabs] = useState<EditorQueryTab[]>([]);
+  useUpdateBlocker(queryTabs.some(tab => tab.isRunning) || (!preferences.rememberQueryWorkspace && queryTabs.some(tab => tab.sql.trim().length > 0)));
   const [renameQueryTab, setRenameQueryTab] = useState<EditorQueryTab | null>(null);
   const [pendingInsertTarget, setPendingInsertTarget] = useState<{ databaseName: string; tableName: string } | null>(null);
   const queryTabsHydrated = useRef(false);
@@ -250,14 +253,15 @@ export function DatabasePanel({
       return;
     }
 
+    const release = updateActivity.block();
     const timer = window.setTimeout(() => {
-      void writeWorkspaceCollection('query-tabs', 'global', serializableQueryTabs(queryTabs));
+      void writeWorkspaceCollection('query-tabs', 'global', serializableQueryTabs(queryTabs)).then(release, () => { /* Keep blocked until the next successful save. */ });
       try {
         if (activeTab.startsWith('query:')) window.localStorage.setItem(QUERY_ACTIVE_TAB_STORAGE_KEY, activeTab);
         else window.localStorage.removeItem(QUERY_ACTIVE_TAB_STORAGE_KEY);
       } catch { /* active tab persistence is optional */ }
     }, 500);
-    return () => window.clearTimeout(timer);
+    return () => { window.clearTimeout(timer); release(); };
   }, [queryTabs, activeTab, preferences.rememberQueryWorkspace]);
 
   useEffect(() => {

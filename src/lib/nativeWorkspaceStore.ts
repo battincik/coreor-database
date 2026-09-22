@@ -7,6 +7,8 @@ import {
   type SyncableWorkspaceCollection
 } from '@/lib/desktopClient';
 
+import { updateActivity } from './updateActivity';
+
 type LegacyStorageKind = 'local' | 'session';
 
 const writeQueues = new Map<string, Promise<unknown>>();
@@ -20,6 +22,7 @@ export function readWorkspaceCollection<T>(collection: SyncableWorkspaceCollecti
 }
 
 export function writeWorkspaceCollection<T>(collection: SyncableWorkspaceCollection, scope: string, items: T[]) {
+  const release = updateActivity.begin();
   const key = queueKey(collection, scope);
   const previous = writeQueues.get(key) ?? Promise.resolve();
   const next = previous
@@ -27,9 +30,11 @@ export function writeWorkspaceCollection<T>(collection: SyncableWorkspaceCollect
     .then(() => writeNativeCollection<T>(collection, scope, items));
 
   writeQueues.set(key, next);
-  void next.finally(() => {
+  const finish = () => {
+    release();
     if (writeQueues.get(key) === next) writeQueues.delete(key);
-  });
+  };
+  void next.then(finish, finish);
   return next;
 }
 

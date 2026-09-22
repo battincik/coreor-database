@@ -69,3 +69,7 @@ Before a public release:
 - review third-party licenses,
 - validate Windows/macOS/Linux builds,
 - sign/notarize production artifacts when distribution begins.
+
+## Optional diagnostics and signed updates
+
+Production builds enable application error reporting by default, with a persisted native opt-out under Advanced settings. Only schema-defined diagnostic metadata is posted to `https://api.coreor.net/app/database/error-report`; SQL, results, connection credentials, raw messages and full stacks are excluded. Local error.log is independent. Debug builds do not send reports or update. GitHub release artifacts require the pinned public-key signature; no repository credential is embedded. See [lifecycle contract](docs/APP_LIFECYCLE.tr.md) for retention, rate limits and failure behavior.

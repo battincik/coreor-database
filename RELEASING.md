@@ -78,3 +78,7 @@ Do not move an already published tag; release a patch version instead.
 ## Private pre-release
 
 While the repository remains private, `.github/workflows/bundles.yml` can be triggered manually to validate artifacts without making the source repository public.
+
+## In-app signed updates
+
+See [app lifecycle and signing](docs/APP_LIFECYCLE.tr.md) and the [first desktop release checklist](docs/FIRST_RELEASE_CHECKLIST.tr.md). The manual `Signed release candidate` workflow builds signed updater assets into a draft release. Do not publish until all gates pass.
