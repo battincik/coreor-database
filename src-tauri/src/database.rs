@@ -669,6 +669,27 @@ fn literal(v:&Value,engine:&str)->String{
 }
 fn payload_str<'a>(p:&'a Map<String,Value>,key:&str)->Result<&'a str,String>{p.get(key).and_then(Value::as_str).ok_or_else(||format!("{} eksik.",key))}
 fn rows_of(v:&Value)->Vec<Value>{v.get("rows").and_then(Value::as_array).cloned().unwrap_or_default()}
+
+fn show_create_table_sql(rows: &[Value]) -> String {
+    rows.first()
+        .and_then(|row| row.get("Create Table"))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string()
+}
+
+#[cfg(test)]
+mod show_create_table_tests {
+    use super::show_create_table_sql;
+    use serde_json::json;
+
+    #[test]
+    fn reads_ddl_by_column_name_instead_of_json_key_order() {
+        let rows = vec![json!({"Table": "users", "Create Table": "CREATE TABLE `users` (`id` int)"})];
+        assert_eq!(show_create_table_sql(&rows), "CREATE TABLE `users` (`id` int)");
+        assert_eq!(show_create_table_sql(&[]), "");
+    }
+}
 fn append_object_rows(target:&mut Vec<Value>,rows:Vec<Value>,kind:&str){
     for row in rows {
         if let Some(mut object)=row.as_object().cloned() {
@@ -987,7 +1008,7 @@ async fn table_info(c:&Connection,p:&Map<String,Value>,max:usize)->Result<Value,
         let cols=format!("SELECT COLUMN_NAME AS Field,COLUMN_TYPE AS Type,IS_NULLABLE AS `Null`,COLUMN_KEY AS `Key`,COLUMN_DEFAULT AS `Default`,EXTRA AS Extra,COLUMN_COMMENT AS Comment,COLLATION_NAME AS Collation,ORDINAL_POSITION AS Ordinal_position,DATA_TYPE AS Data_type,CHARACTER_MAXIMUM_LENGTH AS Character_maximum_length,NUMERIC_PRECISION AS Numeric_precision,NUMERIC_SCALE AS Numeric_scale,DATETIME_PRECISION AS Datetime_precision,CHARACTER_SET_NAME AS Character_set_name,GENERATION_EXPRESSION AS Generation_expression FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='{}' AND TABLE_NAME='{}' ORDER BY ORDINAL_POSITION",escdb,esct);
         let idx=format!("SELECT INDEX_NAME AS Key_name,COLUMN_NAME AS Column_name,NON_UNIQUE AS Non_unique,SEQ_IN_INDEX AS Seq_in_index,INDEX_TYPE AS Index_type,COLLATION AS Collation,CARDINALITY AS Cardinality,SUB_PART AS Sub_part,NULLABLE AS Nullable,INDEX_COMMENT AS Index_comment,'YES' AS Is_visible,NULL AS Expression FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='{}' AND TABLE_NAME='{}' ORDER BY INDEX_NAME,SEQ_IN_INDEX",escdb,esct);
         let fks=format!("SELECT CONSTRAINT_NAME,COLUMN_NAME,ORDINAL_POSITION,REFERENCED_TABLE_SCHEMA,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA='{}' AND TABLE_NAME='{}' AND REFERENCED_TABLE_NAME IS NOT NULL",escdb,esct);
-        let create=format!("SHOW CREATE TABLE {}",qualified(db,table,&c.engine)?);let mut conn=open_native(c,Some(db)).await?;let columns=rows_of(&execute_on(&mut conn,&cols,max).await?);let indexes=rows_of(&execute_on(&mut conn,&idx,max).await.unwrap_or(json!({"rows":[]})));let foreign=rows_of(&execute_on(&mut conn,&fks,max).await.unwrap_or(json!({"rows":[]})));let cr=rows_of(&execute_on(&mut conn,&create,1).await.unwrap_or(json!({"rows":[]})));let create_sql=cr.first().and_then(Value::as_object).and_then(|o|o.values().last()).and_then(Value::as_str).unwrap_or("").to_string();
+        let create=format!("SHOW CREATE TABLE {}",qualified(db,table,&c.engine)?);let mut conn=open_native(c,Some(db)).await?;let columns=rows_of(&execute_on(&mut conn,&cols,max).await?);let indexes=rows_of(&execute_on(&mut conn,&idx,max).await.unwrap_or(json!({"rows":[]})));let foreign=rows_of(&execute_on(&mut conn,&fks,max).await.unwrap_or(json!({"rows":[]})));let cr=rows_of(&execute_on(&mut conn,&create,1).await.unwrap_or(json!({"rows":[]})));let create_sql=show_create_table_sql(&cr);
         return Ok(json!({"table":{"name":table,"comment":"","engine":c.engine,"collation":null,"charset":null,"autoIncrement":null,"rowFormat":null,"tableType":"BASE TABLE","createTime":null,"updateTime":null},"columns":columns,"indexes":indexes,"foreignKeys":foreign,"checkConstraints":[],"partitions":[],"createSQL":create_sql,"_meta":{"statements":[{"label":"Tablo yapısı","sql":cols}]}}))
     }
     let esc=table.replace("'","''");
