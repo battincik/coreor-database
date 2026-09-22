@@ -1,6 +1,6 @@
 # İlk masaüstü sürümü kontrol listesi
 
-Bu liste ilk dağıtılacak masaüstü sürümü içindir. Kaynak kodda mevcut sürüm 3.1.0'dır; 1.0.0'a düşürülmez. İşaretlenmeyen maddeler tamamlanmış sayılmaz.
+Bu liste ilk dağıtılacak masaüstü sürümü içindir. İlk hedef sürüm `v26.9.1`'dir ve Coreor Database sürümleri `YY.M.RELEASE` biçiminde ilerler. İşaretlenmeyen maddeler tamamlanmış sayılmaz.
 
 ## 1. Kod ve build kapıları
 
@@ -13,6 +13,7 @@ Bu liste ilk dağıtılacak masaüstü sürümü içindir. Kaynak kodda mevcut s
 - [ ] Windows, macOS ve Linux `cargo check --locked` ve native testlerinin CI'da geçmesi. Yerel Linux ortamında pkg-config/GTK eksik olduğu için doğrulanamadı. GitHub Actions denemesi de hiçbir job başlamadan startup_failure verdi; neden araç yanıtında belirtilmedi.
 - [ ] Rust 1.88 toolchain uyumu ve kilit dosyaları.
 - [ ] Temiz cihazlarda NSIS, macOS app/dmg ve Linux AppImage açılışı.
+- [ ] `npm run release:local:install` ile aynı production konfigürasyonunun yerel installer smoke testi tamamlandı.
 
 ## 2. Hata raporlama
 
