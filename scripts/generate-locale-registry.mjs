@@ -13,6 +13,10 @@ function identifier(code) {
   return first + parts.map(part => part.slice(0, 1).toUpperCase() + part.slice(1)).join('');
 }
 
+function normalizeTextForCheck(value) {
+  return value.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+}
+
 const entries = [];
 for (const name of (await readdir(localeDir)).filter(name => name.endsWith('.json')).sort()) {
   const code = name.slice(0, -5);
@@ -46,7 +50,7 @@ export type LocaleCode = keyof typeof LOCALE_MODULES;
 
 if (checkOnly) {
   const current = await readFile(outputPath, 'utf8').catch(() => '');
-  if (current !== output) {
+  if (normalizeTextForCheck(current) !== normalizeTextForCheck(output)) {
     console.error('Locale registry is stale. Run: npm run i18n:generate');
     console.error('Expected modern locales:', entries.map(entry => entry.code).join(', '));
     process.exit(1);
