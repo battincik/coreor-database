@@ -254,7 +254,7 @@ if (!publicKey) {
   fail(
     'COREOR_UPDATER_PUBLIC_KEY is required for a release build so the installed app can verify future updates. ' +
     'Set the environment variable, pass --public-key=<value>, or pass --public-key-file=<path>. ' +
-    'If your private key is D:\\Secure\\coreor-updater.key, the public key is normally D:\\Secure\\coreor-updater.key.pub.'
+    'If your private key is D:\\Secure\\Coreor\\coreor-updater.key, the public key is normally D:\\Secure\\Coreor\\coreor-updater.key.pub.'
   );
 }
 
@@ -373,7 +373,7 @@ if (!installAfterBuild) {
   info('');
   info('Install manually from the folder above, or run the install helper:');
   info('  npm run release:local:install -- --public-key-file=<path-to-public-key>');
-  info('  Example: npm run release:local:install -- --public-key-file="D:\\Secure\\coreor-updater.key.pub"');
+  info('  Example: npm run release:local:install -- --public-key-file="D:\\Secure\\Coreor\\coreor-updater.key.pub"');
   if (!signed) {
     info('');
     info('For N -> N+1 updater artifact testing later:');
