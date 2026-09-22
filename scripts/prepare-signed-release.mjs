@@ -30,8 +30,8 @@ if (!process.env.COREOR_UPDATER_PUBLIC_KEY?.trim() || !process.env.TAURI_SIGNING
   throw new Error('COREOR_UPDATER_PUBLIC_KEY and TAURI_SIGNING_PRIVATE_KEY must be configured. Never commit private keys.');
 }
 
-if (!/^\d+\.\d+\.\d+$/.test(pkg.version)) {
-  throw new Error('Stable releases require a stable SemVer version');
+if (!/^\d{2}\.(?:[1-9]|1[0-2])\.[1-9]\d*$/.test(pkg.version)) {
+  throw new Error('Coreor stable releases require YY.M.RELEASE versioning, for example 26.9.1');
 }
 
 if (!read('CHANGELOG.md').includes(`## [${pkg.version}]`)) {
