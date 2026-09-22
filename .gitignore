@@ -14,6 +14,7 @@
 /out/
 /build
 /src-tauri/target/
+/local-releases/
 
 # generated desktop icon derivatives
 # app-icon.svg is the source of truth. icon.ico stays tracked because
