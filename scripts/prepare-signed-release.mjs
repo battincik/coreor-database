@@ -35,7 +35,7 @@ if (!/^\d+\.\d+\.\d+$/.test(pkg.version)) {
 }
 
 if (!read('CHANGELOG.md').includes(`## [${pkg.version}]`)) {
-  throw new Error(`CHANGELOG.md does not contain a ${pkg.version} release section. Run npm run version:prepare ${pkg.version} when preparing the version bump.`);
+  throw new Error(`CHANGELOG.md does not contain a ${pkg.version} release section. Prepare version bumps with npm run version:prepare X.Y.Z before editing version files manually.`);
 }
 
 console.log(`Signed release prerequisites ready for ${pkg.version}.`);
