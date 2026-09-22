@@ -9,7 +9,18 @@ const cargoLock = read('src-tauri/Cargo.lock');
 const appVersion = read('src/lib/appVersion.ts');
 
 const cargoVersion = cargoToml.match(/^version = "([^"]+)"/m)?.[1];
-const cargoLockVersion = cargoLock.match(/\[\[package\]\]\nname = "coreor-database"\nversion = "([^"]+)"/)?.[1];
+function cargoPackageVersion(lockText, packageName) {
+  const parts = lockText.split(/(?=^\[\[package\]\]\r?$)/m);
+  for (const part of parts) {
+    if (!part.startsWith('[[package]]')) continue;
+    const name = part.match(/^name\s*=\s*"([^"]+)"\s*$/m)?.[1];
+    if (name !== packageName) continue;
+    return part.match(/^version\s*=\s*"([^"]+)"\s*$/m)?.[1] ?? null;
+  }
+  return null;
+}
+
+const cargoLockVersion = cargoPackageVersion(cargoLock, 'coreor-database');
 const frontendVersion = appVersion.match(/APP_VERSION = '([^']+)'/)?.[1];
 const versions = {
   'package.json': pkg.version,
