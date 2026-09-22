@@ -77,12 +77,12 @@
   "author": "Coreor contributors",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/battincik/coreor-database .git"
+    "url": "git+https://github.com/battincik/coreor-database.git"
   },
   "bugs": {
-    "url": "https://github.com/battincik/coreor-database /issues"
+    "url": "https://github.com/battincik/coreor-database/issues"
   },
-  "homepage": "https://github.com/battincik/coreor-database #readme",
+  "homepage": "https://github.com/battincik/coreor-database#readme",
   "keywords": [
     "database-client",
     "database-management",

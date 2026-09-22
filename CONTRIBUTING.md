@@ -12,7 +12,7 @@ Coreor Database is being prepared as an open-source cross-platform desktop proje
 ## Development setup
 
 ```bash
-git clone https://github.com/battincik/coreor-database .git
+git clone https://github.com/battincik/coreor-database.git
 cd coreor-database
 npm ci
 npm run architecture:check
