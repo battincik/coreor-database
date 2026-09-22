@@ -47,6 +47,7 @@ import { CoreorSwitch } from '@/components/ui/coreor-switch';
 import { CoreorConfirmModal, type CoreorConfirmation } from '@/components/ui/coreor-confirm-modal';
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 import { useLanguage } from '@/context/LanguageContext';
+import { APP_VERSION_LABEL } from '@/lib/appVersion';
 
 export type DatabaseSettingsTab = 'account' | 'organizations' | 'servers' | 'appearance' | 'accessibility' | 'query' | 'query-log' | 'security' | 'advanced' | 'whats-new';
 type SettingsIcon = React.ComponentType<{ className?: string }>;
@@ -154,7 +155,7 @@ export function DatabaseSettingsModal({ open, onClose, initialTab = 'account' }:
       <button className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
       <div className="relative z-10 grid h-[calc(100dvh-16px)] max-h-[880px] w-[calc(100vw-16px)] max-w-[1440px] grid-cols-[clamp(170px,20vw,235px)_minmax(0,1fr)] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl sm:h-[calc(100dvh-24px)] sm:w-[calc(100vw-24px)]">
         <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r border-zinc-800 bg-black/25">
-          <div className="border-b border-zinc-800 p-4"><div className="flex items-center gap-2"><Settings2 className="h-4 w-4 text-cyan-400" /><div><div className="text-xs font-semibold">{t('common.settings')}</div><div className="text-[8px] text-zinc-600">Coreor Database v3.1.0</div></div></div></div>
+          <div className="border-b border-zinc-800 p-4"><div className="flex items-center gap-2"><Settings2 className="h-4 w-4 text-cyan-400" /><div><div className="text-xs font-semibold">{t('common.settings')}</div><div className="text-[8px] text-zinc-600">{APP_VERSION_LABEL}</div></div></div></div>
           <nav className="min-h-0 flex-1 overflow-y-auto p-2">{TABS.map(item => { const Icon = item.icon; return <button key={item.id} onClick={() => setTab(item.id)} className={`mb-1 flex w-full gap-3 rounded-xl border px-3 py-2.5 text-left ${tab === item.id ? 'border-cyan-500/20 bg-cyan-500/10' : 'border-transparent hover:bg-white/[0.035]'}`}><Icon className={`mt-0.5 h-4 w-4 ${tab === item.id ? 'text-cyan-300' : 'text-zinc-600'}`} /><span><span className="block text-[10px] font-medium">{t(item.labelKey)}</span><span className="mt-0.5 block text-[8px] text-zinc-600">{t(item.descriptionKey)}</span></span></button>; })}</nav>
           <div className="border-t border-zinc-800 p-3"><Button variant="ghost" size="sm" className="w-full justify-start" onClick={resetPreferences}><RotateCcw className="mr-2 h-3.5 w-3.5" />{t('settingsCatalog.resetPreferences')}</Button></div>
         </aside>
