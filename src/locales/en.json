@@ -3238,6 +3238,19 @@
       "busy": "Active work or unsaved changes. Finish your work and try again.",
       "transaction": "An open transaction exists. Commit or roll back before retrying.",
       "install": "Update could not complete. Retry, or check error.log if the problem persists."
-    }
+    },
+    "diagnosticsTitle": "Error reporting",
+    "diagnosticsDescription": "Local application diagnostics and optional Coreor error reporting.",
+    "localLog": "Local error log",
+    "localLogDescription": "Application errors are always appended locally even when remote reporting is disabled.",
+    "updateTitle": "Application updates",
+    "updateDescription": "Signed Coreor Database updates are checked through GitHub Releases and installed in place.",
+    "intervalDescription": "How often Coreor should check for a newer signed release while the application is open.",
+    "intervalRecommended": "Recommended balance for normal desktop use.",
+    "status": "Update status",
+    "statusDescription": "Current updater state for this installation.",
+    "actions": "Update actions",
+    "actionsDescription": "Check manually or install an available signed release when no work is active.",
+    "noUpdateAction": "No update available"
   }
 }
