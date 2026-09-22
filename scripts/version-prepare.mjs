@@ -42,27 +42,50 @@ function replaceRequired(content, pattern, replacement, label) {
 }
 
 function replaceCargoLockPackageVersion(content, packageName, expectedVersion, targetVersion) {
+  const eol = content.includes('\r\n') ? '\r\n' : '\n';
+  const parts = content.split(/(?=^\[\[package\]\]\r?$)/m);
   let found = false;
-  const packageBlock = /^\[\[package\]\]\r?\n[\s\S]*?(?=^\[\[package\]\]|\s*$)/gm;
-  const updated = content.replace(packageBlock, block => {
-    const nameMatch = block.match(/^name\s*=\s*"([^"]+)"\s*$/m);
-    if (nameMatch?.[1] !== packageName) return block;
 
-    const versionMatch = block.match(/^version\s*=\s*"([^"]+)"\s*$/m);
-    if (!versionMatch) fail(`Could not locate ${packageName} version in src-tauri/Cargo.lock.`);
+  const updated = parts.map(part => {
+    if (!part.startsWith('[[package]]')) return part;
+
+    const nameMatch = part.match(/^name\s*=\s*"([^"]+)"\s*$/m);
+    if (nameMatch?.[1] !== packageName) return part;
+
+    const versionMatch = part.match(/^version\s*=\s*"([^"]+)"\s*$/m);
+    if (!versionMatch) {
+      fail(`Could not locate ${packageName} version in src-tauri/Cargo.lock.`);
+    }
     if (versionMatch[1] !== expectedVersion) {
       fail(`Cargo.lock ${packageName} version ${versionMatch[1]} does not match package.json ${expectedVersion}.`);
     }
 
     found = true;
-    return block.replace(
+    return part.replace(
       /^version\s*=\s*"[^"]+"\s*$/m,
       `version = "${targetVersion}"`
     );
-  });
+  }).join('');
 
-  if (!found) fail(`Could not locate src-tauri/Cargo.lock package "${packageName}".`);
-  return updated;
+  if (!found) {
+    const availableLocalPackages = parts
+      .map(part => {
+        const name = part.match(/^name\s*=\s*"([^"]+)"\s*$/m)?.[1];
+        const hasSource = /^source\s*=/m.test(part);
+        return name && !hasSource ? name : null;
+      })
+      .filter(Boolean);
+
+    fail(
+      `Could not locate src-tauri/Cargo.lock package "${packageName}".` +
+      (availableLocalPackages.length
+        ? ` Local package(s): ${availableLocalPackages.join(', ')}.`
+        : ` Regenerate it with: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml`)
+    );
+  }
+
+  // Preserve the lockfile's existing line endings.
+  return eol === '\r\n' ? updated.replace(/(?<!\r)\n/g, '\r\n') : updated;
 }
 
 const args = process.argv.slice(2);
