@@ -44,12 +44,12 @@ Notable changes to Coreor Database are tracked here.
 
 ## Release maintenance
 
-When preparing a release, synchronize:
+Prepare release versions with:
 
-1. `package.json`,
-2. `src-tauri/Cargo.toml`,
-3. `src-tauri/tauri.conf.json`,
-4. this changelog,
-5. the Git tag/GitHub Release.
+```bash
+npm run version:prepare X.Y.Z
+```
+
+The command synchronizes the npm, Cargo, Tauri and UI version sources, updates both lockfiles, and moves the current Unreleased notes into the new release section. Review the generated diff before creating the Git tag/GitHub Release.
 
 See [RELEASING.md](RELEASING.md).
