@@ -17,10 +17,10 @@ Keep these versions synchronized:
 Use the version preparation command instead of editing release files by hand:
 
 ```bash
-npm run version:prepare 3.1.1
+npm run version:prepare 26.9.1
 ```
 
-The command requires a stable SemVer version greater than the current version and updates these files atomically after validating that the existing versions are synchronized:
+The command requires Coreor calendar versioning in `YY.M.RELEASE` format, greater than the current version, and updates these files atomically after validating that the existing versions are synchronized. The year/month components must match the release date.
 
 - `package.json`
 - `package-lock.json`
@@ -33,10 +33,10 @@ The command requires a stable SemVer version greater than the current version an
 It moves the current `Unreleased` changelog entries under the new release version and leaves a fresh `Unreleased` section for subsequent work. An optional release date override is available when needed:
 
 ```bash
-npm run version:prepare 3.1.1 -- --date=2026-09-22
+npm run version:prepare 26.9.1 -- --date=2026-09-22
 ```
 
-Review the resulting diff before running the release workflow. Do not rerun the command for the same version; prepare a newer patch version instead.
+Review the resulting diff before running the release workflow. Do not rerun the command for the same version. Within the same month increment `RELEASE` (`26.9.1` → `26.9.2`); in a new month reset it to `1` (`26.10.1`).
 
 ## Validation
 
@@ -90,12 +90,12 @@ Signing secrets belong in protected CI/release secret stores, never in the repos
 ## Release flow
 
 1. Select a reviewed clean commit.
-2. Run `npm run version:prepare X.Y.Z` and review the generated version/changelog diff.
+2. Run `npm run version:prepare YY.M.RELEASE` and review the generated version/changelog diff.
 3. Run `npm ci && npm run check`.
 4. Verify cross-platform CI.
 5. Build platform bundles.
 6. Smoke-test connection, query, table editing, read-only policy and transaction behavior.
-7. Create an annotated `vX.Y.Z` tag.
+7. Create an annotated `vYY.M.RELEASE` tag.
 8. Create a GitHub Release and attach platform artifacts.
 9. Publish checksums/signatures when release infrastructure is ready.
 
