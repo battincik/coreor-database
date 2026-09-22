@@ -9,8 +9,8 @@ Bu liste ilk dağıtılacak masaüstü sürümü içindir. Kaynak kodda mevcut s
 - [x] TR/EN dil anahtarları ve placeholder kontrolü (`npm run i18n:check`).
 - [x] Native istemci mimari kontrolü (`npm run architecture:check`).
 - [x] Aktif iş / kirli editör kilidi, hata raporu alanları, tekrar ayıklama, kurulum hatası sonrası kilit ve dev bypass testleri (`npm run test:lifecycle`, 5 test).
-- [ ] Proje genelinde lint temizliği. Bu çalışma sırasında mevcut lint hataları bulundu; yayın kapısı atlanmamalı.
-- [ ] Windows, macOS ve Linux `cargo check --locked` ve native testlerinin CI'da geçmesi. Yerel Linux ortamında pkg-config/GTK eksik olduğu için doğrulanamadı.
+- [ ] Proje genelinde lint temizliği. Bu çalışma sırasında değişiklik öncesi ve sonrası aynı 61 lint hatası bulundu; yayın kapısı atlanmamalı.
+- [ ] Windows, macOS ve Linux `cargo check --locked` ve native testlerinin CI'da geçmesi. Yerel Linux ortamında pkg-config/GTK eksik olduğu için doğrulanamadı. GitHub Actions denemesi de hiçbir job başlamadan startup_failure verdi; neden araç yanıtında belirtilmedi.
 - [ ] Rust 1.88 toolchain uyumu ve kilit dosyaları.
 - [ ] Temiz cihazlarda NSIS, macOS app/dmg ve Linux AppImage açılışı.
 

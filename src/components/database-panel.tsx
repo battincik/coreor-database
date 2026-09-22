@@ -3,7 +3,7 @@
 import { useUpdateBlocker } from '@/lib/useUpdateActivity';
 import { updateActivity } from '@/lib/updateActivity';
 
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Code,
   Copy,
@@ -243,7 +243,7 @@ export function DatabasePanel({
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!queryTabsHydrated.current) return;
     if (!preferences.rememberQueryWorkspace) {
       void writeWorkspaceCollection<EditorQueryTab>('query-tabs', 'global', []);

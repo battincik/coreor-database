@@ -70,7 +70,12 @@ export async function invokeDesktop<T>(command: string, args?: Record<string, un
     return await invoke<T>(command, args);
   } catch (error) {
     // Database/server failures are expected operational errors, not app defects.
-    if (command !== 'database_request' && !String(error).includes('UPDATE_')) reportAppError(error, 'native-command');
+    if (command === 'database_request') {
+      const operational = error instanceof Error ? error : new Error(String(error));
+      operational.name = 'DatabaseClientError';
+      throw operational;
+    }
+    if (!String(error).includes('UPDATE_')) reportAppError(error, 'native-command');
     throw error;
   } finally { release(); }
 }

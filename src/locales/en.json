@@ -3237,7 +3237,7 @@
       "check": "Unable to reach GitHub releases. You can continue using this version.",
       "busy": "Active work or unsaved changes. Finish your work and try again.",
       "transaction": "An open transaction exists. Commit or roll back before retrying.",
-      "install": "Update failed. The current version is preserved; you can retry."
+      "install": "Update could not complete. Retry, or check error.log if the problem persists."
     }
   }
 }

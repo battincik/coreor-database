@@ -1,4 +1,5 @@
 'use client';
+import { useTrackedBusy } from '@/lib/useUpdateActivity';
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { CoreorSwitch } from '@/components/ui/coreor-switch';
@@ -13,7 +14,7 @@ export function AppMaintenanceSettings() {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [path, setPath] = useState('');
   const [error, setError] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useTrackedBusy();
   useEffect(() => {
     let cancelled = false;
     void Promise.all([invoke<{ remoteEnabled: boolean }>('read_diagnostic_settings'), invoke<string>('error_log_path')])

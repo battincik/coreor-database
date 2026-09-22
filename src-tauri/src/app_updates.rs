@@ -58,8 +58,9 @@ pub async fn install_app_update(app: AppHandle, state: State<'_, UpdateState>) -
     if crate::transactions::has_open_transactions(&app.state::<crate::transactions::TransactionStore>()).await {
         return Err("UPDATE_OPEN_TRANSACTION".into());
     }
-    let update = state.pending.lock().map_err(|_| "UPDATE_STATE_ERROR")?.clone()
+    let mut update = state.pending.lock().map_err(|_| "UPDATE_STATE_ERROR")?.clone()
         .ok_or("UPDATE_NOT_AVAILABLE")?;
+    update.timeout = Some(Duration::from_secs(15 * 60));
     let mut downloaded: u64 = 0;
     let result = update.download_and_install(
         |length, total| {
