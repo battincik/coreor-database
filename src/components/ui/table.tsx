@@ -14,6 +14,8 @@ interface TableProps extends React.HTMLAttributes<HTMLTableElement> {
   columnStorageKey?: string;
   minimumColumnWidth?: number;
   maximumColumnWidth?: number;
+  scrollContainer?: boolean;
+  containerClassName?: string;
 }
 
 interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
@@ -87,6 +89,8 @@ const Table = React.forwardRef<HTMLTableElement, TableProps>(({
   columnStorageKey,
   minimumColumnWidth = 56,
   maximumColumnWidth = 520,
+  scrollContainer = true,
+  containerClassName,
   onPointerDownCapture,
   onDoubleClickCapture,
   children,
@@ -210,7 +214,7 @@ const Table = React.forwardRef<HTMLTableElement, TableProps>(({
       if (width) applyWidth(index, width, false);
     });
     updateTableWidth();
-  }, [children, storageKey, headers, applyWidth, updateTableWidth]);
+  }, [columnStorageKey, storageKey, headers, applyWidth, updateTableWidth]);
 
   React.useEffect(() => {
     const handler = (event: Event) => {
@@ -265,19 +269,20 @@ const Table = React.forwardRef<HTMLTableElement, TableProps>(({
     fitColumn(header.cellIndex);
   };
 
-  return (
-    <div className="w-full overflow-auto">
-      <table
-        ref={tableRef}
-        className={cn('w-full caption-bottom text-sm', size === 'sm' && 'text-xs', className)}
-        onPointerDownCapture={handlePointerDown}
-        onDoubleClickCapture={handleDoubleClick}
-        {...props}
-      >
-        {children}
-      </table>
-    </div>
+  const tableElement = (
+    <table
+      ref={tableRef}
+      className={cn('w-full caption-bottom text-sm', size === 'sm' && 'text-xs', className)}
+      onPointerDownCapture={handlePointerDown}
+      onDoubleClickCapture={handleDoubleClick}
+      {...props}
+    >
+      {children}
+    </table>
   );
+
+  if (!scrollContainer) return tableElement;
+  return <div className={cn('coreor-scrollbar w-full overflow-x-auto overflow-y-hidden', containerClassName)}>{tableElement}</div>;
 });
 Table.displayName = 'Table';
 

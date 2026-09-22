@@ -1,13 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { SignInOptions } from 'next-auth/react';
-
-export interface HandleLoginOptions extends SignInOptions {
-  callbackUrl: string;
-}
-
-export type ProviderType = 'github' | 'google' | 'twitter' | 'facebook' | 'apple';
-
 export interface DatabasePanelProps {
   selectedDatabase: string | null;
   selectedTable: string | null;
@@ -27,21 +19,28 @@ export type DatabaseApiAction =
   | 'test'
   | 'catalog'
   | 'table-info'
+  | 'schema-overview'
+  | 'database-objects'
   | 'table-data'
   | 'update-cell'
+  | 'insert-row'
   | 'delete-rows'
   | 'alter-table'
   | 'query';
 
 export interface DatabaseConnectionPayload {
+  /** Stored profiles use this ID so Rust can resolve the password from the encrypted local vault. */
+  serverId?: string;
   engine: DatabaseEngine;
   host: string;
   port: number;
   username: string;
-  password: string;
+  /** Transient only: used for unsaved connection tests and immediately sealed when a profile is saved. */
+  password?: string;
   database?: string | null;
   sslMode: DatabaseSslMode;
   connectTimeoutMs?: number;
+  poolMaxConnections?: number;
   readOnly?: boolean;
 }
 
@@ -93,6 +92,12 @@ export interface DatabaseTable {
   autoIncrement: string | number | null;
   indexCount: number;
   foreignKeyCount: number;
+  /** Last explicit storage recalculation. Preserved across normal catalog refreshes. */
+  storageMeasuredAt?: string | null;
+  storageMeasurementSource?: 'innodb-tablespace' | 'information-schema' | 'table-aggregate' | null;
+  storagePhysicalBytes?: number | null;
+  rowCountMeasuredAt?: string | null;
+  rowCountMeasurementSource?: 'exact-count' | 'metadata-estimate' | null;
 }
 
 export interface DatabaseCatalogItem {
@@ -104,8 +109,47 @@ export interface DatabaseCatalogItem {
   dataSizeMB: string;
   indexSizeMB: string;
   totalSizeMB: string;
+  freeSizeMB?: string;
   tables: string[];
   tableDetails: DatabaseTable[];
+  /** Last explicit database-wide storage recalculation. */
+  storageMeasuredAt?: string | null;
+  storageMeasurementSource?: 'innodb-tablespace' | 'information-schema' | 'table-aggregate' | null;
+  storagePhysicalBytes?: number | null;
+  rowCountMeasuredAt?: string | null;
+  rowCountMeasurementSource?: 'exact-count' | 'metadata-estimate' | null;
+}
+
+export type DatabaseObjectKind = 'table' | 'view' | 'procedure' | 'function' | 'trigger' | 'event';
+
+export interface DatabaseSchemaObject {
+  name: string;
+  kind: DatabaseObjectKind;
+  schema?: string | null;
+  tableName?: string | null;
+  definition?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  comment?: string | null;
+  rows?: number | null;
+  dataSizeBytes?: number | null;
+  indexSizeBytes?: number | null;
+  sizeBytes?: number | null;
+}
+
+export interface DatabaseObjectsResponse {
+  supported: boolean;
+  objects: DatabaseSchemaObject[];
+  _meta?: DatabaseQueryMeta;
+}
+
+export interface SchemaOverviewResponse {
+  supported: boolean;
+  tables: Array<Record<string, unknown>>;
+  columns: Array<Record<string, unknown>>;
+  indexes: Array<Record<string, unknown>>;
+  foreignKeys: Array<Record<string, unknown>>;
+  _meta?: DatabaseQueryMeta;
 }
 
 export interface DatabaseServerConfig {
@@ -117,12 +161,22 @@ export interface DatabaseServerConfig {
   host?: string;
   port?: number;
   username?: string;
+  /** Transient only. Saved profiles never return a plaintext password to the UI. */
   password?: string;
+  /** Runtime-only marker; never persisted inside the encrypted profile payload. */
+  credentialRef?: string;
+  credentialState?: 'stored' | 'missing';
   databaseName?: string;
   databaseType?: DatabaseEngine;
   version?: string;
   sslMode?: DatabaseSslMode;
   connectionTimeoutMs?: number;
+  /** Coreor-side maximum concurrent connections for this server profile. */
+  poolMaxConnections?: number;
+  /** Last max_connections value observed during an explicit connection test. */
+  serverMaxConnections?: number;
+  /** ISO timestamp of the last successful explicit connection test. */
+  connectionTestedAt?: string;
   readOnly?: boolean;
   visibleTo?: string[];
   organizationId?: string | null;
@@ -130,6 +184,8 @@ export interface DatabaseServerConfig {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export type DatabaseQueryExecutionMode = 'text' | 'prepared';
 
 export interface DatabaseQueryStatement {
   sql: string;
@@ -196,6 +252,23 @@ export interface TableCellUpdateResponse {
   affectedRows: number;
   changedRows?: number;
   value: unknown;
+  _meta?: DatabaseQueryMeta;
+}
+
+export interface TableRowInsertValue {
+  mode: 'value' | 'null' | 'default';
+  value?: unknown;
+}
+
+export interface TableRowInsertInput {
+  database: string;
+  table: string;
+  values: Record<string, TableRowInsertValue>;
+}
+
+export interface TableRowInsertResponse {
+  affectedRows: number;
+  insertId?: string | number | null;
   _meta?: DatabaseQueryMeta;
 }
 
@@ -295,6 +368,15 @@ export interface TableInfo {
   _meta?: DatabaseQueryMeta;
 }
 
+export interface SchemaOverviewResponse {
+  supported: boolean;
+  tables: Array<Record<string, unknown>>;
+  columns: Array<Record<string, unknown>>;
+  indexes: Array<Record<string, unknown>>;
+  foreignKeys: Array<Record<string, unknown>>;
+  _meta?: DatabaseQueryMeta;
+}
+
 export type ColumnDefaultKind = 'none' | 'null' | 'literal' | 'expression';
 
 export interface TableColumnDefinition {
@@ -369,6 +451,33 @@ export interface TableSchemaMutationResponse {
   _meta?: DatabaseQueryMeta;
 }
 
+export interface QueryExecutionPoolMetrics {
+  total: number;
+  idle: number;
+  inUse: number;
+  waiters: number;
+  createFailed: number;
+}
+
+export interface QueryExecutionTimings {
+  /** Time spent acquiring a connection. For MySQL this is pool wait / reconnect time. */
+  acquireMs?: number;
+  /** SQL send -> first server response. Includes server execution plus network round-trip to first response. */
+  queryRoundTripMs?: number;
+  /** Remaining result transfer and client-side row decoding. */
+  fetchDecodeMs?: number;
+  /** Total time inside the native database layer, including connection acquisition. */
+  nativeTotalMs?: number;
+  /** Tauri IPC + frontend overhead outside the native database layer. */
+  clientOverheadMs?: number;
+  /** End-to-end request duration observed by the frontend. */
+  totalMs?: number;
+  pooled?: boolean;
+  poolReused?: boolean;
+  tls?: boolean;
+  pool?: QueryExecutionPoolMetrics;
+}
+
 export interface QueryExecutionResult {
   rows: Record<string, unknown>[];
   affectedRows?: number;
@@ -376,6 +485,7 @@ export interface QueryExecutionResult {
   warningStatus?: number;
   fields?: Array<{ name: string; type: string | number }>;
   maximumRows?: number;
+  timings?: QueryExecutionTimings;
   _meta?: DatabaseQueryMeta;
 }
 
@@ -385,6 +495,7 @@ export interface EditorQueryTab {
   serverId: string | null;
   databaseName: string | null;
   sql: string;
+  executionMode?: DatabaseQueryExecutionMode;
   isRunning: boolean;
   runImmediately?: boolean;
   error?: string | null;

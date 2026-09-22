@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { SOURCE_TRANSLATIONS, useLanguage } from '@/context/LanguageContext';
+import { SOURCE_TRANSLATION_DICTIONARIES, useLanguage } from '@/context/LanguageContext';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 
 const SKIPPED_TAGS = new Set(['SCRIPT', 'STYLE', 'CODE', 'PRE', 'TEXTAREA', 'TD', 'CANVAS', 'SVG']);
@@ -59,7 +59,6 @@ function compileTemplate(key: string, source: string): TemplateMatcher | null {
 function shouldSkip(element: Element | null) {
   if (!element) return true;
   if (SKIPPED_TAGS.has(element.tagName)) return true;
-  if (element.tagName === 'TH' && !element.hasAttribute('data-i18n-key')) return true;
   if (element.closest('[data-i18n-ignore], [contenteditable="true"], .monaco-editor, .coreor-sql-editor')) return true;
   if (element.closest('.font-mono, [data-database-value], [data-sql-value]')) return true;
   return false;
@@ -95,17 +94,21 @@ export function LegacyTranslationBridge() {
     const exact = new Map<string, string[]>();
     const templates: TemplateMatcher[] = [];
 
-    for (const [key, value] of Object.entries(SOURCE_TRANSLATIONS)) {
-      const source = normalize(value);
-      if (!source || source.length > 220) continue;
-      const template = compileTemplate(key, source);
-      if (template) {
-        templates.push(template);
-        continue;
+    for (const dictionary of SOURCE_TRANSLATION_DICTIONARIES) {
+      for (const [key, value] of Object.entries(dictionary)) {
+        const source = normalize(value);
+        if (!source || source.length > 220) continue;
+        const template = compileTemplate(key, source);
+        if (template) {
+          if (!templates.some(item => item.key === template.key && item.pattern.source === template.pattern.source)) {
+            templates.push(template);
+          }
+          continue;
+        }
+        const keys = exact.get(source) ?? [];
+        if (!keys.includes(key)) keys.push(key);
+        exact.set(source, keys);
       }
-      const keys = exact.get(source) ?? [];
-      keys.push(key);
-      exact.set(source, keys);
     }
 
     templates.sort((left, right) => right.pattern.source.length - left.pattern.source.length);

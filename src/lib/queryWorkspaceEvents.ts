@@ -1,5 +1,7 @@
 'use client';
 
+import type { DatabaseQueryExecutionMode } from 'types';
+
 export const OPEN_QUERY_TAB_EVENT = 'coreor:open-query-tab';
 
 export interface OpenQueryTabDetail {
@@ -7,6 +9,7 @@ export interface OpenQueryTabDetail {
   databaseName?: string | null;
   title?: string;
   sql?: string;
+  executionMode?: DatabaseQueryExecutionMode;
   runImmediately?: boolean;
 }
 

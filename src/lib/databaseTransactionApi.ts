@@ -8,45 +8,40 @@ import type {
   DatabaseTransactionRequest,
   DatabaseTransactionStatusResponse
 } from '@/lib/databaseTransactionTypes';
-import { readEncryptedServerProfiles } from '@/lib/secureVault';
+import { readLocalServerProfiles } from '@/lib/localProfiles';
 import { recordActivity } from '@/lib/activityConsole';
-import { normalizeDatabaseClientError, readDatabaseApiResponse } from '@/lib/databaseErrorPresentation';
+import { normalizeDatabaseClientError } from '@/lib/databaseErrorPresentation';
+import { desktopDatabaseRequest } from '@/lib/desktopClient';
 
 async function requireServer(accountId: string | null | undefined, serverId: string) {
-  if (!accountId) throw new Error('Transaction çalışma alanı için kullanıcı oturumu gerekli.');
-  const servers = await readEncryptedServerProfiles(accountId);
+  const servers = await readLocalServerProfiles();
   const server = servers.find(item => item.id === serverId);
-  if (!server) throw new Error('Sunucu profili şifreli kasada bulunamadı.');
+  if (!server) throw new Error('Sunucu profili yerel config içinde bulunamadı.');
   return server;
 }
 
 function connectionPayload(server: DatabaseServerConfig, database?: string | null): DatabaseConnectionPayload {
-  if (server.databaseType !== 'mysql' && server.databaseType !== 'mariadb') throw new Error('Desteklenmeyen veritabanı motoru.');
-  if (!server.host?.trim() || !server.username?.trim() || !server.password) throw new Error('Host, kullanıcı adı veya parola eksik.');
+  const engine = server.databaseType ?? 'mysql';
+  if (!server.host?.trim() || !server.username?.trim()) throw new Error('Host veya kullanıcı adı eksik.');
+  const defaultPort = engine === 'postgresql' || engine === 'cockroachdb' ? 5432 : engine === 'mssql' ? 1433 : 3306;
   return {
-    engine: server.databaseType,
+    serverId: server.id,
+    engine,
     host: server.host.trim(),
-    port: server.port ?? 3306,
+    port: server.port ?? defaultPort,
     username: server.username.trim(),
-    password: server.password,
+    password: server.password || undefined,
     database,
     sslMode: server.sslMode ?? 'required',
     connectTimeoutMs: server.connectionTimeoutMs ?? 20_000,
+    poolMaxConnections: Math.min(32, Math.max(1, server.poolMaxConnections ?? 6), Math.max(1, server.serverMaxConnections ?? 32)),
     readOnly: Boolean(server.readOnly)
   };
 }
 
 async function requestTransaction<T>(payload: DatabaseTransactionRequest) {
   try {
-    const response = await fetch('/api/database', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      credentials: 'same-origin',
-      cache: 'no-store',
-      referrerPolicy: 'same-origin',
-      body: JSON.stringify(payload)
-    });
-    return await readDatabaseApiResponse<T>(response);
+    return await desktopDatabaseRequest<T>({ ...payload });
   } catch (error) {
     throw normalizeDatabaseClientError(error);
   }
@@ -63,6 +58,7 @@ export async function beginDatabaseTransaction(serverId: string, accountId?: str
     });
     recordActivity({
       level: 'success',
+      kind: 'internal-query',
       category: 'query',
       title: 'Transaction başlatıldı',
       message: `${server.name} üzerinde transaction oturumu açıldı.`,
@@ -100,6 +96,7 @@ export async function executeDatabaseTransactionQuery(serverId: string, transact
     const result = await requestTransaction<DatabaseTransactionQueryResponse>({ action: 'transaction-query', transactionId, sql });
     recordActivity({
       level: 'success',
+      kind: 'user-query',
       category: 'query',
       title: 'Transaction sorgusu',
       message: `${server.name} üzerinde açık transaction içinde çalıştırıldı.`,
@@ -140,6 +137,7 @@ async function finishDatabaseTransaction(serverId: string, transactionId: string
     const result = await requestTransaction<DatabaseTransactionFinishResponse>({ action, transactionId });
     recordActivity({
       level: 'success',
+      kind: 'internal-query',
       category: 'query',
       title: action === 'transaction-commit' ? 'Transaction commit edildi' : 'Transaction geri alındı',
       message: `${result.statementCount} statement ile tamamlandı.`,

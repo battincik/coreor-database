@@ -1,32 +1,12 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import english from '@/locales/en.json';
-import turkish from '@/locales/tr.json';
-import spanish from '@/locales/es.json';
-import french from '@/locales/fr.json';
-import german from '@/locales/de.json';
-import portugueseBrazil from '@/locales/pt-BR.json';
-import russian from '@/locales/ru.json';
-import simplifiedChinese from '@/locales/zh-CN.json';
-import japanese from '@/locales/ja.json';
-import korean from '@/locales/ko.json';
-import hindi from '@/locales/hi.json';
-import arabic from '@/locales/ar.json';
-import workbench1 from '@/locales/workbench.json';
-import workbench2 from '@/locales/workbench-2.json';
-import workbench3 from '@/locales/workbench-3.json';
-import workbench4 from '@/locales/workbench-4.json';
-import workbench5 from '@/locales/workbench-5.json';
-import workbench6 from '@/locales/workbench-6.json';
-import workbench7 from '@/locales/workbench-7.json';
-import workbench8 from '@/locales/workbench-8.json';
+import { LOCALE_MODULES, type LocaleCode } from '@/locales/registry';
 
-export type LocaleCode = 'tr' | 'en' | 'es' | 'zh-CN' | 'hi' | 'ar' | 'pt-BR' | 'fr' | 'de' | 'ru' | 'ja' | 'ko';
 export type LocaleDirection = 'ltr' | 'rtl';
 export type TranslationValues = Record<string, string | number>;
 export type TranslationDictionary = Record<string, string>;
-type WorkbenchCatalog = Record<string, Partial<Record<LocaleCode, string>>>;
+export type LocaleTree = { [key: string]: string | LocaleTree };
 
 export interface SupportedLanguage {
   code: LocaleCode;
@@ -37,62 +17,60 @@ export interface SupportedLanguage {
   searchTerms: string[];
 }
 
-export const SUPPORTED_LANGUAGES: SupportedLanguage[] = [
-  { code: 'tr', nativeName: 'Türkçe', englishName: 'Turkish', direction: 'ltr', region: 'Türkiye', searchTerms: ['turkce', 'türkçe', 'turkish'] },
-  { code: 'en', nativeName: 'English', englishName: 'English', direction: 'ltr', region: 'Global', searchTerms: ['english', 'ingilizce'] },
-  { code: 'es', nativeName: 'Español', englishName: 'Spanish', direction: 'ltr', region: 'España / Latinoamérica', searchTerms: ['spanish', 'espanol', 'español', 'ispanyolca'] },
-  { code: 'zh-CN', nativeName: '简体中文', englishName: 'Simplified Chinese', direction: 'ltr', region: '中国大陆', searchTerms: ['chinese', 'simplified', '中文', 'çince'] },
-  { code: 'hi', nativeName: 'हिन्दी', englishName: 'Hindi', direction: 'ltr', region: 'भारत', searchTerms: ['hindi', 'हिन्दी', 'hintce'] },
-  { code: 'ar', nativeName: 'العربية', englishName: 'Arabic', direction: 'rtl', region: 'الشرق الأوسط', searchTerms: ['arabic', 'العربية', 'arapça'] },
-  { code: 'pt-BR', nativeName: 'Português (Brasil)', englishName: 'Portuguese', direction: 'ltr', region: 'Brasil', searchTerms: ['portuguese', 'portugues', 'português', 'brezilya'] },
-  { code: 'fr', nativeName: 'Français', englishName: 'French', direction: 'ltr', region: 'France / Francophonie', searchTerms: ['french', 'francais', 'français', 'fransızca'] },
-  { code: 'de', nativeName: 'Deutsch', englishName: 'German', direction: 'ltr', region: 'Deutschland', searchTerms: ['german', 'deutsch', 'almanca'] },
-  { code: 'ru', nativeName: 'Русский', englishName: 'Russian', direction: 'ltr', region: 'Россия / СНГ', searchTerms: ['russian', 'русский', 'rusça'] },
-  { code: 'ja', nativeName: '日本語', englishName: 'Japanese', direction: 'ltr', region: '日本', searchTerms: ['japanese', '日本語', 'japonca'] },
-  { code: 'ko', nativeName: '한국어', englishName: 'Korean', direction: 'ltr', region: '대한민국', searchTerms: ['korean', '한국어', 'korece'] }
-];
+export const SUPPORTED_LANGUAGES: SupportedLanguage[] = (Object.entries(LOCALE_MODULES) as Array<[LocaleCode, LocaleTree]>)
+  .map(([code, tree]) => {
+    const meta = tree.meta as LocaleTree | undefined;
+    const nativeName = typeof meta?.nativeName === 'string' ? meta.nativeName : code;
+    const direction: LocaleDirection = meta?.direction === 'rtl' ? 'rtl' : 'ltr';
+    let englishName: string = code;
+    try {
+      englishName = new Intl.DisplayNames(['en'], { type: 'language' }).of(code) || code;
+    } catch {
+      englishName = code;
+    }
+    const regionCode = code.includes('-') ? code.split('-')[1] : null;
+    let region = 'Global';
+    if (regionCode) {
+      try {
+        region = new Intl.DisplayNames(['en'], { type: 'region' }).of(regionCode.toUpperCase()) || regionCode.toUpperCase();
+      } catch {
+        region = regionCode.toUpperCase();
+      }
+    }
+    return { code, nativeName, englishName, direction, region, searchTerms: [code, nativeName, englishName] };
+  })
+  .sort((left, right) => left.nativeName.localeCompare(right.nativeName));
 
-const BASE_LANGUAGE_DICTIONARIES: Record<LocaleCode, TranslationDictionary> = {
-  tr: turkish,
-  en: english,
-  es: spanish,
-  'zh-CN': simplifiedChinese,
-  hi: hindi,
-  ar: arabic,
-  'pt-BR': portugueseBrazil,
-  fr: french,
-  de: german,
-  ru: russian,
-  ja: japanese,
-  ko: korean
-};
-
-const WORKBENCH_CATALOG: WorkbenchCatalog = Object.assign(
-  {},
-  workbench1 as WorkbenchCatalog,
-  workbench2 as WorkbenchCatalog,
-  workbench3 as WorkbenchCatalog,
-  workbench4 as WorkbenchCatalog,
-  workbench5 as WorkbenchCatalog,
-  workbench6 as WorkbenchCatalog,
-  workbench7 as WorkbenchCatalog,
-  workbench8 as WorkbenchCatalog
-);
-
-function createWorkbenchDictionary(locale: LocaleCode): TranslationDictionary {
-  return Object.fromEntries(
-    Object.entries(WORKBENCH_CATALOG).map(([key, values]) => [key, values[locale] ?? values.en ?? values.tr ?? key])
-  );
+function flattenLocaleTree(tree: LocaleTree, prefix = '', output: TranslationDictionary = {}): TranslationDictionary {
+  for (const [key, value] of Object.entries(tree)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (typeof value === 'string') {
+      output[path] = value;
+      continue;
+    }
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      flattenLocaleTree(value, path, output);
+    }
+  }
+  return output;
 }
+
+const RAW_LANGUAGE_DICTIONARIES = LOCALE_MODULES as unknown as Record<LocaleCode, LocaleTree>;
+
+const ENGLISH_DICTIONARY = flattenLocaleTree(RAW_LANGUAGE_DICTIONARIES.en);
 
 export const LANGUAGE_DICTIONARIES = Object.fromEntries(
   SUPPORTED_LANGUAGES.map(({ code }) => [
     code,
-    { ...BASE_LANGUAGE_DICTIONARIES.en, ...BASE_LANGUAGE_DICTIONARIES[code], ...createWorkbenchDictionary(code) }
+    { ...ENGLISH_DICTIONARY, ...flattenLocaleTree(RAW_LANGUAGE_DICTIONARIES[code]) }
   ])
 ) as Record<LocaleCode, TranslationDictionary>;
 
 export const SOURCE_TRANSLATIONS: TranslationDictionary = LANGUAGE_DICTIONARIES.tr;
+export const SOURCE_TRANSLATION_DICTIONARIES: TranslationDictionary[] = [
+  flattenLocaleTree(RAW_LANGUAGE_DICTIONARIES.tr),
+  flattenLocaleTree(RAW_LANGUAGE_DICTIONARIES.en)
+];
 const DEFAULT_LOCALE: LocaleCode = 'tr';
 const FALLBACK_LOCALE: LocaleCode = 'en';
 const STORAGE_KEY = 'coreor:language:v1';
@@ -110,7 +88,7 @@ function normalizeLocale(input?: string | null): LocaleCode | null {
   return matched?.code ?? null;
 }
 
-function detectBrowserLocale(): LocaleCode {
+function detectSystemLocale(): LocaleCode {
   if (typeof navigator === 'undefined') return DEFAULT_LOCALE;
   for (const candidate of navigator.languages?.length ? navigator.languages : [navigator.language]) {
     const normalized = normalizeLocale(candidate);
@@ -144,14 +122,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
 
   const currentLanguage = useMemo(
-    () => SUPPORTED_LANGUAGES.find(item => item.code === language) ?? SUPPORTED_LANGUAGES[0],
+    () => SUPPORTED_LANGUAGES.find(item => item.code === language) ?? SUPPORTED_LANGUAGES.find(item => item.code === DEFAULT_LOCALE) ?? SUPPORTED_LANGUAGES[0],
     [language]
   );
   const translations = useMemo<TranslationDictionary>(() => LANGUAGE_DICTIONARIES[language], [language]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY) || window.localStorage.getItem(LEGACY_STORAGE_KEY);
-    const initial = normalizeLocale(stored) ?? detectBrowserLocale();
+    const initial = normalizeLocale(stored) ?? detectSystemLocale();
     setLanguageState(initial);
     window.localStorage.setItem(STORAGE_KEY, initial);
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);

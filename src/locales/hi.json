@@ -1,1 +1,440 @@
-{"meta.nativeName":"हिन्दी","meta.direction":"ltr","common.search":"खोजें","common.searchOptions":"विकल्प खोजें","common.select":"चुनें","common.noResults":"कोई मिलान परिणाम नहीं","common.optionsCount":"{count} विकल्प","common.escapeToClose":"बंद करने के लिए ESC दबाएँ","common.save":"सहेजें","common.cancel":"रद्द करें","common.create":"बनाएँ","common.delete":"हटाएँ","common.edit":"संपादित करें","common.refresh":"रीफ़्रेश करें","common.close":"बंद करें","common.confirm":"पुष्टि करें","common.yes":"हाँ","common.no":"नहीं","common.loading":"लोड हो रहा है…","common.connected":"कनेक्टेड","common.offline":"ऑफ़लाइन","common.ready":"तैयार","common.error":"त्रुटि","common.warning":"चेतावनी","common.success":"सफल","common.copy":"कॉपी करें","common.download":"डाउनलोड करें","common.reset":"रीसेट करें","common.open":"खोलें","common.run":"चलाएँ","common.apply":"लागू करें","common.add":"जोड़ें","common.remove":"हटाएँ","common.all":"सभी","common.default":"डिफ़ॉल्ट","common.enabled":"सक्रिय","common.disabled":"निष्क्रिय","app.settings":"सेटिंग्स","app.language":"भाषा","app.account":"खाता","app.organizations":"संगठन","app.servers":"सर्वर","app.appearance":"दिखावट","app.accessibility":"सुलभता","app.queryEditor":"क्वेरी संपादक","app.security":"सुरक्षा","app.advanced":"उन्नत","app.whatsNew":"नया क्या है","app.resetPreferences":"प्राथमिकताएँ रीसेट करें","nav.databases":"डेटाबेस","nav.tables":"टेबल","nav.schema":"स्कीमा","nav.query":"क्वेरी","nav.users":"उपयोगकर्ता","nav.processes":"प्रोसेस","nav.performance":"प्रदर्शन","nav.notebook":"नोटबुक","nav.backup":"बैकअप","nav.operations":"ऑपरेशन","nav.dataIntelligence":"डेटा इंटेलिजेंस","nav.commandPalette":"कमांड पैलेट","nav.transaction":"ट्रांज़ैक्शन","nav.importExport":"इम्पोर्ट / एक्सपोर्ट","sidebar.searchPlaceholder":"सर्वर, डेटाबेस और टेबल खोजें","sidebar.noConnections":"कोई कनेक्शन प्रोफ़ाइल नहीं","sidebar.newServer":"सर्वर जोड़ें","sidebar.accountSettings":"खाता सेटिंग्स","sidebar.signOut":"साइन आउट","sidebar.activateServer":"सर्वर सक्रिय करें","sidebar.createDatabase":"डेटाबेस बनाएँ","sidebar.serverQuery":"सर्वर-स्तरीय क्वेरी","sidebar.refreshCatalog":"कैटलॉग रीफ़्रेश करें","sidebar.expandAll":"सभी फैलाएँ","sidebar.collapseAll":"सभी समेटें","sidebar.editConnection":"कनेक्शन संपादित करें","query.run":"चलाएँ","query.format":"फ़ॉर्मेट करें","query.history":"इतिहास","query.favorites":"पसंदीदा","query.selectServer":"सर्वर चुनें","query.selectDatabase":"डेटाबेस चुनें","query.serverScope":"सर्वर स्कोप","query.dryRunEnabled":"Dry-run सक्रिय","query.snapshotEnabled":"Snapshot सक्रिय","query.readOnly":"केवल-पढ़ने योग्य","query.results":"परिणाम","query.rows":"पंक्तियाँ","query.noResults":"कोई परिणाम नहीं","query.completed":"क्वेरी पूरी हुई","query.affectedRows":"{count} पंक्तियाँ प्रभावित","query.safeLimitWarning":"दृश्य पंक्ति सीमा नहीं है; API सुरक्षित अधिकतम लागू करता है।","query.autocomplete":"ऑटोकम्प्लीट","query.errorStopped":"SQL भाषा सेवा ने क्वेरी रोक दी।","query.dangerousConfirm":"यह क्वेरी डेटा या स्कीमा बदल सकती है।","query.applyChange":"परिवर्तन लागू करें","server.new":"नया डेटाबेस सर्वर","server.edit":"डेटाबेस सर्वर संपादित करें","server.secureVault":"एन्क्रिप्टेड ब्राउज़र वॉल्ट","server.profileNetwork":"प्रोफ़ाइल और नेटवर्क","server.authentication":"प्रमाणीकरण","server.engineVersion":"इंजन और संस्करण","server.securityTimeout":"सुरक्षा और टाइमआउट","server.name":"सर्वर नाम","server.host":"होस्ट या IP","server.port":"पोर्ट","server.defaultDatabase":"डिफ़ॉल्ट डेटाबेस","server.username":"उपयोगकर्ता नाम","server.password":"पासवर्ड","server.engine":"डेटाबेस इंजन","server.version":"संस्करण प्रोफ़ाइल","server.tls":"TLS नीति","server.timeout":"कनेक्शन टाइमआउट","server.readOnlyProfile":"केवल-पढ़ने योग्य प्रोफ़ाइल","server.readOnlyDescription":"इस कनेक्शन पर लिखने, स्कीमा और प्रशासनिक ऑपरेशन रोकता है।","server.testConnection":"कनेक्शन जाँचें","server.addServer":"सर्वर जोड़ें","server.updateServer":"सर्वर अपडेट करें","server.connectionReady":"कनेक्शन तैयार","server.connectionFailed":"कनेक्शन विफल","server.databaseName":"डेटाबेस नाम","database.database":"डेटाबेस","database.table":"टेबल","database.column":"कॉलम","database.index":"इंडेक्स","database.foreignKey":"फ़ॉरेन की","database.view":"व्यू","database.procedure":"स्टोर्ड प्रोसीजर","database.function":"फ़ंक्शन","database.trigger":"ट्रिगर","database.event":"इवेंट","database.connection":"कनेक्शन","database.catalog":"कैटलॉग","database.schema":"स्कीमा","database.data":"डेटा","database.structure":"संरचना","database.rows":"पंक्तियाँ","database.primaryKey":"प्राइमरी की","database.nullable":"NULL की अनुमति","database.dataType":"डेटा प्रकार","database.defaultValue":"डिफ़ॉल्ट मान","database.collation":"कॉलेशन","database.storage":"स्टोरेज","database.uptime":"अपटाइम","database.connections":"कनेक्शन","database.bufferPool":"बफ़र पूल","database.traffic":"ट्रैफ़िक","database.slowQueries":"धीमी क्वेरी","database.replication":"रेप्लिकेशन","settings.language.title":"भाषा और क्षेत्र","settings.language.description":"डेटाबेस और डेवलपमेंट टूल के लिए इंटरफ़ेस भाषा चुनें।","settings.language.select":"इंटरफ़ेस भाषा","settings.language.current":"वर्तमान भाषा","settings.language.browser":"ब्राउज़र भाषा","settings.language.localStorage":"इस डिवाइस पर स्थानीय रूप से संग्रहीत","settings.language.instant":"परिवर्तन तुरंत लागू होते हैं","settings.language.fallback":"गुम कुंजियाँ अंग्रेज़ी पर वापस जाती हैं","settings.language.rtl":"अरबी के लिए दाएँ-से-बाएँ लेआउट समर्थित है","settings.language.coverage":"सॉफ़्टवेयर, SQL और डेटाबेस शब्दावली के अनुसार अनुवाद","settings.language.restartNotRequired":"रीस्टार्ट की आवश्यकता नहीं","settings.language.available":"उपलब्ध भाषाएँ","status.connection":"कनेक्शन स्थिति","status.serverUptime":"सर्वर अपटाइम","status.coreorSession":"Coreor सत्र","status.target":"सक्रिय लक्ष्य","status.threadConnections":"थ्रेड और कनेक्शन","status.bufferPool":"बफ़र पूल","status.storage":"लॉजिकल स्टोरेज","status.networkTraffic":"नेटवर्क ट्रैफ़िक","status.sqlPerformance":"SQL प्रदर्शन","status.lastQuery":"अंतिम क्वेरी","notification.languageChanged":"भाषा {language} में बदली गई।","notification.localOnly":"भाषा प्राथमिकता और अनुवाद इस डिवाइस पर रहते हैं।"}
+{
+  "meta": {
+    "direction": "ltr",
+    "nativeName": "हिन्दी"
+  },
+  "common": {
+    "add": "जोड़ें",
+    "all": "सभी",
+    "apply": "लागू करें",
+    "cancel": "रद्द करें",
+    "close": "बंद करें",
+    "confirm": "पुष्टि करें",
+    "connected": "कनेक्टेड",
+    "copy": "कॉपी करें",
+    "create": "बनाएँ",
+    "default": "डिफ़ॉल्ट",
+    "delete": "हटाएँ",
+    "disabled": "निष्क्रिय",
+    "download": "डाउनलोड करें",
+    "edit": "संपादित करें",
+    "enabled": "सक्रिय",
+    "error": "त्रुटि",
+    "escapeToClose": "बंद करने के लिए ESC दबाएँ",
+    "loading": "लोड हो रहा है…",
+    "no": "नहीं",
+    "noResults": "कोई मिलान परिणाम नहीं",
+    "offline": "ऑफ़लाइन",
+    "open": "खोलें",
+    "optionsCount": "{count} विकल्प",
+    "ready": "तैयार",
+    "refresh": "रीफ़्रेश करें",
+    "remove": "हटाएँ",
+    "reset": "रीसेट करें",
+    "run": "चलाएँ",
+    "save": "सहेजें",
+    "search": "खोजें",
+    "searchOptions": "विकल्प खोजें",
+    "select": "चुनें",
+    "success": "सफल",
+    "warning": "चेतावनी",
+    "yes": "हाँ"
+  },
+  "app": {
+    "accessibility": "सुलभता",
+    "account": "खाता",
+    "advanced": "उन्नत",
+    "appearance": "दिखावट",
+    "language": "भाषा",
+    "organizations": "संगठन",
+    "queryEditor": "क्वेरी संपादक",
+    "resetPreferences": "प्राथमिकताएँ रीसेट करें",
+    "security": "सुरक्षा",
+    "servers": "सर्वर",
+    "settings": "सेटिंग्स",
+    "whatsNew": "नया क्या है"
+  },
+  "nav": {
+    "backup": "बैकअप",
+    "commandPalette": "कमांड पैलेट",
+    "databases": "डेटाबेस",
+    "dataIntelligence": "डेटा इंटेलिजेंस",
+    "importExport": "इम्पोर्ट / एक्सपोर्ट",
+    "notebook": "नोटबुक",
+    "operations": "ऑपरेशन",
+    "performance": "प्रदर्शन",
+    "processes": "प्रोसेस",
+    "query": "क्वेरी",
+    "schema": "स्कीमा",
+    "tables": "टेबल",
+    "transaction": "ट्रांज़ैक्शन",
+    "users": "उपयोगकर्ता"
+  },
+  "topbar": {
+    "backup": "बैकअप",
+    "command": "कमांड",
+    "connect": "कनेक्ट करें",
+    "connectionSearch": "सर्वर, होस्ट या इंजन खोजें…",
+    "connectionSelect": "कनेक्शन चुनें",
+    "dataIntelligence": "डेटा इंटेलिजेंस",
+    "noConnection": "कोई कनेक्शन नहीं",
+    "noSavedServer": "कोई सहेजा हुआ सर्वर नहीं है।",
+    "notebook": "नोटबुक",
+    "operations": "ऑपरेशन",
+    "performance": "प्रदर्शन",
+    "processes": "प्रोसेस",
+    "readOnly": "केवल पढ़ने योग्य",
+    "refresh": "रीफ़्रेश करें",
+    "schema": "स्कीमा",
+    "settings": "सेटिंग्स",
+    "transaction": "ट्रांज़ैक्शन",
+    "transfer": "ट्रांसफ़र",
+    "users": "उपयोगकर्ता"
+  },
+  "sidebar": {
+    "accountSettings": "खाता सेटिंग्स",
+    "activateServer": "सर्वर सक्रिय करें",
+    "collapseAll": "सभी समेटें",
+    "createDatabase": "डेटाबेस बनाएँ",
+    "editConnection": "कनेक्शन संपादित करें",
+    "expandAll": "सभी फैलाएँ",
+    "newServer": "सर्वर जोड़ें",
+    "noConnections": "कोई कनेक्शन प्रोफ़ाइल नहीं",
+    "refreshCatalog": "कैटलॉग रीफ़्रेश करें",
+    "searchPlaceholder": "सर्वर, डेटाबेस और टेबल खोजें",
+    "serverQuery": "सर्वर-स्तरीय क्वेरी",
+    "signOut": "साइन आउट"
+  },
+  "query": {
+    "affectedRows": "{count} पंक्तियाँ प्रभावित",
+    "applyChange": "परिवर्तन लागू करें",
+    "autocomplete": "ऑटोकम्प्लीट",
+    "completed": "क्वेरी पूरी हुई",
+    "dangerousConfirm": "यह क्वेरी डेटा या स्कीमा बदल सकती है।",
+    "dryRunEnabled": "Dry-run सक्रिय",
+    "errorStopped": "SQL भाषा सेवा ने क्वेरी रोक दी।",
+    "favorites": "पसंदीदा",
+    "format": "फ़ॉर्मेट करें",
+    "history": "इतिहास",
+    "noResults": "कोई परिणाम नहीं",
+    "readOnly": "केवल-पढ़ने योग्य",
+    "results": "परिणाम",
+    "rows": "पंक्तियाँ",
+    "run": "चलाएँ",
+    "safeLimitWarning": "दृश्य पंक्ति सीमा नहीं है; API सुरक्षित अधिकतम लागू करता है।",
+    "selectDatabase": "डेटाबेस चुनें",
+    "selectServer": "सर्वर चुनें",
+    "serverScope": "सर्वर स्कोप",
+    "snapshotEnabled": "Snapshot सक्रिय"
+  },
+  "server": {
+    "addServer": "सर्वर जोड़ें",
+    "authentication": "प्रमाणीकरण",
+    "connectionFailed": "कनेक्शन विफल",
+    "connectionReady": "कनेक्शन तैयार",
+    "databaseName": "डेटाबेस नाम",
+    "defaultDatabase": "डिफ़ॉल्ट डेटाबेस",
+    "edit": "डेटाबेस सर्वर संपादित करें",
+    "engine": "डेटाबेस इंजन",
+    "engineVersion": "इंजन और संस्करण",
+    "host": "होस्ट या IP",
+    "name": "सर्वर नाम",
+    "new": "नया डेटाबेस सर्वर",
+    "password": "पासवर्ड",
+    "port": "पोर्ट",
+    "profileNetwork": "प्रोफ़ाइल और नेटवर्क",
+    "readOnlyDescription": "इस कनेक्शन पर लिखने, स्कीमा और प्रशासनिक ऑपरेशन रोकता है।",
+    "readOnlyProfile": "केवल-पढ़ने योग्य प्रोफ़ाइल",
+    "secureVault": "एन्क्रिप्टेड ब्राउज़र वॉल्ट",
+    "securityTimeout": "सुरक्षा और टाइमआउट",
+    "testConnection": "कनेक्शन जाँचें",
+    "timeout": "कनेक्शन टाइमआउट",
+    "tls": "TLS नीति",
+    "updateServer": "सर्वर अपडेट करें",
+    "username": "उपयोगकर्ता नाम",
+    "version": "संस्करण प्रोफ़ाइल"
+  },
+  "database": {
+    "bufferPool": "बफ़र पूल",
+    "catalog": "कैटलॉग",
+    "collation": "कॉलेशन",
+    "column": "कॉलम",
+    "connection": "कनेक्शन",
+    "connections": "कनेक्शन",
+    "data": "डेटा",
+    "database": "डेटाबेस",
+    "dataType": "डेटा प्रकार",
+    "defaultValue": "डिफ़ॉल्ट मान",
+    "event": "इवेंट",
+    "foreignKey": "फ़ॉरेन की",
+    "function": "फ़ंक्शन",
+    "index": "इंडेक्स",
+    "nullable": "NULL की अनुमति",
+    "primaryKey": "प्राइमरी की",
+    "procedure": "स्टोर्ड प्रोसीजर",
+    "replication": "रेप्लिकेशन",
+    "rows": "पंक्तियाँ",
+    "schema": "स्कीमा",
+    "slowQueries": "धीमी क्वेरी",
+    "storage": "स्टोरेज",
+    "structure": "संरचना",
+    "table": "टेबल",
+    "traffic": "ट्रैफ़िक",
+    "trigger": "ट्रिगर",
+    "uptime": "अपटाइम",
+    "view": "व्यू"
+  },
+  "settings": {
+    "language": {
+      "available": "उपलब्ध भाषाएँ",
+      "browser": "ब्राउज़र भाषा",
+      "coverage": "सॉफ़्टवेयर, SQL और डेटाबेस शब्दावली के अनुसार अनुवाद",
+      "current": "वर्तमान भाषा",
+      "description": "डेटाबेस और डेवलपमेंट टूल के लिए इंटरफ़ेस भाषा चुनें।",
+      "fallback": "गुम कुंजियाँ अंग्रेज़ी पर वापस जाती हैं",
+      "instant": "परिवर्तन तुरंत लागू होते हैं",
+      "localStorage": "इस डिवाइस पर स्थानीय रूप से संग्रहीत",
+      "restartNotRequired": "रीस्टार्ट की आवश्यकता नहीं",
+      "rtl": "अरबी के लिए दाएँ-से-बाएँ लेआउट समर्थित है",
+      "select": "इंटरफ़ेस भाषा",
+      "title": "भाषा और क्षेत्र"
+    }
+  },
+  "status": {
+    "bufferPool": "बफ़र पूल",
+    "catalogRefreshed": "कैटलॉग रीफ़्रेश किया गया",
+    "catalogRefreshFailed": "कैटलॉग रीफ़्रेश नहीं हो सका।",
+    "connection": "कनेक्शन स्थिति",
+    "connectionFailed": "कनेक्ट नहीं हो सका।",
+    "connectionReadyVersion": "{version} कनेक्शन तैयार है",
+    "coreorSession": "Coreor सत्र",
+    "lastQuery": "अंतिम क्वेरी",
+    "networkTraffic": "नेटवर्क ट्रैफ़िक",
+    "serverUptime": "सर्वर अपटाइम",
+    "sqlPerformance": "SQL प्रदर्शन",
+    "storage": "लॉजिकल स्टोरेज",
+    "target": "सक्रिय लक्ष्य",
+    "threadConnections": "थ्रेड और कनेक्शन"
+  },
+  "notification": {
+    "languageChanged": "भाषा {language} में बदली गई।",
+    "localOnly": "भाषा प्राथमिकता और अनुवाद इस डिवाइस पर रहते हैं।"
+  },
+  "process": {
+    "center": "प्रोसेस केंद्र",
+    "killConnection": "कनेक्शन समाप्त करें",
+    "killQuery": "क्वेरी समाप्त करें"
+  },
+  "performance": {
+    "activeConnections": "सक्रिय कनेक्शन",
+    "bufferPoolUsage": "बफ़र पूल उपयोग",
+    "logicalStorage": "लॉजिकल स्टोरेज",
+    "maxConnections": "अधिकतम कनेक्शन",
+    "qps": "QPS",
+    "replicationLag": "रेप्लिकेशन लैग",
+    "runningThreads": "चल रहे थ्रेड",
+    "slowQueries": "धीमी क्वेरी"
+  },
+  "notebook": {
+    "runAll": "सभी चलाएँ",
+    "title": "SQL नोटबुक"
+  },
+  "automation": {
+    "action": {
+      "analyzePlan": "एक्ज़ीक्यूशन प्लान का विश्लेषण करें",
+      "approve": "स्वीकृत करें",
+      "createTask": "कार्य बनाएँ",
+      "preview": "पूर्वावलोकन",
+      "reject": "अस्वीकृत करें",
+      "restoreDefaults": "डिफ़ॉल्ट पुनर्स्थापित करें",
+      "run": "चलाएँ",
+      "save": "सहेजें",
+      "saveMigration": "माइग्रेशन सहेजें",
+      "saveSet": "सेट सहेजें"
+    },
+    "approvals": "अनुमोदन वर्कफ़्लो",
+    "backups": "बैकअप कार्य",
+    "changedRows": "बदली हुई पंक्तियाँ",
+    "compare": "तुलना करें",
+    "dataCompare": "डेटा तुलना",
+    "empty": {
+      "snapshots": "अभी कोई स्कीमा स्नैपशॉट नहीं है।"
+    },
+    "error": {
+      "compareFailed": "डेटा की तुलना नहीं की जा सकी।",
+      "maskPreview": "मास्किंग पूर्वावलोकन नहीं बनाया जा सका।",
+      "planFailed": "एक्ज़ीक्यूशन प्लान प्राप्त नहीं किया जा सका।",
+      "preparedFailed": "प्रिपेयर्ड क्वेरी निष्पादित नहीं की जा सकी।",
+      "sessionRequired": "सर्वर और उपयोगकर्ता सत्र आवश्यक हैं।"
+    },
+    "indexAdvisor": "इंडेक्स सुझाव",
+    "migrations": "माइग्रेशन",
+    "onlySource": "केवल स्रोत में",
+    "onlyTarget": "केवल लक्ष्य में",
+    "preparedStatements": "प्रिपेयर्ड स्टेटमेंट",
+    "shortcut": {
+      "backupCenter": "बैकअप केंद्र",
+      "commandPalette": "कमांड पैलेट",
+      "formatSql": "SQL फ़ॉर्मेट करें",
+      "newQuery": "नई क्वेरी टैब",
+      "operationsCenter": "ऑपरेशन केंद्र",
+      "refreshCatalog": "कैटलॉग रीफ़्रेश करें"
+    },
+    "snapshots": "स्कीमा स्नैपशॉट",
+    "sourceDatabase": "स्रोत डेटाबेस",
+    "sourceServer": "स्रोत सर्वर",
+    "sourceTable": "स्रोत टेबल",
+    "status": {
+      "compareDone": "पहली 5,000 पंक्तियों की तुलना प्राइमरी/यूनिक कुंजी से की गई।",
+      "maskPreview": "मास्किंग पूर्वावलोकन बनाया गया; स्रोत डेटा नहीं बदला गया।",
+      "planReady": "एक्ज़ीक्यूशन प्लान प्राप्त हुआ। फुल स्कैन, अधिक पंक्तियों और filesort संकेतों की जाँच करें।",
+      "preparedExecuted": "पैरामीटर सेट निष्पादित किया गया।"
+    },
+    "tab": {
+      "migration": "माइग्रेशन",
+      "prepared": "प्रिपेयर्ड स्टेटमेंट लैब",
+      "shortcuts": "शॉर्टकट"
+    },
+    "tableHistory": "टेबल इतिहास",
+    "targetDatabase": "लक्ष्य डेटाबेस",
+    "targetServer": "लक्ष्य सर्वर",
+    "targetTable": "लक्ष्य टेबल"
+  },
+  "transaction": {
+    "autocommit": "ऑटोकमिट",
+    "begin": "ट्रांज़ैक्शन शुरू करें",
+    "commit": "कमिट",
+    "rollback": "रोलबैक",
+    "rollbackAndClose": "रोलबैक करके बंद करें",
+    "workspace": "ट्रांज़ैक्शन वर्कस्पेस"
+  },
+  "intelligence": {
+    "action": {
+      "analyze5000": "पहली 5,000 पंक्तियों का विश्लेषण करें",
+      "generateData": "डेटा बनाएँ",
+      "generateRules": "टेबल से नियम बनाएँ",
+      "maskPreview": "मास्क किया हुआ पूर्वावलोकन",
+      "openEditor": "एडिटर में खोलें",
+      "readColumns": "कॉलम लोड करें",
+      "refreshLive": "लाइव मेट्रिक्स रीफ़्रेश करें",
+      "saveRules": "नियम सहेजें"
+    },
+    "alertRules": "अलर्ट नियम",
+    "dataQuality": "डेटा गुणवत्ता",
+    "empty": {
+      "profiles": "अभी प्रोफ़ाइल करने के लिए कोई SQL रिकॉर्ड नहीं है।"
+    },
+    "healthScore": "डेटाबेस स्वास्थ्य स्कोर",
+    "masking": "उन्नत डेटा मास्किंग",
+    "profiler": "लाइव क्वेरी प्रोफाइलर",
+    "select": {
+      "database": "डेटाबेस चुनें",
+      "server": "सर्वर चुनें",
+      "table": "टेबल चुनें"
+    },
+    "slowQueries": "धीमी क्वेरी केंद्र",
+    "snippets": "क्वेरी स्निपेट",
+    "tab": {
+      "alertsDescription": "रीयल-टाइम स्थानीय सूचना सीमाएँ",
+      "generator": "टेस्ट डेटा",
+      "generatorDescription": "Snowflake सहित विस्तृत जनरेटर",
+      "health": "स्वास्थ्य स्कोर",
+      "healthDescription": "सर्वर और ऑपरेशन स्कोर",
+      "masking": "डेटा मास्किंग",
+      "maskingDescription": "40+ मास्किंग प्रकार और पूर्वावलोकन",
+      "profiler": "लाइव प्रोफाइलर",
+      "profilerDescription": "स्थानीय क्वेरी अवधि और वितरण",
+      "quality": "डेटा गुणवत्ता",
+      "qualityDescription": "NULL, डुप्लिकेट, फ़ॉर्मेट और आउटलायर",
+      "slow": "धीमी क्वेरी",
+      "slowDescription": "धीमी क्वेरी फ़िंगरप्रिंट",
+      "snippets": "स्निपेट लाइब्रेरी",
+      "snippetsDescription": "स्थानीय तैयार क्वेरी पैक"
+    },
+    "testData": "टेस्ट डेटा जनरेटर"
+  },
+  "control": {
+    "dropdown": {
+      "close": "ड्रॉपडाउन बंद करें",
+      "open": "ड्रॉपडाउन खोलें"
+    },
+    "select": {
+      "clear": "चयन साफ़ करें",
+      "close": "चयन सूची बंद करें",
+      "count": "{count} विकल्प",
+      "empty": "कोई मेल खाने वाला विकल्प नहीं मिला।",
+      "escape": "बंद करने के लिए ESC दबाएँ",
+      "open": "चयन सूची खोलें",
+      "placeholder": "एक विकल्प चुनें",
+      "search": "विकल्प खोजें…"
+    }
+  },
+  "tooltip": {
+    "backup": "mysqldump, pg_dump और SQL Server बैकअप कार्य",
+    "dataIntelligence": "प्रोफाइलर, धीमी क्वेरी, स्वास्थ्य, मास्किंग, टेस्ट डेटा और स्निपेट",
+    "hideDetails": "विवरण छिपाएँ",
+    "moreInfo": "अधिक जानकारी",
+    "operations": "स्नैपशॉट, माइग्रेशन, इंडेक्स, प्रिपेयर्ड स्टेटमेंट, अनुमोदन और तुलना",
+    "showDetails": "विवरण दिखाएँ"
+  },
+  "sql": {
+    "action": {
+      "clearQuery": "क्वेरी साफ़ करें",
+      "formatQuery": "क्वेरी फ़ॉर्मेट करें",
+      "newQuery": "नई क्वेरी",
+      "runQuery": "क्वेरी चलाएँ",
+      "selectDraft": "SELECT ड्राफ़्ट"
+    },
+    "keyword": {
+      "alter": "ALTER",
+      "create": "CREATE",
+      "delete": "DELETE",
+      "drop": "DROP",
+      "insert": "INSERT",
+      "select": "SELECT",
+      "truncate": "TRUNCATE",
+      "update": "UPDATE"
+    },
+    "log": "SQL लॉग",
+    "parameters": "पैरामीटर",
+    "result": {
+      "affectedRows": "प्रभावित पंक्तियाँ",
+      "duration": "निष्पादन समय",
+      "multi": "एकाधिक परिणाम",
+      "noResult": "कोई परिणाम नहीं"
+    },
+    "scope": {
+      "server": "सर्वर स्कोप"
+    },
+    "statement": "स्टेटमेंट"
+  },
+  "approval": {
+    "approved": "स्वीकृत",
+    "pending": "लंबित",
+    "rejected": "अस्वीकृत"
+  },
+  "grid": {
+    "columnMapping": "कॉलम मैपिंग",
+    "copyRow": "पंक्ति कॉपी करें",
+    "copyValue": "मान कॉपी करें",
+    "deleteSelectedRows": "चयनित पंक्तियाँ हटाएँ",
+    "editCell": "सेल संपादित करें",
+    "exportCsv": "CSV एक्सपोर्ट करें",
+    "exportJson": "JSON एक्सपोर्ट करें",
+    "firstPage": "पहला पेज",
+    "fitAll": "सभी कॉलम फ़िट करें",
+    "followForeignKey": "फ़ॉरेन की फ़ॉलो करें",
+    "lastPage": "अंतिम पेज",
+    "nextPage": "अगला पेज",
+    "pageSize": "पेज आकार",
+    "previousPage": "पिछला पेज",
+    "resetWidths": "कॉलम चौड़ाई रीसेट करें"
+  },
+  "transfer": {
+    "chooseFile": "फ़ाइल चुनें",
+    "title": "इम्पोर्ट / एक्सपोर्ट"
+  },
+  "users": {
+    "management": "उपयोगकर्ता प्रबंधन"
+  }
+}

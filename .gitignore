@@ -1,5 +1,3 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
 /node_modules
 /.pnp
@@ -10,33 +8,43 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
+# build/test output
 /coverage
-
-# next.js
 /.next/
 /out/
-
-# production
 /build
+/src-tauri/target/
+/local-releases/
 
-# misc
+# generated desktop icon derivatives
+# app-icon.svg is the source of truth. icon.ico stays tracked because
+# tauri-build needs it during Windows Cargo hot rebuilds.
+src-tauri/icons/*.png
+src-tauri/icons/*.icns
+
+# OS/editor
 .DS_Store
-*.pem
+Thumbs.db
 
-# debug
+# local application/developer data
+config.json
+*.local.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
-# env files
-.env*
-!.env.example
-
-# vercel
-.vercel
-
-# typescript
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local DB usage does not require environment files.
+# Never commit account-provider, signing or release secrets.
+.env*

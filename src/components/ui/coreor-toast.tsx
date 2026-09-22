@@ -2,6 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useLanguage } from '@/context/LanguageContext';
 import {
   AlertTriangle,
   Check,
@@ -53,6 +54,7 @@ export interface CoreorToastOptions {
   onConfirm?: (result: CoreorToastResult) => void | Promise<void>;
   onCancel?: () => void;
   metadata?: Array<{ label: string; value: React.ReactNode }>;
+  onOpen?: () => void;
 }
 
 export interface CoreorToastResult {
@@ -111,6 +113,7 @@ function VariantIcon({ variant, loading }: { variant: CoreorToastVariant; loadin
 }
 
 function ToastCard({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: string, result?: CoreorToastResult) => void }) {
+  const { t } = useLanguage();
   const variant = toast.variant || 'neutral';
   const tone = toneMap[variant];
   const [inputValue, setInputValue] = useState(toast.input?.defaultValue || '');
@@ -138,25 +141,31 @@ function ToastCard({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: s
   };
 
   const actionable = Boolean(toast.onConfirm || toast.yesNo || toast.input || toast.checkboxes?.length);
+  const metadataTooltip = (toast.metadata || []).map(item => `${item.label}: ${String(item.value)}`).join('\n');
 
   return (
-    <article className={`pointer-events-auto relative w-[min(430px,calc(100vw-24px))] overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl ${tone.border} ${tone.background}`}>
+    <article
+      className={`pointer-events-auto relative w-[min(320px,calc(100vw-16px))] overflow-hidden rounded-lg border shadow-xl backdrop-blur-xl ${tone.border} ${tone.background} ${toast.onOpen ? 'cursor-pointer' : ''}`}
+      onClick={() => toast.onOpen?.()}
+    >
       <div className={`absolute inset-y-0 left-0 w-1 ${tone.accent}`} />
-      <div className="p-4 pl-5">
-        <div className="flex items-start gap-3">
-          <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/20 ${tone.icon}`}>
+      <div className="p-2.5 pl-3.5">
+        <div className="flex items-start gap-2">
+          <span className={`mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-white/10 bg-black/20 ${tone.icon}`}>
             <VariantIcon variant={variant} loading={toast.loading || submitting} />
           </span>
           <div className="min-w-0 flex-1">
-            <h3 className="text-[12px] font-semibold text-zinc-100">{toast.title}</h3>
-            {toast.description && <p className="mt-1 text-[10px] leading-5 text-zinc-400">{toast.description}</p>}
+            <h3 className="text-[10px] font-semibold leading-4 text-zinc-100">{toast.title}</h3>
+            {toast.description && <p className="line-clamp-1 text-[8px] leading-3.5 text-zinc-500">{toast.description}</p>}
+            {toast.onOpen && !actionable && <span className="mt-1 inline-flex text-[8px] text-zinc-600">Ayrıntılar için aç</span>}
           </div>
-          <button type="button" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-600 transition hover:bg-white/[0.06] hover:text-zinc-200" onClick={cancel} aria-label="Bildirimi kapat">
-            <X className="h-3.5 w-3.5" />
+          {!actionable && toast.metadata?.length ? <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-600" title={metadataTooltip}><Info className="h-3.5 w-3.5" /></span> : null}
+          <button type="button" className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-600 transition hover:bg-white/[0.06] hover:text-zinc-200" onClick={event => { event.stopPropagation(); cancel(); }} aria-label={t('ui.closeNotification')}>
+            <X className="h-3 w-3" />
           </button>
         </div>
 
-        {toast.metadata?.length ? (
+        {actionable && toast.metadata?.length ? (
           <div className="mt-3 grid gap-1.5 rounded-xl border border-white/[0.07] bg-black/20 p-3 sm:grid-cols-2">
             {toast.metadata.map(item => <div key={item.label} className="min-w-0"><div className="text-[8px] uppercase tracking-[0.12em] text-zinc-600">{item.label}</div><div className="mt-1 truncate text-[10px] text-zinc-300">{item.value}</div></div>)}
           </div>
@@ -227,7 +236,7 @@ export function CoreorToastProvider({ children }: { children: React.ReactNode })
   const show = useCallback((options: CoreorToastOptions) => {
     const id = options.id || createId();
     const record: ToastRecord = { ...options, id, createdAt: Date.now() };
-    setToasts(previous => [record, ...previous.filter(item => item.id !== id)].slice(0, 8));
+    setToasts(previous => [record, ...previous.filter(item => item.id !== id)].slice(0, 3));
     const actionable = Boolean(options.onConfirm || options.yesNo || options.input || options.checkboxes?.length);
     if (!options.persistent && !actionable) {
       const duration = Math.max(1800, options.duration ?? 5200);
@@ -240,7 +249,7 @@ export function CoreorToastProvider({ children }: { children: React.ReactNode })
   const confirm = useCallback((options: CoreorToastOptions) => new Promise<CoreorToastResult>(resolve => {
     const id = options.id || createId();
     const record: ToastRecord = { ...options, id, createdAt: Date.now(), persistent: true, resolve };
-    setToasts(previous => [record, ...previous.filter(item => item.id !== id)].slice(0, 8));
+    setToasts(previous => [record, ...previous.filter(item => item.id !== id)].slice(0, 3));
   }), []);
 
   const update = useCallback((id: string, patch: Partial<CoreorToastOptions>) => setToasts(previous => previous.map(item => item.id === id ? { ...item, ...patch } : item)), []);
@@ -267,7 +276,7 @@ export function CoreorToastProvider({ children }: { children: React.ReactNode })
     <ToastContext.Provider value={value}>
       {children}
       {mounted && createPortal(
-        <div className="pointer-events-none fixed right-3 top-3 z-[1000] flex max-h-[calc(100dvh-24px)] flex-col gap-2 overflow-y-auto pr-1">
+        <div className="pointer-events-none fixed right-2.5 top-9 z-[1000] flex max-h-[calc(100dvh-44px)] flex-col gap-1 overflow-hidden">
           {toasts.map(toast => <ToastCard key={toast.id} toast={toast} onDismiss={dismiss} />)}
         </div>,
         document.body

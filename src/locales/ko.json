@@ -1,1 +1,440 @@
-{"meta.nativeName":"한국어","meta.direction":"ltr","common.search":"검색","common.searchOptions":"옵션 검색","common.select":"선택","common.noResults":"일치하는 결과가 없습니다","common.optionsCount":"옵션 {count}개","common.escapeToClose":"ESC로 닫기","common.save":"저장","common.cancel":"취소","common.create":"생성","common.delete":"삭제","common.edit":"편집","common.refresh":"새로 고침","common.close":"닫기","common.confirm":"확인","common.yes":"예","common.no":"아니요","common.loading":"불러오는 중…","common.connected":"연결됨","common.offline":"오프라인","common.ready":"준비됨","common.error":"오류","common.warning":"경고","common.success":"성공","common.copy":"복사","common.download":"다운로드","common.reset":"초기화","common.open":"열기","common.run":"실행","common.apply":"적용","common.add":"추가","common.remove":"제거","common.all":"전체","common.default":"기본값","common.enabled":"활성화","common.disabled":"비활성화","app.settings":"설정","app.language":"언어","app.account":"계정","app.organizations":"조직","app.servers":"서버","app.appearance":"모양","app.accessibility":"접근성","app.queryEditor":"쿼리 편집기","app.security":"보안","app.advanced":"고급","app.whatsNew":"새로운 기능","app.resetPreferences":"환경설정 초기화","nav.databases":"데이터베이스","nav.tables":"테이블","nav.schema":"스키마","nav.query":"쿼리","nav.users":"사용자","nav.processes":"프로세스","nav.performance":"성능","nav.notebook":"노트북","nav.backup":"백업","nav.operations":"작업","nav.dataIntelligence":"데이터 인텔리전스","nav.commandPalette":"명령 팔레트","nav.transaction":"트랜잭션","nav.importExport":"가져오기 / 내보내기","sidebar.searchPlaceholder":"서버, 데이터베이스 및 테이블 검색","sidebar.noConnections":"연결 프로필 없음","sidebar.newServer":"서버 추가","sidebar.accountSettings":"계정 설정","sidebar.signOut":"로그아웃","sidebar.activateServer":"서버 활성화","sidebar.createDatabase":"데이터베이스 생성","sidebar.serverQuery":"서버 범위 쿼리","sidebar.refreshCatalog":"카탈로그 새로 고침","sidebar.expandAll":"모두 펼치기","sidebar.collapseAll":"모두 접기","sidebar.editConnection":"연결 편집","query.run":"실행","query.format":"포맷","query.history":"기록","query.favorites":"즐겨찾기","query.selectServer":"서버 선택","query.selectDatabase":"데이터베이스 선택","query.serverScope":"서버 범위","query.dryRunEnabled":"Dry-run 활성화","query.snapshotEnabled":"Snapshot 활성화","query.readOnly":"읽기 전용","query.results":"결과","query.rows":"행","query.noResults":"결과 없음","query.completed":"쿼리 완료","query.affectedRows":"{count}개 행이 영향을 받음","query.safeLimitWarning":"표시된 행 제한이 없습니다. API가 안전한 최대값을 적용합니다.","query.autocomplete":"자동 완성","query.errorStopped":"SQL 언어 서비스가 쿼리를 중지했습니다.","query.dangerousConfirm":"이 쿼리는 데이터 또는 스키마를 변경할 수 있습니다.","query.applyChange":"변경 적용","server.new":"새 데이터베이스 서버","server.edit":"데이터베이스 서버 편집","server.secureVault":"암호화된 브라우저 보관소","server.profileNetwork":"프로필 및 네트워크","server.authentication":"인증","server.engineVersion":"엔진 및 버전","server.securityTimeout":"보안 및 시간 제한","server.name":"서버 이름","server.host":"호스트 또는 IP","server.port":"포트","server.defaultDatabase":"기본 데이터베이스","server.username":"사용자 이름","server.password":"비밀번호","server.engine":"데이터베이스 엔진","server.version":"버전 프로필","server.tls":"TLS 정책","server.timeout":"연결 시간 제한","server.readOnlyProfile":"읽기 전용 프로필","server.readOnlyDescription":"이 연결에서 쓰기, 스키마 및 관리 작업을 차단합니다.","server.testConnection":"연결 테스트","server.addServer":"서버 추가","server.updateServer":"서버 업데이트","server.connectionReady":"연결 준비됨","server.connectionFailed":"연결 실패","server.databaseName":"데이터베이스 이름","database.database":"데이터베이스","database.table":"테이블","database.column":"열","database.index":"인덱스","database.foreignKey":"외래 키","database.view":"뷰","database.procedure":"저장 프로시저","database.function":"함수","database.trigger":"트리거","database.event":"이벤트","database.connection":"연결","database.catalog":"카탈로그","database.schema":"스키마","database.data":"데이터","database.structure":"구조","database.rows":"행","database.primaryKey":"기본 키","database.nullable":"NULL 허용","database.dataType":"데이터 형식","database.defaultValue":"기본값","database.collation":"데이터 정렬","database.storage":"저장소","database.uptime":"가동 시간","database.connections":"연결","database.bufferPool":"버퍼 풀","database.traffic":"트래픽","database.slowQueries":"느린 쿼리","database.replication":"복제","settings.language.title":"언어 및 지역","settings.language.description":"데이터베이스 및 개발 도구에서 사용할 인터페이스 언어를 선택하세요.","settings.language.select":"인터페이스 언어","settings.language.current":"현재 언어","settings.language.browser":"브라우저 언어","settings.language.localStorage":"이 장치에 로컬로 저장됨","settings.language.instant":"변경 사항이 즉시 적용됩니다","settings.language.fallback":"누락된 키는 영어로 대체됩니다","settings.language.rtl":"아랍어는 오른쪽에서 왼쪽 레이아웃을 지원합니다","settings.language.coverage":"소프트웨어, SQL 및 데이터베이스 용어에 맞춘 번역","settings.language.restartNotRequired":"다시 시작할 필요 없음","settings.language.available":"사용 가능한 언어","status.connection":"연결 상태","status.serverUptime":"서버 가동 시간","status.coreorSession":"Coreor 세션","status.target":"활성 대상","status.threadConnections":"스레드 및 연결","status.bufferPool":"버퍼 풀","status.storage":"논리 저장소","status.networkTraffic":"네트워크 트래픽","status.sqlPerformance":"SQL 성능","status.lastQuery":"마지막 쿼리","notification.languageChanged":"언어가 {language}(으)로 변경되었습니다.","notification.localOnly":"언어 설정과 번역은 이 장치에 유지됩니다."}
+{
+  "meta": {
+    "direction": "ltr",
+    "nativeName": "한국어"
+  },
+  "common": {
+    "add": "추가",
+    "all": "전체",
+    "apply": "적용",
+    "cancel": "취소",
+    "close": "닫기",
+    "confirm": "확인",
+    "connected": "연결됨",
+    "copy": "복사",
+    "create": "생성",
+    "default": "기본값",
+    "delete": "삭제",
+    "disabled": "비활성화",
+    "download": "다운로드",
+    "edit": "편집",
+    "enabled": "활성화",
+    "error": "오류",
+    "escapeToClose": "ESC로 닫기",
+    "loading": "불러오는 중…",
+    "no": "아니요",
+    "noResults": "일치하는 결과가 없습니다",
+    "offline": "오프라인",
+    "open": "열기",
+    "optionsCount": "옵션 {count}개",
+    "ready": "준비됨",
+    "refresh": "새로 고침",
+    "remove": "제거",
+    "reset": "초기화",
+    "run": "실행",
+    "save": "저장",
+    "search": "검색",
+    "searchOptions": "옵션 검색",
+    "select": "선택",
+    "success": "성공",
+    "warning": "경고",
+    "yes": "예"
+  },
+  "app": {
+    "accessibility": "접근성",
+    "account": "계정",
+    "advanced": "고급",
+    "appearance": "모양",
+    "language": "언어",
+    "organizations": "조직",
+    "queryEditor": "쿼리 편집기",
+    "resetPreferences": "환경설정 초기화",
+    "security": "보안",
+    "servers": "서버",
+    "settings": "설정",
+    "whatsNew": "새로운 기능"
+  },
+  "nav": {
+    "backup": "백업",
+    "commandPalette": "명령 팔레트",
+    "databases": "데이터베이스",
+    "dataIntelligence": "데이터 인텔리전스",
+    "importExport": "가져오기 / 내보내기",
+    "notebook": "노트북",
+    "operations": "작업",
+    "performance": "성능",
+    "processes": "프로세스",
+    "query": "쿼리",
+    "schema": "스키마",
+    "tables": "테이블",
+    "transaction": "트랜잭션",
+    "users": "사용자"
+  },
+  "topbar": {
+    "backup": "백업",
+    "command": "명령",
+    "connect": "연결",
+    "connectionSearch": "서버, 호스트 또는 엔진 검색…",
+    "connectionSelect": "연결 선택",
+    "dataIntelligence": "데이터 인텔리전스",
+    "noConnection": "연결 없음",
+    "noSavedServer": "저장된 서버가 없습니다.",
+    "notebook": "노트북",
+    "operations": "작업",
+    "performance": "성능",
+    "processes": "프로세스",
+    "readOnly": "읽기 전용",
+    "refresh": "새로 고침",
+    "schema": "스키마",
+    "settings": "설정",
+    "transaction": "트랜잭션",
+    "transfer": "전송",
+    "users": "사용자"
+  },
+  "sidebar": {
+    "accountSettings": "계정 설정",
+    "activateServer": "서버 활성화",
+    "collapseAll": "모두 접기",
+    "createDatabase": "데이터베이스 생성",
+    "editConnection": "연결 편집",
+    "expandAll": "모두 펼치기",
+    "newServer": "서버 추가",
+    "noConnections": "연결 프로필 없음",
+    "refreshCatalog": "카탈로그 새로 고침",
+    "searchPlaceholder": "서버, 데이터베이스 및 테이블 검색",
+    "serverQuery": "서버 범위 쿼리",
+    "signOut": "로그아웃"
+  },
+  "query": {
+    "affectedRows": "{count}개 행이 영향을 받음",
+    "applyChange": "변경 적용",
+    "autocomplete": "자동 완성",
+    "completed": "쿼리 완료",
+    "dangerousConfirm": "이 쿼리는 데이터 또는 스키마를 변경할 수 있습니다.",
+    "dryRunEnabled": "Dry-run 활성화",
+    "errorStopped": "SQL 언어 서비스가 쿼리를 중지했습니다.",
+    "favorites": "즐겨찾기",
+    "format": "포맷",
+    "history": "기록",
+    "noResults": "결과 없음",
+    "readOnly": "읽기 전용",
+    "results": "결과",
+    "rows": "행",
+    "run": "실행",
+    "safeLimitWarning": "표시된 행 제한이 없습니다. API가 안전한 최대값을 적용합니다.",
+    "selectDatabase": "데이터베이스 선택",
+    "selectServer": "서버 선택",
+    "serverScope": "서버 범위",
+    "snapshotEnabled": "Snapshot 활성화"
+  },
+  "server": {
+    "addServer": "서버 추가",
+    "authentication": "인증",
+    "connectionFailed": "연결 실패",
+    "connectionReady": "연결 준비됨",
+    "databaseName": "데이터베이스 이름",
+    "defaultDatabase": "기본 데이터베이스",
+    "edit": "데이터베이스 서버 편집",
+    "engine": "데이터베이스 엔진",
+    "engineVersion": "엔진 및 버전",
+    "host": "호스트 또는 IP",
+    "name": "서버 이름",
+    "new": "새 데이터베이스 서버",
+    "password": "비밀번호",
+    "port": "포트",
+    "profileNetwork": "프로필 및 네트워크",
+    "readOnlyDescription": "이 연결에서 쓰기, 스키마 및 관리 작업을 차단합니다.",
+    "readOnlyProfile": "읽기 전용 프로필",
+    "secureVault": "암호화된 브라우저 보관소",
+    "securityTimeout": "보안 및 시간 제한",
+    "testConnection": "연결 테스트",
+    "timeout": "연결 시간 제한",
+    "tls": "TLS 정책",
+    "updateServer": "서버 업데이트",
+    "username": "사용자 이름",
+    "version": "버전 프로필"
+  },
+  "database": {
+    "bufferPool": "버퍼 풀",
+    "catalog": "카탈로그",
+    "collation": "데이터 정렬",
+    "column": "열",
+    "connection": "연결",
+    "connections": "연결",
+    "data": "데이터",
+    "database": "데이터베이스",
+    "dataType": "데이터 형식",
+    "defaultValue": "기본값",
+    "event": "이벤트",
+    "foreignKey": "외래 키",
+    "function": "함수",
+    "index": "인덱스",
+    "nullable": "NULL 허용",
+    "primaryKey": "기본 키",
+    "procedure": "저장 프로시저",
+    "replication": "복제",
+    "rows": "행",
+    "schema": "스키마",
+    "slowQueries": "느린 쿼리",
+    "storage": "저장소",
+    "structure": "구조",
+    "table": "테이블",
+    "traffic": "트래픽",
+    "trigger": "트리거",
+    "uptime": "가동 시간",
+    "view": "뷰"
+  },
+  "settings": {
+    "language": {
+      "available": "사용 가능한 언어",
+      "browser": "브라우저 언어",
+      "coverage": "소프트웨어, SQL 및 데이터베이스 용어에 맞춘 번역",
+      "current": "현재 언어",
+      "description": "데이터베이스 및 개발 도구에서 사용할 인터페이스 언어를 선택하세요.",
+      "fallback": "누락된 키는 영어로 대체됩니다",
+      "instant": "변경 사항이 즉시 적용됩니다",
+      "localStorage": "이 장치에 로컬로 저장됨",
+      "restartNotRequired": "다시 시작할 필요 없음",
+      "rtl": "아랍어는 오른쪽에서 왼쪽 레이아웃을 지원합니다",
+      "select": "인터페이스 언어",
+      "title": "언어 및 지역"
+    }
+  },
+  "status": {
+    "bufferPool": "버퍼 풀",
+    "catalogRefreshed": "카탈로그를 새로 고쳤습니다",
+    "catalogRefreshFailed": "카탈로그를 새로 고칠 수 없습니다.",
+    "connection": "연결 상태",
+    "connectionFailed": "연결할 수 없습니다.",
+    "connectionReadyVersion": "{version} 연결이 준비되었습니다",
+    "coreorSession": "Coreor 세션",
+    "lastQuery": "마지막 쿼리",
+    "networkTraffic": "네트워크 트래픽",
+    "serverUptime": "서버 가동 시간",
+    "sqlPerformance": "SQL 성능",
+    "storage": "논리 저장소",
+    "target": "활성 대상",
+    "threadConnections": "스레드 및 연결"
+  },
+  "notification": {
+    "languageChanged": "언어가 {language}(으)로 변경되었습니다.",
+    "localOnly": "언어 설정과 번역은 이 장치에 유지됩니다."
+  },
+  "process": {
+    "center": "프로세스 센터",
+    "killConnection": "연결 종료",
+    "killQuery": "쿼리 종료"
+  },
+  "performance": {
+    "activeConnections": "활성 연결",
+    "bufferPoolUsage": "버퍼 풀 사용량",
+    "logicalStorage": "논리 저장소",
+    "maxConnections": "최대 연결 수",
+    "qps": "QPS",
+    "replicationLag": "복제 지연",
+    "runningThreads": "실행 중인 스레드",
+    "slowQueries": "느린 쿼리"
+  },
+  "notebook": {
+    "runAll": "모두 실행",
+    "title": "SQL 노트북"
+  },
+  "automation": {
+    "action": {
+      "analyzePlan": "실행 계획 분석",
+      "approve": "승인",
+      "createTask": "작업 생성",
+      "preview": "미리보기",
+      "reject": "거부",
+      "restoreDefaults": "기본값 복원",
+      "run": "실행",
+      "save": "저장",
+      "saveMigration": "마이그레이션 저장",
+      "saveSet": "세트 저장"
+    },
+    "approvals": "승인 워크플로",
+    "backups": "백업 작업",
+    "changedRows": "변경된 행",
+    "compare": "비교",
+    "dataCompare": "데이터 비교",
+    "empty": {
+      "snapshots": "아직 스키마 스냅샷이 없습니다."
+    },
+    "error": {
+      "compareFailed": "데이터를 비교할 수 없습니다.",
+      "maskPreview": "마스킹 미리보기를 생성할 수 없습니다.",
+      "planFailed": "실행 계획을 가져올 수 없습니다.",
+      "preparedFailed": "준비된 쿼리를 실행할 수 없습니다.",
+      "sessionRequired": "서버와 사용자 세션이 필요합니다."
+    },
+    "indexAdvisor": "인덱스 권장 사항",
+    "migrations": "마이그레이션",
+    "onlySource": "원본에만 있음",
+    "onlyTarget": "대상에만 있음",
+    "preparedStatements": "준비된 문",
+    "shortcut": {
+      "backupCenter": "백업 센터",
+      "commandPalette": "명령 팔레트",
+      "formatSql": "SQL 포맷",
+      "newQuery": "새 쿼리 탭",
+      "operationsCenter": "작업 센터",
+      "refreshCatalog": "카탈로그 새로 고침"
+    },
+    "snapshots": "스키마 스냅샷",
+    "sourceDatabase": "원본 데이터베이스",
+    "sourceServer": "원본 서버",
+    "sourceTable": "원본 테이블",
+    "status": {
+      "compareDone": "처음 5,000개 행을 기본/고유 키로 비교했습니다.",
+      "maskPreview": "마스킹 미리보기를 생성했습니다. 원본 데이터는 변경되지 않았습니다.",
+      "planReady": "실행 계획을 가져왔습니다. 전체 스캔, 높은 행 수 및 filesort 표시를 확인하세요.",
+      "preparedExecuted": "매개변수 세트를 실행했습니다."
+    },
+    "tab": {
+      "migration": "마이그레이션",
+      "prepared": "준비된 문 랩",
+      "shortcuts": "단축키"
+    },
+    "tableHistory": "테이블 기록",
+    "targetDatabase": "대상 데이터베이스",
+    "targetServer": "대상 서버",
+    "targetTable": "대상 테이블"
+  },
+  "transaction": {
+    "autocommit": "자동 커밋",
+    "begin": "트랜잭션 시작",
+    "commit": "커밋",
+    "rollback": "롤백",
+    "rollbackAndClose": "롤백 후 닫기",
+    "workspace": "트랜잭션 작업 공간"
+  },
+  "intelligence": {
+    "action": {
+      "analyze5000": "처음 5,000개 행 분석",
+      "generateData": "데이터 생성",
+      "generateRules": "테이블에서 규칙 생성",
+      "maskPreview": "마스킹 미리보기",
+      "openEditor": "편집기에서 열기",
+      "readColumns": "열 불러오기",
+      "refreshLive": "실시간 지표 새로 고침",
+      "saveRules": "규칙 저장"
+    },
+    "alertRules": "알림 규칙",
+    "dataQuality": "데이터 품질",
+    "empty": {
+      "profiles": "아직 프로파일링할 SQL 기록이 없습니다."
+    },
+    "healthScore": "데이터베이스 상태 점수",
+    "masking": "고급 데이터 마스킹",
+    "profiler": "실시간 쿼리 프로파일러",
+    "select": {
+      "database": "데이터베이스 선택",
+      "server": "서버 선택",
+      "table": "테이블 선택"
+    },
+    "slowQueries": "느린 쿼리 센터",
+    "snippets": "쿼리 스니펫",
+    "tab": {
+      "alertsDescription": "실시간 로컬 알림 임계값",
+      "generator": "테스트 데이터",
+      "generatorDescription": "Snowflake를 포함한 상세 생성기",
+      "health": "상태 점수",
+      "healthDescription": "서버 및 작업 점수",
+      "masking": "데이터 마스킹",
+      "maskingDescription": "40개 이상의 마스킹 유형 및 미리보기",
+      "profiler": "실시간 프로파일러",
+      "profilerDescription": "로컬 쿼리 실행 시간 및 분포",
+      "quality": "데이터 품질",
+      "qualityDescription": "NULL, 중복, 형식 및 이상값",
+      "slow": "느린 쿼리",
+      "slowDescription": "느린 쿼리 지문",
+      "snippets": "스니펫 라이브러리",
+      "snippetsDescription": "로컬 즉시 사용 가능한 쿼리 팩"
+    },
+    "testData": "테스트 데이터 생성기"
+  },
+  "control": {
+    "dropdown": {
+      "close": "드롭다운 닫기",
+      "open": "드롭다운 열기"
+    },
+    "select": {
+      "clear": "선택 지우기",
+      "close": "선택 목록 닫기",
+      "count": "옵션 {count}개",
+      "empty": "일치하는 옵션을 찾을 수 없습니다.",
+      "escape": "ESC를 눌러 닫기",
+      "open": "선택 목록 열기",
+      "placeholder": "옵션 선택",
+      "search": "옵션 검색…"
+    }
+  },
+  "tooltip": {
+    "backup": "mysqldump, pg_dump 및 SQL Server 백업 작업",
+    "dataIntelligence": "프로파일러, 느린 쿼리, 상태, 마스킹, 테스트 데이터 및 스니펫",
+    "hideDetails": "세부 정보 숨기기",
+    "moreInfo": "추가 정보",
+    "operations": "스냅샷, 마이그레이션, 인덱스, 준비된 문, 승인 및 비교",
+    "showDetails": "세부 정보 표시"
+  },
+  "sql": {
+    "action": {
+      "clearQuery": "쿼리 지우기",
+      "formatQuery": "쿼리 포맷",
+      "newQuery": "새 쿼리",
+      "runQuery": "쿼리 실행",
+      "selectDraft": "SELECT 초안"
+    },
+    "keyword": {
+      "alter": "ALTER",
+      "create": "CREATE",
+      "delete": "DELETE",
+      "drop": "DROP",
+      "insert": "INSERT",
+      "select": "SELECT",
+      "truncate": "TRUNCATE",
+      "update": "UPDATE"
+    },
+    "log": "SQL 로그",
+    "parameters": "매개변수",
+    "result": {
+      "affectedRows": "영향받은 행",
+      "duration": "실행 시간",
+      "multi": "여러 결과",
+      "noResult": "결과 없음"
+    },
+    "scope": {
+      "server": "서버 범위"
+    },
+    "statement": "문"
+  },
+  "approval": {
+    "approved": "승인됨",
+    "pending": "대기 중",
+    "rejected": "거부됨"
+  },
+  "grid": {
+    "columnMapping": "열 매핑",
+    "copyRow": "행 복사",
+    "copyValue": "값 복사",
+    "deleteSelectedRows": "선택한 행 삭제",
+    "editCell": "셀 편집",
+    "exportCsv": "CSV 내보내기",
+    "exportJson": "JSON 내보내기",
+    "firstPage": "첫 페이지",
+    "fitAll": "모든 열 맞춤",
+    "followForeignKey": "외래 키 따라가기",
+    "lastPage": "마지막 페이지",
+    "nextPage": "다음 페이지",
+    "pageSize": "페이지 크기",
+    "previousPage": "이전 페이지",
+    "resetWidths": "열 너비 초기화"
+  },
+  "transfer": {
+    "chooseFile": "파일 선택",
+    "title": "가져오기 / 내보내기"
+  },
+  "users": {
+    "management": "사용자 관리"
+  }
+}

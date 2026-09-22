@@ -1,5 +1,6 @@
 'use client';
 
+import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Activity, AlertTriangle, Clock, Database, HardDrive, Loader2, RefreshCw, Server, X } from 'lucide-react';
@@ -11,6 +12,7 @@ import { CoreorSwitch } from '@/components/ui/coreor-switch';
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
 import { useAppPreferences, type PerformanceRefreshSeconds } from '@/lib/appPreferences';
 import { performanceHistoryStore, type PerformanceHistoryPoint } from '@/lib/decentralizedIntelligence';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface DatabasePerformancePanelModalProps {
   open: boolean;
@@ -33,13 +35,6 @@ interface PerformancePoint {
 type HistoryWindow = '15m' | '1h' | '6h' | '24h';
 const WINDOW_MS: Record<HistoryWindow, number> = { '15m': 15 * 60_000, '1h': 60 * 60_000, '6h': 6 * 60 * 60_000, '24h': 24 * 60 * 60_000 };
 const REFRESH_OPTIONS: SearchSelectOption<PerformanceRefreshSeconds>[] = [1, 3, 5, 10, 15, 30].map(value => ({ value: value as PerformanceRefreshSeconds, label: `${value} saniye`, description: value <= 3 ? 'Çok canlı; daha fazla sorgu üretir.' : value <= 10 ? 'Dengeli canlı takip.' : 'Daha düşük veritabanı yükü.', badge: value === 5 ? 'Varsayılan' : undefined }));
-const WINDOW_OPTIONS: SearchSelectOption<HistoryWindow>[] = [
-  { value: '15m', label: 'Son 15 dakika', description: 'Ani dalgalanmalar' },
-  { value: '1h', label: 'Son 1 saat', description: 'Kısa dönem eğilim' },
-  { value: '6h', label: 'Son 6 saat', description: 'Vardiya görünümü' },
-  { value: '24h', label: 'Son 24 saat', description: 'Günlük görünüm' }
-];
-
 function number(value: number, digits = 1) {
   return new Intl.NumberFormat('tr-TR', { maximumFractionDigits: digits }).format(Number.isFinite(value) ? value : 0);
 }
@@ -93,10 +88,18 @@ function storedToPoint(item: PerformanceHistoryPoint): PerformancePoint {
 }
 
 export function DatabasePerformancePanelModal({ open, onClose, serverId, accountId, selectedDatabase }: DatabasePerformancePanelModalProps) {
+  const { t } = useLanguage();
   const { preferences, setPreferences } = useAppPreferences();
+  const windowOptions = useMemo<SearchSelectOption<HistoryWindow>[]>(() => [
+    { value: '15m', label: t('performancePanel.last15Minutes'), description: t('performancePanel.spikes') },
+    { value: '1h', label: t('performancePanel.last1Hour'), description: t('performancePanel.shortTrend') },
+    { value: '6h', label: t('performancePanel.last6Hours'), description: t('performancePanel.shiftView') },
+    { value: '24h', label: t('performancePanel.last24Hours'), description: t('performancePanel.dailyView') }
+  ], [t]);
   const [snapshot, setSnapshot] = useState<DatabasePerformanceSnapshot | null>(null);
   const [points, setPoints] = useState<PerformancePoint[]>([]);
   const [loading, setLoading] = useState(false);
+  useModalEscape(open, onClose);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [historyWindow, setHistoryWindow] = useState<HistoryWindow>('15m');
   const [error, setError] = useState<string | null>(null);
@@ -165,8 +168,10 @@ export function DatabasePerformancePanelModal({ open, onClose, serverId, account
 
   useEffect(() => {
     if (!open || !autoRefresh) return;
-    const timer = window.setInterval(() => void load(), preferences.performanceRefreshSeconds * 1000);
-    return () => window.clearInterval(timer);
+    const refresh = () => { if (document.visibilityState === 'visible') void load(); };
+    const timer = window.setInterval(refresh, Math.max(3, preferences.performanceRefreshSeconds) * 1000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
   }, [open, autoRefresh, load, preferences.performanceRefreshSeconds]);
 
   const latestPoint = points.at(-1);
@@ -178,26 +183,26 @@ export function DatabasePerformancePanelModal({ open, onClose, serverId, account
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[328] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[328] flex items-center justify-center p-2 sm:p-3">
       <button type="button" className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} aria-label="Kapat" />
-      <div className="relative z-10 flex h-[min(880px,95vh)] w-[min(1420px,97vw)] min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+      <div className="relative z-10 flex h-[calc(100dvh-16px)] max-h-[880px] w-[calc(100vw-16px)] max-w-[1420px] min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl sm:h-[calc(100dvh-24px)] sm:w-[calc(100vw-24px)]">
         <div className="flex h-14 shrink-0 items-center gap-3 border-b border-zinc-800 px-4">
           <Activity className="h-4 w-4 text-cyan-400" />
           <div><h2 className="text-sm font-semibold">Veritabanı performans paneli</h2><p className="text-[10px] text-zinc-500">Yerel zaman serisi, canlı yenileme, InnoDB, replication ve mantıksal depolama.</p></div>
-          <div className="ml-auto flex items-center gap-2"><div className="w-40"><SearchSelect value={historyWindow} options={WINDOW_OPTIONS} onValueChange={setHistoryWindow} triggerClassName="h-8 min-h-8" showDescriptionInTrigger={false}/></div><div className="w-36"><SearchSelect value={preferences.performanceRefreshSeconds} options={REFRESH_OPTIONS} onValueChange={performanceRefreshSeconds => setPreferences({ performanceRefreshSeconds })} triggerClassName="h-8 min-h-8" showDescriptionInTrigger={false}/></div><CoreorSwitch checked={autoRefresh} onCheckedChange={setAutoRefresh} label="Canlı" /></div>
+          <div className="ml-auto flex items-center gap-2"><div className="w-40"><SearchSelect value={historyWindow} options={windowOptions} onValueChange={setHistoryWindow} triggerClassName="h-8 min-h-8" showDescriptionInTrigger={false}/></div><div className="w-36"><SearchSelect value={preferences.performanceRefreshSeconds} options={REFRESH_OPTIONS} onValueChange={performanceRefreshSeconds => setPreferences({ performanceRefreshSeconds })} triggerClassName="h-8 min-h-8" showDescriptionInTrigger={false}/></div><CoreorSwitch checked={autoRefresh} onCheckedChange={setAutoRefresh} label="Canlı" /></div>
           <Button variant="ghost" size="icon" className="h-8 w-8" disabled={loading} onClick={() => void load()}><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></Button>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
 
         {error && <div className="shrink-0 border-b border-red-500/20 bg-red-500/10 px-4 py-2 text-xs text-red-300">{error}</div>}
         {!snapshot && loading ? <div className="flex min-h-0 flex-1 items-center justify-center gap-2 text-sm text-zinc-500"><Loader2 className="h-5 w-5 animate-spin" />Performans metrikleri okunuyor…</div> : snapshot && <div className="coreor-table-scroll min-h-0 flex-1 overflow-y-auto p-4">
-          <div className="mb-3 flex items-center justify-between rounded-xl border border-zinc-800 bg-black/20 px-3 py-2 text-[9px] text-zinc-500"><span>{points.length.toLocaleString('tr-TR')} yerel ölçüm • {historyWindow} görünümü</span><button className="text-red-400 hover:text-red-300" onClick={() => { performanceHistoryStore.clear(serverId || undefined); setPoints([]); }}>Geçmişi temizle</button></div>
+          <div className="mb-3 flex items-center justify-between rounded-xl border border-zinc-800 bg-black/20 px-3 py-2 text-[9px] text-zinc-500"><span>{points.length.toLocaleString('tr-TR')} yerel ölçüm • {historyWindow} görünümü</span><button className="text-red-400 hover:text-red-300" onClick={() => { performanceHistoryStore.clear(serverId || undefined); setPoints([]); }}>{t('performancePanel.clearHistory')}</button></div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             <MetricCard title="QPS" value={number(latestPoint?.qps || 0, 2)} description={points.length > 1 ? 'Son iki snapshot arasındaki Questions farkı.' : 'İlk ölçümde uptime üzerinden ortalama.'} icon={<Activity className="h-4 w-4" />} values={chartSeries.qps} />
             <MetricCard title="Aktif bağlantı" value={snapshot.threadsConnected.toLocaleString('tr-TR')} description={`${snapshot.threadsRunning.toLocaleString('tr-TR')} çalışan thread • tepe ${snapshot.maxUsedConnections.toLocaleString('tr-TR')}${snapshot.maxConnections ? ` / limit ${snapshot.maxConnections.toLocaleString('tr-TR')}` : ''}`} icon={<Server className="h-4 w-4" />} values={chartSeries.connections} tone={connectionPercent >= 85 ? 'red' : connectionPercent >= 65 ? 'amber' : 'emerald'} />
-            <MetricCard title="Buffer pool" value={percent(snapshot.bufferPool.usagePercent)} description={`${formatStorageBytes(snapshot.bufferPool.totalPages * snapshot.bufferPool.pageSize)} toplam • hit ratio ${snapshot.bufferPool.hitRatio === null ? '—' : percent(snapshot.bufferPool.hitRatio * 100, 2)}`} icon={<Database className="h-4 w-4" />} tone={snapshot.bufferPool.usagePercent >= 95 ? 'amber' : 'purple'} />
-            <MetricCard title="Slow query" value={number(snapshot.slowQueries, 0)} description={`${number(latestPoint?.slowPerSecond || 0, 3)} sorgu/sn • global Slow_queries sayacı`} icon={<Clock className="h-4 w-4" />} values={chartSeries.slow} tone={latestPoint?.slowPerSecond ? 'amber' : 'emerald'} />
-            <MetricCard title="Replication lag" value={!snapshot.replication.available ? 'Kapalı' : snapshot.replication.secondsBehind === null ? '—' : `${number(snapshot.replication.secondsBehind, 0)} sn`} description={!snapshot.replication.available ? 'Bu sunucuda replica status dönmedi.' : `${snapshot.replication.ioRunning || 'IO ?'} / ${snapshot.replication.sqlRunning || 'SQL ?'}${snapshot.replication.sourceHost ? ` • ${snapshot.replication.sourceHost}` : ''}`} icon={<Activity className="h-4 w-4" />} tone={replicationTone} />
+            <MetricCard title={t('database.bufferPool')} value={percent(snapshot.bufferPool.usagePercent)} description={`${formatStorageBytes(snapshot.bufferPool.totalPages * snapshot.bufferPool.pageSize)} toplam • hit ratio ${snapshot.bufferPool.hitRatio === null ? '—' : percent(snapshot.bufferPool.hitRatio * 100, 2)}`} icon={<Database className="h-4 w-4" />} tone={snapshot.bufferPool.usagePercent >= 95 ? 'amber' : 'purple'} />
+            <MetricCard title={t('intelligence.tab.slow')} value={number(snapshot.slowQueries, 0)} description={`${number(latestPoint?.slowPerSecond || 0, 3)} sorgu/sn • global Slow_queries sayacı`} icon={<Clock className="h-4 w-4" />} values={chartSeries.slow} tone={latestPoint?.slowPerSecond ? 'amber' : 'emerald'} />
+            <MetricCard title={t('performancePanel.replicationLag')} value={!snapshot.replication.available ? 'Kapalı' : snapshot.replication.secondsBehind === null ? '—' : `${number(snapshot.replication.secondsBehind, 0)} sn`} description={!snapshot.replication.available ? 'Bu sunucuda replica status dönmedi.' : `${snapshot.replication.ioRunning || 'IO ?'} / ${snapshot.replication.sqlRunning || 'SQL ?'}${snapshot.replication.sourceHost ? ` • ${snapshot.replication.sourceHost}` : ''}`} icon={<Activity className="h-4 w-4" />} tone={replicationTone} />
             <MetricCard title="Mantıksal depolama" value={formatStorageBytes(snapshot.storage.totalBytes)} description={`${formatStorageBytes(snapshot.storage.dataBytes)} veri • ${formatStorageBytes(snapshot.storage.indexBytes)} indeks${selectedDatabase && snapshot.storage.selectedDatabaseBytes !== null ? ` • ${selectedDatabase}: ${formatStorageBytes(snapshot.storage.selectedDatabaseBytes)}` : ''}`} icon={<HardDrive className="h-4 w-4" />} tone="purple" />
           </div>
 

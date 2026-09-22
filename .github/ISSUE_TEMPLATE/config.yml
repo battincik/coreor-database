@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerabilities
+    url: https://github.com/battincik/web.database.coreor.net/security
+    about: Use private vulnerability reporting for security-sensitive issues.

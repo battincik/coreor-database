@@ -6,37 +6,43 @@ import type {
   DatabaseExportDataResponse,
   DatabaseImportDataInput,
   DatabaseImportDataResponse,
+  DatabaseMaintenanceStepInput,
+  DatabaseMaintenanceStepResponse,
   DatabasePerformanceSnapshot,
   DatabasePrivilegeChangeInput,
   DatabaseProcessCenterResponse,
+  DatabaseStorageRecalculation,
   DatabaseUserSaveInput,
   DatabaseUsersResponse,
   DatabaseWorkbenchAction
 } from '@/lib/databaseWorkbenchTypes';
-import { readEncryptedServerProfiles } from '@/lib/secureVault';
+import { mutateLocalServerProfiles, readLocalServerProfiles } from '@/lib/localProfiles';
 import { recordActivity } from '@/lib/activityConsole';
-import { normalizeDatabaseClientError, readDatabaseApiResponse } from '@/lib/databaseErrorPresentation';
+import { desktopDatabaseRequest } from '@/lib/desktopClient';
+import { normalizeDatabaseClientError } from '@/lib/databaseErrorPresentation';
 
 async function requireServer(accountId: string | null | undefined, serverId: string) {
-  if (!accountId) throw new Error('Veritabanı çalışma alanına erişmek için kullanıcı oturumu gerekli.');
-  const servers = await readEncryptedServerProfiles(accountId);
+  const servers = await readLocalServerProfiles();
   const server = servers.find(item => item.id === serverId);
-  if (!server) throw new Error('Sunucu profili şifreli kasada bulunamadı.');
+  if (!server) throw new Error('Sunucu profili yerel config içinde bulunamadı.');
   return server;
 }
 
 function connectionPayload(server: DatabaseServerConfig, database?: string | null): DatabaseConnectionPayload {
-  if (server.databaseType !== 'mysql' && server.databaseType !== 'mariadb') throw new Error('Desteklenmeyen veritabanı motoru.');
-  if (!server.host?.trim() || !server.username?.trim() || !server.password) throw new Error('Host, kullanıcı adı veya parola eksik.');
+  const engine = server.databaseType ?? 'mysql';
+  if (!server.host?.trim() || !server.username?.trim()) throw new Error('Host veya kullanıcı adı eksik.');
+  const defaultPort = engine === 'postgresql' || engine === 'cockroachdb' ? 5432 : engine === 'mssql' ? 1433 : 3306;
   return {
-    engine: server.databaseType,
+    serverId: server.id,
+    engine,
     host: server.host.trim(),
-    port: server.port ?? 3306,
+    port: server.port ?? defaultPort,
     username: server.username.trim(),
-    password: server.password,
+    password: server.password || undefined,
     database: database === undefined ? server.databaseName?.trim() || undefined : database,
     sslMode: server.sslMode ?? 'required',
     connectTimeoutMs: server.connectionTimeoutMs ?? 20_000,
+    poolMaxConnections: Math.min(32, Math.max(1, server.poolMaxConnections ?? 6), Math.max(1, server.serverMaxConnections ?? 32)),
     readOnly: Boolean(server.readOnly)
   };
 }
@@ -52,15 +58,7 @@ async function workbenchRequest<T>(
   const server = await requireServer(accountId, serverId);
   const startedAt = performance.now();
   try {
-    const response = await fetch('/api/database', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      credentials: 'same-origin',
-      cache: 'no-store',
-      referrerPolicy: 'same-origin',
-      body: JSON.stringify({ action, connection: connectionPayload(server, database), database, ...payload })
-    });
-    const body = await readDatabaseApiResponse<T>(response);
+    const body = await desktopDatabaseRequest<T>({ action, connection: connectionPayload(server, database), database, ...payload });
     if (recordInActivityLog) {
       recordActivity({
         level: 'success',
@@ -130,11 +128,186 @@ export function assignDatabaseRole(
 }
 
 export function fetchDatabaseProcessCenter(serverId: string, accountId?: string | null) {
-  return workbenchRequest<DatabaseProcessCenterResponse>(serverId, accountId, 'process-list');
+  // Polling/refresh reads must not create activity errors and duplicate toast notifications.
+  // The process center renders its own inline error state.
+  return workbenchRequest<DatabaseProcessCenterResponse>(serverId, accountId, 'process-list', {}, undefined, false);
 }
 
 export function killDatabaseProcess(serverId: string, processId: number, killType: 'query' | 'connection', accountId?: string | null) {
   return workbenchRequest<{ killed: boolean; processId: number }>(serverId, accountId, 'process-kill', { processId, killType });
+}
+
+
+function bytesToMb(value: number) {
+  return (Math.max(0, Number(value) || 0) / 1048576).toFixed(2);
+}
+
+async function persistStorageRecalculations(serverId: string, results: DatabaseStorageRecalculation[]) {
+  if (!results.length) return;
+  const databaseResult = results.find(result => result.scope === 'database');
+  const tableResults = new Map(
+    results
+      .filter(result => result.scope === 'table' && result.table)
+      .map(result => [result.table as string, result])
+  );
+
+  await mutateLocalServerProfiles(servers => {
+    const nextServers = servers.map(server => {
+      if (server.id !== serverId) return server;
+      const databases = (server.databases || []).map(database => {
+        const belongs = results.some(result => result.database === database.name);
+        if (!belongs) return database;
+
+        const tableDetails = (database.tableDetails || []).map(table => {
+          const result = tableResults.get(table.tableName);
+          if (!result) return table;
+          return {
+            ...table,
+            rows: result.rows ?? table.rows,
+            dataSizeMB: bytesToMb(result.dataBytes),
+            indexSizeMB: bytesToMb(result.indexBytes),
+            freeSizeMB: bytesToMb(result.freeBytes),
+            sizeMB: bytesToMb(result.totalBytes),
+            storageMeasuredAt: result.sampledAt,
+            storageMeasurementSource: result.measurementSource ?? null,
+            storagePhysicalBytes: result.physicalBytes ?? null,
+            rowCountMeasuredAt: result.sampledAt,
+            rowCountMeasurementSource: result.rowCountSource ?? 'metadata-estimate'
+          };
+        });
+
+        if (databaseResult?.database === database.name) {
+          return {
+            ...database,
+            tableDetails,
+            totalRows: databaseResult.rows ?? tableDetails.reduce((sum, table) => sum + Number(table.rows || 0), 0),
+            dataSizeMB: bytesToMb(databaseResult.dataBytes),
+            indexSizeMB: bytesToMb(databaseResult.indexBytes),
+            totalSizeMB: bytesToMb(databaseResult.totalBytes),
+            freeSizeMB: bytesToMb(databaseResult.freeBytes),
+            storageMeasuredAt: databaseResult.sampledAt,
+            storageMeasurementSource: databaseResult.measurementSource ?? null,
+            storagePhysicalBytes: databaseResult.physicalBytes ?? null,
+            rowCountMeasuredAt: databaseResult.sampledAt,
+            rowCountMeasurementSource: databaseResult.rowCountSource ?? 'metadata-estimate'
+          };
+        }
+
+        return {
+          ...database,
+          tableDetails,
+          totalRows: tableDetails.reduce((sum, table) => sum + Number(table.rows || 0), 0),
+          dataSizeMB: tableDetails.reduce((sum, table) => sum + Number(table.dataSizeMB || 0), 0).toFixed(2),
+          indexSizeMB: tableDetails.reduce((sum, table) => sum + Number(table.indexSizeMB || 0), 0).toFixed(2),
+          totalSizeMB: tableDetails.reduce((sum, table) => sum + Number(table.sizeMB || 0), 0).toFixed(2)
+        };
+      });
+      return { ...server, databases, updatedAt: new Date().toISOString() };
+    });
+    return { servers: nextServers, result: undefined };
+  });
+}
+
+async function measureTableStorage(
+  serverId: string,
+  database: string,
+  table: string,
+  accountId?: string | null
+) {
+  return workbenchRequest<DatabaseStorageRecalculation>(
+    serverId,
+    accountId,
+    'storage-recalculate',
+    { scope: 'table', database, table },
+    database,
+    false
+  );
+}
+
+export async function recalculateDatabaseStorage(serverId: string, database: string, accountId?: string | null) {
+  const server = await requireServer(accountId, serverId);
+  const catalogDatabase = (server.databases || []).find(item => item.name === database);
+  const tables = Array.from(new Set([
+    ...(catalogDatabase?.tables || []),
+    ...(catalogDatabase?.tableDetails || []).map(table => table.tableName)
+  ])).filter(Boolean);
+
+  const tableResults: DatabaseStorageRecalculation[] = [];
+  const failedTables: Array<{ table: string; message: string }> = [];
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < tables.length) {
+      const index = cursor++;
+      const table = tables[index];
+      try {
+        tableResults.push(await measureTableStorage(serverId, database, table, accountId));
+      } catch (error) {
+        failedTables.push({ table, message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, Math.max(1, tables.length)) }, () => worker()));
+
+  const databaseResult = await workbenchRequest<DatabaseStorageRecalculation>(
+    serverId,
+    accountId,
+    'storage-recalculate',
+    { scope: 'database', database },
+    database,
+    false
+  );
+
+  const hasCompleteTableMeasurements =
+    failedTables.length === 0 &&
+    tables.length === tableResults.length;
+  const hasCompleteExactCounts =
+    hasCompleteTableMeasurements &&
+    tableResults.every(result => result.rowCountSource === 'exact-count' && result.rows !== null);
+
+  const aggregate = hasCompleteTableMeasurements
+    ? tableResults.reduce((totals, result) => ({
+        dataBytes: totals.dataBytes + Number(result.dataBytes || 0),
+        indexBytes: totals.indexBytes + Number(result.indexBytes || 0),
+        freeBytes: totals.freeBytes + Number(result.freeBytes || 0),
+        totalBytes: totals.totalBytes + Number(result.totalBytes || 0),
+        rows: totals.rows + Number(result.rows || 0)
+      }), { dataBytes: 0, indexBytes: 0, freeBytes: 0, totalBytes: 0, rows: 0 })
+    : null;
+
+  const normalizedDatabaseResult: DatabaseStorageRecalculation = {
+    ...databaseResult,
+    dataBytes: aggregate?.dataBytes ?? databaseResult.dataBytes,
+    indexBytes: aggregate?.indexBytes ?? databaseResult.indexBytes,
+    freeBytes: aggregate?.freeBytes ?? databaseResult.freeBytes,
+    totalBytes: aggregate?.totalBytes ?? databaseResult.totalBytes,
+    rows: hasCompleteExactCounts ? aggregate?.rows ?? 0 : databaseResult.rows,
+    measurementSource: aggregate ? 'table-aggregate' : databaseResult.measurementSource,
+    rowCountSource: hasCompleteExactCounts ? 'exact-count' : 'metadata-estimate'
+  };
+
+  await persistStorageRecalculations(serverId, [normalizedDatabaseResult, ...tableResults]);
+  return { ...normalizedDatabaseResult, tableResults, failedTables };
+}
+
+export async function recalculateTableStorage(serverId: string, database: string, table: string, accountId?: string | null) {
+  const result = await measureTableStorage(serverId, database, table, accountId);
+  await persistStorageRecalculations(serverId, [result]);
+  return result;
+}
+
+export function runDatabaseMaintenanceStep(
+  serverId: string,
+  input: DatabaseMaintenanceStepInput,
+  accountId?: string | null
+) {
+  return workbenchRequest<DatabaseMaintenanceStepResponse>(
+    serverId,
+    accountId,
+    'maintenance-run',
+    input as unknown as Record<string, unknown>,
+    input.database,
+    false
+  );
 }
 
 export function fetchDatabasePerformanceSnapshot(serverId: string, accountId?: string | null, database?: string | null) {

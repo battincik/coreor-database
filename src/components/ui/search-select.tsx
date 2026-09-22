@@ -18,6 +18,7 @@ interface SearchSelectProps<T extends string | number = string> {
   options: SearchSelectOption<T>[];
   onValueChange: (value: T) => void;
   placeholder?: string;
+  triggerLabel?: string;
   searchPlaceholder?: string;
   emptyText?: string;
   disabled?: boolean;
@@ -43,6 +44,7 @@ export function SearchSelect<T extends string | number = string>({
   options,
   onValueChange,
   placeholder,
+  triggerLabel,
   searchPlaceholder,
   emptyText,
   disabled = false,
@@ -60,9 +62,13 @@ export function SearchSelect<T extends string | number = string>({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const selected = options.find(option => option.value === value);
+  const selected = options.find(option => Object.is(option.value, value))
+    ?? options.find(option => String(option.value) === String(value));
   const usePortal = portal || dropdownMinWidth > 340;
   const resolvedPlaceholder = placeholder ?? t('control.select.placeholder');
+  // The selected option is the source of truth. A custom trigger label is only a fallback.
+  // This prevents a stale externally-computed label from disagreeing with the checked option.
+  const displayLabel = selected?.label ?? triggerLabel ?? resolvedPlaceholder;
   const resolvedSearchPlaceholder = searchPlaceholder ?? t('control.select.search');
   const resolvedEmptyText = emptyText ?? t('control.select.empty');
 
@@ -169,7 +175,7 @@ export function SearchSelect<T extends string | number = string>({
         {filtered.length === 0 ? (
           <div className="px-4 py-10 text-center text-[10px] text-zinc-600">{resolvedEmptyText}</div>
         ) : filtered.map(option => {
-          const active = option.value === value;
+          const active = option === selected;
           return (
             <button
               key={String(option.value)}
@@ -235,7 +241,7 @@ export function SearchSelect<T extends string | number = string>({
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={`${open ? t('control.select.close') : t('control.select.open')}: ${selected?.label ?? resolvedPlaceholder}`}
+        aria-label={`${open ? t('control.select.close') : t('control.select.open')}: ${displayLabel}`}
         title={open ? t('control.select.close') : t('control.select.open')}
         onClick={() => setOpen(previous => !previous)}
         className={`flex min-h-10 w-full min-w-0 items-center gap-2.5 rounded-xl border px-3 text-left transition outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -245,8 +251,8 @@ export function SearchSelect<T extends string | number = string>({
         } ${triggerClassName}`}
       >
         <span className="min-w-0 flex-1 py-1.5">
-          <span className={`block truncate text-[11px] font-semibold ${selected ? 'text-zinc-100' : 'text-zinc-600'}`}>
-            {selected?.label || resolvedPlaceholder}
+          <span key={String(value)} className={`block truncate text-[11px] font-semibold ${selected || triggerLabel ? 'text-zinc-100' : 'text-zinc-600'}`}>
+            {displayLabel}
           </span>
           {showDescriptionInTrigger && selected?.description && <span className="mt-0.5 block truncate text-[9px] text-zinc-600">{selected.description}</span>}
         </span>

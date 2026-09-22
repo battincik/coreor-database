@@ -1,6 +1,6 @@
 # Code of Conduct
 
-Coreor Web Database aims to maintain a technical community where people can contribute, ask questions and review code without harassment, intimidation or unnecessary hostility.
+Coreor Database aims to maintain a technical community where people can contribute, ask questions and review code without harassment, intimidation or unnecessary hostility.
 
 This policy applies to project spaces including issues, pull requests, discussions, reviews and other official project communication channels.
 
@@ -85,4 +85,4 @@ If the issue also involves a security vulnerability, use the private process des
 
 ## Scope
 
-This code of conduct governs participation in Coreor Web Database project spaces. It does not attempt to regulate unrelated personal activity unless that activity directly threatens project participants or the safety of the project infrastructure.
+This code of conduct governs participation in Coreor Database project spaces. It does not attempt to regulate unrelated personal activity unless that activity directly threatens project participants or the safety of the project infrastructure.

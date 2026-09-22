@@ -1,0 +1,60 @@
+name: Cross-platform CI
+
+on:
+  push:
+    branches: [client, main]
+  pull_request:
+    branches: [client, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: UI and repository checks
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:lifecycle
+      - run: npm run locks:check
+      - run: npm run architecture:check
+      - run: npm run i18n:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run ui:build
+
+  native:
+    name: Native compile (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils rpm
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm run architecture:check
+      - run: npm run native:check
+      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml --lib app_updates::tests
+      - run: npm run tauri:build -- --no-bundle

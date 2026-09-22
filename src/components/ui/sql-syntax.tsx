@@ -72,15 +72,15 @@ export function tokenizeSql(source: string): SqlToken[] {
 
 const TOKEN_CLASS: Record<SqlTokenKind, string> = {
   plain: 'text-[var(--sql-plain)]',
-  keyword: 'font-semibold text-[var(--sql-keyword)]',
+  keyword: 'text-[var(--sql-keyword)]',
   type: 'text-[var(--sql-type)]',
   function: 'text-[var(--sql-function)]',
   string: 'text-[var(--sql-string)]',
   number: 'text-[var(--sql-number)]',
-  comment: 'italic text-[var(--sql-comment)]',
+  comment: 'text-[var(--sql-comment)]',
   identifier: 'text-[var(--sql-identifier)]',
   operator: 'text-[var(--sql-operator)]',
-  parameter: 'font-semibold text-[var(--sql-parameter)]'
+  parameter: 'text-[var(--sql-parameter)]'
 };
 
 export function SqlHighlightedText({ sql }: { sql: string }) {
@@ -123,14 +123,16 @@ export function SqlEditor({
   const updateCursor = (element: HTMLTextAreaElement) => onCursorChange?.(element.selectionStart);
 
   return (
-    <div className={`coreor-sql-syntax relative h-full min-h-0 overflow-hidden bg-[var(--coreor-editor-bg)] ${className}`}>
-      <pre ref={preRef} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words p-3 font-mono text-[length:var(--coreor-editor-font-size)] leading-[var(--coreor-line-height)]"><SqlHighlightedText sql={value || `${placeholder || ''}`} />{value.endsWith('\n') ? '\n ' : ''}</pre>
+    <div className={`coreor-sql-syntax coreor-sql-editor-stack relative h-full min-h-0 overflow-hidden bg-[var(--coreor-editor-bg)] ${className}`}>
+      <pre ref={preRef} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre p-3 font-mono text-[length:var(--coreor-editor-font-size)] font-normal not-italic leading-[var(--coreor-line-height)]" style={{ tabSize: 2, fontVariantLigatures: 'none' }}><SqlHighlightedText sql={value || `${placeholder || ''}`} />{value.endsWith('\n') ? '\n ' : ''}</pre>
       <textarea
         value={value}
         spellCheck={false}
+        wrap="off"
         aria-label="SQL sorgu editörü"
         placeholder={placeholder}
-        className="absolute inset-0 h-full w-full resize-none overflow-auto border-0 bg-transparent p-3 font-mono text-[length:var(--coreor-editor-font-size)] leading-[var(--coreor-line-height)] text-transparent caret-[var(--sql-caret)] outline-none selection:bg-[var(--coreor-editor-selection)] placeholder:text-zinc-700"
+        className="absolute inset-0 h-full w-full resize-none overflow-auto whitespace-pre border-0 bg-transparent p-3 font-mono text-[length:var(--coreor-editor-font-size)] font-normal not-italic leading-[var(--coreor-line-height)] text-transparent caret-[var(--sql-caret)] outline-none selection:bg-[var(--coreor-editor-selection)] placeholder:text-zinc-700"
+        style={{ tabSize: 2, fontVariantLigatures: 'none' }}
         onChange={event => onChange(event.target.value, event.currentTarget.selectionStart)}
         onClick={event => updateCursor(event.currentTarget)}
         onSelect={event => updateCursor(event.currentTarget)}

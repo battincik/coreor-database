@@ -3,6 +3,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { AlertTriangle, Database, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface AppStateProps {
   icon?: LucideIcon;
@@ -55,13 +56,15 @@ export function ErrorState({ title, description, actionLabel, onAction, compact 
   );
 }
 
-export function LoadingState({ title = 'Yükleniyor', description, compact = false }: { title?: string; description?: string; compact?: boolean }) {
+export function LoadingState({ title, description, compact = false }: { title?: string; description?: string; compact?: boolean }) {
+  const {t}=useLanguage();
+  const resolvedTitle=title || t('common.loading');
   return (
     <div className={`flex h-full w-full items-center justify-center ${compact ? 'px-3 py-5' : 'px-6 py-10'}`}>
       <div className="flex flex-col items-center gap-2 text-center">
         <Loader2 className={`${compact ? 'h-4 w-4' : 'h-5 w-5'} animate-spin text-emerald-400`} />
         <div>
-          <p className={`${compact ? 'text-xs' : 'text-sm'} font-medium text-foreground`}>{title}</p>
+          <p className={`${compact ? 'text-xs' : 'text-sm'} font-medium text-foreground`}>{resolvedTitle}</p>
           {description && <p className={`mt-1 text-muted-foreground ${compact ? 'text-[11px]' : 'text-xs'}`}>{description}</p>}
         </div>
       </div>

@@ -1,261 +1,75 @@
 # Security Model
 
-Coreor Web Database is a browser-based database client with a server-side connection layer. Because the application accepts user-supplied database destinations and credentials, security depends on several independent boundaries working together.
-
-This document explains the intended model. For vulnerability reporting instructions, see [SECURITY.md](SECURITY.md). For attacker-oriented analysis, see [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+Coreor Database is a local-first desktop database client.
 
 ## Trust boundaries
 
-The system has four major trust zones:
+1. **UI/WebView** — React/Next.js interface embedded by Tauri.
+2. **Native Rust process** — trusted application boundary that owns database connections, local config and transaction state.
+3. **Target database** — remote or local database server; protocol responses are treated as untrusted input.
+4. **Local operating-system account** — protects application files and local configuration.
+5. **Optional Coreor Account API** — independent online identity/capability service; not part of the database connection path.
 
-1. **User browser** — renders the application, stores encrypted profiles and initiates database actions.
-2. **Application server** — authenticates users, validates requests and opens outbound database connections.
-3. **Target database server** — controlled by the user or a third party and treated as untrusted from the application's perspective.
-4. **External identity provider** — GitHub OAuth is used for authentication and account identity.
+## Database credentials
 
-None of these zones should be treated as universally trusted.
+Database credentials are required in native memory while a connection is active.
 
-## Authentication model
+Current connection profiles are persisted in the Tauri app configuration area. This is local storage, not a claim of hardware-backed secret protection.
 
-GitHub OAuth identifies the user and separates account-scoped browser data.
+Planned hardening should use platform secret stores where practical.
 
-Important distinction:
+## Native IPC
 
-- GitHub login is an **authentication** mechanism.
-- The hosted application is intentionally available to any valid GitHub-authenticated user.
-- It is not a manual account allowlist.
+The UI does not connect to databases directly and does not call a local Next.js API. Database actions use typed Tauri commands.
 
-Production deployments must use a stable, unpredictable `NEXTAUTH_SECRET` or `AUTH_SECRET` of sufficient length.
+Tauri capabilities should remain minimal and explicitly grant only required native operations.
 
-## Browser vault
+## Read-only policy
 
-Database connection profiles are stored in browser IndexedDB and encrypted with WebCrypto AES-GCM.
+Read-only profiles are enforced in the Rust database layer. UI disabling is secondary defense-in-depth.
 
-This provides protection against casual plaintext inspection of persisted browser storage, but it has explicit limits:
+Database-level least-privilege/read-only accounts are still recommended for production inspection.
 
-- credentials must be decrypted to establish a live connection,
-- decrypted credentials exist in browser memory before the request is sent,
-- the application server receives the credential in memory during a database request,
-- XSS or a compromised browser extension/runtime could access data after decryption,
-- this is therefore not zero-knowledge storage and not end-to-end encryption in the messaging sense.
+## Resource bounds
 
-The project must not advertise stronger properties than these.
+Native database work should remain bounded by:
 
-## Server-side credential handling
+- query timeout,
+- result-row limits,
+- table page limits,
+- transaction TTL/capacity,
+- bounded metadata discovery,
+- lazy loading and request deduplication.
 
-The application server receives connection credentials to open a database connection.
+## Target database threat
 
-Expected behavior:
+A database server can be slow, malformed, malicious or unexpectedly large. Drivers must use timeouts and bounded decoding/serialization. Raw sensitive driver errors should not be persisted unnecessarily.
 
-- do not intentionally persist plaintext credentials,
-- do not include passwords in structured logs,
-- redact common secret-like fields from activity/history output,
-- avoid returning raw driver errors that may contain sensitive connection information,
-- keep request lifetimes bounded.
+## Optional account API
 
-Contributors adding telemetry, debugging or logging must assume request payloads can contain credentials.
+Guest mode remains valid. Account outages must not block local database usage.
 
-## SSRF and outbound-network controls
+The account API may receive account identity, capability, collaboration or opt-in sync data. It should not receive local database passwords by default.
 
-A public database client can otherwise become a server-side request forgery primitive. The network policy therefore distinguishes public database targets from internal/reserved targets.
+## Local compromise
 
-### Default behavior
+A process running with the same user privileges may be able to read local application files or process memory. Coreor Database cannot claim to protect secrets from a fully compromised OS account.
 
-- public Internet-resolvable database hosts are allowed,
-- loopback addresses are blocked,
-- RFC1918/private ranges are blocked,
-- link-local addresses are blocked,
-- reserved/special ranges are blocked,
-- allowed destination ports are restricted.
+## Supply chain
 
-### Private exceptions
+Lockfiles, deterministic installs, minimal GitHub Actions permissions, dependency review and release signing are part of the security model.
 
-`DATABASE_ALLOWED_HOSTS` is an explicit administrative override for self-hosted/private deployments that intentionally need access to otherwise blocked destinations.
+## Release security
 
-A public hosted instance should normally keep this list empty.
+Before a public release:
 
-### Port policy
+- scan full Git history for secrets,
+- enable secret scanning and push protection,
+- enable private vulnerability reporting,
+- review third-party licenses,
+- validate Windows/macOS/Linux builds,
+- sign/notarize production artifacts when distribution begins.
 
-`DATABASE_ALLOWED_PORTS` restricts outbound connections to expected database ports. The default set is intended for supported engines rather than arbitrary TCP proxying.
+## Optional diagnostics and signed updates
 
-Do not replace the list with an unrestricted wildcard on a public deployment without an equivalent egress firewall policy.
-
-## DNS rebinding considerations
-
-Destination validation must be performed against resolved addresses, not only the user-supplied hostname string.
-
-The connection layer resolves the target and validates the resolved address before connection. Where TLS requires hostname identity, the original hostname is retained for SNI/certificate behavior while the validated destination address is used for network policy.
-
-Any change to DNS resolution or connection establishment must preserve this property.
-
-## Same-origin and CSRF-style controls
-
-Database actions are high-impact authenticated operations. The API validates trusted request origins against configured production origins.
-
-Relevant configuration:
-
-- `NEXTAUTH_URL`
-- `AUTH_URL` where supported
-- `AUTH_TRUSTED_ORIGINS`
-
-Reverse-proxy forwarding headers must not silently become a universal trust source.
-
-## Rate limiting
-
-The current application includes basic per-user process-local rate limiting.
-
-This is useful for a single-process deployment but is not a complete distributed abuse-control system.
-
-For larger hosted deployments add one or more of:
-
-- reverse-proxy rate limiting,
-- WAF rules,
-- Redis-backed distributed counters,
-- per-account concurrent connection limits,
-- per-account transaction limits,
-- abuse detection for repeated unreachable/forbidden targets.
-
-## Request and result bounds
-
-Server-side limits are used to reduce accidental or malicious resource exhaustion.
-
-Examples include:
-
-- API request body size,
-- database query timeout,
-- maximum result rows,
-- maximum table page size,
-- BLOB/large-payload limits,
-- transaction capacity and TTL controls.
-
-These limits must be enforced server-side. Client-side UI limits are usability controls, not security controls.
-
-## SQL execution model
-
-The product is intentionally a database client, so authenticated users may execute SQL against databases for which they possess credentials.
-
-This means arbitrary SQL is not itself considered an application vulnerability.
-
-Security instead depends on:
-
-- the user only having credentials for databases they are authorized to access,
-- read-only profile policy being enforced where selected,
-- result/timeout/resource limits,
-- database credentials using least privilege,
-- server network controls preventing unrelated internal-service access.
-
-## Read-only profiles
-
-Read-only mode should be treated as a defense-in-depth product policy.
-
-The server should reject mutating actions/queries for read-only profiles even if a modified client attempts to bypass UI restrictions.
-
-Do not rely only on disabled buttons or client-side SQL classification.
-
-## Database account recommendations
-
-Production users should avoid daily use of superuser accounts such as:
-
-- MySQL/MariaDB `root`,
-- PostgreSQL superuser roles,
-- SQL Server `sa`.
-
-Prefer dedicated application/operations accounts with only the permissions needed for the intended workflow.
-
-## TLS
-
-TLS behavior depends on the target database engine and deployment.
-
-Recommendations:
-
-- prefer encrypted database connections,
-- verify server certificates where practical,
-- use publicly trusted or organization-trusted CA chains,
-- avoid disabling verification merely to bypass a self-signed certificate error on a public service,
-- document private CA installation for self-hosted environments instead.
-
-## Security headers
-
-Production responses include defense-in-depth headers such as:
-
-- Content Security Policy,
-- HTTP Strict Transport Security,
-- frame restrictions,
-- MIME sniffing protection,
-- referrer policy,
-- permissions policy,
-- cross-origin isolation-related headers where configured.
-
-CSP is especially important because browser vault encryption does not protect against code executing inside the trusted application origin.
-
-## Error handling
-
-Database driver messages can expose hostnames, usernames, topology information, SQL fragments or implementation detail.
-
-The API therefore normalizes known failures into stable error codes/messages and should use a generic response for unexpected internal failures.
-
-Detailed sensitive server exceptions belong in controlled internal debugging, not user-facing 5xx responses.
-
-## Transactions
-
-Current live transaction state is process-local.
-
-Security and correctness implications:
-
-- transaction ownership must be bound to authenticated identity,
-- transaction IDs must not allow cross-user access,
-- TTL and capacity limits are required,
-- a request routed to a different process cannot safely resume the same transaction.
-
-Do not enable unconstrained multi-instance transaction routing until the architecture in Issue #38 is redesigned or sticky state is guaranteed.
-
-## Dependency security
-
-Framework and authentication dependencies are part of the attack surface.
-
-Public releases should:
-
-- keep Next.js and NextAuth on patched versions,
-- use Dependabot or equivalent monitoring,
-- review GitHub advisories promptly,
-- regenerate lockfiles deterministically,
-- run `npm ci` and project checks before release.
-
-## Source repository controls
-
-Recommended repository-level protections:
-
-- protected `main`,
-- pull request requirement,
-- required CI checks,
-- force-push disabled,
-- branch deletion disabled,
-- Dependabot alerts/security updates,
-- secret scanning and push protection,
-- private vulnerability reporting.
-
-## Secrets in Git history
-
-`.gitignore` only protects future accidental additions. It does not remove secrets from old commits.
-
-Before a public release, scan the full history with a dedicated scanner such as Gitleaks or TruffleHog. If a real credential is discovered:
-
-1. rotate/revoke the credential first,
-2. determine whether history cleanup is necessary,
-3. invalidate caches/forks where applicable,
-4. document the incident privately until rotation is complete.
-
-## Security changes checklist
-
-A pull request touching authentication, database routing, DNS, credentials, SQL execution, CSP, transactions or logging should answer:
-
-- What trust boundary changes?
-- What attacker-controlled input reaches this code?
-- Is validation server-side?
-- Could secrets appear in logs/errors?
-- Does this expand outbound network reachability?
-- Does this create unbounded CPU/memory/result work?
-- Does it remain safe across multiple processes?
-- What tests or manual verification cover the change?
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor requirements.
+Production builds enable application error reporting by default, with a persisted native opt-out under Advanced settings. Only schema-defined diagnostic metadata is posted to `https://api.coreor.net/app/database/error-report`; SQL, results, connection credentials, raw messages and full stacks are excluded. Local error.log is independent. Debug builds do not send reports or update. GitHub release artifacts require the pinned public-key signature; no repository credential is embedded. See [lifecycle contract](docs/APP_LIFECYCLE.tr.md) for retention, rate limits and failure behavior.

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, CircleDot, ExternalLink, FileClock, GitMerge, GitPullRequest, Loader2, RefreshCw, Search, ShieldCheck, Sparkles, Wrench, XCircle } from 'lucide-react';
 import type { ReleaseHistoryResponse, ReleasePullRequest, ReleasePullRequestStatus } from '@/lib/releaseHistory';
 import { Button } from '@/components/ui/button';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface ReleaseNotesTreeProps {
   compact?: boolean;
@@ -33,17 +34,17 @@ const EMPTY_DETAILS: ParsedReleaseBody = {
 
 const categoryConfig: Array<{
   key: DetailCategory;
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   icon: React.ComponentType<{ className?: string }>;
   className: string;
 }> = [
-  { key: 'added', title: 'Gelenler', description: 'Yeni eklenen özellik ve yetenekler', icon: Sparkles, className: 'border-emerald-500/20 bg-emerald-500/[0.04] text-emerald-300' },
-  { key: 'changed', title: 'Değişenler', description: 'Davranışı veya görünümü yenilenen alanlar', icon: GitMerge, className: 'border-cyan-500/20 bg-cyan-500/[0.04] text-cyan-300' },
-  { key: 'fixed', title: 'Düzeltilenler', description: 'Çözülen hatalar ve uyumluluk sorunları', icon: Wrench, className: 'border-amber-500/20 bg-amber-500/[0.04] text-amber-300' },
-  { key: 'removed', title: 'Kaldırılanlar', description: 'Artık kullanılmayan veya yerini yenisine bırakan parçalar', icon: XCircle, className: 'border-red-500/20 bg-red-500/[0.04] text-red-300' },
-  { key: 'security', title: 'Güvenlik ve koruma', description: 'Oturum, bağlantı ve veri güvenliğine ilişkin değişiklikler', icon: ShieldCheck, className: 'border-purple-500/20 bg-purple-500/[0.04] text-purple-300' },
-  { key: 'notes', title: 'Bilmeniz gerekenler', description: 'Geçiş, sınır ve kullanım notları', icon: AlertTriangle, className: 'border-zinc-700 bg-zinc-900/35 text-zinc-300' }
+  { key: 'added', titleKey: 'releaseNotes.addedTitle', descriptionKey: 'releaseNotes.added', icon: Sparkles, className: 'border-emerald-500/20 bg-emerald-500/[0.04] text-emerald-300' },
+  { key: 'changed', titleKey: 'releaseNotes.changedTitle', descriptionKey: 'releaseNotes.changedDescription', icon: GitMerge, className: 'border-cyan-500/20 bg-cyan-500/[0.04] text-cyan-300' },
+  { key: 'fixed', titleKey: 'releaseNotes.fixedTitle', descriptionKey: 'releaseNotes.fixedDescription', icon: Wrench, className: 'border-amber-500/20 bg-amber-500/[0.04] text-amber-300' },
+  { key: 'removed', titleKey: 'releaseNotes.removedTitle', descriptionKey: 'releaseNotes.removedDescription', icon: XCircle, className: 'border-red-500/20 bg-red-500/[0.04] text-red-300' },
+  { key: 'security', titleKey: 'releaseNotes.securityTitle', descriptionKey: 'releaseNotes.securityDescription', icon: ShieldCheck, className: 'border-purple-500/20 bg-purple-500/[0.04] text-purple-300' },
+  { key: 'notes', titleKey: 'releaseNotes.notesTitle', descriptionKey: 'releaseNotes.notes', icon: AlertTriangle, className: 'border-zinc-700 bg-zinc-900/35 text-zinc-300' }
 ];
 
 function cleanMarkdownText(value: string) {
@@ -57,17 +58,17 @@ function cleanMarkdownText(value: string) {
     .trim();
 }
 
-function classifySection(heading: string, text: string): DetailCategory {
-  const value = `${heading} ${text}`.toLocaleLowerCase('tr-TR');
+function classifySection(heading: string, text: string, language: string): DetailCategory {
+  const value = `${heading} ${text}`.toLocaleLowerCase(language);
   if (/kaldır|çıkar|silindi|sona er|artık kullanılm|yerini .* bırak/.test(value)) return 'removed';
   if (/düzelt|hata|sorun|çözüm|uyumluluk|boşluk|çök|başarısız/.test(value)) return 'fixed';
-  if (/güven|koruma|şifre|oturum|izin|allowlist|rate.?limit|parola/.test(heading.toLocaleLowerCase('tr-TR'))) return 'security';
+  if (/güven|koruma|şifre|oturum|izin|allowlist|rate.?limit|parola/.test(heading.toLocaleLowerCase(language))) return 'security';
   if (/bilinen|sınır|not|dağıtım|geçiş|doğrulama|test|kurulum|teknik|sonraki adım/.test(value)) return 'notes';
   if (/değiş|mimari|altyapı|arayüz|tasarım|performans|davranış|taşın|dönüştür/.test(value)) return 'changed';
   return 'added';
 }
 
-function parseReleaseBody(body: string): ParsedReleaseBody {
+function parseReleaseBody(body: string, language: string): ParsedReleaseBody {
   if (!body.trim()) return EMPTY_DETAILS;
   const result: ParsedReleaseBody = { added: [], changed: [], fixed: [], removed: [], security: [], notes: [] };
   const dedupe = new Set<string>();
@@ -78,10 +79,10 @@ function parseReleaseBody(body: string): ParsedReleaseBody {
   const add = (raw: string) => {
     const text = cleanMarkdownText(raw.replace(/^[-*+]\s+/, '').replace(/^\d+[.)]\s+/, ''));
     if (text.length < 12 || /^https?:\/\//i.test(text)) return;
-    const normalized = text.toLocaleLowerCase('tr-TR');
+    const normalized = text.toLocaleLowerCase(language);
     if (dedupe.has(normalized)) return;
     dedupe.add(normalized);
-    result[classifySection(heading, text)].push(text);
+    result[classifySection(heading, text, language)].push(text);
   };
 
   for (const rawLine of lines) {
@@ -106,13 +107,13 @@ function versionParts(version: string) {
   return match ? match.slice(1).map(Number) : [-1, -1, -1];
 }
 
-function compareVersions(left: string, right: string) {
+function compareVersions(left: string, right: string, language: string) {
   const a = versionParts(left);
   const b = versionParts(right);
   for (let index = 0; index < 3; index += 1) {
     if (a[index] !== b[index]) return b[index] - a[index];
   }
-  return right.localeCompare(left, 'tr-TR');
+  return right.localeCompare(left, language);
 }
 
 function majorOf(version: string) {
@@ -120,29 +121,30 @@ function majorOf(version: string) {
   return match ? `${match[1]}.x` : 'Sürümlendirilmemiş';
 }
 
-function formatDate(value: string | null) {
-  if (!value) return 'Tarih yok';
-  return new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(value));
+function formatDate(value: string | null, language: string) {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat(language, { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(value));
 }
 
-function statusInfo(status: ReleasePullRequestStatus, draft: boolean) {
-  if (status === 'released') return { label: 'Yayınlandı', icon: CheckCircle2, className: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' };
+function statusInfo(status: ReleasePullRequestStatus, draft: boolean, t: (key: string) => string) {
+  if (status === 'released') return { label: t('releaseNotes.released'), icon: CheckCircle2, className: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' };
   if (status === 'in-progress') return { label: draft ? 'Taslak' : 'Hazırlanıyor', icon: FileClock, className: 'border-cyan-500/25 bg-cyan-500/10 text-cyan-300' };
-  return { label: 'Birleşmeden kapatıldı', icon: XCircle, className: 'border-zinc-700 bg-zinc-900 text-zinc-400' };
+  return { label: t('releaseNotes.closedUnmerged'), icon: XCircle, className: 'border-zinc-700 bg-zinc-900 text-zinc-400' };
 }
 
 function ReleaseDetails({ pullRequest }: { pullRequest: ReleasePullRequest }) {
-  const details = useMemo(() => parseReleaseBody(pullRequest.body), [pullRequest.body]);
+  const { t, language } = useLanguage();
+  const details = useMemo(() => parseReleaseBody(pullRequest.body, language), [pullRequest.body, language]);
   const visibleCategories = categoryConfig.filter(category => details[category.key].length > 0);
 
   return (
     <div className="space-y-3 border-t border-zinc-800/80 px-4 py-4">
       <div className="rounded-xl border border-zinc-800 bg-black/20 p-4">
-        <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-zinc-600">Sürüm özeti</div>
+        <div className="text-[9px] font-semibold uppercase tracking-[0.15em] text-zinc-600">{t('releaseNotes.summaryTitle')}</div>
         <p className="mt-2 text-[11px] leading-6 text-zinc-300">{pullRequest.summary}</p>
       </div>
       {visibleCategories.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-800 p-5 text-center text-[10px] leading-5 text-zinc-600">Bu sürüm için açıklama bulunmuyor. Ayrıntıları GitHub bağlantısından inceleyebilirsiniz.</div>
+        <div className="rounded-xl border border-dashed border-zinc-800 p-5 text-center text-[10px] leading-5 text-zinc-600">{t('releaseNotes.noDescription')}</div>
       ) : (
         <div className="grid gap-3 xl:grid-cols-2">
           {visibleCategories.map(category => {
@@ -152,8 +154,8 @@ function ReleaseDetails({ pullRequest }: { pullRequest: ReleasePullRequest }) {
                 <div className="flex items-start gap-2">
                   <Icon className="mt-0.5 h-4 w-4 shrink-0" />
                   <div>
-                    <h4 className="text-[11px] font-semibold text-zinc-100">{category.title}</h4>
-                    <p className="mt-0.5 text-[9px] text-zinc-600">{category.description}</p>
+                    <h4 className="text-[11px] font-semibold text-zinc-100">{t(category.titleKey)}</h4>
+                    <p className="mt-0.5 text-[9px] text-zinc-600">{t(category.descriptionKey)}</p>
                   </div>
                 </div>
                 <ul className="mt-3 space-y-2">
@@ -174,7 +176,7 @@ function ReleaseDetails({ pullRequest }: { pullRequest: ReleasePullRequest }) {
         <span>•</span>
         <span>{pullRequest.author}</span>
         <span>•</span>
-        <span>{formatDate(pullRequest.mergedAt || pullRequest.updatedAt)}</span>
+        <span>{formatDate(pullRequest.mergedAt || pullRequest.updatedAt, language)}</span>
         <a href={pullRequest.url} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300">
           GitHub PR açıklamasını aç
           <ExternalLink className="h-3 w-3" />
@@ -185,6 +187,7 @@ function ReleaseDetails({ pullRequest }: { pullRequest: ReleasePullRequest }) {
 }
 
 export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNotesTreeProps) {
+  const { t, language } = useLanguage();
   const [data, setData] = useState<ReleaseHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -193,21 +196,17 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
   const [openMajors, setOpenMajors] = useState<Set<string>>(new Set());
   const [openReleases, setOpenReleases] = useState<Set<number>>(new Set());
 
-  const load = useCallback(async (fresh = false) => {
+  const load = useCallback(async (_fresh = false) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/release-history${fresh ? '?fresh=1' : ''}`, { cache: 'no-store' });
-      if (!response.ok) throw new Error(`Sürüm geçmişi alınamadı (${response.status}).`);
-      const payload = (await response.json()) as ReleaseHistoryResponse;
-      setData(payload);
-      const first = payload.pullRequests[0];
-      if (first) {
-        setOpenMajors(new Set([majorOf(first.version)]));
-        setOpenReleases(new Set([first.number]));
-      }
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Sürüm geçmişi alınamadı.');
+      const response: ReleaseHistoryResponse = {
+        repository: 'battincik/web.database.coreor.net',
+        fetchedAt: new Date().toISOString(),
+        source: 'local',
+        pullRequests: []
+      };
+      setData(response);
     } finally {
       setLoading(false);
     }
@@ -218,11 +217,11 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
   }, [load]);
 
   const filtered = useMemo(() => {
-    const search = query.trim().toLocaleLowerCase('tr-TR');
+    const search = query.trim().toLocaleLowerCase(language);
     return (data?.pullRequests || []).filter(pullRequest => {
       if (statusFilter !== 'all' && pullRequest.status !== statusFilter) return false;
       if (!search) return true;
-      return `${pullRequest.version} ${pullRequest.number} ${pullRequest.title} ${pullRequest.summary} ${pullRequest.body}`.toLocaleLowerCase('tr-TR').includes(search);
+      return `${pullRequest.version} ${pullRequest.number} ${pullRequest.title} ${pullRequest.summary} ${pullRequest.body}`.toLocaleLowerCase(language).includes(search);
     });
   }, [data, query, statusFilter]);
 
@@ -237,16 +236,16 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
         const leftNumber = Number.parseInt(left, 10);
         const rightNumber = Number.parseInt(right, 10);
         if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) return rightNumber - leftNumber;
-        return right.localeCompare(left, 'tr-TR');
+        return right.localeCompare(left, language);
       })
       .map(([major, releases]) => ({
         major,
         releases: releases.sort((left, right) => {
-          const versionOrder = compareVersions(left.version, right.version);
+          const versionOrder = compareVersions(left.version, right.version, language);
           return versionOrder || right.number - left.number;
         })
       }));
-  }, [filtered]);
+  }, [filtered, language]);
 
   const counts = useMemo(
     () => ({
@@ -270,7 +269,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
     return (
       <div className={`flex min-h-72 items-center justify-center gap-2 rounded-2xl border border-zinc-800 bg-black/20 text-xs text-zinc-500 ${className}`}>
         <Loader2 className="h-4 w-4 animate-spin" />
-        Bütün pull requestler okunuyor…
+        Yerel sürüm geçmişi yükleniyor…
       </div>
     );
   if (error && !data)
@@ -299,7 +298,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
             <p className="mt-2 max-w-3xl text-[11px] leading-6 text-zinc-400">Her sürüm tek pull request ile ilerler. Bu nedenle sürüm ve PR artık aynı ağaç satırında gösterilir; satırı açtığınızda doğrudan o sürümün tüm ayrıntılarına ulaşırsınız.</p>
           </div>
           <Button variant="outline" size="sm" className="h-8 text-[10px]" disabled={loading} onClick={() => void load(true)}>
-            {loading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1.5 h-3.5 w-3.5" />}GitHub’dan yenile
+            {loading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1.5 h-3.5 w-3.5" />}Yenile
           </Button>
         </div>
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -327,7 +326,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 bg-black/20 p-2">
         <div className="relative min-w-52 flex-1">
           <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-zinc-600" />
-          <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Sürüm, PR veya değişiklik ara…" className="h-8 w-full rounded-lg border border-zinc-800 bg-zinc-950 pl-8 pr-3 text-[10px] outline-none focus:border-cyan-500/40" />
+          <input value={query} onChange={event => setQuery(event.target.value)} placeholder={t('releaseNotes.search')} className="h-8 w-full rounded-lg border border-zinc-800 bg-zinc-950 pl-8 pr-3 text-[10px] outline-none focus:border-cyan-500/40" />
         </div>
         <div className="flex rounded-lg border border-zinc-800 bg-zinc-950 p-0.5">
           {(
@@ -369,7 +368,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
                   <div className="border-t border-zinc-800 px-3 py-3">
                     {majorGroup.releases.map(pullRequest => {
                       const releaseOpen = openReleases.has(pullRequest.number);
-                      const status = statusInfo(pullRequest.status, pullRequest.draft);
+                      const status = statusInfo(pullRequest.status, pullRequest.draft, t);
                       const StatusIcon = status.icon;
                       return (
                         <article key={pullRequest.number} className="relative ml-3 border-l border-zinc-800 pb-3 pl-5 last:pb-0">
@@ -390,7 +389,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
                                 <h3 className="mt-1.5 text-[11px] font-semibold text-zinc-100">{pullRequest.title}</h3>
                                 <p className="mt-1 line-clamp-2 text-[9px] leading-4 text-zinc-600">{pullRequest.summary}</p>
                               </div>
-                              <span className="shrink-0 text-[8px] text-zinc-700">{formatDate(pullRequest.mergedAt || pullRequest.updatedAt)}</span>
+                              <span className="shrink-0 text-[8px] text-zinc-700">{formatDate(pullRequest.mergedAt || pullRequest.updatedAt, language)}</span>
                             </button>
                             {releaseOpen && <ReleaseDetails pullRequest={pullRequest} />}
                           </div>
@@ -409,7 +408,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
         <GitPullRequest className="h-3.5 w-3.5 text-cyan-400" />
         <span>Kaynak: {data?.repository}</span>
         <span>•</span>
-        <span>Son okuma: {data ? formatDate(data.fetchedAt) : '—'}</span>
+        <span>Son okuma: {data ? formatDate(data.fetchedAt, language) : '—'}</span>
         <span className="ml-auto">
           Sürüm ve PR tek kayıt olarak gösterilir; yeni PR başlık veya açıklamasında <span className="font-mono text-zinc-400">x.y.z</span> sürümü bulunmalıdır.
         </span>

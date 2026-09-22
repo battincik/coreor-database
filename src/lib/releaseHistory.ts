@@ -18,7 +18,7 @@ export interface ReleasePullRequest {
 export interface ReleaseHistoryResponse {
   repository: string;
   fetchedAt: string;
-  source: 'github' | 'fallback';
+  source: 'github' | 'fallback' | 'local';
   warning?: string;
   pullRequests: ReleasePullRequest[];
 }
@@ -40,7 +40,7 @@ export const RELEASE_VERSION_OVERRIDES: Record<number, string> = {
 };
 
 export const RELEASE_TITLE_OVERRIDES: Record<number, string> = {
-  1: 'Şifreli tarayıcı kasası ve çoklu sunucu profilleri',
+  1: 'Yerel masaüstü kasası ve çoklu sunucu profilleri',
   2: 'MySQL bağlantılarının Next.js API’ye taşınması',
   3: 'Editör durumları, hesap ayarları ve gerçek SQL günlüğü',
   4: 'GitHub oturumlarının kararlı hâle getirilmesi',
@@ -56,7 +56,7 @@ export const RELEASE_TITLE_OVERRIDES: Record<number, string> = {
 };
 
 export const RELEASE_SUMMARY_OVERRIDES: Record<number, string> = {
-  1: 'Sunucu bilgileri merkezi bir servisten çıkarıldı ve kullanıcı hesabına bağlı, tarayıcıda şifrelenen güvenli kasaya taşındı.',
+  1: 'Sunucu bilgileri merkezi servisten çıkarıldı ve cihazdaki yerel masaüstü kasasına taşındı.',
   2: 'MySQL ve MariaDB işlemleri harici bağlantı servisinden çıkarılarak oturum korumalı Next.js sunucu API’sine taşındı.',
   3: 'Yükleme ve boş ekranlar düzeltildi, gerçek GitHub hesabı bağlandı ve alt konsol gerçek işlem geçmişini göstermeye başladı.',
   4: 'Oturum anahtarı ve bozuk çerez sorunları giderilerek API isteklerinin beklenmedik şekilde giriş ekranına düşmesi önlendi.',
@@ -300,7 +300,7 @@ const fallbackData: Array<Omit<ReleasePullRequest, 'status' | 'draft' | 'created
     title: RELEASE_TITLE_OVERRIDES[1],
     summary: RELEASE_SUMMARY_OVERRIDES[1],
     body: `## Gelenler
-- MySQL sunucu profilleri kullanıcı hesabına bağlı şifreli tarayıcı kasasına taşındı.
+- MySQL sunucu profilleri cihazdaki yerel masaüstü kasasına taşındı.
 - Çoklu sunucu profili, TLS modu ve hesap bazlı aktif sunucu seçimi eklendi.
 - Veritabanı ve tablo kataloğunun şifreli kasada önbelleğe alınması eklendi.
 
@@ -309,7 +309,7 @@ const fallbackData: Array<Omit<ReleasePullRequest, 'status' | 'draft' | 'created
 - Host, kullanıcı adı ve parolanın localStorage içinde tutulması sona erdi.
 
 ## Bilmeniz gerekenler
-- Şifreli kasa aynı cihaz ve tarayıcı profiline özeldir; profiller başka cihaza otomatik taşınmaz.`
+- Yerel kasa bu uygulama kurulumuna özeldir; profiller başka cihaza otomatik taşınmaz.`
   }
 ];
 

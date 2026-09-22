@@ -1,25 +1,30 @@
 'use client';
 
-import { SessionProvider } from 'next-auth/react';
+import { AppLifecycle } from '@/components/app-lifecycle';
+import { EditorPanelErrorBoundary } from '@/components/editor-panel-error-boundary';
 import { LanguageProvider } from '@/context/LanguageContext';
+import { DesktopProvider } from '@/context/DesktopContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { DatabaseProvider } from '@/context/DatabaseContext';
-import { LanguageSwitcher } from '@/components/language-switcher';
 import { LegacyTranslationBridge } from '@/components/legacy-translation-bridge';
+import { DeveloperToolsGate } from '@/components/developer-tools-gate';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
-      <LanguageProvider>
-        <AuthProvider>
-          <DatabaseProvider>
-            <LegacyTranslationBridge />
-            {children}
-            <LanguageSwitcher />
-          </DatabaseProvider>
-        </AuthProvider>
-      </LanguageProvider>
-    </SessionProvider>
+    <LanguageProvider>
+      <AppLifecycle />
+      <EditorPanelErrorBoundary resetKey="application">
+      <AuthProvider>
+        <DesktopProvider>
+        <DatabaseProvider>
+          <LegacyTranslationBridge />
+          <DeveloperToolsGate />
+          {children}
+        </DatabaseProvider>
+        </DesktopProvider>
+      </AuthProvider>
+      </EditorPanelErrorBoundary>
+    </LanguageProvider>
   );
 }
 export default Providers;

@@ -4,8 +4,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Database, Globe2, HardDrive, Languages, Search, X } from 'lucide-react';
 import { SUPPORTED_LANGUAGES, useLanguage } from '@/context/LanguageContext';
+import { matchesShortcut, shortcutLabel } from '@/lib/shortcuts';
 
-export function LanguageSwitcher() {
+export function LanguageSwitcher({ placement = 'floating' }: { placement?: 'floating' | 'inline' }) {
   const { language, currentLanguage, setLanguage, t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -13,7 +14,7 @@ export function LanguageSwitcher() {
 
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'l') {
+      if (matchesShortcut(event, 'language')) {
         event.preventDefault();
         setOpen(previous => !previous);
       }
@@ -35,14 +36,14 @@ export function LanguageSwitcher() {
   }, [open]);
 
   const filtered = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase('tr-TR');
+    const normalized = query.trim().toLocaleLowerCase(language);
     if (!normalized) return SUPPORTED_LANGUAGES;
     return SUPPORTED_LANGUAGES.filter(item =>
       `${item.code} ${item.nativeName} ${item.englishName} ${item.region} ${item.searchTerms.join(' ')}`
-        .toLocaleLowerCase('tr-TR')
+        .toLocaleLowerCase(language)
         .includes(normalized)
     );
-  }, [query]);
+  }, [language, query]);
 
   const choose = (code: typeof language) => {
     const next = SUPPORTED_LANGUAGES.find(item => item.code === code);
@@ -58,8 +59,8 @@ export function LanguageSwitcher() {
         type="button"
         data-i18n-ignore
         onClick={() => setOpen(true)}
-        className="fixed bottom-10 right-3 z-[320] flex h-8 items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-950/95 px-2.5 text-[9px] font-medium text-zinc-400 shadow-xl backdrop-blur hover:border-cyan-500/35 hover:text-cyan-200"
-        title={`${t('settings.language.title')} • Ctrl/⌘ + Shift + L`}
+        className={placement === 'floating' ? "fixed bottom-10 right-3 z-[320] flex h-8 items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-950/95 px-2.5 text-[9px] font-medium text-zinc-400 shadow-xl backdrop-blur hover:border-cyan-500/35 hover:text-cyan-200" : "flex h-full shrink-0 items-center gap-1.5 px-2.5 text-[9px] font-medium text-zinc-500 transition hover:bg-white/[0.045] hover:text-cyan-200"}
+        title={`${t('settings.language.title')} • ${shortcutLabel('language')}`}
         aria-label={t('settings.language.title')}
       >
         <Globe2 className="h-3.5 w-3.5 text-cyan-400" />

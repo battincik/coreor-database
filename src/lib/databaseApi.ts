@@ -6,10 +6,15 @@ import type {
   DatabaseConnectionPayload,
   DatabaseQueryMeta,
   DatabaseQueryStatement,
+  DatabaseQueryExecutionMode,
+  DatabaseObjectsResponse,
   DatabaseServerConfig,
   QueryExecutionResult,
+  SchemaOverviewResponse,
   TableCellUpdateInput,
   TableCellUpdateResponse,
+  TableRowInsertInput,
+  TableRowInsertResponse,
   TableDataFilter,
   TableDataResponse,
   TableDataSort,
@@ -19,13 +24,20 @@ import type {
   TableSchemaMutationInput,
   TableSchemaMutationResponse
 } from 'types';
-import { readEncryptedServerProfiles, writeEncryptedServerProfiles } from '@/lib/secureVault';
+import { mutateLocalServerProfiles, readLocalServerProfiles } from '@/lib/localProfiles';
 import { recordActivity } from '@/lib/activityConsole';
 import { databaseEngineDefinition, databaseEngineLabel } from '@/lib/databaseEngines';
+import { desktopDatabaseRequest } from '@/lib/desktopClient';
+import { normalizeDatabaseClientError } from '@/lib/databaseErrorPresentation';
+import { translateRuntime } from '@/lib/i18nRuntime';
 
-const DATABASE_API_PATH = '/api/database';
-const profileMutationQueues = new Map<string, Promise<void>>();
 const inFlightControllers = new Map<string, AbortController>();
+const tableInfoCache = new Map<string, { expiresAt: number; value: TableInfo }>();
+const tableInfoRequests = new Map<string, Promise<TableInfo>>();
+const tableDataRequests = new Map<string, Promise<TableDataResponse>>();
+const TABLE_INFO_CACHE_MS = 15_000;
+const databaseObjectsCache = new Map<string, { expiresAt: number; value: DatabaseObjectsResponse }>();
+const DATABASE_OBJECTS_CACHE_MS = 30_000;
 
 export interface DatabaseServerCatalogItem extends DatabaseServerConfig {
   databases: DatabaseCatalogItem[];
@@ -47,9 +59,19 @@ interface DatabaseRequestError extends Error {
   queryMeta?: DatabaseQueryMeta;
 }
 
+export interface DatabaseQueryExecutionContext {
+  statementStartLine?: number;
+  statementIndex?: number;
+  statementCount?: number;
+  executionMode?: DatabaseQueryExecutionMode;
+  resultLimit?: number;
+  activityOrigin?: 'user' | 'internal';
+}
+
 interface RequestOptions {
   requestKey?: string;
   connectionDatabase?: string | null;
+  executionContext?: DatabaseQueryExecutionContext;
 }
 
 export interface FetchTableDataOptions {
@@ -61,16 +83,23 @@ export interface FetchTableDataOptions {
   knownTotalRows?: number;
 }
 
-const ACTION_TITLES: Record<DatabaseApiAction, string> = {
-  test: 'Bağlantı testi',
-  catalog: 'Veritabanı kataloğu',
-  'table-info': 'Tablo yapısı',
-  'table-data': 'Tablo verileri',
-  'update-cell': 'Hücre güncelleme',
-  'delete-rows': 'Satır silme',
-  'alter-table': 'Tablo yapısını değiştirme',
-  query: 'SQL sorgusu'
+const ACTION_TITLE_KEYS: Record<DatabaseApiAction, string> = {
+  test: 'apiErrors.connectionTest',
+  catalog: 'apiErrors.detailedCatalog',
+  'table-info': 'apiErrors.tableStructure',
+  'schema-overview': 'apiErrors.schemaMetadata',
+  'database-objects': 'apiErrors.objectExplorer',
+  'table-data': 'apiErrors.tableRows',
+  'update-cell': 'apiErrors.cellUpdate',
+  'insert-row': 'apiErrors.rowInsert',
+  'delete-rows': 'apiErrors.rowDelete',
+  'alter-table': 'apiErrors.alterTable',
+  query: 'apiErrors.queryEditor'
 };
+
+function actionTitle(action: DatabaseApiAction) {
+  return translateRuntime(ACTION_TITLE_KEYS[action]);
+}
 
 function createServerId() {
   if (typeof window !== 'undefined' && 'randomUUID' in window.crypto) return window.crypto.randomUUID();
@@ -80,53 +109,44 @@ function createServerId() {
 function createConnectionPayload(server: DatabaseServerConfig, databaseOverride?: string | null): DatabaseConnectionPayload {
   const engine = server.databaseType ?? 'mysql';
   const definition = databaseEngineDefinition(engine);
-  if (!server.host?.trim() || !server.username?.trim() || !server.password) {
-    throw new Error('Host, kullanıcı adı ve parola eksik.');
+  if (!server.host?.trim() || !server.username?.trim()) {
+    throw new Error(translateRuntime('apiErrors.hostOrUsernameMissing'));
   }
   return {
+    serverId: server.id,
     engine,
     host: server.host.trim(),
     port: server.port ?? definition.defaultPort,
     username: server.username.trim(),
-    password: server.password,
+    password: server.password || undefined,
     database: databaseOverride === undefined ? server.databaseName?.trim() || undefined : databaseOverride,
-    sslMode: server.sslMode ?? 'required',
+    sslMode: server.sslMode ?? 'preferred',
     connectTimeoutMs: server.connectionTimeoutMs ?? 20_000,
+    poolMaxConnections: Math.min(
+      32,
+      Math.max(1, server.poolMaxConnections ?? 6),
+      Math.max(1, server.serverMaxConnections ?? 32)
+    ),
     readOnly: Boolean(server.readOnly)
   };
 }
 
-async function readApiResponse<T>(response: Response) {
-  const rawBody = await response.text();
-  let body: T | DatabaseErrorPayload | null = null;
-  if (rawBody) {
-    try { body = JSON.parse(rawBody) as T | DatabaseErrorPayload; }
-    catch {
-      throw new Error(response.ok ? 'Next.js veritabanı API geçerli JSON döndürmedi.' : `Veritabanı isteği başarısız oldu (${response.status}).`);
-    }
-  }
-  if (!response.ok) {
-    const errorBody = body as DatabaseErrorPayload | null;
-    const error = new Error(errorBody?.message || errorBody?.error || `Veritabanı isteği başarısız oldu (${response.status}).`) as DatabaseRequestError;
-    error.code = errorBody?.error;
-    error.queryMeta = errorBody?._meta;
-    throw error;
-  }
-  return body as T;
-}
-
 function fallbackStatements(action: DatabaseApiAction, payload: Record<string, unknown>, server: DatabaseServerConfig): DatabaseQueryStatement[] {
   const engine = databaseEngineLabel(server.databaseType);
-  const database = String(payload.database || 'sunucu geneli');
-  const table = String(payload.table || 'tablo');
-  if (action === 'test') return [{ label: 'Bağlantı testi', sql: `/* ${engine} bağlantı testi */ SELECT version` }];
-  if (action === 'catalog') return [{ label: 'Ayrıntılı katalog', sql: `/* ${engine} katalog sorguları */` }];
-  if (action === 'table-info') return [{ label: 'Tablo yapısı', sql: `/* ${engine} */ DESCRIBE ${database}.${table}` }];
-  if (action === 'table-data') return [{ label: 'Tablo satırları', sql: `SELECT * FROM ${database}.${table}` }];
-  if (action === 'update-cell') return [{ label: 'Hücre güncelleme', sql: `UPDATE ${database}.${table} SET ${String(payload.column || 'column')} = ? WHERE <primary-key>` }];
-  if (action === 'delete-rows') return [{ label: 'Seçili satırları sil', sql: `DELETE FROM ${database}.${table} WHERE <primary-key>` }];
-  if (action === 'alter-table') return [{ label: 'Tablo yapısını değiştir', sql: `ALTER TABLE ${database}.${table} <validated-operation>` }];
-  return [{ label: 'SQL editörü sorgusu', sql: String(payload.sql || '') }];
+  const database = String(payload.database || translateRuntime('query.serverScope'));
+  const table = String(payload.table || translateRuntime('database.table').toLocaleLowerCase());
+  const label = actionTitle(action);
+  if (action === 'test') return [{ label, sql: `/* ${engine} ${translateRuntime('apiErrors.connectionTest').toLocaleLowerCase()} */ SELECT version` }];
+  if (action === 'catalog') return [{ label, sql: `/* ${engine} ${translateRuntime('apiErrors.catalogQueries').toLocaleLowerCase()} */` }];
+  if (action === 'table-info') return [{ label, sql: `/* ${engine} */ DESCRIBE ${database}.${table}` }];
+  if (action === 'schema-overview') return [{ label, sql: `/* ${engine} */ information_schema metadata for ${database}` }];
+  if (action === 'database-objects') return [{ label, sql: `/* ${engine} */ database objects for ${database}` }];
+  if (action === 'table-data') return [{ label, sql: `SELECT * FROM ${database}.${table}` }];
+  if (action === 'update-cell') return [{ label, sql: `UPDATE ${database}.${table} SET ${String(payload.column || 'column')} = ? WHERE <primary-key>` }];
+  if (action === 'insert-row') return [{ label, sql: `INSERT INTO ${database}.${table} (...) VALUES (...)` }];
+  if (action === 'delete-rows') return [{ label, sql: `DELETE FROM ${database}.${table} WHERE <primary-key>` }];
+  if (action === 'alter-table') return [{ label, sql: `ALTER TABLE ${database}.${table} <validated-operation>` }];
+  return [{ label, sql: String(payload.sql || '') }];
 }
 
 function resultMetrics(action: DatabaseApiAction, result: unknown) {
@@ -134,11 +154,40 @@ function resultMetrics(action: DatabaseApiAction, result: unknown) {
   if (!payload) return {};
   if (action === 'catalog') return { rowCount: payload.databases?.length };
   if (action === 'table-info') return { rowCount: payload.columns?.length };
+  if (action === 'schema-overview') return { rowCount: payload.columns?.length };
+  if (action === 'database-objects') return { rowCount: (payload as { objects?: unknown[] }).objects?.length };
   if (action === 'table-data') return { rowCount: payload.data?.length };
   if (action === 'alter-table') return { rowCount: payload.tableInfo?.columns?.length };
-  if (action === 'update-cell' || action === 'delete-rows') return { affectedRows: payload.affectedRows };
+  if (action === 'update-cell' || action === 'insert-row' || action === 'delete-rows') return { affectedRows: payload.affectedRows };
   if (action === 'query') return { rowCount: payload.rows?.length, affectedRows: payload.affectedRows };
   return {};
+}
+
+function enrichClientTimings(result: unknown, totalMs: number) {
+  if (!result || typeof result !== 'object') return;
+  const payload = result as { timings?: QueryExecutionResult['timings'] };
+  if (!payload.timings) return;
+  const nativeTotalMs = typeof payload.timings.nativeTotalMs === 'number' ? payload.timings.nativeTotalMs : totalMs;
+  payload.timings = {
+    ...payload.timings,
+    totalMs,
+    clientOverheadMs: Math.max(0, totalMs - nativeTotalMs)
+  };
+}
+
+function inferSqlErrorLocation(message: string | undefined, sql: string) {
+  if (!message) return {} as { line?: number; column?: number };
+  const direct = /\bline\s+(\d+)(?:\s*[,;:]?\s*(?:column|col)\s+(\d+))?/i.exec(message);
+  if (direct) return { line: Number(direct[1]), column: direct[2] ? Number(direct[2]) : undefined };
+  const position = /\bposition\s*[:=]?\s*(\d+)\b/i.exec(message);
+  if (!position) return {} as { line?: number; column?: number };
+  const offset = Math.max(0, Math.min(sql.length, Number(position[1]) - 1));
+  const prefix = sql.slice(0, offset);
+  const lastNewline = prefix.lastIndexOf('\n');
+  return {
+    line: prefix.split('\n').length,
+    column: offset - lastNewline
+  };
 }
 
 function recordStatements(options: {
@@ -151,14 +200,31 @@ function recordStatements(options: {
   durationMs: number;
   result?: unknown;
   error?: DatabaseRequestError;
+  executionContext?: DatabaseQueryExecutionContext;
 }) {
   const metrics = options.result ? resultMetrics(options.action, options.result) : {};
   options.statements.forEach((statement, index) => {
     const isLast = index === options.statements.length - 1;
+    const location = options.level === 'error' ? inferSqlErrorLocation(options.error?.message, statement.sql) : {};
+    const statementStartLine = options.executionContext?.statementStartLine;
+    const errorLine = location.line
+      ? statementStartLine
+        ? statementStartLine + location.line - 1
+        : location.line
+      : undefined;
+    const resultTimings = isLast && options.action === 'query'
+      ? (options.result as QueryExecutionResult | undefined)?.timings
+      : undefined;
     recordActivity({
       level: options.level,
-      title: statement.label || ACTION_TITLES[options.action],
-      message: options.level === 'error' ? options.error?.message || 'Sorgu başarısız oldu.' : `${options.server.name} üzerinde başarıyla çalıştırıldı.`,
+      kind: options.level === 'error'
+        ? 'error'
+        : options.action === 'query' && options.executionContext?.activityOrigin === 'user'
+          ? 'user-query'
+          : 'internal-query',
+      category: options.action === 'query' ? 'query' : undefined,
+      title: statement.label || actionTitle(options.action),
+      message: options.level === 'error' ? options.error?.message || translateRuntime('apiErrors.queryFailed') : translateRuntime('apiErrors.executedSuccessfully',{server:options.server.name}),
       serverId: options.server.id,
       serverName: options.server.name,
       host: options.server.host,
@@ -167,9 +233,15 @@ function recordStatements(options: {
       sql: statement.sql,
       parameters: statement.parameters,
       durationMs: isLast ? options.durationMs : undefined,
+      timings: resultTimings,
       rowCount: isLast ? metrics.rowCount : undefined,
       affectedRows: isLast ? metrics.affectedRows : undefined,
-      errorCode: options.error?.code
+      errorCode: options.error?.code,
+      statementStartLine,
+      errorLine,
+      errorColumn: location.column,
+      statementIndex: options.executionContext?.statementIndex,
+      statementCount: options.executionContext?.statementCount
     });
   });
 }
@@ -190,36 +262,34 @@ async function requestDatabaseApi<T>(
   const tableName = typeof payload.table === 'string' ? payload.table : undefined;
 
   try {
-    const response = await fetch(DATABASE_API_PATH, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      credentials: 'same-origin',
-      cache: 'no-store',
-      referrerPolicy: 'same-origin',
-      signal: controller.signal,
-      body: JSON.stringify({ action, connection: createConnectionPayload(server, options.connectionDatabase), ...payload })
-    });
-    const result = await readApiResponse<T>(response);
+    const result = await desktopDatabaseRequest<T>({ action, connection: createConnectionPayload(server, options.connectionDatabase), ...payload });
+    const durationMs = Math.max(0, performance.now() - startedAt);
+    enrichClientTimings(result, durationMs);
     const queryMeta = (result as { _meta?: DatabaseQueryMeta } | null)?._meta;
     recordStatements({
       statements: queryMeta?.statements?.length ? queryMeta.statements : fallbackStatements(action, payload, server),
       action, level: 'success', server, databaseName, tableName,
-      durationMs: Math.max(0, Math.round(performance.now() - startedAt)), result
+      durationMs: Math.round(durationMs), result,
+      executionContext: options.executionContext
     });
     return result;
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      const aborted = new Error('Önceki tablo isteği daha güncel bir istek tarafından iptal edildi.') as DatabaseRequestError;
+      const aborted = new Error(translateRuntime('apiErrors.requestSuperseded')) as DatabaseRequestError;
       aborted.code = 'REQUEST_SUPERSEDED';
       throw aborted;
     }
-    const normalizedError = error instanceof TypeError
-      ? Object.assign(new Error('Next.js veritabanı API erişilemedi. Uygulama sunucusunu ve ağ erişimini kontrol edin.'), { code: 'DATABASE_API_UNREACHABLE' }) as DatabaseRequestError
-      : error instanceof Error ? error as DatabaseRequestError : new Error('Bilinmeyen veritabanı hatası.') as DatabaseRequestError;
+    const normalized = normalizeDatabaseClientError(error);
+    const normalizedError = Object.assign(new Error(normalized.message), {
+      code: normalized.code,
+      status: normalized.status,
+      retryable: normalized.retryable
+    }) as DatabaseRequestError;
     recordStatements({
       statements: normalizedError.queryMeta?.statements?.length ? normalizedError.queryMeta.statements : fallbackStatements(action, payload, server),
       action, level: 'error', server, databaseName, tableName,
-      durationMs: Math.max(0, Math.round(performance.now() - startedAt)), error: normalizedError
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)), error: normalizedError,
+      executionContext: options.executionContext
     });
     throw normalizedError;
   } finally {
@@ -229,41 +299,73 @@ async function requestDatabaseApi<T>(
 }
 
 async function requireServer(accountId: string | null | undefined, serverId: string) {
-  if (!accountId) throw new Error('Sunucu kasasına erişmek için kullanıcı oturumu gerekli.');
-  const servers = await readEncryptedServerProfiles(accountId);
+  const servers = await readLocalServerProfiles();
   const server = servers.find(item => item.id === serverId);
-  if (!server) throw new Error('Sunucu profili şifreli kasada bulunamadı.');
+  if (!server) throw new Error(translateRuntime('apiErrors.serverProfileNotFound'));
   return server;
 }
 
-async function mutateServerProfiles<T>(accountId: string, mutation: (servers: DatabaseServerConfig[]) => ProfileMutationResult<T>) {
-  const previousMutation = profileMutationQueues.get(accountId) ?? Promise.resolve();
-  let mutationResult!: T;
-  const currentMutation = previousMutation.catch(() => undefined).then(async () => {
-    const currentServers = await readEncryptedServerProfiles(accountId);
-    const nextState = mutation(currentServers);
-    mutationResult = nextState.result;
-    await writeEncryptedServerProfiles(accountId, nextState.servers);
-  });
-  profileMutationQueues.set(accountId, currentMutation);
-  try { await currentMutation; return mutationResult; }
-  finally { if (profileMutationQueues.get(accountId) === currentMutation) profileMutationQueues.delete(accountId); }
+async function mutateServerProfiles<T>(mutation: (servers: DatabaseServerConfig[]) => ProfileMutationResult<T>) {
+  return mutateLocalServerProfiles(mutation);
 }
 
-async function updateCachedDatabases(accountId: string, serverId: string, databases: DatabaseCatalogItem[]) {
-  await mutateServerProfiles(accountId, servers => ({
-    servers: servers.map(server => server.id === serverId ? { ...server, databases, updatedAt: new Date().toISOString() } : server),
-    result: undefined
-  }));
+function mergeMeasuredStorage(previous: DatabaseCatalogItem | undefined, incoming: DatabaseCatalogItem): DatabaseCatalogItem {
+  if (!previous) return incoming;
+
+  const previousTables = new Map((previous.tableDetails || []).map(table => [table.tableName, table]));
+  const tableDetails = (incoming.tableDetails || []).map(table => {
+    const measured = previousTables.get(table.tableName);
+    if (!measured?.storageMeasuredAt) return table;
+    return {
+      ...table,
+      rows: measured.rows,
+      sizeMB: measured.sizeMB,
+      dataSizeMB: measured.dataSizeMB,
+      indexSizeMB: measured.indexSizeMB,
+      freeSizeMB: measured.freeSizeMB,
+      storageMeasuredAt: measured.storageMeasuredAt,
+      storageMeasurementSource: measured.storageMeasurementSource,
+      storagePhysicalBytes: measured.storagePhysicalBytes,
+      rowCountMeasuredAt: measured.rowCountMeasuredAt,
+      rowCountMeasurementSource: measured.rowCountMeasurementSource
+    };
+  });
+
+  const merged: DatabaseCatalogItem = { ...incoming, tableDetails };
+  if (previous.storageMeasuredAt) {
+    merged.totalRows = previous.totalRows;
+    merged.dataSizeMB = previous.dataSizeMB;
+    merged.indexSizeMB = previous.indexSizeMB;
+    merged.totalSizeMB = previous.totalSizeMB;
+    merged.freeSizeMB = previous.freeSizeMB;
+    merged.storageMeasuredAt = previous.storageMeasuredAt;
+    merged.storageMeasurementSource = previous.storageMeasurementSource;
+    merged.storagePhysicalBytes = previous.storagePhysicalBytes;
+    merged.rowCountMeasuredAt = previous.rowCountMeasuredAt;
+    merged.rowCountMeasurementSource = previous.rowCountMeasurementSource;
+  }
+  return merged;
+}
+
+async function updateCachedDatabases(serverId: string, databases: DatabaseCatalogItem[]) {
+  return mutateServerProfiles(servers => {
+    let mergedDatabases = databases;
+    const nextServers = servers.map(server => {
+      if (server.id !== serverId) return server;
+      const previous = new Map((server.databases || []).map(database => [database.name, database]));
+      mergedDatabases = databases.map(database => mergeMeasuredStorage(previous.get(database.name), database));
+      return { ...server, databases: mergedDatabases, updatedAt: new Date().toISOString() };
+    });
+    return { servers: nextServers, result: mergedDatabases };
+  });
 }
 
 export async function fetchDatabaseServers(accountId?: string | null) {
-  if (!accountId) return [];
-  return await readEncryptedServerProfiles(accountId) as DatabaseServerCatalogItem[];
+  return await readLocalServerProfiles() as DatabaseServerCatalogItem[];
 }
 
 export async function createDatabaseServer(server: DatabaseServerConfig, accountId?: string | null) {
-  if (!accountId) throw new Error('Sunucu kaydetmek için kullanıcı oturumu gerekli.');
+  if (!server.connectionTestedAt) throw new Error(translateRuntime('server.connectionTestRequired'));
   const now = new Date().toISOString();
   const engine = server.databaseType ?? 'mysql';
   const definition = databaseEngineDefinition(engine);
@@ -277,8 +379,11 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
     username: server.username?.trim(),
     password: server.password,
     databaseName: server.databaseName?.trim(),
-    sslMode: server.sslMode ?? 'required',
+    sslMode: server.sslMode ?? 'preferred',
     connectionTimeoutMs: server.connectionTimeoutMs ?? 20_000,
+    poolMaxConnections: Math.min(32, Math.max(1, server.poolMaxConnections ?? 6), Math.max(1, server.serverMaxConnections ?? 32)),
+    serverMaxConnections: server.serverMaxConnections,
+    connectionTestedAt: server.connectionTestedAt,
     readOnly: Boolean(server.readOnly),
     visibleTo: server.visibleTo ?? [],
     organizationId: server.organizationId ?? null,
@@ -286,7 +391,7 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
     createdAt: server.createdAt ?? now,
     updatedAt: now
   };
-  return mutateServerProfiles(accountId, servers => {
+  return mutateServerProfiles(servers => {
     const existingIndex = servers.findIndex(item => item.id === nextServer.id);
     const nextServers = [...servers];
     if (existingIndex >= 0) nextServers[existingIndex] = nextServer; else nextServers.push(nextServer);
@@ -294,9 +399,17 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
   });
 }
 
+export async function deleteDatabaseServer(serverId: string, accountId?: string | null) {
+  return mutateServerProfiles(servers => {
+    const existing = servers.find(server => server.id === serverId);
+    if (!existing) throw new Error('Silinecek bağlantı profili bulunamadı.');
+    return { servers: servers.filter(server => server.id !== serverId), result: existing };
+  });
+}
+
 export async function testDatabaseConnection(server: DatabaseServerConfig) {
   const port = server.port ?? databaseEngineDefinition(server.databaseType).defaultPort;
-  return requestDatabaseApi<{ connection: { version?: string; databaseName?: string | null; currentUser?: string }; _meta?: DatabaseQueryMeta }>(server, 'test', {}, { requestKey: `connection-test:${server.host}:${port}` });
+  return requestDatabaseApi<{ connection: { version?: string; databaseName?: string | null; currentUser?: string; maxConnections?: number | null }; _meta?: DatabaseQueryMeta }>(server, 'test', {}, { requestKey: `connection-test:${server.host}:${port}` });
 }
 
 export async function testStoredDatabaseConnection(serverId: string, accountId?: string | null) {
@@ -306,27 +419,120 @@ export async function testStoredDatabaseConnection(serverId: string, accountId?:
 export async function fetchServerTables(serverId: string, accountId?: string | null) {
   const server = await requireServer(accountId, serverId);
   const response = await requestDatabaseApi<{ databases: DatabaseCatalogItem[]; _meta?: DatabaseQueryMeta }>(server, 'catalog', {}, { requestKey: `catalog:${serverId}` });
-  if (!Array.isArray(response?.databases)) throw new Error('Next.js veritabanı API katalog yanıtı geçersiz.');
-  await updateCachedDatabases(accountId!, serverId, response.databases);
-  return { serverId, databases: response.databases };
+  if (!Array.isArray(response?.databases)) throw new Error('Yerel veritabanı köprüsü katalog yanıtı geçersiz.');
+  for (const key of databaseObjectsCache.keys()) if (key.startsWith(`${serverId}:`)) databaseObjectsCache.delete(key);
+  const databases = await updateCachedDatabases(serverId, response.databases);
+  return { serverId, databases };
 }
 
 export async function fetchTableInfo(serverId: string, databaseName: string, tableName: string, accountId?: string | null) {
+  const key = `${serverId}:${databaseName}:${tableName}`;
+  const cached = tableInfoCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const pending = tableInfoRequests.get(key);
+  if (pending) return pending;
+
+  const request = (async () => {
+    const server = await requireServer(accountId, serverId);
+    const value = await requestDatabaseApi<TableInfo>(server, 'table-info', { database: databaseName, table: tableName }, { requestKey: `table-info:${key}`, connectionDatabase: databaseName });
+    tableInfoCache.set(key, { expiresAt: Date.now() + TABLE_INFO_CACHE_MS, value });
+    return value;
+  })().finally(() => tableInfoRequests.delete(key));
+  tableInfoRequests.set(key, request);
+  return request;
+}
+
+export async function fetchSchemaOverview(serverId: string, databaseName: string, accountId?: string | null) {
   const server = await requireServer(accountId, serverId);
-  return requestDatabaseApi<TableInfo>(server, 'table-info', { database: databaseName, table: tableName }, { requestKey: `table-info:${serverId}:${databaseName}:${tableName}`, connectionDatabase: databaseName });
+  return requestDatabaseApi<SchemaOverviewResponse>(server, 'schema-overview', { database: databaseName }, { requestKey: `schema-overview:${serverId}:${databaseName}`, connectionDatabase: databaseName });
+}
+
+function mbToBytes(value: string | number | null | undefined) {
+  const numeric = Number(value || 0);
+  return Number.isFinite(numeric) ? Math.max(0, Math.round(numeric * 1048576)) : 0;
+}
+
+function mergeMeasuredObjectMetadata(
+  server: DatabaseServerConfig,
+  databaseName: string,
+  response: DatabaseObjectsResponse
+): DatabaseObjectsResponse {
+  const database = (server.databases || []).find(item => item.name === databaseName);
+  if (!database?.tableDetails?.length) return response;
+  const measured = new Map(
+    database.tableDetails
+      .filter(table => Boolean(table.storageMeasuredAt))
+      .map(table => [table.tableName, table])
+  );
+  if (!measured.size) return response;
+
+  return {
+    ...response,
+    objects: response.objects.map(object => {
+      if (object.kind !== 'table') return object;
+      const detail = measured.get(object.name);
+      if (!detail) return object;
+      return {
+        ...object,
+        rows: detail.rows,
+        dataSizeBytes: mbToBytes(detail.dataSizeMB),
+        indexSizeBytes: mbToBytes(detail.indexSizeMB),
+        sizeBytes: mbToBytes(detail.sizeMB)
+      };
+    })
+  };
+}
+
+export async function fetchDatabaseObjects(serverId: string, databaseName: string, accountId?: string | null, force = false) {
+  const key = `${serverId}:${databaseName}`;
+  const cached = databaseObjectsCache.get(key);
+  if (!force && cached && cached.expiresAt > Date.now()) return cached.value;
+  const server = await requireServer(accountId, serverId);
+  const raw = await requestDatabaseApi<DatabaseObjectsResponse>(server, 'database-objects', { database: databaseName }, { requestKey: `database-objects:${key}`, connectionDatabase: databaseName });
+  const value = mergeMeasuredObjectMetadata(server, databaseName, raw);
+  databaseObjectsCache.set(key, { expiresAt: Date.now() + DATABASE_OBJECTS_CACHE_MS, value });
+  return value;
 }
 
 export async function fetchTableData(serverId: string, databaseName: string, tableName: string, accountId?: string | null, options: FetchTableDataOptions = {}) {
-  const server = await requireServer(accountId, serverId);
-  return requestDatabaseApi<TableDataResponse>(server, 'table-data', {
-    database: databaseName, table: tableName, page: options.page ?? 1, pageSize: options.pageSize ?? 50,
-    sorts: options.sorts ?? [], filters: options.filters ?? [], includeTotal: options.includeTotal ?? true,
-    knownTotalRows: options.knownTotalRows
-  }, { requestKey: `table-data:${serverId}:${databaseName}:${tableName}`, connectionDatabase: databaseName });
+  const page = options.page ?? 1;
+  const pageSize = options.pageSize ?? 100;
+  const sorts = options.sorts ?? [];
+  const filters = options.filters ?? [];
+  const includeTotal = options.includeTotal ?? true;
+  const requestIdentity = JSON.stringify([
+    serverId, databaseName, tableName, page, pageSize, sorts, filters, includeTotal, options.knownTotalRows ?? null
+  ]);
+  const pending = tableDataRequests.get(requestIdentity);
+  if (pending) return pending;
+
+  const request = (async () => {
+    const server = await requireServer(accountId, serverId);
+    return requestDatabaseApi<TableDataResponse>(server, 'table-data', {
+      database: databaseName,
+      table: tableName,
+      page,
+      pageSize,
+      sorts,
+      filters,
+      includeTotal,
+      knownTotalRows: options.knownTotalRows
+    }, {
+      requestKey: `table-data:${requestIdentity}`,
+      connectionDatabase: databaseName
+    });
+  })().finally(() => tableDataRequests.delete(requestIdentity));
+
+  tableDataRequests.set(requestIdentity, request);
+  return request;
 }
 
 export async function updateTableCell(serverId: string, input: TableCellUpdateInput, accountId?: string | null) {
   return requestDatabaseApi<TableCellUpdateResponse>(await requireServer(accountId, serverId), 'update-cell', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
+}
+
+export async function insertTableRow(serverId: string, input: TableRowInsertInput, accountId?: string | null) {
+  return requestDatabaseApi<TableRowInsertResponse>(await requireServer(accountId, serverId), 'insert-row', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
 }
 
 export async function deleteTableRows(serverId: string, input: TableRowsDeleteInput, accountId?: string | null) {
@@ -334,12 +540,30 @@ export async function deleteTableRows(serverId: string, input: TableRowsDeleteIn
 }
 
 export async function mutateTableSchema(serverId: string, input: TableSchemaMutationInput, accountId?: string | null) {
-  return requestDatabaseApi<TableSchemaMutationResponse>(await requireServer(accountId, serverId), 'alter-table', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
+  const result = await requestDatabaseApi<TableSchemaMutationResponse>(await requireServer(accountId, serverId), 'alter-table', input as unknown as Record<string, unknown>, { connectionDatabase: input.database });
+  tableInfoCache.delete(`${serverId}:${input.database}:${input.table}`);
+  return result;
 }
 
-export async function executeDatabaseQuery(serverId: string, sql: string, accountId?: string | null, databaseName?: string | null) {
+export async function executeDatabaseQuery(
+  serverId: string,
+  sql: string,
+  accountId?: string | null,
+  databaseName?: string | null,
+  executionContext?: DatabaseQueryExecutionContext
+) {
   const server = await requireServer(accountId, serverId);
   if (!sql.trim()) throw new Error('Çalıştırılacak SQL sorgusu boş olamaz.');
   const selectedDatabase = databaseName === undefined ? server.databaseName || undefined : databaseName;
-  return requestDatabaseApi<QueryExecutionResult>(server, 'query', { database: selectedDatabase, sql }, { connectionDatabase: selectedDatabase });
+  return requestDatabaseApi<QueryExecutionResult>(
+    server,
+    'query',
+    {
+      database: selectedDatabase,
+      sql,
+      executionMode: executionContext?.executionMode ?? 'text',
+      resultLimit: executionContext?.resultLimit
+    },
+    { connectionDatabase: selectedDatabase, executionContext }
+  );
 }

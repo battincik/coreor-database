@@ -1,1 +1,440 @@
-{"meta.nativeName":"简体中文","meta.direction":"ltr","common.search":"搜索","common.searchOptions":"搜索选项","common.select":"选择","common.noResults":"没有匹配结果","common.optionsCount":"{count} 个选项","common.escapeToClose":"按 ESC 关闭","common.save":"保存","common.cancel":"取消","common.create":"创建","common.delete":"删除","common.edit":"编辑","common.refresh":"刷新","common.close":"关闭","common.confirm":"确认","common.yes":"是","common.no":"否","common.loading":"加载中…","common.connected":"已连接","common.offline":"离线","common.ready":"就绪","common.error":"错误","common.warning":"警告","common.success":"成功","common.copy":"复制","common.download":"下载","common.reset":"重置","common.open":"打开","common.run":"运行","common.apply":"应用","common.add":"添加","common.remove":"移除","common.all":"全部","common.default":"默认","common.enabled":"已启用","common.disabled":"已禁用","app.settings":"设置","app.language":"语言","app.account":"账户","app.organizations":"组织","app.servers":"服务器","app.appearance":"外观","app.accessibility":"无障碍","app.queryEditor":"查询编辑器","app.security":"安全","app.advanced":"高级","app.whatsNew":"新功能","app.resetPreferences":"重置首选项","nav.databases":"数据库","nav.tables":"表","nav.schema":"架构","nav.query":"查询","nav.users":"用户","nav.processes":"进程","nav.performance":"性能","nav.notebook":"Notebook","nav.backup":"备份","nav.operations":"操作","nav.dataIntelligence":"数据智能","nav.commandPalette":"命令面板","nav.transaction":"事务","nav.importExport":"导入 / 导出","sidebar.searchPlaceholder":"搜索服务器、数据库和表","sidebar.noConnections":"没有连接配置","sidebar.newServer":"添加服务器","sidebar.accountSettings":"账户设置","sidebar.signOut":"退出登录","sidebar.activateServer":"启用服务器","sidebar.createDatabase":"创建数据库","sidebar.serverQuery":"服务器级查询","sidebar.refreshCatalog":"刷新目录","sidebar.expandAll":"全部展开","sidebar.collapseAll":"全部折叠","sidebar.editConnection":"编辑连接","query.run":"运行","query.format":"格式化","query.history":"历史记录","query.favorites":"收藏","query.selectServer":"选择服务器","query.selectDatabase":"选择数据库","query.serverScope":"服务器范围","query.dryRunEnabled":"已启用 Dry-run","query.snapshotEnabled":"已启用 Snapshot","query.readOnly":"只读","query.results":"结果","query.rows":"行","query.noResults":"无结果","query.completed":"查询已完成","query.affectedRows":"影响 {count} 行","query.safeLimitWarning":"查询没有可见的行限制；API 会应用安全上限。","query.autocomplete":"自动完成","query.errorStopped":"SQL 语言服务已停止该查询。","query.dangerousConfirm":"该查询可能会修改数据或架构。","query.applyChange":"应用更改","server.new":"新建数据库服务器","server.edit":"编辑数据库服务器","server.secureVault":"浏览器加密保险库","server.profileNetwork":"配置与网络","server.authentication":"身份验证","server.engineVersion":"引擎与版本","server.securityTimeout":"安全与超时","server.name":"服务器名称","server.host":"主机或 IP","server.port":"端口","server.defaultDatabase":"默认数据库","server.username":"用户名","server.password":"密码","server.engine":"数据库引擎","server.version":"版本配置","server.tls":"TLS 策略","server.timeout":"连接超时","server.readOnlyProfile":"只读配置","server.readOnlyDescription":"阻止此连接执行写入、架构和管理操作。","server.testConnection":"测试连接","server.addServer":"添加服务器","server.updateServer":"更新服务器","server.connectionReady":"连接就绪","server.connectionFailed":"连接失败","server.databaseName":"数据库名称","database.database":"数据库","database.table":"表","database.column":"列","database.index":"索引","database.foreignKey":"外键","database.view":"视图","database.procedure":"存储过程","database.function":"函数","database.trigger":"触发器","database.event":"事件","database.connection":"连接","database.catalog":"目录","database.schema":"架构","database.data":"数据","database.structure":"结构","database.rows":"行","database.primaryKey":"主键","database.nullable":"可为 NULL","database.dataType":"数据类型","database.defaultValue":"默认值","database.collation":"排序规则","database.storage":"存储","database.uptime":"运行时间","database.connections":"连接数","database.bufferPool":"缓冲池","database.traffic":"流量","database.slowQueries":"慢查询","database.replication":"复制","settings.language.title":"语言和地区","settings.language.description":"选择数据库和开发工具使用的界面语言。","settings.language.select":"界面语言","settings.language.current":"当前语言","settings.language.browser":"浏览器语言","settings.language.localStorage":"本地保存在此设备","settings.language.instant":"更改立即生效","settings.language.fallback":"缺失的键回退到英语","settings.language.rtl":"阿拉伯语支持从右到左布局","settings.language.coverage":"按软件、SQL 和数据库术语翻译","settings.language.restartNotRequired":"无需重启","settings.language.available":"可用语言","status.connection":"连接状态","status.serverUptime":"服务器运行时间","status.coreorSession":"Coreor 会话","status.target":"当前目标","status.threadConnections":"线程和连接","status.bufferPool":"缓冲池","status.storage":"逻辑存储","status.networkTraffic":"网络流量","status.sqlPerformance":"SQL 性能","status.lastQuery":"最近查询","notification.languageChanged":"语言已切换为 {language}。","notification.localOnly":"语言偏好和翻译保留在此设备上。"}
+{
+  "meta": {
+    "direction": "ltr",
+    "nativeName": "简体中文"
+  },
+  "common": {
+    "add": "添加",
+    "all": "全部",
+    "apply": "应用",
+    "cancel": "取消",
+    "close": "关闭",
+    "confirm": "确认",
+    "connected": "已连接",
+    "copy": "复制",
+    "create": "创建",
+    "default": "默认",
+    "delete": "删除",
+    "disabled": "已禁用",
+    "download": "下载",
+    "edit": "编辑",
+    "enabled": "已启用",
+    "error": "错误",
+    "escapeToClose": "按 ESC 关闭",
+    "loading": "加载中…",
+    "no": "否",
+    "noResults": "没有匹配结果",
+    "offline": "离线",
+    "open": "打开",
+    "optionsCount": "{count} 个选项",
+    "ready": "就绪",
+    "refresh": "刷新",
+    "remove": "移除",
+    "reset": "重置",
+    "run": "运行",
+    "save": "保存",
+    "search": "搜索",
+    "searchOptions": "搜索选项",
+    "select": "选择",
+    "success": "成功",
+    "warning": "警告",
+    "yes": "是"
+  },
+  "app": {
+    "accessibility": "无障碍",
+    "account": "账户",
+    "advanced": "高级",
+    "appearance": "外观",
+    "language": "语言",
+    "organizations": "组织",
+    "queryEditor": "查询编辑器",
+    "resetPreferences": "重置首选项",
+    "security": "安全",
+    "servers": "服务器",
+    "settings": "设置",
+    "whatsNew": "新功能"
+  },
+  "nav": {
+    "backup": "备份",
+    "commandPalette": "命令面板",
+    "databases": "数据库",
+    "dataIntelligence": "数据智能",
+    "importExport": "导入 / 导出",
+    "notebook": "Notebook",
+    "operations": "操作",
+    "performance": "性能",
+    "processes": "进程",
+    "query": "查询",
+    "schema": "架构",
+    "tables": "表",
+    "transaction": "事务",
+    "users": "用户"
+  },
+  "topbar": {
+    "backup": "备份",
+    "command": "命令",
+    "connect": "连接",
+    "connectionSearch": "搜索服务器、主机或引擎…",
+    "connectionSelect": "选择连接",
+    "dataIntelligence": "数据智能",
+    "noConnection": "未连接",
+    "noSavedServer": "没有已保存的服务器。",
+    "notebook": "Notebook",
+    "operations": "操作",
+    "performance": "性能",
+    "processes": "进程",
+    "readOnly": "只读",
+    "refresh": "刷新",
+    "schema": "架构",
+    "settings": "设置",
+    "transaction": "事务",
+    "transfer": "传输",
+    "users": "用户"
+  },
+  "sidebar": {
+    "accountSettings": "账户设置",
+    "activateServer": "启用服务器",
+    "collapseAll": "全部折叠",
+    "createDatabase": "创建数据库",
+    "editConnection": "编辑连接",
+    "expandAll": "全部展开",
+    "newServer": "添加服务器",
+    "noConnections": "没有连接配置",
+    "refreshCatalog": "刷新目录",
+    "searchPlaceholder": "搜索服务器、数据库和表",
+    "serverQuery": "服务器级查询",
+    "signOut": "退出登录"
+  },
+  "query": {
+    "affectedRows": "影响 {count} 行",
+    "applyChange": "应用更改",
+    "autocomplete": "自动完成",
+    "completed": "查询已完成",
+    "dangerousConfirm": "该查询可能会修改数据或架构。",
+    "dryRunEnabled": "已启用 Dry-run",
+    "errorStopped": "SQL 语言服务已停止该查询。",
+    "favorites": "收藏",
+    "format": "格式化",
+    "history": "历史记录",
+    "noResults": "无结果",
+    "readOnly": "只读",
+    "results": "结果",
+    "rows": "行",
+    "run": "运行",
+    "safeLimitWarning": "查询没有可见的行限制；API 会应用安全上限。",
+    "selectDatabase": "选择数据库",
+    "selectServer": "选择服务器",
+    "serverScope": "服务器范围",
+    "snapshotEnabled": "已启用 Snapshot"
+  },
+  "server": {
+    "addServer": "添加服务器",
+    "authentication": "身份验证",
+    "connectionFailed": "连接失败",
+    "connectionReady": "连接就绪",
+    "databaseName": "数据库名称",
+    "defaultDatabase": "默认数据库",
+    "edit": "编辑数据库服务器",
+    "engine": "数据库引擎",
+    "engineVersion": "引擎与版本",
+    "host": "主机或 IP",
+    "name": "服务器名称",
+    "new": "新建数据库服务器",
+    "password": "密码",
+    "port": "端口",
+    "profileNetwork": "配置与网络",
+    "readOnlyDescription": "阻止此连接执行写入、架构和管理操作。",
+    "readOnlyProfile": "只读配置",
+    "secureVault": "浏览器加密保险库",
+    "securityTimeout": "安全与超时",
+    "testConnection": "测试连接",
+    "timeout": "连接超时",
+    "tls": "TLS 策略",
+    "updateServer": "更新服务器",
+    "username": "用户名",
+    "version": "版本配置"
+  },
+  "database": {
+    "bufferPool": "缓冲池",
+    "catalog": "目录",
+    "collation": "排序规则",
+    "column": "列",
+    "connection": "连接",
+    "connections": "连接数",
+    "data": "数据",
+    "database": "数据库",
+    "dataType": "数据类型",
+    "defaultValue": "默认值",
+    "event": "事件",
+    "foreignKey": "外键",
+    "function": "函数",
+    "index": "索引",
+    "nullable": "可为 NULL",
+    "primaryKey": "主键",
+    "procedure": "存储过程",
+    "replication": "复制",
+    "rows": "行",
+    "schema": "架构",
+    "slowQueries": "慢查询",
+    "storage": "存储",
+    "structure": "结构",
+    "table": "表",
+    "traffic": "流量",
+    "trigger": "触发器",
+    "uptime": "运行时间",
+    "view": "视图"
+  },
+  "settings": {
+    "language": {
+      "available": "可用语言",
+      "browser": "浏览器语言",
+      "coverage": "按软件、SQL 和数据库术语翻译",
+      "current": "当前语言",
+      "description": "选择数据库和开发工具使用的界面语言。",
+      "fallback": "缺失的键回退到英语",
+      "instant": "更改立即生效",
+      "localStorage": "本地保存在此设备",
+      "restartNotRequired": "无需重启",
+      "rtl": "阿拉伯语支持从右到左布局",
+      "select": "界面语言",
+      "title": "语言和地区"
+    }
+  },
+  "status": {
+    "bufferPool": "缓冲池",
+    "catalogRefreshed": "目录已刷新",
+    "catalogRefreshFailed": "无法刷新目录。",
+    "connection": "连接状态",
+    "connectionFailed": "无法连接。",
+    "connectionReadyVersion": "{version} 连接已就绪",
+    "coreorSession": "Coreor 会话",
+    "lastQuery": "最近查询",
+    "networkTraffic": "网络流量",
+    "serverUptime": "服务器运行时间",
+    "sqlPerformance": "SQL 性能",
+    "storage": "逻辑存储",
+    "target": "当前目标",
+    "threadConnections": "线程和连接"
+  },
+  "notification": {
+    "languageChanged": "语言已切换为 {language}。",
+    "localOnly": "语言偏好和翻译保留在此设备上。"
+  },
+  "process": {
+    "center": "进程中心",
+    "killConnection": "终止连接",
+    "killQuery": "终止查询"
+  },
+  "performance": {
+    "activeConnections": "活动连接",
+    "bufferPoolUsage": "缓冲池使用率",
+    "logicalStorage": "逻辑存储",
+    "maxConnections": "最大连接数",
+    "qps": "QPS",
+    "replicationLag": "复制延迟",
+    "runningThreads": "运行中的线程",
+    "slowQueries": "慢查询"
+  },
+  "notebook": {
+    "runAll": "全部运行",
+    "title": "SQL Notebook"
+  },
+  "automation": {
+    "action": {
+      "analyzePlan": "分析执行计划",
+      "approve": "批准",
+      "createTask": "创建任务",
+      "preview": "预览",
+      "reject": "拒绝",
+      "restoreDefaults": "恢复默认值",
+      "run": "运行",
+      "save": "保存",
+      "saveMigration": "保存迁移",
+      "saveSet": "保存集合"
+    },
+    "approvals": "审批流程",
+    "backups": "备份任务",
+    "changedRows": "已更改的行",
+    "compare": "比较",
+    "dataCompare": "数据比较",
+    "empty": {
+      "snapshots": "还没有架构快照。"
+    },
+    "error": {
+      "compareFailed": "无法比较数据。",
+      "maskPreview": "无法生成脱敏预览。",
+      "planFailed": "无法获取执行计划。",
+      "preparedFailed": "无法执行预处理查询。",
+      "sessionRequired": "需要服务器和用户会话。"
+    },
+    "indexAdvisor": "索引建议",
+    "migrations": "迁移",
+    "onlySource": "仅源中存在",
+    "onlyTarget": "仅目标中存在",
+    "preparedStatements": "预处理语句",
+    "shortcut": {
+      "backupCenter": "备份中心",
+      "commandPalette": "命令面板",
+      "formatSql": "格式化 SQL",
+      "newQuery": "新建查询标签页",
+      "operationsCenter": "操作中心",
+      "refreshCatalog": "刷新目录"
+    },
+    "snapshots": "架构快照",
+    "sourceDatabase": "源数据库",
+    "sourceServer": "源服务器",
+    "sourceTable": "源表",
+    "status": {
+      "compareDone": "已使用主键/唯一键比较前 5,000 行。",
+      "maskPreview": "已生成脱敏预览；源数据未更改。",
+      "planReady": "已获取执行计划。请检查全表扫描、高行数和 filesort 指标。",
+      "preparedExecuted": "参数集已执行。"
+    },
+    "tab": {
+      "migration": "迁移",
+      "prepared": "预处理语句实验室",
+      "shortcuts": "快捷键"
+    },
+    "tableHistory": "表历史记录",
+    "targetDatabase": "目标数据库",
+    "targetServer": "目标服务器",
+    "targetTable": "目标表"
+  },
+  "transaction": {
+    "autocommit": "自动提交",
+    "begin": "开始事务",
+    "commit": "提交",
+    "rollback": "回滚",
+    "rollbackAndClose": "回滚并关闭",
+    "workspace": "事务工作区"
+  },
+  "intelligence": {
+    "action": {
+      "analyze5000": "分析前 5,000 行",
+      "generateData": "生成数据",
+      "generateRules": "从表生成规则",
+      "maskPreview": "脱敏预览",
+      "openEditor": "在编辑器中打开",
+      "readColumns": "加载列",
+      "refreshLive": "刷新实时指标",
+      "saveRules": "保存规则"
+    },
+    "alertRules": "告警规则",
+    "dataQuality": "数据质量",
+    "empty": {
+      "profiles": "还没有可分析的 SQL 记录。"
+    },
+    "healthScore": "数据库健康评分",
+    "masking": "高级数据脱敏",
+    "profiler": "实时查询分析器",
+    "select": {
+      "database": "选择数据库",
+      "server": "选择服务器",
+      "table": "选择表"
+    },
+    "slowQueries": "慢查询中心",
+    "snippets": "查询代码片段",
+    "tab": {
+      "alertsDescription": "实时本地通知阈值",
+      "generator": "测试数据",
+      "generatorDescription": "包含 Snowflake 的详细生成器",
+      "health": "健康评分",
+      "healthDescription": "服务器和操作评分",
+      "masking": "数据脱敏",
+      "maskingDescription": "40 多种脱敏类型和预览",
+      "profiler": "实时分析器",
+      "profilerDescription": "本地查询耗时和分布",
+      "quality": "数据质量",
+      "qualityDescription": "NULL、重复值、格式和异常值",
+      "slow": "慢查询",
+      "slowDescription": "慢查询指纹",
+      "snippets": "代码片段库",
+      "snippetsDescription": "本地即用型查询包"
+    },
+    "testData": "测试数据生成器"
+  },
+  "control": {
+    "dropdown": {
+      "close": "关闭下拉菜单",
+      "open": "打开下拉菜单"
+    },
+    "select": {
+      "clear": "清除选择",
+      "close": "关闭选择列表",
+      "count": "{count} 个选项",
+      "empty": "未找到匹配的选项。",
+      "escape": "按 ESC 关闭",
+      "open": "打开选择列表",
+      "placeholder": "选择一个选项",
+      "search": "搜索选项…"
+    }
+  },
+  "tooltip": {
+    "backup": "mysqldump、pg_dump 和 SQL Server 备份任务",
+    "dataIntelligence": "查询分析器、慢查询、健康状态、脱敏、测试数据和代码片段",
+    "hideDetails": "隐藏详细信息",
+    "moreInfo": "更多信息",
+    "operations": "快照、迁移、索引、预处理语句、审批和比较",
+    "showDetails": "显示详细信息"
+  },
+  "sql": {
+    "action": {
+      "clearQuery": "清空查询",
+      "formatQuery": "格式化查询",
+      "newQuery": "新建查询",
+      "runQuery": "运行查询",
+      "selectDraft": "SELECT 草稿"
+    },
+    "keyword": {
+      "alter": "ALTER",
+      "create": "CREATE",
+      "delete": "DELETE",
+      "drop": "DROP",
+      "insert": "INSERT",
+      "select": "SELECT",
+      "truncate": "TRUNCATE",
+      "update": "UPDATE"
+    },
+    "log": "SQL 日志",
+    "parameters": "参数",
+    "result": {
+      "affectedRows": "受影响的行",
+      "duration": "执行时间",
+      "multi": "多个结果",
+      "noResult": "无结果"
+    },
+    "scope": {
+      "server": "服务器范围"
+    },
+    "statement": "语句"
+  },
+  "approval": {
+    "approved": "已批准",
+    "pending": "待处理",
+    "rejected": "已拒绝"
+  },
+  "grid": {
+    "columnMapping": "列映射",
+    "copyRow": "复制行",
+    "copyValue": "复制值",
+    "deleteSelectedRows": "删除所选行",
+    "editCell": "编辑单元格",
+    "exportCsv": "导出 CSV",
+    "exportJson": "导出 JSON",
+    "firstPage": "第一页",
+    "fitAll": "适配所有列",
+    "followForeignKey": "跟随外键",
+    "lastPage": "最后一页",
+    "nextPage": "下一页",
+    "pageSize": "每页数量",
+    "previousPage": "上一页",
+    "resetWidths": "重置列宽"
+  },
+  "transfer": {
+    "chooseFile": "选择文件",
+    "title": "导入 / 导出"
+  },
+  "users": {
+    "management": "用户管理"
+  }
+}

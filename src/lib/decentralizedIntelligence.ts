@@ -3,6 +3,7 @@
 import type { DatabaseEngine, TableColumnInfo } from 'types';
 import type { ActivityEntry } from '@/lib/activityConsole';
 import type { DatabasePerformanceSnapshot } from '@/lib/databaseWorkbenchTypes';
+import { getRuntimeLocale, translateRuntime } from '@/lib/i18nRuntime';
 
 export type MaskKind =
   | 'redact' | 'email' | 'phone' | 'tc' | 'address' | 'iban' | 'credit-card'
@@ -14,52 +15,52 @@ export type MaskKind =
 
 export interface MaskTypeDefinition {
   id: MaskKind;
-  label: string;
-  description: string;
-  category: 'Kimlik' | 'İletişim' | 'Finans' | 'Ağ' | 'Konum' | 'Teknik' | 'Genel';
+  labelKey: string;
+  descriptionKey: string;
+  categoryKey: string;
 }
 
 export const MASK_TYPES: MaskTypeDefinition[] = [
-  { id: 'redact', label: 'Tam sansür', description: 'Değeri tamamen yıldızlar.', category: 'Genel' },
-  { id: 'keep-first-2', label: 'İlk 2 karakter', description: 'İlk iki karakteri korur.', category: 'Genel' },
-  { id: 'keep-last-4', label: 'Son 4 karakter', description: 'Son dört karakteri korur.', category: 'Genel' },
-  { id: 'hash', label: 'Kararlı hash', description: 'Aynı değer için aynı yerel maskeyi üretir.', category: 'Teknik' },
-  { id: 'null', label: 'NULL yap', description: 'Ön izlemede değeri null gösterir.', category: 'Genel' },
-  { id: 'email', label: 'E-posta', description: 'Kullanıcı adını gizler, domaini korur.', category: 'İletişim' },
-  { id: 'phone', label: 'Telefon', description: 'Ülke kodu ve son rakamları kısmen korur.', category: 'İletişim' },
-  { id: 'tc', label: 'T.C. kimlik', description: 'İlk ve son iki haneyi korur.', category: 'Kimlik' },
-  { id: 'address', label: 'Adres', description: 'İlk kelimeyi koruyup ayrıntıyı siler.', category: 'Konum' },
-  { id: 'iban', label: 'IBAN', description: 'Ülke kodu ve son dört haneyi korur.', category: 'Finans' },
-  { id: 'credit-card', label: 'Kart numarası', description: 'BIN ve son dört haneyi korur.', category: 'Finans' },
-  { id: 'first-name', label: 'Ad', description: 'İlk harfi korur.', category: 'Kimlik' },
-  { id: 'last-name', label: 'Soyad', description: 'İlk harfi korur.', category: 'Kimlik' },
-  { id: 'full-name', label: 'Ad soyad', description: 'Her parçanın ilk harfini korur.', category: 'Kimlik' },
-  { id: 'username', label: 'Kullanıcı adı', description: 'Baş ve son karakterleri korur.', category: 'Kimlik' },
-  { id: 'password', label: 'Parola', description: 'Uzunluğu korumadan tamamen kapatır.', category: 'Kimlik' },
-  { id: 'company', label: 'Şirket', description: 'Şirket adını anonim kuruluşla değiştirir.', category: 'Kimlik' },
-  { id: 'city', label: 'Şehir', description: 'Şehri bölgesel bir değerle değiştirir.', category: 'Konum' },
-  { id: 'country', label: 'Ülke', description: 'Ülkeyi genel bölge ile değiştirir.', category: 'Konum' },
-  { id: 'postal-code', label: 'Posta kodu', description: 'İlk iki haneyi korur.', category: 'Konum' },
-  { id: 'url', label: 'URL', description: 'Protokolü koruyup host ve pathi maskeler.', category: 'Ağ' },
-  { id: 'domain', label: 'Domain', description: 'TLD bilgisini korur.', category: 'Ağ' },
-  { id: 'ipv4', label: 'IPv4', description: 'İlk iki octeti korur.', category: 'Ağ' },
-  { id: 'ipv6', label: 'IPv6', description: 'İlk iki bloğu korur.', category: 'Ağ' },
-  { id: 'mac', label: 'MAC adresi', description: 'Üretici prefixini korur.', category: 'Ağ' },
-  { id: 'uuid', label: 'UUID', description: 'Biçimi koruyan kararlı UUID üretir.', category: 'Teknik' },
-  { id: 'snowflake', label: 'Snowflake ID', description: 'Uzunluğu koruyan sayısal ID üretir.', category: 'Teknik' },
-  { id: 'token', label: 'Token', description: 'Prefixi koruyup token gövdesini gizler.', category: 'Teknik' },
-  { id: 'api-key', label: 'API anahtarı', description: 'İlk ve son dört karakteri korur.', category: 'Teknik' },
-  { id: 'date', label: 'Tarih', description: 'Ayı koruyup günü anonimleştirir.', category: 'Genel' },
-  { id: 'datetime', label: 'Tarih-saat', description: 'Tarihi ay seviyesinde korur.', category: 'Genel' },
-  { id: 'birthdate', label: 'Doğum tarihi', description: 'Yılı koruyup ay ve günü değiştirir.', category: 'Kimlik' },
-  { id: 'amount', label: 'Tutar', description: 'Büyüklük sırasını koruyan yuvarlak değer.', category: 'Finans' },
-  { id: 'currency', label: 'Para birimi', description: 'Para kodunu korur, tutarı maskeler.', category: 'Finans' },
-  { id: 'percentage', label: 'Yüzde', description: 'Değeri beşlik dilime yuvarlar.', category: 'Finans' },
-  { id: 'latitude', label: 'Enlem', description: 'Koordinatı yaklaşık bölgeye yuvarlar.', category: 'Konum' },
-  { id: 'longitude', label: 'Boylam', description: 'Koordinatı yaklaşık bölgeye yuvarlar.', category: 'Konum' },
-  { id: 'coordinate', label: 'Koordinat', description: 'Enlem ve boylamı iki ondalığa indirir.', category: 'Konum' },
-  { id: 'plate-tr', label: 'Türkiye plaka', description: 'İl kodunu korur.', category: 'Kimlik' },
-  { id: 'serial', label: 'Seri numarası', description: 'Prefix ve uzunluğu korur.', category: 'Teknik' }
+  { id: 'redact', labelKey: 'intelligenceCatalog.mask.redact.label', descriptionKey: 'intelligenceCatalog.mask.redact.description', categoryKey: 'intelligenceCatalog.categories.general' },
+  { id: 'keep-first-2', labelKey: 'intelligenceCatalog.mask.keep-first-2.label', descriptionKey: 'intelligenceCatalog.mask.keep-first-2.description', categoryKey: 'intelligenceCatalog.categories.general' },
+  { id: 'keep-last-4', labelKey: 'intelligenceCatalog.mask.keep-last-4.label', descriptionKey: 'intelligenceCatalog.mask.keep-last-4.description', categoryKey: 'intelligenceCatalog.categories.general' },
+  { id: 'hash', labelKey: 'intelligenceCatalog.mask.hash.label', descriptionKey: 'intelligenceCatalog.mask.hash.description', categoryKey: 'intelligenceCatalog.categories.technical' },
+  { id: 'null', labelKey: 'intelligenceCatalog.mask.null.label', descriptionKey: 'intelligenceCatalog.mask.null.description', categoryKey: 'intelligenceCatalog.categories.general' },
+  { id: 'email', labelKey: 'intelligenceCatalog.mask.email.label', descriptionKey: 'intelligenceCatalog.mask.email.description', categoryKey: 'intelligenceCatalog.categories.communication' },
+  { id: 'phone', labelKey: 'intelligenceCatalog.mask.phone.label', descriptionKey: 'intelligenceCatalog.mask.phone.description', categoryKey: 'intelligenceCatalog.categories.communication' },
+  { id: 'tc', labelKey: 'intelligenceCatalog.mask.tc.label', descriptionKey: 'intelligenceCatalog.mask.tc.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'address', labelKey: 'intelligenceCatalog.mask.address.label', descriptionKey: 'intelligenceCatalog.mask.address.description', categoryKey: 'intelligenceCatalog.categories.location' },
+  { id: 'iban', labelKey: 'intelligenceCatalog.mask.iban.label', descriptionKey: 'intelligenceCatalog.mask.iban.description', categoryKey: 'intelligenceCatalog.categories.finance' },
+  { id: 'credit-card', labelKey: 'intelligenceCatalog.mask.credit-card.label', descriptionKey: 'intelligenceCatalog.mask.credit-card.description', categoryKey: 'intelligenceCatalog.categories.finance' },
+  { id: 'first-name', labelKey: 'intelligenceCatalog.mask.first-name.label', descriptionKey: 'intelligenceCatalog.mask.first-name.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'last-name', labelKey: 'intelligenceCatalog.mask.last-name.label', descriptionKey: 'intelligenceCatalog.mask.last-name.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'full-name', labelKey: 'intelligenceCatalog.mask.full-name.label', descriptionKey: 'intelligenceCatalog.mask.full-name.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'username', labelKey: 'intelligenceCatalog.mask.username.label', descriptionKey: 'intelligenceCatalog.mask.username.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'password', labelKey: 'intelligenceCatalog.mask.password.label', descriptionKey: 'intelligenceCatalog.mask.password.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'company', labelKey: 'intelligenceCatalog.mask.company.label', descriptionKey: 'intelligenceCatalog.mask.company.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'city', labelKey: 'intelligenceCatalog.mask.city.label', descriptionKey: 'intelligenceCatalog.mask.city.description', categoryKey: 'intelligenceCatalog.categories.location' },
+  { id: 'country', labelKey: 'intelligenceCatalog.mask.country.label', descriptionKey: 'intelligenceCatalog.mask.country.description', categoryKey: 'intelligenceCatalog.categories.location' },
+  { id: 'postal-code', labelKey: 'intelligenceCatalog.mask.postal-code.label', descriptionKey: 'intelligenceCatalog.mask.postal-code.description', categoryKey: 'intelligenceCatalog.categories.location' },
+  { id: 'url', labelKey: 'intelligenceCatalog.mask.url.label', descriptionKey: 'intelligenceCatalog.mask.url.description', categoryKey: 'intelligenceCatalog.categories.network' },
+  { id: 'domain', labelKey: 'intelligenceCatalog.mask.domain.label', descriptionKey: 'intelligenceCatalog.mask.domain.description', categoryKey: 'intelligenceCatalog.categories.network' },
+  { id: 'ipv4', labelKey: 'intelligenceCatalog.mask.ipv4.label', descriptionKey: 'intelligenceCatalog.mask.ipv4.description', categoryKey: 'intelligenceCatalog.categories.network' },
+  { id: 'ipv6', labelKey: 'intelligenceCatalog.mask.ipv6.label', descriptionKey: 'intelligenceCatalog.mask.ipv6.description', categoryKey: 'intelligenceCatalog.categories.network' },
+  { id: 'mac', labelKey: 'intelligenceCatalog.mask.mac.label', descriptionKey: 'intelligenceCatalog.mask.mac.description', categoryKey: 'intelligenceCatalog.categories.network' },
+  { id: 'uuid', labelKey: 'intelligenceCatalog.mask.uuid.label', descriptionKey: 'intelligenceCatalog.mask.uuid.description', categoryKey: 'intelligenceCatalog.categories.technical' },
+  { id: 'snowflake', labelKey: 'intelligenceCatalog.mask.snowflake.label', descriptionKey: 'intelligenceCatalog.mask.snowflake.description', categoryKey: 'intelligenceCatalog.categories.technical' },
+  { id: 'token', labelKey: 'intelligenceCatalog.mask.token.label', descriptionKey: 'intelligenceCatalog.mask.token.description', categoryKey: 'intelligenceCatalog.categories.technical' },
+  { id: 'api-key', labelKey: 'intelligenceCatalog.mask.api-key.label', descriptionKey: 'intelligenceCatalog.mask.api-key.description', categoryKey: 'intelligenceCatalog.categories.technical' },
+  { id: 'date', labelKey: 'intelligenceCatalog.mask.date.label', descriptionKey: 'intelligenceCatalog.mask.date.description', categoryKey: 'intelligenceCatalog.categories.general' },
+  { id: 'datetime', labelKey: 'intelligenceCatalog.mask.datetime.label', descriptionKey: 'intelligenceCatalog.mask.datetime.description', categoryKey: 'intelligenceCatalog.categories.general' },
+  { id: 'birthdate', labelKey: 'intelligenceCatalog.mask.birthdate.label', descriptionKey: 'intelligenceCatalog.mask.birthdate.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'amount', labelKey: 'intelligenceCatalog.mask.amount.label', descriptionKey: 'intelligenceCatalog.mask.amount.description', categoryKey: 'intelligenceCatalog.categories.finance' },
+  { id: 'currency', labelKey: 'intelligenceCatalog.mask.currency.label', descriptionKey: 'intelligenceCatalog.mask.currency.description', categoryKey: 'intelligenceCatalog.categories.finance' },
+  { id: 'percentage', labelKey: 'intelligenceCatalog.mask.percentage.label', descriptionKey: 'intelligenceCatalog.mask.percentage.description', categoryKey: 'intelligenceCatalog.categories.finance' },
+  { id: 'latitude', labelKey: 'intelligenceCatalog.mask.latitude.label', descriptionKey: 'intelligenceCatalog.mask.latitude.description', categoryKey: 'intelligenceCatalog.categories.location' },
+  { id: 'longitude', labelKey: 'intelligenceCatalog.mask.longitude.label', descriptionKey: 'intelligenceCatalog.mask.longitude.description', categoryKey: 'intelligenceCatalog.categories.location' },
+  { id: 'coordinate', labelKey: 'intelligenceCatalog.mask.coordinate.label', descriptionKey: 'intelligenceCatalog.mask.coordinate.description', categoryKey: 'intelligenceCatalog.categories.location' },
+  { id: 'plate-tr', labelKey: 'intelligenceCatalog.mask.plate-tr.label', descriptionKey: 'intelligenceCatalog.mask.plate-tr.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'serial', labelKey: 'intelligenceCatalog.mask.serial.label', descriptionKey: 'intelligenceCatalog.mask.serial.description', categoryKey: 'intelligenceCatalog.categories.technical' }
 ];
 
 export type MockDataKind =
@@ -74,62 +75,62 @@ export type MockDataKind =
 
 export interface MockTypeDefinition {
   id: MockDataKind;
-  label: string;
-  description: string;
-  category: string;
+  labelKey: string;
+  descriptionKey: string;
+  categoryKey: string;
 }
 
 export const MOCK_DATA_TYPES: MockTypeDefinition[] = [
-  { id: 'sequential-id', label: 'Sıralı ID', description: '1, 2, 3 şeklinde artar.', category: 'Kimlik' },
-  { id: 'snowflake-id', label: 'Snowflake ID', description: '64-bit Twitter benzeri sayısal ID.', category: 'Kimlik' },
-  { id: 'uuid', label: 'UUID v4', description: 'Standart UUID biçimi.', category: 'Kimlik' },
-  { id: 'ulid', label: 'ULID', description: 'Zamana göre sıralanabilir 26 karakter.', category: 'Kimlik' },
-  { id: 'integer', label: 'Tam sayı', description: 'Min/max aralığında sayı.', category: 'Sayısal' },
-  { id: 'bigint', label: 'Büyük tam sayı', description: 'BIGINT uyumlu değer.', category: 'Sayısal' },
-  { id: 'decimal', label: 'Ondalıklı sayı', description: 'Hassasiyet ayarlı decimal.', category: 'Sayısal' },
-  { id: 'boolean', label: 'Boolean', description: 'true veya false.', category: 'Mantıksal' },
-  { id: 'first-name', label: 'Ad', description: 'Türkçe ad havuzu.', category: 'Kişi' },
-  { id: 'last-name', label: 'Soyad', description: 'Türkçe soyad havuzu.', category: 'Kişi' },
-  { id: 'full-name', label: 'Ad soyad', description: 'Uyumlu ad ve soyad.', category: 'Kişi' },
-  { id: 'username', label: 'Kullanıcı adı', description: 'Ad tabanlı benzersiz kullanıcı adı.', category: 'Kişi' },
-  { id: 'email', label: 'E-posta', description: 'Geçerli test e-postası.', category: 'İletişim' },
-  { id: 'phone-tr', label: 'TR telefon', description: '+90 formatında test telefonu.', category: 'İletişim' },
-  { id: 'phone-intl', label: 'Uluslararası telefon', description: 'Farklı ülke kodları.', category: 'İletişim' },
-  { id: 'tc', label: 'Geçerli T.C. kimlik', description: 'Checksum kurallarına uygun test değeri.', category: 'Kimlik' },
-  { id: 'iban-tr', label: 'TR IBAN', description: 'Mod-97 kontrolü geçerli test IBANı.', category: 'Finans' },
-  { id: 'credit-card-test', label: 'Test kartı', description: 'Luhn kontrolü geçerli, gerçek olmayan kart.', category: 'Finans' },
-  { id: 'company', label: 'Şirket adı', description: 'Türkçe şirket isimleri.', category: 'İş' },
-  { id: 'job-title', label: 'Meslek/unvan', description: 'Yazılım ve iş unvanları.', category: 'İş' },
-  { id: 'address-tr', label: 'Türkiye adresi', description: 'Mahalle, cadde ve kapı numarası.', category: 'Konum' },
-  { id: 'city-tr', label: 'Türkiye şehri', description: 'İl havuzu.', category: 'Konum' },
-  { id: 'district-tr', label: 'Türkiye ilçesi', description: 'İlçe havuzu.', category: 'Konum' },
-  { id: 'country', label: 'Ülke', description: 'Ülke adı.', category: 'Konum' },
-  { id: 'postal-code', label: 'Posta kodu', description: 'Beş haneli posta kodu.', category: 'Konum' },
-  { id: 'url', label: 'URL', description: 'HTTPS test adresi.', category: 'Ağ' },
-  { id: 'domain', label: 'Domain', description: 'Test domaini.', category: 'Ağ' },
-  { id: 'ipv4', label: 'IPv4', description: 'Dokümantasyon ağlarından adres.', category: 'Ağ' },
-  { id: 'ipv6', label: 'IPv6', description: 'Dokümantasyon IPv6 adresi.', category: 'Ağ' },
-  { id: 'mac', label: 'MAC adresi', description: 'Yerel bit işaretli MAC.', category: 'Ağ' },
-  { id: 'date', label: 'Tarih', description: 'ISO YYYY-MM-DD.', category: 'Zaman' },
-  { id: 'datetime', label: 'Tarih-saat', description: 'ISO tarih ve saat.', category: 'Zaman' },
-  { id: 'birthdate', label: 'Doğum tarihi', description: '18-80 yaş arası tarih.', category: 'Zaman' },
-  { id: 'unix-timestamp', label: 'Unix timestamp', description: 'Saniye cinsinden epoch.', category: 'Zaman' },
-  { id: 'amount', label: 'Tutar', description: 'İki ondalıklı pozitif tutar.', category: 'Finans' },
-  { id: 'currency-code', label: 'Para kodu', description: 'TRY, USD, EUR gibi ISO kodu.', category: 'Finans' },
-  { id: 'percentage', label: 'Yüzde', description: '0-100 arası oran.', category: 'Sayısal' },
-  { id: 'latitude', label: 'Enlem', description: '-90 ile 90 arası.', category: 'Coğrafi' },
-  { id: 'longitude', label: 'Boylam', description: '-180 ile 180 arası.', category: 'Coğrafi' },
-  { id: 'coordinate', label: 'Koordinat', description: 'lat,lng biçimi.', category: 'Coğrafi' },
-  { id: 'plate-tr', label: 'Türkiye plaka', description: 'İl kodlu plaka.', category: 'Kimlik' },
-  { id: 'sentence', label: 'Cümle', description: 'Kısa Türkçe test cümlesi.', category: 'Metin' },
-  { id: 'paragraph', label: 'Paragraf', description: 'Birden fazla cümle.', category: 'Metin' },
-  { id: 'slug', label: 'Slug', description: 'URL uyumlu kısa metin.', category: 'Metin' },
-  { id: 'hex', label: 'Hex değer', description: 'Rastgele hexadecimal değer.', category: 'Teknik' },
-  { id: 'color', label: 'Renk', description: '#RRGGBB değeri.', category: 'Teknik' },
-  { id: 'json-object', label: 'JSON nesnesi', description: 'Basit JSON içerik.', category: 'Teknik' },
-  { id: 'enum', label: 'Enum listesinden', description: 'Virgülle verilen değerlerden seçer.', category: 'Genel' },
-  { id: 'constant', label: 'Sabit değer', description: 'Bütün satırlarda aynı değer.', category: 'Genel' },
-  { id: 'null', label: 'NULL', description: 'Her zaman null.', category: 'Genel' }
+  { id: 'sequential-id', labelKey: 'intelligenceCatalog.mock.sequential-id.label', descriptionKey: 'intelligenceCatalog.mock.sequential-id.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'snowflake-id', labelKey: 'intelligenceCatalog.mock.snowflake-id.label', descriptionKey: 'intelligenceCatalog.mock.snowflake-id.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'uuid', labelKey: 'intelligenceCatalog.mock.uuid.label', descriptionKey: 'intelligenceCatalog.mock.uuid.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'ulid', labelKey: 'intelligenceCatalog.mock.ulid.label', descriptionKey: 'intelligenceCatalog.mock.ulid.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'integer', labelKey: 'intelligenceCatalog.mock.integer.label', descriptionKey: 'intelligenceCatalog.mock.integer.description', categoryKey: 'intelligenceCatalog.categories.numeric' },
+  { id: 'bigint', labelKey: 'intelligenceCatalog.mock.bigint.label', descriptionKey: 'intelligenceCatalog.mock.bigint.description', categoryKey: 'intelligenceCatalog.categories.numeric' },
+  { id: 'decimal', labelKey: 'intelligenceCatalog.mock.decimal.label', descriptionKey: 'intelligenceCatalog.mock.decimal.description', categoryKey: 'intelligenceCatalog.categories.numeric' },
+  { id: 'boolean', labelKey: 'intelligenceCatalog.mock.boolean.label', descriptionKey: 'intelligenceCatalog.mock.boolean.description', categoryKey: 'intelligenceCatalog.categories.boolean' },
+  { id: 'first-name', labelKey: 'intelligenceCatalog.mock.first-name.label', descriptionKey: 'intelligenceCatalog.mock.first-name.description', categoryKey: 'intelligenceCatalog.categories.person' },
+  { id: 'last-name', labelKey: 'intelligenceCatalog.mock.last-name.label', descriptionKey: 'intelligenceCatalog.mock.last-name.description', categoryKey: 'intelligenceCatalog.categories.person' },
+  { id: 'full-name', labelKey: 'intelligenceCatalog.mock.full-name.label', descriptionKey: 'intelligenceCatalog.mock.full-name.description', categoryKey: 'intelligenceCatalog.categories.person' },
+  { id: 'username', labelKey: 'intelligenceCatalog.mock.username.label', descriptionKey: 'intelligenceCatalog.mock.username.description', categoryKey: 'intelligenceCatalog.categories.person' },
+  { id: 'email', labelKey: 'intelligenceCatalog.mock.email.label', descriptionKey: 'intelligenceCatalog.mock.email.description', categoryKey: 'intelligenceCatalog.categories.communication' },
+  { id: 'phone-tr', labelKey: 'intelligenceCatalog.mock.phone-tr.label', descriptionKey: 'intelligenceCatalog.mock.phone-tr.description', categoryKey: 'intelligenceCatalog.categories.communication' },
+  { id: 'phone-intl', labelKey: 'intelligenceCatalog.mock.phone-intl.label', descriptionKey: 'intelligenceCatalog.mock.phone-intl.description', categoryKey: 'intelligenceCatalog.categories.communication' },
+  { id: 'tc', labelKey: 'intelligenceCatalog.mock.tc.label', descriptionKey: 'intelligenceCatalog.mock.tc.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'iban-tr', labelKey: 'intelligenceCatalog.mock.iban-tr.label', descriptionKey: 'intelligenceCatalog.mock.iban-tr.description', categoryKey: 'intelligenceCatalog.categories.finance' },
+  { id: 'credit-card-test', labelKey: 'intelligenceCatalog.mock.credit-card-test.label', descriptionKey: 'intelligenceCatalog.mock.credit-card-test.description', categoryKey: 'intelligenceCatalog.categories.finance' },
+  { id: 'company', labelKey: 'intelligenceCatalog.mock.company.label', descriptionKey: 'intelligenceCatalog.mock.company.description', categoryKey: 'intelligenceCatalog.categories.business' },
+  { id: 'job-title', labelKey: 'intelligenceCatalog.mock.job-title.label', descriptionKey: 'intelligenceCatalog.mock.job-title.description', categoryKey: 'intelligenceCatalog.categories.business' },
+  { id: 'address-tr', labelKey: 'intelligenceCatalog.mock.address-tr.label', descriptionKey: 'intelligenceCatalog.mock.address-tr.description', categoryKey: 'intelligenceCatalog.categories.location' },
+  { id: 'city-tr', labelKey: 'intelligenceCatalog.mock.city-tr.label', descriptionKey: 'intelligenceCatalog.mock.city-tr.description', categoryKey: 'intelligenceCatalog.categories.location' },
+  { id: 'district-tr', labelKey: 'intelligenceCatalog.mock.district-tr.label', descriptionKey: 'intelligenceCatalog.mock.district-tr.description', categoryKey: 'intelligenceCatalog.categories.location' },
+  { id: 'country', labelKey: 'intelligenceCatalog.mock.country.label', descriptionKey: 'intelligenceCatalog.mock.country.description', categoryKey: 'intelligenceCatalog.categories.location' },
+  { id: 'postal-code', labelKey: 'intelligenceCatalog.mock.postal-code.label', descriptionKey: 'intelligenceCatalog.mock.postal-code.description', categoryKey: 'intelligenceCatalog.categories.location' },
+  { id: 'url', labelKey: 'intelligenceCatalog.mock.url.label', descriptionKey: 'intelligenceCatalog.mock.url.description', categoryKey: 'intelligenceCatalog.categories.network' },
+  { id: 'domain', labelKey: 'intelligenceCatalog.mock.domain.label', descriptionKey: 'intelligenceCatalog.mock.domain.description', categoryKey: 'intelligenceCatalog.categories.network' },
+  { id: 'ipv4', labelKey: 'intelligenceCatalog.mock.ipv4.label', descriptionKey: 'intelligenceCatalog.mock.ipv4.description', categoryKey: 'intelligenceCatalog.categories.network' },
+  { id: 'ipv6', labelKey: 'intelligenceCatalog.mock.ipv6.label', descriptionKey: 'intelligenceCatalog.mock.ipv6.description', categoryKey: 'intelligenceCatalog.categories.network' },
+  { id: 'mac', labelKey: 'intelligenceCatalog.mock.mac.label', descriptionKey: 'intelligenceCatalog.mock.mac.description', categoryKey: 'intelligenceCatalog.categories.network' },
+  { id: 'date', labelKey: 'intelligenceCatalog.mock.date.label', descriptionKey: 'intelligenceCatalog.mock.date.description', categoryKey: 'intelligenceCatalog.categories.time' },
+  { id: 'datetime', labelKey: 'intelligenceCatalog.mock.datetime.label', descriptionKey: 'intelligenceCatalog.mock.datetime.description', categoryKey: 'intelligenceCatalog.categories.time' },
+  { id: 'birthdate', labelKey: 'intelligenceCatalog.mock.birthdate.label', descriptionKey: 'intelligenceCatalog.mock.birthdate.description', categoryKey: 'intelligenceCatalog.categories.time' },
+  { id: 'unix-timestamp', labelKey: 'intelligenceCatalog.mock.unix-timestamp.label', descriptionKey: 'intelligenceCatalog.mock.unix-timestamp.description', categoryKey: 'intelligenceCatalog.categories.time' },
+  { id: 'amount', labelKey: 'intelligenceCatalog.mock.amount.label', descriptionKey: 'intelligenceCatalog.mock.amount.description', categoryKey: 'intelligenceCatalog.categories.finance' },
+  { id: 'currency-code', labelKey: 'intelligenceCatalog.mock.currency-code.label', descriptionKey: 'intelligenceCatalog.mock.currency-code.description', categoryKey: 'intelligenceCatalog.categories.finance' },
+  { id: 'percentage', labelKey: 'intelligenceCatalog.mock.percentage.label', descriptionKey: 'intelligenceCatalog.mock.percentage.description', categoryKey: 'intelligenceCatalog.categories.numeric' },
+  { id: 'latitude', labelKey: 'intelligenceCatalog.mock.latitude.label', descriptionKey: 'intelligenceCatalog.mock.latitude.description', categoryKey: 'intelligenceCatalog.categories.geographic' },
+  { id: 'longitude', labelKey: 'intelligenceCatalog.mock.longitude.label', descriptionKey: 'intelligenceCatalog.mock.longitude.description', categoryKey: 'intelligenceCatalog.categories.geographic' },
+  { id: 'coordinate', labelKey: 'intelligenceCatalog.mock.coordinate.label', descriptionKey: 'intelligenceCatalog.mock.coordinate.description', categoryKey: 'intelligenceCatalog.categories.geographic' },
+  { id: 'plate-tr', labelKey: 'intelligenceCatalog.mock.plate-tr.label', descriptionKey: 'intelligenceCatalog.mock.plate-tr.description', categoryKey: 'intelligenceCatalog.categories.identity' },
+  { id: 'sentence', labelKey: 'intelligenceCatalog.mock.sentence.label', descriptionKey: 'intelligenceCatalog.mock.sentence.description', categoryKey: 'intelligenceCatalog.categories.text' },
+  { id: 'paragraph', labelKey: 'intelligenceCatalog.mock.paragraph.label', descriptionKey: 'intelligenceCatalog.mock.paragraph.description', categoryKey: 'intelligenceCatalog.categories.text' },
+  { id: 'slug', labelKey: 'intelligenceCatalog.mock.slug.label', descriptionKey: 'intelligenceCatalog.mock.slug.description', categoryKey: 'intelligenceCatalog.categories.text' },
+  { id: 'hex', labelKey: 'intelligenceCatalog.mock.hex.label', descriptionKey: 'intelligenceCatalog.mock.hex.description', categoryKey: 'intelligenceCatalog.categories.technical' },
+  { id: 'color', labelKey: 'intelligenceCatalog.mock.color.label', descriptionKey: 'intelligenceCatalog.mock.color.description', categoryKey: 'intelligenceCatalog.categories.technical' },
+  { id: 'json-object', labelKey: 'intelligenceCatalog.mock.json-object.label', descriptionKey: 'intelligenceCatalog.mock.json-object.description', categoryKey: 'intelligenceCatalog.categories.technical' },
+  { id: 'enum', labelKey: 'intelligenceCatalog.mock.enum.label', descriptionKey: 'intelligenceCatalog.mock.enum.description', categoryKey: 'intelligenceCatalog.categories.general' },
+  { id: 'constant', labelKey: 'intelligenceCatalog.mock.constant.label', descriptionKey: 'intelligenceCatalog.mock.constant.description', categoryKey: 'intelligenceCatalog.categories.general' },
+  { id: 'null', labelKey: 'intelligenceCatalog.mock.null.label', descriptionKey: 'intelligenceCatalog.mock.null.description', categoryKey: 'intelligenceCatalog.categories.general' }
 ];
 
 export interface MockColumnRule {
@@ -194,9 +195,9 @@ export interface HealthScore {
 
 export interface QuerySnippet {
   id: string;
-  title: string;
-  description: string;
-  category: string;
+  titleKey: string;
+  descriptionKey: string;
+  categoryKey: string;
   engines: Array<DatabaseEngine | 'all'>;
   sql: string;
   tags: string[];
@@ -308,7 +309,7 @@ export function maskValueAdvanced(value: unknown, kind: MaskKind): unknown {
 }
 
 function luhnDigit(prefix: string) {
-  let sum = 0; let parity = (prefix.length + 1) % 2;
+  let sum = 0; const parity = (prefix.length + 1) % 2;
   for (let index = 0; index < prefix.length; index += 1) {
     let digit = Number(prefix[index]);
     if (index % 2 === parity) { digit *= 2; if (digit > 9) digit -= 9; }
@@ -496,22 +497,22 @@ export function analyzeDataQuality(rows: Record<string, unknown>[]): DataQuality
     const duplicates = Math.max(0, normalized.length - distinct);
     const numeric = values.map(Number).filter(Number.isFinite);
     const sample = values.filter(value => value !== null && value !== undefined).slice(0, 5);
-    if (rows.length && nulls / rows.length > .2) issues.push({ id:`${column}:null`, column, severity:nulls / rows.length > .5 ? 'error':'warning', type:'null-rate', message:`NULL oranı %${Math.round(nulls/rows.length*100)}.`, affected:nulls, sample });
-    if (empty) issues.push({ id:`${column}:empty`, column, severity:'warning', type:'empty', message:'Boş string değerleri bulundu.', affected:empty, sample });
-    if (duplicates > Math.max(5, rows.length * .5) && /(^id$|_id$|email|username|code|sku)/i.test(column)) issues.push({ id:`${column}:dup`, column, severity:'error', type:'duplicate', message:'Benzersiz olması beklenen kolonda tekrarlar var.', affected:duplicates, sample });
+    if (rows.length && nulls / rows.length > .2) issues.push({ id:`${column}:null`, column, severity:nulls / rows.length > .5 ? 'error':'warning', type:'null-rate', message:translateRuntime('intelligenceCatalog.quality.nullRate',{percent:Math.round(nulls/rows.length*100)}), affected:nulls, sample });
+    if (empty) issues.push({ id:`${column}:empty`, column, severity:'warning', type:'empty', message:translateRuntime('intelligenceCatalog.quality.empty'), affected:empty, sample });
+    if (duplicates > Math.max(5, rows.length * .5) && /(^id$|_id$|email|username|code|sku)/i.test(column)) issues.push({ id:`${column}:dup`, column, severity:'error', type:'duplicate', message:translateRuntime('intelligenceCatalog.quality.duplicate'), affected:duplicates, sample });
     const whitespace = values.filter(value => typeof value === 'string' && value !== value.trim()).length;
-    if (whitespace) issues.push({ id:`${column}:space`, column, severity:'warning', type:'whitespace', message:'Başında veya sonunda boşluk bulunan değerler var.', affected:whitespace, sample });
+    if (whitespace) issues.push({ id:`${column}:space`, column, severity:'warning', type:'whitespace', message:translateRuntime('intelligenceCatalog.quality.whitespace'), affected:whitespace, sample });
     const invalidEmail = /email/i.test(column) ? values.filter(value => value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value))).length : 0;
-    if (invalidEmail) issues.push({ id:`${column}:email`, column, severity:'error', type:'format', message:'Geçersiz e-posta biçimleri bulundu.', affected:invalidEmail, sample });
+    if (invalidEmail) issues.push({ id:`${column}:email`, column, severity:'error', type:'format', message:translateRuntime('intelligenceCatalog.quality.invalidEmail'), affected:invalidEmail, sample });
     const invalidPhone = /(phone|telefon|mobile)/i.test(column) ? values.filter(value => value && String(value).replace(/\D/g,'').length < 10).length : 0;
-    if (invalidPhone) issues.push({ id:`${column}:phone`, column, severity:'warning', type:'format', message:'Kısa veya geçersiz telefon değerleri bulundu.', affected:invalidPhone, sample });
+    if (invalidPhone) issues.push({ id:`${column}:phone`, column, severity:'warning', type:'format', message:translateRuntime('intelligenceCatalog.quality.invalidPhone'), affected:invalidPhone, sample });
     const longValues = values.filter(value => typeof value === 'string' && value.length > 5000).length;
-    if (longValues) issues.push({ id:`${column}:length`, column, severity:'info', type:'length', message:'5.000 karakterden uzun metinler bulundu.', affected:longValues, sample });
+    if (longValues) issues.push({ id:`${column}:length`, column, severity:'info', type:'length', message:translateRuntime('intelligenceCatalog.quality.longText'), affected:longValues, sample });
     if (numeric.length >= 8) {
       const average = numeric.reduce((sum,value)=>sum+value,0)/numeric.length;
       const deviation = Math.sqrt(numeric.reduce((sum,value)=>sum+(value-average)**2,0)/numeric.length);
       const outliers = numeric.filter(value => Math.abs(value-average) > deviation*3).length;
-      if (outliers) issues.push({ id:`${column}:outlier`, column, severity:'warning', type:'outlier', message:'Üç standart sapmanın dışında sayısal değerler var.', affected:outliers, sample });
+      if (outliers) issues.push({ id:`${column}:outlier`, column, severity:'warning', type:'outlier', message:translateRuntime('intelligenceCatalog.quality.outlier'), affected:outliers, sample });
       return { column, nulls, empty, distinct, duplicates, min:Math.min(...numeric), max:Math.max(...numeric), average };
     }
     return { column, nulls, empty, distinct, duplicates };
@@ -523,23 +524,23 @@ export function analyzeDataQuality(rows: Record<string, unknown>[]): DataQuality
 export function calculateHealthScore(snapshot: DatabasePerformanceSnapshot | null, activities: ActivityEntry[], backupAgeHours?: number | null): HealthScore {
   const factors: HealthFactor[] = [];
   const add = (factor: HealthFactor) => factors.push(factor);
-  if (!snapshot) add({ id:'snapshot', label:'Sunucu ölçümü', score:0, maximum:20, status:'unknown', message:'Canlı snapshot alınamadı.' });
+  if (!snapshot) add({ id:'snapshot', label:translateRuntime('intelligenceCatalog.health.snapshotLabel'), score:0, maximum:20, status:'unknown', message:translateRuntime('intelligenceCatalog.health.snapshotMissing') });
   else {
     const connectionPercent = snapshot.maxConnections ? snapshot.threadsConnected/snapshot.maxConnections*100 : 0;
-    add({ id:'connections', label:'Bağlantı kapasitesi', score:connectionPercent<65?15:connectionPercent<85?9:2, maximum:15, status:connectionPercent<65?'healthy':connectionPercent<85?'warning':'critical', message:`%${connectionPercent.toFixed(1)} bağlantı kullanımı.` });
+    add({ id:'connections', label:translateRuntime('intelligenceCatalog.health.connectionsLabel'), score:connectionPercent<65?15:connectionPercent<85?9:2, maximum:15, status:connectionPercent<65?'healthy':connectionPercent<85?'warning':'critical', message:translateRuntime('intelligenceCatalog.health.connectionsMessage',{percent:connectionPercent.toFixed(1)}) });
     const buffer = snapshot.bufferPool.usagePercent;
-    add({ id:'buffer', label:'Buffer pool', score:buffer<90?15:buffer<97?10:4, maximum:15, status:buffer<90?'healthy':buffer<97?'warning':'critical', message:`%${buffer.toFixed(1)} kullanım, dirty %${snapshot.bufferPool.dirtyPercent.toFixed(1)}.` });
+    add({ id:'buffer', label:translateRuntime('intelligenceCatalog.health.bufferLabel'), score:buffer<90?15:buffer<97?10:4, maximum:15, status:buffer<90?'healthy':buffer<97?'warning':'critical', message:translateRuntime('intelligenceCatalog.health.bufferMessage',{usage:buffer.toFixed(1),dirty:snapshot.bufferPool.dirtyPercent.toFixed(1)}) });
     const lag = snapshot.replication.secondsBehind;
-    add({ id:'replication', label:'Replikasyon', score:!snapshot.replication.available?8:lag===null?8:lag<10?15:lag<60?8:1, maximum:15, status:!snapshot.replication.available?'unknown':lag!==null&&lag>=60?'critical':lag!==null&&lag>=10?'warning':'healthy', message:!snapshot.replication.available?'Replica bilgisi yok.':`${lag ?? '—'} saniye gecikme.` });
-    add({ id:'threads', label:'Çalışan sorgular', score:snapshot.threadsRunning<10?10:snapshot.threadsRunning<30?6:1, maximum:10, status:snapshot.threadsRunning<10?'healthy':snapshot.threadsRunning<30?'warning':'critical', message:`${snapshot.threadsRunning} çalışan thread.` });
-    add({ id:'slow', label:'Slow query sayacı', score:snapshot.slowQueries===0?10:snapshot.slowQueries<100?7:3, maximum:10, status:snapshot.slowQueries===0?'healthy':snapshot.slowQueries<100?'warning':'critical', message:`${snapshot.slowQueries.toLocaleString('tr-TR')} global slow query.` });
+    add({ id:'replication', label:translateRuntime('intelligenceCatalog.health.replicationLabel'), score:!snapshot.replication.available?8:lag===null?8:lag<10?15:lag<60?8:1, maximum:15, status:!snapshot.replication.available?'unknown':lag!==null&&lag>=60?'critical':lag!==null&&lag>=10?'warning':'healthy', message:!snapshot.replication.available?translateRuntime('intelligenceCatalog.health.replicationUnavailable'):translateRuntime('intelligenceCatalog.health.replicationMessage',{seconds:lag ?? '—'}) });
+    add({ id:'threads', label:translateRuntime('intelligenceCatalog.health.threadsLabel'), score:snapshot.threadsRunning<10?10:snapshot.threadsRunning<30?6:1, maximum:10, status:snapshot.threadsRunning<10?'healthy':snapshot.threadsRunning<30?'warning':'critical', message:translateRuntime('intelligenceCatalog.health.threadsMessage',{count:snapshot.threadsRunning}) });
+    add({ id:'slow', label:translateRuntime('intelligenceCatalog.health.slowLabel'), score:snapshot.slowQueries===0?10:snapshot.slowQueries<100?7:3, maximum:10, status:snapshot.slowQueries===0?'healthy':snapshot.slowQueries<100?'warning':'critical', message:translateRuntime('intelligenceCatalog.health.slowMessage',{count:snapshot.slowQueries.toLocaleString(getRuntimeLocale())}) });
   }
   const relevant = activities.filter(item => item.durationMs !== undefined).slice(-100);
   const errors = relevant.filter(item => item.level==='error').length;
   const slow = relevant.filter(item => (item.durationMs||0)>=1000).length;
-  add({ id:'queries', label:'Yerel sorgu başarısı', score:errors===0&&slow<5?15:errors<5&&slow<20?9:3, maximum:15, status:errors===0&&slow<5?'healthy':errors<5?'warning':'critical', message:`Son ${relevant.length} sorguda ${errors} hata, ${slow} yavaş sorgu.` });
-  if (backupAgeHours === null || backupAgeHours === undefined) add({ id:'backup', label:'Yedek güncelliği', score:5, maximum:15, status:'unknown', message:'Tamamlanan yedek kaydı yok.' });
-  else add({ id:'backup', label:'Yedek güncelliği', score:backupAgeHours<24?15:backupAgeHours<72?9:2, maximum:15, status:backupAgeHours<24?'healthy':backupAgeHours<72?'warning':'critical', message:`Son yedek ${Math.round(backupAgeHours)} saat önce.` });
+  add({ id:'queries', label:translateRuntime('intelligenceCatalog.health.queriesLabel'), score:errors===0&&slow<5?15:errors<5&&slow<20?9:3, maximum:15, status:errors===0&&slow<5?'healthy':errors<5?'warning':'critical', message:translateRuntime('intelligenceCatalog.health.queriesMessage',{count:relevant.length,errors,slow}) });
+  if (backupAgeHours === null || backupAgeHours === undefined) add({ id:'backup', label:translateRuntime('intelligenceCatalog.health.backupLabel'), score:5, maximum:15, status:'unknown', message:translateRuntime('intelligenceCatalog.health.backupMissing') });
+  else add({ id:'backup', label:translateRuntime('intelligenceCatalog.health.backupLabel'), score:backupAgeHours<24?15:backupAgeHours<72?9:2, maximum:15, status:backupAgeHours<24?'healthy':backupAgeHours<72?'warning':'critical', message:translateRuntime('intelligenceCatalog.health.backupMessage',{hours:Math.round(backupAgeHours)}) });
   const score = Math.round(factors.reduce((sum,factor)=>sum+factor.score,0)/Math.max(1,factors.reduce((sum,factor)=>sum+factor.maximum,0))*100);
   return { score, grade:score>=90?'A':score>=80?'B':score>=65?'C':score>=50?'D':'F', factors };
 }
@@ -549,15 +550,17 @@ function writeLocal<T>(key:string,value:T) { if(typeof window==='undefined') ret
 
 const HISTORY_KEY='coreor:performance-history:v1';
 const RULES_KEY='coreor:notification-rules:v1';
-export const DEFAULT_NOTIFICATION_RULES: NotificationRule[] = [
-  { id:'connections', name:'Bağlantı kullanımı yüksek', metric:'connection-percent', operator:'gte', threshold:80, enabled:true, severity:'warning', cooldownSeconds:300 },
-  { id:'running', name:'Çalışan thread sayısı yüksek', metric:'running-threads', operator:'gte', threshold:25, enabled:true, severity:'warning', cooldownSeconds:180 },
-  { id:'slow', name:'Yeni slow query algılandı', metric:'slow-query-delta', operator:'gt', threshold:0, enabled:true, severity:'warning', cooldownSeconds:120 },
-  { id:'buffer', name:'Buffer pool kritik doluluk', metric:'buffer-usage', operator:'gte', threshold:97, enabled:true, severity:'danger', cooldownSeconds:300 },
-  { id:'replication', name:'Replication gecikmesi', metric:'replication-lag', operator:'gte', threshold:30, enabled:true, severity:'error', cooldownSeconds:180 },
-  { id:'unreachable', name:'Sunucuya ulaşılamıyor', metric:'server-unreachable', operator:'eq', threshold:1, enabled:true, severity:'error', cooldownSeconds:120 },
-  { id:'health', name:'Sağlık skoru düştü', metric:'health-score', operator:'lt', threshold:70, enabled:true, severity:'primary', cooldownSeconds:600 }
-];
+function defaultNotificationRules(): NotificationRule[] {
+  return [
+    { id:'connections', name:translateRuntime('intelligenceCatalog.rules.connections'), metric:'connection-percent', operator:'gte', threshold:80, enabled:true, severity:'warning', cooldownSeconds:300 },
+    { id:'running', name:translateRuntime('intelligenceCatalog.rules.running'), metric:'running-threads', operator:'gte', threshold:25, enabled:true, severity:'warning', cooldownSeconds:180 },
+    { id:'slow', name:translateRuntime('intelligenceCatalog.rules.slow'), metric:'slow-query-delta', operator:'gt', threshold:0, enabled:true, severity:'warning', cooldownSeconds:120 },
+    { id:'buffer', name:translateRuntime('intelligenceCatalog.rules.buffer'), metric:'buffer-usage', operator:'gte', threshold:97, enabled:true, severity:'danger', cooldownSeconds:300 },
+    { id:'replication', name:translateRuntime('intelligenceCatalog.rules.replication'), metric:'replication-lag', operator:'gte', threshold:30, enabled:true, severity:'error', cooldownSeconds:180 },
+    { id:'unreachable', name:translateRuntime('intelligenceCatalog.rules.unreachable'), metric:'server-unreachable', operator:'eq', threshold:1, enabled:true, severity:'error', cooldownSeconds:120 },
+    { id:'health', name:translateRuntime('intelligenceCatalog.rules.health'), metric:'health-score', operator:'lt', threshold:70, enabled:true, severity:'primary', cooldownSeconds:600 }
+  ];
+}
 
 export const performanceHistoryStore = {
   list(serverId?:string) { const values=readLocal<PerformanceHistoryPoint[]>(HISTORY_KEY,[]); return serverId?values.filter(item=>item.serverId===serverId):values; },
@@ -565,9 +568,9 @@ export const performanceHistoryStore = {
   clear(serverId?:string) { const values=readLocal<PerformanceHistoryPoint[]>(HISTORY_KEY,[]); writeLocal(HISTORY_KEY,serverId?values.filter(item=>item.serverId!==serverId):[]); }
 };
 export const notificationRuleStore = {
-  list() { return readLocal<NotificationRule[]>(RULES_KEY,DEFAULT_NOTIFICATION_RULES); },
+  list() { return readLocal<NotificationRule[]>(RULES_KEY,defaultNotificationRules()); },
   save(rules:NotificationRule[]) { writeLocal(RULES_KEY,rules); },
-  reset() { writeLocal(RULES_KEY,DEFAULT_NOTIFICATION_RULES); }
+  reset() { writeLocal(RULES_KEY,defaultNotificationRules()); }
 };
 
 export function compareMetric(value:number,operator:NotificationRule['operator'],threshold:number) {
@@ -575,19 +578,19 @@ export function compareMetric(value:number,operator:NotificationRule['operator']
 }
 
 export const QUERY_SNIPPETS: QuerySnippet[] = [
-  { id:'generic-table-counts', title:'Tablo satır sayıları', description:'Seçili şemadaki tabloların tahmini satır sayılarını listeler.', category:'Katalog', engines:['mysql','mariadb','tidb'], risk:'read', featured:true, tags:['tables','rows','catalog'], sql:`SELECT TABLE_NAME, TABLE_ROWS\nFROM information_schema.TABLES\nWHERE TABLE_SCHEMA = DATABASE()\nORDER BY TABLE_ROWS DESC;` },
-  { id:'mysql-large-tables', title:'En büyük tablolar', description:'Veri ve indeks boyutuna göre sıralar.', category:'Depolama', engines:['mysql','mariadb','tidb'], risk:'read', tags:['size','storage'], sql:`SELECT TABLE_SCHEMA, TABLE_NAME,\nROUND((DATA_LENGTH+INDEX_LENGTH)/1024/1024,2) AS total_mb\nFROM information_schema.TABLES\nORDER BY total_mb DESC\nLIMIT 50;` },
-  { id:'mysql-unused-indexes', title:'Kullanılmayan indeks adayları', description:'Performance Schema istatistiklerinden adayları bulur.', category:'İndeks', engines:['mysql','mariadb'], risk:'read', tags:['index','performance'], sql:`SELECT OBJECT_SCHEMA, OBJECT_NAME, INDEX_NAME\nFROM performance_schema.table_io_waits_summary_by_index_usage\nWHERE INDEX_NAME IS NOT NULL AND COUNT_STAR = 0\nORDER BY OBJECT_SCHEMA, OBJECT_NAME;` },
-  { id:'mysql-locks', title:'InnoDB kilit beklemeleri', description:'Aktif lock wait kayıtlarını gösterir.', category:'Kilit', engines:['mysql','mariadb'], risk:'read', tags:['locks','innodb'], sql:`SELECT * FROM performance_schema.data_lock_waits;` },
-  { id:'mysql-connection-summary', title:'Bağlantı özeti', description:'Aktif kullanıcı ve host dağılımı.', category:'Bağlantı', engines:['mysql','mariadb','tidb'], risk:'read', tags:['process','users'], sql:`SELECT USER, HOST, COMMAND, COUNT(*) AS connections\nFROM information_schema.PROCESSLIST\nGROUP BY USER, HOST, COMMAND\nORDER BY connections DESC;` },
-  { id:'pg-large-tables', title:'PostgreSQL büyük tablolar', description:'Toplam ilişki boyutlarını listeler.', category:'Depolama', engines:['postgresql','cockroachdb'], risk:'read', featured:true, tags:['postgres','size'], sql:`SELECT schemaname, relname,\npg_size_pretty(pg_total_relation_size(relid)) AS total_size\nFROM pg_catalog.pg_statio_user_tables\nORDER BY pg_total_relation_size(relid) DESC\nLIMIT 50;` },
-  { id:'pg-long-queries', title:'Uzun PostgreSQL sorguları', description:'30 saniyeyi geçen aktif sorgular.', category:'Performans', engines:['postgresql','cockroachdb'], risk:'read', tags:['slow','activity'], sql:`SELECT pid, usename, now()-query_start AS duration, state, query\nFROM pg_stat_activity\nWHERE state <> 'idle' AND now()-query_start > interval '30 seconds'\nORDER BY duration DESC;` },
-  { id:'pg-index-usage', title:'PostgreSQL indeks kullanımı', description:'Seq scan ve index scan oranlarını gösterir.', category:'İndeks', engines:['postgresql'], risk:'read', tags:['index','scan'], sql:`SELECT schemaname, relname, seq_scan, idx_scan,\nCASE WHEN seq_scan+idx_scan=0 THEN 0 ELSE idx_scan::numeric/(seq_scan+idx_scan) END AS index_ratio\nFROM pg_stat_user_tables\nORDER BY seq_scan DESC;` },
-  { id:'pg-bloat-candidates', title:'VACUUM adayları', description:'Dead tuple oranı yüksek tablolar.', category:'Bakım', engines:['postgresql'], risk:'read', tags:['vacuum','dead tuples'], sql:`SELECT schemaname, relname, n_live_tup, n_dead_tup, last_vacuum, last_autovacuum\nFROM pg_stat_user_tables\nORDER BY n_dead_tup DESC\nLIMIT 50;` },
-  { id:'mssql-long-queries', title:'SQL Server uzun istekler', description:'Aktif request ve wait bilgileri.', category:'Performans', engines:['mssql'], risk:'read', featured:true, tags:['mssql','requests'], sql:`SELECT r.session_id, r.status, r.command, r.wait_type, r.total_elapsed_time, t.text\nFROM sys.dm_exec_requests r\nCROSS APPLY sys.dm_exec_sql_text(r.sql_handle) t\nORDER BY r.total_elapsed_time DESC;` },
-  { id:'mssql-index-fragmentation', title:'İndeks parçalanması', description:'Yeniden düzenleme veya rebuild adayları.', category:'İndeks', engines:['mssql'], risk:'read', tags:['fragmentation','index'], sql:`SELECT OBJECT_NAME(ips.object_id) AS table_name, i.name AS index_name,\nips.avg_fragmentation_in_percent, ips.page_count\nFROM sys.dm_db_index_physical_stats(DB_ID(),NULL,NULL,NULL,'LIMITED') ips\nJOIN sys.indexes i ON i.object_id=ips.object_id AND i.index_id=ips.index_id\nWHERE ips.page_count > 100\nORDER BY ips.avg_fragmentation_in_percent DESC;` },
-  { id:'mssql-database-sizes', title:'SQL Server veritabanı boyutları', description:'Data ve log dosyalarının boyutunu gösterir.', category:'Depolama', engines:['mssql'], risk:'read', tags:['files','size'], sql:`SELECT DB_NAME(database_id) AS database_name, type_desc,\nSUM(size)*8.0/1024 AS size_mb\nFROM sys.master_files\nGROUP BY database_id,type_desc\nORDER BY size_mb DESC;` },
-  { id:'generic-duplicate-values', title:'Tekrarlanan değerleri bul', description:'Kolon bazlı duplicate analizi şablonu.', category:'Veri Kalitesi', engines:['all'], risk:'read', tags:['duplicate','quality'], sql:`SELECT column_name, COUNT(*) AS duplicate_count\nFROM table_name\nGROUP BY column_name\nHAVING COUNT(*) > 1\nORDER BY duplicate_count DESC;` },
-  { id:'generic-null-profile', title:'NULL profili', description:'Kolon için NULL ve toplam kayıt sayısını ölçer.', category:'Veri Kalitesi', engines:['all'], risk:'read', tags:['null','quality'], sql:`SELECT COUNT(*) AS total_rows,\nSUM(CASE WHEN column_name IS NULL THEN 1 ELSE 0 END) AS null_rows\nFROM table_name;` },
-  { id:'generic-safe-update', title:'Güvenli UPDATE taslağı', description:'Transaction ve doğrulama SELECTi içeren yazma şablonu.', category:'Güvenli Yazma', engines:['all'], risk:'write', tags:['update','transaction'], sql:`BEGIN;\nSELECT * FROM table_name WHERE primary_key = 'value';\nUPDATE table_name SET column_name = 'new_value' WHERE primary_key = 'value';\n-- COMMIT; -- Sonucu doğruladıktan sonra açın\nROLLBACK;` }
+  { id:'generic-table-counts', titleKey:'intelligenceCatalog.snippets.generic-table-counts.title', descriptionKey:'intelligenceCatalog.snippets.generic-table-counts.description', categoryKey:'intelligenceCatalog.categories.catalog', engines:['mysql','mariadb','tidb'], risk:'read', featured:true, tags:['tables','rows','catalog'], sql:`SELECT TABLE_NAME, TABLE_ROWS\nFROM information_schema.TABLES\nWHERE TABLE_SCHEMA = DATABASE()\nORDER BY TABLE_ROWS DESC;` },
+  { id:'mysql-large-tables', titleKey:'intelligenceCatalog.snippets.mysql-large-tables.title', descriptionKey:'intelligenceCatalog.snippets.mysql-large-tables.description', categoryKey:'intelligenceCatalog.categories.storage', engines:['mysql','mariadb','tidb'], risk:'read', tags:['size','storage'], sql:`SELECT TABLE_SCHEMA, TABLE_NAME,\nROUND((DATA_LENGTH+INDEX_LENGTH)/1024/1024,2) AS total_mb\nFROM information_schema.TABLES\nORDER BY total_mb DESC\nLIMIT 50;` },
+  { id:'mysql-unused-indexes', titleKey:'intelligenceCatalog.snippets.mysql-unused-indexes.title', descriptionKey:'intelligenceCatalog.snippets.mysql-unused-indexes.description', categoryKey:'intelligenceCatalog.categories.index', engines:['mysql','mariadb'], risk:'read', tags:['index','performance'], sql:`SELECT OBJECT_SCHEMA, OBJECT_NAME, INDEX_NAME\nFROM performance_schema.table_io_waits_summary_by_index_usage\nWHERE INDEX_NAME IS NOT NULL AND COUNT_STAR = 0\nORDER BY OBJECT_SCHEMA, OBJECT_NAME;` },
+  { id:'mysql-locks', titleKey:'intelligenceCatalog.snippets.mysql-locks.title', descriptionKey:'intelligenceCatalog.snippets.mysql-locks.description', categoryKey:'intelligenceCatalog.categories.locks', engines:['mysql','mariadb'], risk:'read', tags:['locks','innodb'], sql:`SELECT * FROM performance_schema.data_lock_waits;` },
+  { id:'mysql-connection-summary', titleKey:'intelligenceCatalog.snippets.mysql-connection-summary.title', descriptionKey:'intelligenceCatalog.snippets.mysql-connection-summary.description', categoryKey:'intelligenceCatalog.categories.connection', engines:['mysql','mariadb','tidb'], risk:'read', tags:['process','users'], sql:`SELECT USER, HOST, COMMAND, COUNT(*) AS connections\nFROM information_schema.PROCESSLIST\nGROUP BY USER, HOST, COMMAND\nORDER BY connections DESC;` },
+  { id:'pg-large-tables', titleKey:'intelligenceCatalog.snippets.pg-large-tables.title', descriptionKey:'intelligenceCatalog.snippets.pg-large-tables.description', categoryKey:'intelligenceCatalog.categories.storage', engines:['postgresql','cockroachdb'], risk:'read', featured:true, tags:['postgres','size'], sql:`SELECT schemaname, relname,\npg_size_pretty(pg_total_relation_size(relid)) AS total_size\nFROM pg_catalog.pg_statio_user_tables\nORDER BY pg_total_relation_size(relid) DESC\nLIMIT 50;` },
+  { id:'pg-long-queries', titleKey:'intelligenceCatalog.snippets.pg-long-queries.title', descriptionKey:'intelligenceCatalog.snippets.pg-long-queries.description', categoryKey:'intelligenceCatalog.categories.performance', engines:['postgresql','cockroachdb'], risk:'read', tags:['slow','activity'], sql:`SELECT pid, usename, now()-query_start AS duration, state, query\nFROM pg_stat_activity\nWHERE state <> 'idle' AND now()-query_start > interval '30 seconds'\nORDER BY duration DESC;` },
+  { id:'pg-index-usage', titleKey:'intelligenceCatalog.snippets.pg-index-usage.title', descriptionKey:'intelligenceCatalog.snippets.pg-index-usage.description', categoryKey:'intelligenceCatalog.categories.index', engines:['postgresql'], risk:'read', tags:['index','scan'], sql:`SELECT schemaname, relname, seq_scan, idx_scan,\nCASE WHEN seq_scan+idx_scan=0 THEN 0 ELSE idx_scan::numeric/(seq_scan+idx_scan) END AS index_ratio\nFROM pg_stat_user_tables\nORDER BY seq_scan DESC;` },
+  { id:'pg-bloat-candidates', titleKey:'intelligenceCatalog.snippets.pg-bloat-candidates.title', descriptionKey:'intelligenceCatalog.snippets.pg-bloat-candidates.description', categoryKey:'intelligenceCatalog.categories.maintenance', engines:['postgresql'], risk:'read', tags:['vacuum','dead tuples'], sql:`SELECT schemaname, relname, n_live_tup, n_dead_tup, last_vacuum, last_autovacuum\nFROM pg_stat_user_tables\nORDER BY n_dead_tup DESC\nLIMIT 50;` },
+  { id:'mssql-long-queries', titleKey:'intelligenceCatalog.snippets.mssql-long-queries.title', descriptionKey:'intelligenceCatalog.snippets.mssql-long-queries.description', categoryKey:'intelligenceCatalog.categories.performance', engines:['mssql'], risk:'read', featured:true, tags:['mssql','requests'], sql:`SELECT r.session_id, r.status, r.command, r.wait_type, r.total_elapsed_time, t.text\nFROM sys.dm_exec_requests r\nCROSS APPLY sys.dm_exec_sql_text(r.sql_handle) t\nORDER BY r.total_elapsed_time DESC;` },
+  { id:'mssql-index-fragmentation', titleKey:'intelligenceCatalog.snippets.mssql-index-fragmentation.title', descriptionKey:'intelligenceCatalog.snippets.mssql-index-fragmentation.description', categoryKey:'intelligenceCatalog.categories.index', engines:['mssql'], risk:'read', tags:['fragmentation','index'], sql:`SELECT OBJECT_NAME(ips.object_id) AS table_name, i.name AS index_name,\nips.avg_fragmentation_in_percent, ips.page_count\nFROM sys.dm_db_index_physical_stats(DB_ID(),NULL,NULL,NULL,'LIMITED') ips\nJOIN sys.indexes i ON i.object_id=ips.object_id AND i.index_id=ips.index_id\nWHERE ips.page_count > 100\nORDER BY ips.avg_fragmentation_in_percent DESC;` },
+  { id:'mssql-database-sizes', titleKey:'intelligenceCatalog.snippets.mssql-database-sizes.title', descriptionKey:'intelligenceCatalog.snippets.mssql-database-sizes.description', categoryKey:'intelligenceCatalog.categories.storage', engines:['mssql'], risk:'read', tags:['files','size'], sql:`SELECT DB_NAME(database_id) AS database_name, type_desc,\nSUM(size)*8.0/1024 AS size_mb\nFROM sys.master_files\nGROUP BY database_id,type_desc\nORDER BY size_mb DESC;` },
+  { id:'generic-duplicate-values', titleKey:'intelligenceCatalog.snippets.generic-duplicate-values.title', descriptionKey:'intelligenceCatalog.snippets.generic-duplicate-values.description', categoryKey:'intelligenceCatalog.categories.dataQuality', engines:['all'], risk:'read', tags:['duplicate','quality'], sql:`SELECT column_name, COUNT(*) AS duplicate_count\nFROM table_name\nGROUP BY column_name\nHAVING COUNT(*) > 1\nORDER BY duplicate_count DESC;` },
+  { id:'generic-null-profile', titleKey:'intelligenceCatalog.snippets.generic-null-profile.title', descriptionKey:'intelligenceCatalog.snippets.generic-null-profile.description', categoryKey:'intelligenceCatalog.categories.dataQuality', engines:['all'], risk:'read', tags:['null','quality'], sql:`SELECT COUNT(*) AS total_rows,\nSUM(CASE WHEN column_name IS NULL THEN 1 ELSE 0 END) AS null_rows\nFROM table_name;` },
+  { id:'generic-safe-update', titleKey:'intelligenceCatalog.snippets.generic-safe-update.title', descriptionKey:'intelligenceCatalog.snippets.generic-safe-update.description', categoryKey:'intelligenceCatalog.categories.safeWrite', engines:['all'], risk:'write', tags:['update','transaction'], sql:`BEGIN;\nSELECT * FROM table_name WHERE primary_key = 'value';\nUPDATE table_name SET column_name = 'new_value' WHERE primary_key = 'value';\n-- COMMIT; -- Sonucu doğruladıktan sonra açın\nROLLBACK;` }
 ];

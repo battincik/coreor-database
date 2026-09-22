@@ -1,84 +1,52 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import type { Session } from 'next-auth';
-import { useSession } from 'next-auth/react';
+import React, { createContext, useContext, useMemo, useState } from 'react';
 
-interface AuthContextType {
-  user: Session['user'] | null;
-  activeToken: string | null;
-  isReady: boolean;
+export type AccountCapability = 'cloud-sync' | 'team-workspaces' | 'shared-snippets' | 'account-profile';
+
+export interface CoreorAccountUser {
+  id: string;
+  name: string;
+  email: string | null;
+  image: string | null;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
-
-async function createAccountVaultId(user: NonNullable<Session['user']>) {
-  const stableIdentity = user.id?.trim() || user.email?.trim().toLowerCase() || user.name?.trim().toLowerCase() || user.image?.trim();
-
-  if (!stableIdentity) {
-    throw new Error('Kullanıcı hesabı için kararlı bir kimlik oluşturulamadı.');
-  }
-
-  const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(`coreor-account:${stableIdentity}`));
-  const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
-
-  return `account:${hash}`;
+export interface CoreorAuthSession {
+  user: CoreorAccountUser;
+  capabilities: AccountCapability[];
 }
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const { data: session, status } = useSession();
-  const [activeToken, setActiveToken] = useState<string | null>(null);
-  const [isReady, setIsReady] = useState(false);
+interface AuthContextValue {
+  status: 'guest' | 'authenticated';
+  user: CoreorAccountUser | null;
+  capabilities: AccountCapability[];
+  isGuest: boolean;
+  hasCapability: (capability: AccountCapability) => boolean;
+  applySession: (session: CoreorAuthSession) => void;
+  signOut: () => void;
+}
 
-  useEffect(() => {
-    let cancelled = false;
+const AuthContext = createContext<AuthContextValue | null>(null);
 
-    const resolveAccount = async () => {
-      if (status === 'loading') {
-        return;
-      }
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  // Account identity is intentionally independent from the local database workspace.
+  // The Coreor Account API adapter only needs to call applySession(); local DB access remains independent.
+  const [session, setSession] = useState<CoreorAuthSession | null>(null);
+  const value = useMemo<AuthContextValue>(() => ({
+    status: session ? 'authenticated' : 'guest',
+    user: session?.user || null,
+    capabilities: session?.capabilities || [],
+    isGuest: !session,
+    hasCapability: capability => Boolean(session?.capabilities.includes(capability)),
+    applySession: next => setSession(next),
+    signOut: () => setSession(null)
+  }), [session]);
 
-      if (!session?.user) {
-        if (!cancelled) {
-          setActiveToken(null);
-          setIsReady(true);
-        }
-        return;
-      }
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
 
-      try {
-        const accountId = await createAccountVaultId(session.user);
-
-        if (!cancelled) {
-          setActiveToken(accountId);
-          setIsReady(true);
-        }
-      } catch (error) {
-        console.error('Hesap kasası kimliği oluşturulamadı:', error);
-
-        if (!cancelled) {
-          setActiveToken(null);
-          setIsReady(true);
-        }
-      }
-    };
-
-    resolveAccount();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [session?.user, status]);
-
-  return <AuthContext.Provider value={{ user: session?.user ?? null, activeToken, isReady }}>{children}</AuthContext.Provider>;
-};
-
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
-
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
-};
+}

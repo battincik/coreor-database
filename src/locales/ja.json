@@ -1,1 +1,440 @@
-{"meta.nativeName":"日本語","meta.direction":"ltr","common.search":"検索","common.searchOptions":"オプションを検索","common.select":"選択","common.noResults":"一致する結果がありません","common.optionsCount":"{count} 件のオプション","common.escapeToClose":"ESC で閉じる","common.save":"保存","common.cancel":"キャンセル","common.create":"作成","common.delete":"削除","common.edit":"編集","common.refresh":"更新","common.close":"閉じる","common.confirm":"確認","common.yes":"はい","common.no":"いいえ","common.loading":"読み込み中…","common.connected":"接続済み","common.offline":"オフライン","common.ready":"準備完了","common.error":"エラー","common.warning":"警告","common.success":"成功","common.copy":"コピー","common.download":"ダウンロード","common.reset":"リセット","common.open":"開く","common.run":"実行","common.apply":"適用","common.add":"追加","common.remove":"削除","common.all":"すべて","common.default":"デフォルト","common.enabled":"有効","common.disabled":"無効","app.settings":"設定","app.language":"言語","app.account":"アカウント","app.organizations":"組織","app.servers":"サーバー","app.appearance":"外観","app.accessibility":"アクセシビリティ","app.queryEditor":"クエリエディター","app.security":"セキュリティ","app.advanced":"詳細","app.whatsNew":"新機能","app.resetPreferences":"設定をリセット","nav.databases":"データベース","nav.tables":"テーブル","nav.schema":"スキーマ","nav.query":"クエリ","nav.users":"ユーザー","nav.processes":"プロセス","nav.performance":"パフォーマンス","nav.notebook":"ノートブック","nav.backup":"バックアップ","nav.operations":"操作","nav.dataIntelligence":"データインテリジェンス","nav.commandPalette":"コマンドパレット","nav.transaction":"トランザクション","nav.importExport":"インポート / エクスポート","sidebar.searchPlaceholder":"サーバー、データベース、テーブルを検索","sidebar.noConnections":"接続プロファイルがありません","sidebar.newServer":"サーバーを追加","sidebar.accountSettings":"アカウント設定","sidebar.signOut":"サインアウト","sidebar.activateServer":"サーバーを有効化","sidebar.createDatabase":"データベースを作成","sidebar.serverQuery":"サーバー全体のクエリ","sidebar.refreshCatalog":"カタログを更新","sidebar.expandAll":"すべて展開","sidebar.collapseAll":"すべて折りたたむ","sidebar.editConnection":"接続を編集","query.run":"実行","query.format":"整形","query.history":"履歴","query.favorites":"お気に入り","query.selectServer":"サーバーを選択","query.selectDatabase":"データベースを選択","query.serverScope":"サーバースコープ","query.dryRunEnabled":"Dry-run 有効","query.snapshotEnabled":"Snapshot 有効","query.readOnly":"読み取り専用","query.results":"結果","query.rows":"行","query.noResults":"結果なし","query.completed":"クエリ完了","query.affectedRows":"{count} 行が影響を受けました","query.safeLimitWarning":"表示上の行制限がありません。API が安全な上限を適用します。","query.autocomplete":"自動補完","query.errorStopped":"SQL 言語サービスがクエリを停止しました。","query.dangerousConfirm":"このクエリはデータまたはスキーマを変更する可能性があります。","query.applyChange":"変更を適用","server.new":"新しいデータベースサーバー","server.edit":"データベースサーバーを編集","server.secureVault":"暗号化ブラウザ保管庫","server.profileNetwork":"プロファイルとネットワーク","server.authentication":"認証","server.engineVersion":"エンジンとバージョン","server.securityTimeout":"セキュリティとタイムアウト","server.name":"サーバー名","server.host":"ホストまたは IP","server.port":"ポート","server.defaultDatabase":"既定のデータベース","server.username":"ユーザー名","server.password":"パスワード","server.engine":"データベースエンジン","server.version":"バージョンプロファイル","server.tls":"TLS ポリシー","server.timeout":"接続タイムアウト","server.readOnlyProfile":"読み取り専用プロファイル","server.readOnlyDescription":"この接続で書き込み、スキーマ、管理操作をブロックします。","server.testConnection":"接続をテスト","server.addServer":"サーバーを追加","server.updateServer":"サーバーを更新","server.connectionReady":"接続準備完了","server.connectionFailed":"接続失敗","server.databaseName":"データベース名","database.database":"データベース","database.table":"テーブル","database.column":"カラム","database.index":"インデックス","database.foreignKey":"外部キー","database.view":"ビュー","database.procedure":"ストアドプロシージャ","database.function":"関数","database.trigger":"トリガー","database.event":"イベント","database.connection":"接続","database.catalog":"カタログ","database.schema":"スキーマ","database.data":"データ","database.structure":"構造","database.rows":"行","database.primaryKey":"主キー","database.nullable":"NULL 可","database.dataType":"データ型","database.defaultValue":"既定値","database.collation":"照合順序","database.storage":"ストレージ","database.uptime":"稼働時間","database.connections":"接続","database.bufferPool":"バッファプール","database.traffic":"トラフィック","database.slowQueries":"スロークエリ","database.replication":"レプリケーション","settings.language.title":"言語と地域","settings.language.description":"データベースおよび開発ツールで使用するインターフェース言語を選択します。","settings.language.select":"インターフェース言語","settings.language.current":"現在の言語","settings.language.browser":"ブラウザの言語","settings.language.localStorage":"このデバイスにローカル保存","settings.language.instant":"変更はすぐに適用されます","settings.language.fallback":"不足したキーは英語にフォールバックします","settings.language.rtl":"アラビア語では右から左のレイアウトをサポートします","settings.language.coverage":"ソフトウェア、SQL、データベース用語に合わせた翻訳","settings.language.restartNotRequired":"再起動は不要です","settings.language.available":"利用可能な言語","status.connection":"接続状態","status.serverUptime":"サーバー稼働時間","status.coreorSession":"Coreor セッション","status.target":"アクティブな対象","status.threadConnections":"スレッドと接続","status.bufferPool":"バッファプール","status.storage":"論理ストレージ","status.networkTraffic":"ネットワークトラフィック","status.sqlPerformance":"SQL パフォーマンス","status.lastQuery":"最後のクエリ","notification.languageChanged":"言語を {language} に変更しました。","notification.localOnly":"言語設定と翻訳はこのデバイスに保持されます。"}
+{
+  "meta": {
+    "direction": "ltr",
+    "nativeName": "日本語"
+  },
+  "common": {
+    "add": "追加",
+    "all": "すべて",
+    "apply": "適用",
+    "cancel": "キャンセル",
+    "close": "閉じる",
+    "confirm": "確認",
+    "connected": "接続済み",
+    "copy": "コピー",
+    "create": "作成",
+    "default": "デフォルト",
+    "delete": "削除",
+    "disabled": "無効",
+    "download": "ダウンロード",
+    "edit": "編集",
+    "enabled": "有効",
+    "error": "エラー",
+    "escapeToClose": "ESC で閉じる",
+    "loading": "読み込み中…",
+    "no": "いいえ",
+    "noResults": "一致する結果がありません",
+    "offline": "オフライン",
+    "open": "開く",
+    "optionsCount": "{count} 件のオプション",
+    "ready": "準備完了",
+    "refresh": "更新",
+    "remove": "削除",
+    "reset": "リセット",
+    "run": "実行",
+    "save": "保存",
+    "search": "検索",
+    "searchOptions": "オプションを検索",
+    "select": "選択",
+    "success": "成功",
+    "warning": "警告",
+    "yes": "はい"
+  },
+  "app": {
+    "accessibility": "アクセシビリティ",
+    "account": "アカウント",
+    "advanced": "詳細",
+    "appearance": "外観",
+    "language": "言語",
+    "organizations": "組織",
+    "queryEditor": "クエリエディター",
+    "resetPreferences": "設定をリセット",
+    "security": "セキュリティ",
+    "servers": "サーバー",
+    "settings": "設定",
+    "whatsNew": "新機能"
+  },
+  "nav": {
+    "backup": "バックアップ",
+    "commandPalette": "コマンドパレット",
+    "databases": "データベース",
+    "dataIntelligence": "データインテリジェンス",
+    "importExport": "インポート / エクスポート",
+    "notebook": "ノートブック",
+    "operations": "操作",
+    "performance": "パフォーマンス",
+    "processes": "プロセス",
+    "query": "クエリ",
+    "schema": "スキーマ",
+    "tables": "テーブル",
+    "transaction": "トランザクション",
+    "users": "ユーザー"
+  },
+  "topbar": {
+    "backup": "バックアップ",
+    "command": "コマンド",
+    "connect": "接続",
+    "connectionSearch": "サーバー、ホスト、エンジンを検索…",
+    "connectionSelect": "接続を選択",
+    "dataIntelligence": "データインテリジェンス",
+    "noConnection": "未接続",
+    "noSavedServer": "保存済みサーバーがありません。",
+    "notebook": "ノートブック",
+    "operations": "操作",
+    "performance": "パフォーマンス",
+    "processes": "プロセス",
+    "readOnly": "読み取り専用",
+    "refresh": "更新",
+    "schema": "スキーマ",
+    "settings": "設定",
+    "transaction": "トランザクション",
+    "transfer": "転送",
+    "users": "ユーザー"
+  },
+  "sidebar": {
+    "accountSettings": "アカウント設定",
+    "activateServer": "サーバーを有効化",
+    "collapseAll": "すべて折りたたむ",
+    "createDatabase": "データベースを作成",
+    "editConnection": "接続を編集",
+    "expandAll": "すべて展開",
+    "newServer": "サーバーを追加",
+    "noConnections": "接続プロファイルがありません",
+    "refreshCatalog": "カタログを更新",
+    "searchPlaceholder": "サーバー、データベース、テーブルを検索",
+    "serverQuery": "サーバー全体のクエリ",
+    "signOut": "サインアウト"
+  },
+  "query": {
+    "affectedRows": "{count} 行が影響を受けました",
+    "applyChange": "変更を適用",
+    "autocomplete": "自動補完",
+    "completed": "クエリ完了",
+    "dangerousConfirm": "このクエリはデータまたはスキーマを変更する可能性があります。",
+    "dryRunEnabled": "Dry-run 有効",
+    "errorStopped": "SQL 言語サービスがクエリを停止しました。",
+    "favorites": "お気に入り",
+    "format": "整形",
+    "history": "履歴",
+    "noResults": "結果なし",
+    "readOnly": "読み取り専用",
+    "results": "結果",
+    "rows": "行",
+    "run": "実行",
+    "safeLimitWarning": "表示上の行制限がありません。API が安全な上限を適用します。",
+    "selectDatabase": "データベースを選択",
+    "selectServer": "サーバーを選択",
+    "serverScope": "サーバースコープ",
+    "snapshotEnabled": "Snapshot 有効"
+  },
+  "server": {
+    "addServer": "サーバーを追加",
+    "authentication": "認証",
+    "connectionFailed": "接続失敗",
+    "connectionReady": "接続準備完了",
+    "databaseName": "データベース名",
+    "defaultDatabase": "既定のデータベース",
+    "edit": "データベースサーバーを編集",
+    "engine": "データベースエンジン",
+    "engineVersion": "エンジンとバージョン",
+    "host": "ホストまたは IP",
+    "name": "サーバー名",
+    "new": "新しいデータベースサーバー",
+    "password": "パスワード",
+    "port": "ポート",
+    "profileNetwork": "プロファイルとネットワーク",
+    "readOnlyDescription": "この接続で書き込み、スキーマ、管理操作をブロックします。",
+    "readOnlyProfile": "読み取り専用プロファイル",
+    "secureVault": "暗号化ブラウザ保管庫",
+    "securityTimeout": "セキュリティとタイムアウト",
+    "testConnection": "接続をテスト",
+    "timeout": "接続タイムアウト",
+    "tls": "TLS ポリシー",
+    "updateServer": "サーバーを更新",
+    "username": "ユーザー名",
+    "version": "バージョンプロファイル"
+  },
+  "database": {
+    "bufferPool": "バッファプール",
+    "catalog": "カタログ",
+    "collation": "照合順序",
+    "column": "カラム",
+    "connection": "接続",
+    "connections": "接続",
+    "data": "データ",
+    "database": "データベース",
+    "dataType": "データ型",
+    "defaultValue": "既定値",
+    "event": "イベント",
+    "foreignKey": "外部キー",
+    "function": "関数",
+    "index": "インデックス",
+    "nullable": "NULL 可",
+    "primaryKey": "主キー",
+    "procedure": "ストアドプロシージャ",
+    "replication": "レプリケーション",
+    "rows": "行",
+    "schema": "スキーマ",
+    "slowQueries": "スロークエリ",
+    "storage": "ストレージ",
+    "structure": "構造",
+    "table": "テーブル",
+    "traffic": "トラフィック",
+    "trigger": "トリガー",
+    "uptime": "稼働時間",
+    "view": "ビュー"
+  },
+  "settings": {
+    "language": {
+      "available": "利用可能な言語",
+      "browser": "ブラウザの言語",
+      "coverage": "ソフトウェア、SQL、データベース用語に合わせた翻訳",
+      "current": "現在の言語",
+      "description": "データベースおよび開発ツールで使用するインターフェース言語を選択します。",
+      "fallback": "不足したキーは英語にフォールバックします",
+      "instant": "変更はすぐに適用されます",
+      "localStorage": "このデバイスにローカル保存",
+      "restartNotRequired": "再起動は不要です",
+      "rtl": "アラビア語では右から左のレイアウトをサポートします",
+      "select": "インターフェース言語",
+      "title": "言語と地域"
+    }
+  },
+  "status": {
+    "bufferPool": "バッファプール",
+    "catalogRefreshed": "カタログを更新しました",
+    "catalogRefreshFailed": "カタログを更新できませんでした。",
+    "connection": "接続状態",
+    "connectionFailed": "接続できませんでした。",
+    "connectionReadyVersion": "{version} 接続の準備ができました",
+    "coreorSession": "Coreor セッション",
+    "lastQuery": "最後のクエリ",
+    "networkTraffic": "ネットワークトラフィック",
+    "serverUptime": "サーバー稼働時間",
+    "sqlPerformance": "SQL パフォーマンス",
+    "storage": "論理ストレージ",
+    "target": "アクティブな対象",
+    "threadConnections": "スレッドと接続"
+  },
+  "notification": {
+    "languageChanged": "言語を {language} に変更しました。",
+    "localOnly": "言語設定と翻訳はこのデバイスに保持されます。"
+  },
+  "process": {
+    "center": "プロセスセンター",
+    "killConnection": "接続を終了",
+    "killQuery": "クエリを終了"
+  },
+  "performance": {
+    "activeConnections": "アクティブな接続",
+    "bufferPoolUsage": "バッファプール使用率",
+    "logicalStorage": "論理ストレージ",
+    "maxConnections": "最大接続数",
+    "qps": "QPS",
+    "replicationLag": "レプリケーション遅延",
+    "runningThreads": "実行中のスレッド",
+    "slowQueries": "スロークエリ"
+  },
+  "notebook": {
+    "runAll": "すべて実行",
+    "title": "SQL ノートブック"
+  },
+  "automation": {
+    "action": {
+      "analyzePlan": "実行計画を分析",
+      "approve": "承認",
+      "createTask": "タスクを作成",
+      "preview": "プレビュー",
+      "reject": "却下",
+      "restoreDefaults": "既定値に戻す",
+      "run": "実行",
+      "save": "保存",
+      "saveMigration": "マイグレーションを保存",
+      "saveSet": "セットを保存"
+    },
+    "approvals": "承認ワークフロー",
+    "backups": "バックアップジョブ",
+    "changedRows": "変更された行",
+    "compare": "比較",
+    "dataCompare": "データ比較",
+    "empty": {
+      "snapshots": "スキーマスナップショットはまだありません。"
+    },
+    "error": {
+      "compareFailed": "データを比較できませんでした。",
+      "maskPreview": "マスキングプレビューを生成できませんでした。",
+      "planFailed": "実行計画を取得できませんでした。",
+      "preparedFailed": "プリペアドクエリを実行できませんでした。",
+      "sessionRequired": "サーバーとユーザーセッションが必要です。"
+    },
+    "indexAdvisor": "インデックス推奨",
+    "migrations": "マイグレーション",
+    "onlySource": "ソースのみに存在",
+    "onlyTarget": "ターゲットのみに存在",
+    "preparedStatements": "プリペアドステートメント",
+    "shortcut": {
+      "backupCenter": "バックアップセンター",
+      "commandPalette": "コマンドパレット",
+      "formatSql": "SQLを整形",
+      "newQuery": "新しいクエリタブ",
+      "operationsCenter": "オペレーションセンター",
+      "refreshCatalog": "カタログを更新"
+    },
+    "snapshots": "スキーマスナップショット",
+    "sourceDatabase": "ソースデータベース",
+    "sourceServer": "ソースサーバー",
+    "sourceTable": "ソーステーブル",
+    "status": {
+      "compareDone": "最初の5,000行を主キー/ユニークキーで比較しました。",
+      "maskPreview": "マスキングプレビューを生成しました。元データは変更されていません。",
+      "planReady": "実行計画を取得しました。フルスキャン、行数の多さ、filesortの兆候を確認してください。",
+      "preparedExecuted": "パラメーターセットを実行しました。"
+    },
+    "tab": {
+      "migration": "マイグレーション",
+      "prepared": "プリペアドステートメントラボ",
+      "shortcuts": "ショートカット"
+    },
+    "tableHistory": "テーブル履歴",
+    "targetDatabase": "ターゲットデータベース",
+    "targetServer": "ターゲットサーバー",
+    "targetTable": "ターゲットテーブル"
+  },
+  "transaction": {
+    "autocommit": "自動コミット",
+    "begin": "トランザクションを開始",
+    "commit": "コミット",
+    "rollback": "ロールバック",
+    "rollbackAndClose": "ロールバックして閉じる",
+    "workspace": "トランザクションワークスペース"
+  },
+  "intelligence": {
+    "action": {
+      "analyze5000": "最初の5,000行を分析",
+      "generateData": "データを生成",
+      "generateRules": "テーブルからルールを生成",
+      "maskPreview": "マスキングプレビュー",
+      "openEditor": "エディターで開く",
+      "readColumns": "列を読み込む",
+      "refreshLive": "ライブメトリクスを更新",
+      "saveRules": "ルールを保存"
+    },
+    "alertRules": "アラートルール",
+    "dataQuality": "データ品質",
+    "empty": {
+      "profiles": "プロファイル対象のSQL記録はまだありません。"
+    },
+    "healthScore": "データベース健全性スコア",
+    "masking": "高度なデータマスキング",
+    "profiler": "ライブクエリプロファイラー",
+    "select": {
+      "database": "データベースを選択",
+      "server": "サーバーを選択",
+      "table": "テーブルを選択"
+    },
+    "slowQueries": "スロークエリセンター",
+    "snippets": "クエリスニペット",
+    "tab": {
+      "alertsDescription": "リアルタイムのローカル通知しきい値",
+      "generator": "テストデータ",
+      "generatorDescription": "Snowflakeを含む詳細ジェネレーター",
+      "health": "健全性スコア",
+      "healthDescription": "サーバーと運用のスコア",
+      "masking": "データマスキング",
+      "maskingDescription": "40種類以上のマスキングとプレビュー",
+      "profiler": "ライブプロファイラー",
+      "profilerDescription": "ローカルクエリの実行時間と分布",
+      "quality": "データ品質",
+      "qualityDescription": "NULL、重複、形式、外れ値",
+      "slow": "スロークエリ",
+      "slowDescription": "スロークエリのフィンガープリント",
+      "snippets": "スニペットライブラリ",
+      "snippetsDescription": "ローカルの即時利用可能なクエリパック"
+    },
+    "testData": "テストデータジェネレーター"
+  },
+  "control": {
+    "dropdown": {
+      "close": "ドロップダウンを閉じる",
+      "open": "ドロップダウンを開く"
+    },
+    "select": {
+      "clear": "選択をクリア",
+      "close": "選択リストを閉じる",
+      "count": "{count} 件のオプション",
+      "empty": "一致するオプションが見つかりません。",
+      "escape": "ESC を押して閉じる",
+      "open": "選択リストを開く",
+      "placeholder": "オプションを選択",
+      "search": "オプションを検索…"
+    }
+  },
+  "tooltip": {
+    "backup": "mysqldump、pg_dump、SQL Server のバックアップジョブ",
+    "dataIntelligence": "プロファイラー、スロークエリ、健全性、マスキング、テストデータ、スニペット",
+    "hideDetails": "詳細を非表示",
+    "moreInfo": "詳細情報",
+    "operations": "スナップショット、マイグレーション、インデックス、プリペアドステートメント、承認、比較",
+    "showDetails": "詳細を表示"
+  },
+  "sql": {
+    "action": {
+      "clearQuery": "クエリをクリア",
+      "formatQuery": "クエリを整形",
+      "newQuery": "新しいクエリ",
+      "runQuery": "クエリを実行",
+      "selectDraft": "SELECT ドラフト"
+    },
+    "keyword": {
+      "alter": "ALTER",
+      "create": "CREATE",
+      "delete": "DELETE",
+      "drop": "DROP",
+      "insert": "INSERT",
+      "select": "SELECT",
+      "truncate": "TRUNCATE",
+      "update": "UPDATE"
+    },
+    "log": "SQL ログ",
+    "parameters": "パラメーター",
+    "result": {
+      "affectedRows": "影響を受けた行",
+      "duration": "実行時間",
+      "multi": "複数の結果",
+      "noResult": "結果なし"
+    },
+    "scope": {
+      "server": "サーバースコープ"
+    },
+    "statement": "ステートメント"
+  },
+  "approval": {
+    "approved": "承認済み",
+    "pending": "保留中",
+    "rejected": "却下済み"
+  },
+  "grid": {
+    "columnMapping": "列マッピング",
+    "copyRow": "行をコピー",
+    "copyValue": "値をコピー",
+    "deleteSelectedRows": "選択した行を削除",
+    "editCell": "セルを編集",
+    "exportCsv": "CSV をエクスポート",
+    "exportJson": "JSON をエクスポート",
+    "firstPage": "最初のページ",
+    "fitAll": "すべての列をフィット",
+    "followForeignKey": "外部キーをたどる",
+    "lastPage": "最後のページ",
+    "nextPage": "次のページ",
+    "pageSize": "ページサイズ",
+    "previousPage": "前のページ",
+    "resetWidths": "列幅をリセット"
+  },
+  "transfer": {
+    "chooseFile": "ファイルを選択",
+    "title": "インポート / エクスポート"
+  },
+  "users": {
+    "management": "ユーザー管理"
+  }
+}

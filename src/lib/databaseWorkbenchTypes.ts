@@ -11,6 +11,8 @@ export type DatabaseWorkbenchAction =
   | 'process-list'
   | 'process-kill'
   | 'performance-snapshot'
+  | 'storage-recalculate'
+  | 'maintenance-run'
   | 'import-data'
   | 'export-data';
 
@@ -153,6 +155,49 @@ export interface DatabasePerformanceSnapshot {
     selectedDatabaseBytes: number | null;
     topSchemas: DatabasePerformanceSchemaSize[];
   };
+}
+
+export interface DatabaseStorageRecalculation {
+  scope: 'database' | 'table';
+  database: string;
+  table: string | null;
+  dataBytes: number;
+  indexBytes: number;
+  freeBytes: number;
+  totalBytes: number;
+  physicalBytes?: number | null;
+  measurementSource?: 'innodb-tablespace' | 'information-schema' | 'table-aggregate' | null;
+  rowCountSource?: 'exact-count' | 'metadata-estimate' | null;
+  rows: number | null;
+  sampledAt: string;
+  tableResults?: DatabaseStorageRecalculation[];
+  failedTables?: Array<{ table: string; message: string }>;
+}
+
+export type DatabaseMaintenanceOperation =
+  | 'check'
+  | 'analyze'
+  | 'optimize'
+  | 'vacuum-analyze'
+  | 'reindex'
+  | 'update-statistics'
+  | 'reorganize-index';
+
+export interface DatabaseMaintenanceStepInput {
+  database: string;
+  table: string;
+  operation: DatabaseMaintenanceOperation;
+}
+
+export interface DatabaseMaintenanceStepResponse {
+  database: string;
+  table: string;
+  operation: DatabaseMaintenanceOperation;
+  statement: string;
+  durationMs: number;
+  affectedRows: number;
+  rows: Record<string, unknown>[];
+  completedAt: string;
 }
 
 export interface DatabaseImportDataInput {

@@ -1,284 +1,160 @@
-# Releasing
+# Releasing Coreor Database
 
-This document defines the release process for Coreor Web Database.
+Coreor Database ships native artifacts for Windows, Linux and macOS.
 
-The goal is to keep source version, changelog, Git tag, GitHub Release and production deployment aligned.
+## Version sources
 
-## Release principles
+Keep these versions synchronized:
 
-- Release from a clean, reviewed commit.
-- Never bypass a known security blocker merely to publish a version.
-- Use deterministic dependency installation.
-- Keep the lockfile synchronized with `package.json`.
-- Treat authentication, database routing and dependency upgrades as security-sensitive.
-- Prefer small, understandable releases over large mixed changes.
+- `package.json`
+- `package-lock.json`
+- `src-tauri/Cargo.toml`
+- `src-tauri/tauri.conf.json`
+- `CHANGELOG.md`
 
-## Versioning
+## Prepare the version
 
-The project currently uses semantic-style versions in `package.json`.
-
-General guidance:
-
-- **PATCH**: bug fixes, security patches and small compatible improvements.
-- **MINOR**: backward-compatible features or substantial UX improvements.
-- **MAJOR**: intentionally incompatible behavior, storage/configuration changes or major architecture changes.
-
-Until formal release tooling is introduced, the maintainer is responsible for synchronizing version references manually.
-
-## 1. Select the release commit
-
-Start from `main` after required changes are merged.
+Use the version preparation command instead of editing release files by hand:
 
 ```bash
-git checkout main
-git fetch origin
-git pull --ff-only origin main
-git status
+npm run version:prepare 26.9.1
 ```
 
-The working tree should be clean.
+The command requires Coreor calendar versioning in `YY.M.RELEASE` format, greater than the current version, and updates these files atomically after validating that the existing versions are synchronized. The year/month components must match the release date.
 
-## 2. Review open blockers
+- `package.json`
+- `package-lock.json`
+- `src-tauri/Cargo.toml`
+- `src-tauri/Cargo.lock`
+- `src-tauri/tauri.conf.json`
+- `src/lib/appVersion.ts`
+- `CHANGELOG.md`
 
-Before release review:
-
-- security issues/advisories,
-- dependency alerts,
-- public release blockers,
-- known migration/configuration changes,
-- deployment compatibility,
-- transaction/multi-instance implications.
-
-A known critical/high-impact security issue should normally block release unless the release itself fixes it.
-
-## 3. Update dependencies intentionally
-
-For ordinary releases:
+It moves the current `Unreleased` changelog entries under the new release version and leaves a fresh `Unreleased` section for subsequent work. An optional release date override is available when needed:
 
 ```bash
-npm ci
+npm run version:prepare 26.9.1 -- --date=2026-09-22
 ```
 
-For dependency changes:
+Review the resulting diff before running the release workflow. Do not rerun the command for the same version. Within the same month increment `RELEASE` (`26.9.1` → `26.9.2`); in a new month reset it to `1` (`26.10.1`).
 
-1. change `package.json` intentionally,
-2. regenerate/update `package-lock.json`,
-3. review the full dependency diff,
-4. run `npm audit` as an additional signal,
-5. run project checks.
+## Validation
 
-Do not commit a package manifest and stale lockfile combination.
-
-## 4. Update the version
-
-Update `package.json` to the intended version.
-
-If using npm version commands, make sure they do not create an unwanted tag before review.
-
-Example manual target:
-
-```json
-{
-  "version": "3.2.0"
-}
-```
-
-## 5. Update CHANGELOG
-
-Move relevant items from `Unreleased` into a dated version section:
-
-```md
-## [3.2.0] - 2026-09-05
-
-### Added
-- ...
-
-### Changed
-- ...
-
-### Fixed
-- ...
-
-### Security
-- ...
-```
-
-Describe user-visible impact rather than repeating commit messages blindly.
-
-## 6. Run validation
-
-From a clean dependency install:
+From a clean checkout:
 
 ```bash
 npm ci
 npm run check
 ```
 
-Also perform targeted tests for changed areas.
+Cross-platform CI must pass on Windows, macOS and Linux before a public release.
 
-Examples:
+## Local installable release
 
-### Authentication changes
-- GitHub sign-in,
-- sign-out,
-- expired/invalid cookie handling,
-- production secret requirements.
+Before publishing anything to GitHub, build and install the exact release configuration locally.
 
-### Database changes
-- connection test,
-- normal SELECT,
-- mutation if supported,
-- read-only rejection,
-- timeout behavior,
-- TLS behavior,
-- target/port policy.
+The local builder requires the updater public key so the installed build can verify future updates. GitHub Actions variables/secrets are not automatically available to local processes.
 
-### Transaction changes
-- begin,
-- query,
-- commit,
-- rollback,
-- ownership checks,
-- TTL/capacity behavior.
+### Windows example
 
-## 7. Security review
+PowerShell with a public-key file:
 
-At minimum verify:
-
-- no secret was added to the diff,
-- no private/reserved network bypass was introduced,
-- user-controlled errors are sanitized,
-- new logs do not contain credentials,
-- dependencies do not leave known critical blockers,
-- CSP/security headers still work,
-- read-only policy remains server-side.
-
-For a public release, repository secret scanning/history checks should already be active.
-
-## 8. Commit release metadata
-
-Commit version and changelog updates through a pull request.
-
-Example commit:
-
-```text
-release: prepare v3.2.0
+```powershell
+npm run release:local:install -- --public-key-file="D:\Secure\coreor-updater.pub"
 ```
 
-The release PR should contain only release metadata and any specifically intended release fixes.
+The command:
 
-## 9. Merge and verify CI
+1. validates all version sources and the changelog,
+2. requires a clean Git working tree unless `--allow-dirty` is explicitly passed,
+3. runs the local smoke release gates,
+4. builds a production Tauri bundle,
+5. copies artifacts and SHA-256 hashes under `local-releases/vYY.M.RELEASE/<platform>/`,
+6. launches the installer when using `release:local:install`.
 
-Merge only after required checks pass.
+The default Windows local installer is NSIS. Override bundles when necessary:
 
-Record the exact resulting commit SHA.
+```powershell
+npm run release:local -- --public-key-file="D:\Secure\coreor-updater.pub" --bundles=nsis,msi
+```
 
-## 10. Tag the release
+For a fast local UI/install smoke test only, checks can be skipped explicitly:
 
-Create an annotated tag from the exact release commit:
+```powershell
+npm run release:local:install -- --public-key-file="D:\Secure\coreor-updater.pub" --skip-check --allow-dirty
+```
+
+Do not use those bypass flags for a release candidate.
+
+### Local signed updater artifacts
+
+To exercise updater artifact generation locally, provide both keys. The private key must remain outside the repository.
+
+```powershell
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "<private-key-password>"
+npm run release:local:signed -- --public-key-file="D:\Secure\coreor-updater.pub" --private-key-file="D:\Secure\coreor-updater.key"
+```
+
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` should be supplied through the environment rather than a command-line argument so it is not written to shell history.
+
+The first installed release does not need local updater artifacts; it only needs the public key embedded. Signed updater artifacts become necessary when testing the subsequent N → N+1 update.
+
+## Platform bundles
+
+### Windows
+
+```powershell
+npm run build:windows
+```
+
+Expected formats: NSIS `.exe` and MSI.
+
+### Linux
 
 ```bash
-git tag -a v3.2.0 -m "Coreor Web Database v3.2.0"
-git push origin v3.2.0
+npm run build:linux
 ```
 
-Never move an already published release tag to another commit. Publish a corrective patch version instead.
+Expected formats: `.deb`, `.rpm` and AppImage.
 
-## 11. Create GitHub Release
+### macOS
 
-Recommended release notes structure:
-
-```md
-## Highlights
-- ...
-
-## Added
-- ...
-
-## Fixed
-- ...
-
-## Security
-- ...
-
-## Upgrade notes
-- ...
-
-## Known limitations
-- ...
+```bash
+npm run build:macos
 ```
 
-Link relevant issues/PRs where useful.
+Expected formats: application bundle and DMG.
 
-Avoid including private vulnerability details before coordinated disclosure is complete.
+A platform bundle should be built on that operating system.
 
-## 12. Deploy production
+## Signing
 
-Follow [DEPLOYMENT.md](DEPLOYMENT.md).
+Public distribution should not rely on permanently unsigned binaries.
 
-Recommended sequence:
+- Windows: configure Authenticode/code-signing certificate.
+- macOS: Developer ID signing and notarization are required for normal direct distribution.
+- Linux: package/repository signing depends on the distribution channel.
 
-1. fetch exact release commit/tag,
-2. `npm ci`,
-3. `npm run check`,
-4. production build,
-5. restart/reload,
-6. health check,
-7. OAuth smoke test,
-8. disposable database connection/query test.
+Signing secrets belong in protected CI/release secret stores, never in the repository.
 
-## 13. Post-deployment verification
+## Release flow
 
-Verify:
+1. Select a reviewed clean commit.
+2. Run `npm run version:prepare YY.M.RELEASE` and review the generated version/changelog diff.
+3. Run `npm ci && npm run check`.
+4. Verify cross-platform CI.
+5. Build platform bundles.
+6. Smoke-test connection, query, table editing, read-only policy and transaction behavior.
+7. Create an annotated `vYY.M.RELEASE` tag.
+8. Create a GitHub Release and attach platform artifacts.
+9. Publish checksums/signatures when release infrastructure is ready.
 
-- site loads over HTTPS,
-- authentication works,
-- release/version display is correct if surfaced,
-- public DB connection succeeds,
-- private target remains blocked by default,
-- read-only mode rejects writes,
-- common DB errors are actionable/sanitized,
-- no new credential-bearing logs appear.
+Do not move an already published tag; release a patch version instead.
 
-## 14. Rollback criteria
+## Private pre-release
 
-Rollback or disable the affected feature when production shows:
+While the repository remains private, `.github/workflows/bundles.yml` can be triggered manually to validate artifacts without making the source repository public.
 
-- authentication outage,
-- credential exposure,
-- SSRF/network policy bypass,
-- widespread database connection regression,
-- data-corrupting mutation behavior,
-- critical build/runtime failure.
+## In-app signed updates
 
-Rollback to a known-good source/dependency combination. If a secret was exposed, rollback alone is not enough; rotate the secret.
-
-## Security releases
-
-For a privately reported vulnerability:
-
-1. validate privately,
-2. create a private fix path/security advisory when available,
-3. prepare patched release,
-4. rotate any exposed credentials if applicable,
-5. publish fix and advisory in coordinated order,
-6. credit the reporter if they want attribution.
-
-See [SECURITY.md](SECURITY.md).
-
-## Release checklist
-
-- [ ] `main` is up to date and clean.
-- [ ] Open P0/security blockers reviewed.
-- [ ] `package.json` version updated.
-- [ ] `package-lock.json` synchronized.
-- [ ] `CHANGELOG.md` updated.
-- [ ] `npm ci` succeeds.
-- [ ] `npm run check` succeeds.
-- [ ] Targeted DB/auth tests pass.
-- [ ] Security review complete.
-- [ ] Release PR merged with green checks.
-- [ ] Tag points to exact release commit.
-- [ ] GitHub Release published.
-- [ ] Production deployment verified.
-- [ ] Known limitations documented.
+See [app lifecycle and signing](docs/APP_LIFECYCLE.tr.md) and the [first desktop release checklist](docs/FIRST_RELEASE_CHECKLIST.tr.md). The manual `Signed release candidate` workflow builds signed updater assets into a draft release. Do not publish until all gates pass.
