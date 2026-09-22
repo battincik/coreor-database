@@ -41,6 +41,30 @@ function replaceRequired(content, pattern, replacement, label) {
   return content.replace(pattern, replacement);
 }
 
+function replaceCargoLockPackageVersion(content, packageName, expectedVersion, targetVersion) {
+  let found = false;
+  const packageBlock = /^\[\[package\]\]\r?\n[\s\S]*?(?=^\[\[package\]\]|\s*$)/gm;
+  const updated = content.replace(packageBlock, block => {
+    const nameMatch = block.match(/^name\s*=\s*"([^"]+)"\s*$/m);
+    if (nameMatch?.[1] !== packageName) return block;
+
+    const versionMatch = block.match(/^version\s*=\s*"([^"]+)"\s*$/m);
+    if (!versionMatch) fail(`Could not locate ${packageName} version in src-tauri/Cargo.lock.`);
+    if (versionMatch[1] !== expectedVersion) {
+      fail(`Cargo.lock ${packageName} version ${versionMatch[1]} does not match package.json ${expectedVersion}.`);
+    }
+
+    found = true;
+    return block.replace(
+      /^version\s*=\s*"[^"]+"\s*$/m,
+      `version = "${targetVersion}"`
+    );
+  });
+
+  if (!found) fail(`Could not locate src-tauri/Cargo.lock package "${packageName}".`);
+  return updated;
+}
+
 const args = process.argv.slice(2);
 const targetVersion = args.find(argument => !argument.startsWith('--'));
 const dateArgument = args.find(argument => argument.startsWith('--date='));
@@ -105,14 +129,11 @@ cargoToml = replaceRequired(
 changes.set('src-tauri/Cargo.toml', cargoToml);
 
 let cargoLock = read('src-tauri/Cargo.lock');
-cargoLock = replaceRequired(
+cargoLock = replaceCargoLockPackageVersion(
   cargoLock,
-  /(\[\[package\]\]\r?\nname = "coreor-database"\r?\nversion = ")([^"]+)(")/,
-  (_match, before, version, after) => {
-    if (version !== currentVersion) fail(`Cargo.lock coreor-database version ${version} does not match package.json ${currentVersion}.`);
-    return `${before}${targetVersion}${after}`;
-  },
-  'src-tauri/Cargo.lock coreor-database package'
+  'coreor-database',
+  currentVersion,
+  targetVersion
 );
 changes.set('src-tauri/Cargo.lock', cargoLock);
 
