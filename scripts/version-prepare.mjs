@@ -3,6 +3,7 @@ import path from 'node:path';
 
 const ROOT = process.cwd();
 const STABLE_SEMVER = /^\d+\.\d+\.\d+$/;
+const CALENDAR_VERSION = /^(\d{2})\.(\d{1,2})\.(\d+)$/;
 
 function fail(message) {
   console.error(`[version:prepare] ${message}`);
@@ -46,13 +47,27 @@ const dateArgument = args.find(argument => argument.startsWith('--date='));
 const releaseDate = dateArgument?.slice('--date='.length) || new Date().toISOString().slice(0, 10);
 
 if (!targetVersion) {
-  fail('Usage: npm run version:prepare 3.1.1');
+  fail('Usage: npm run version:prepare 26.9.1');
 }
 if (!STABLE_SEMVER.test(targetVersion)) {
-  fail(`Expected a stable SemVer version such as 3.1.1, received "${targetVersion}".`);
+  fail(`Expected a stable SemVer-compatible calendar version such as 26.9.1, received "${targetVersion}".`);
+}
+const calendarMatch = targetVersion.match(CALENDAR_VERSION);
+if (!calendarMatch) {
+  fail(`Coreor releases must use YY.M.RELEASE format, for example 26.9.1; received "${targetVersion}".`);
 }
 if (!/^\d{4}-\d{2}-\d{2}$/.test(releaseDate)) {
   fail(`Invalid release date "${releaseDate}". Use --date=YYYY-MM-DD when overriding it.`);
+}
+
+const [releaseYear, releaseMonth] = releaseDate.split('-').map(Number);
+const expectedYear = releaseYear % 100;
+const expectedMonth = releaseMonth;
+const versionYear = Number(calendarMatch[1]);
+const versionMonth = Number(calendarMatch[2]);
+const releaseNumber = Number(calendarMatch[3]);
+if (versionYear !== expectedYear || versionMonth !== expectedMonth || releaseNumber < 1) {
+  fail(`Target version ${targetVersion} must match release date ${releaseDate} as YY.M.RELEASE and RELEASE must be >= 1.`);
 }
 
 const packageJson = json('package.json');
