@@ -4,6 +4,8 @@ Notable changes to Coreor Database are tracked here.
 
 ## [Unreleased]
 
+## [26.9.1] - 2026-09-22
+
 ### Architecture
 - Converted the product direction from hosted/browser-first to a cross-platform Tauri desktop application.
 - Database access now belongs to the local Rust process through Tauri IPC.
