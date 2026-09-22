@@ -3251,6 +3251,7 @@
     "statusDescription": "Current updater state for this installation.",
     "actions": "Update actions",
     "actionsDescription": "Check manually or install an available signed release when no work is active.",
-    "noUpdateAction": "No update available"
+    "noUpdateAction": "No update available",
+    "lifecycleDescription": "Secure update lifecycle"
   }
 }
