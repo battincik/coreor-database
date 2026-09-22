@@ -4,6 +4,12 @@ Notable changes to Coreor Database are tracked here.
 
 ## [Unreleased]
 
+## [26.9.2] - 2026-09-22
+
+### Release
+- Prepared the second September 2026 desktop release for signed updater and installer validation.
+
+
 ## [26.9.1] - 2026-09-22
 
 ### Architecture
