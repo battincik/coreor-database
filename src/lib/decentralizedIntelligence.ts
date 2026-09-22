@@ -309,7 +309,7 @@ export function maskValueAdvanced(value: unknown, kind: MaskKind): unknown {
 }
 
 function luhnDigit(prefix: string) {
-  let sum = 0; let parity = (prefix.length + 1) % 2;
+  let sum = 0; const parity = (prefix.length + 1) % 2;
   for (let index = 0; index < prefix.length; index += 1) {
     let digit = Number(prefix[index]);
     if (index % 2 === parity) { digit *= 2; if (digit > 9) digit -= 9; }
