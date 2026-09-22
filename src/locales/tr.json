@@ -3238,6 +3238,19 @@
       "busy": "Aktif işlem veya kaydedilmemiş değişiklik var. Tamamlayıp yeniden deneyin.",
       "transaction": "Açık transaction var. Commit veya rollback yaptıktan sonra yeniden deneyin.",
       "install": "Güncelleme tamamlanamadı. Tekrar deneyin; sorun sürerse error.log dosyasını kontrol edin."
-    }
+    },
+    "diagnosticsTitle": "Hata raporlama",
+    "diagnosticsDescription": "Yerel uygulama tanılama kayıtları ve isteğe bağlı Coreor hata bildirimi.",
+    "localLog": "Yerel hata günlüğü",
+    "localLogDescription": "Uzaktan hata bildirimi kapalı olsa bile uygulama hataları yerel dosyaya yazılmaya devam eder.",
+    "updateTitle": "Uygulama güncellemeleri",
+    "updateDescription": "İmzalı Coreor Database güncellemeleri GitHub Releases üzerinden kontrol edilir ve mevcut kurulumun üzerine uygulanır.",
+    "intervalDescription": "Coreor açıkken yeni imzalı sürümün hangi aralıkla kontrol edileceğini belirler.",
+    "intervalRecommended": "Normal masaüstü kullanımı için önerilen denge.",
+    "status": "Güncelleme durumu",
+    "statusDescription": "Bu kurulum için güncelleyicinin mevcut durumu.",
+    "actions": "Güncelleme işlemleri",
+    "actionsDescription": "Aktif iş yokken manuel kontrol yapın veya hazır olan imzalı sürümü kurun.",
+    "noUpdateAction": "Güncelleme yok"
   }
 }
