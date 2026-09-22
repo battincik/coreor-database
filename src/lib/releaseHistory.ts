@@ -318,7 +318,7 @@ export const FALLBACK_RELEASE_HISTORY: ReleasePullRequest[] = fallbackData.map(i
   status: item.number === 13 ? 'in-progress' : 'released',
   draft: item.number === 13,
   author: 'battincik',
-  url: `https://github.com/battincik/web.database.coreor.net/pull/${item.number}`,
+  url: `https://github.com/battincik/coreor-database /pull/${item.number}`,
   createdAt: item.number === 13 ? '2026-07-26T11:45:04.000Z' : '2026-07-25T00:00:00.000Z',
   updatedAt: item.number === 13 ? '2026-07-26T11:45:04.000Z' : '2026-07-26T00:00:00.000Z',
   mergedAt: item.number === 13 ? null : '2026-07-26T00:00:00.000Z'

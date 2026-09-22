@@ -201,7 +201,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
     setError(null);
     try {
       const response: ReleaseHistoryResponse = {
-        repository: 'battincik/web.database.coreor.net',
+        repository: 'battincik/coreor-database ',
         fetchedAt: new Date().toISOString(),
         source: 'local',
         pullRequests: []

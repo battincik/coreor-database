@@ -6,8 +6,8 @@ authors = ["Coreor Database contributors"]
 edition = "2021"
 rust-version = "1.88"
 license = "Apache-2.0"
-repository = "https://github.com/battincik/web.database.coreor.net"
-homepage = "https://github.com/battincik/web.database.coreor.net"
+repository = "https://github.com/battincik/coreor-database "
+homepage = "https://github.com/battincik/coreor-database "
 
 [lib]
 name = "coreor_database_lib"

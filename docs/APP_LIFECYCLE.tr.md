@@ -32,7 +32,7 @@ Başarı: herhangi bir 2xx. Yanıt gövdesi kullanılmaz. Sunucu `eventId` ile t
 
 ## Güncelleme
 
-Kaynak: `https://github.com/battincik/web.database.coreor.net/releases/latest/download/latest.json`.
+Kaynak: `https://github.com/battincik/coreor-database /releases/latest/download/latest.json`.
 
 Depo şu anda private; public olunca yayınlanmış stable release ve dosyaları tokensız erişilebilir olmalı. Kaynak deposunun görünürlüğü bu değişiklikte değiştirilmez. Taslak release güncelleme kaynağına görünmez. Private depo/404/offline kontrol hatası açılışı engellemez; başlangıç ekranı en fazla 12 saniye görünür. Native metadata kontrolü 10 saniyede timeout olur.
 

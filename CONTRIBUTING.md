@@ -12,8 +12,8 @@ Coreor Database is being prepared as an open-source cross-platform desktop proje
 ## Development setup
 
 ```bash
-git clone https://github.com/battincik/web.database.coreor.net.git
-cd web.database.coreor.net
+git clone https://github.com/battincik/coreor-database .git
+cd coreor-database
 npm ci
 npm run architecture:check
 npm run typecheck
