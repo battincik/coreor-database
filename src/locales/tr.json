@@ -3251,6 +3251,7 @@
     "statusDescription": "Bu kurulum için güncelleyicinin mevcut durumu.",
     "actions": "Güncelleme işlemleri",
     "actionsDescription": "Aktif iş yokken manuel kontrol yapın veya hazır olan imzalı sürümü kurun.",
-    "noUpdateAction": "Güncelleme yok"
+    "noUpdateAction": "Güncelleme yok",
+    "lifecycleDescription": "Güvenli güncelleme süreci"
   }
 }
