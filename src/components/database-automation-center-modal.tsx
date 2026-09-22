@@ -1,4 +1,5 @@
 'use client';
+import { useTrackedBusy } from '@/lib/useUpdateActivity';
 
 import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -142,7 +143,7 @@ export function DatabaseAutomationCenterModal({ open, onClose, initialTab = 'his
   const {t,formatNumber,language}=useLanguage();
   const [tab, setTab] = useState<AutomationCenterTab>(initialTab);
   const [revision, setRevision] = useState(0);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useTrackedBusy();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useModalEscape(open, onClose, busy);

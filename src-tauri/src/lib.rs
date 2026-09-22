@@ -1,3 +1,5 @@
+mod app_updates;
+mod error_reporting;
 mod database;
 mod developer_tools;
 mod secure_vault;
@@ -92,6 +94,7 @@ struct PlatformInfo {
 
 #[tauri::command]
 fn platform_info(app: tauri::AppHandle) -> Result<PlatformInfo, String> {
+    let _work = app_updates::work_lease(&app)?;
     let path = app.path();
     Ok(PlatformInfo {
         os: std::env::consts::OS.to_string(),
@@ -159,6 +162,7 @@ fn ensure_secure_config(app: &tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn config_path(app: tauri::AppHandle) -> Result<String, String> {
+    let _work = app_updates::work_lease(&app)?;
     Ok(config_file(&app)?.to_string_lossy().into_owned())
 }
 
@@ -188,11 +192,13 @@ fn rotate_sql_log_if_needed(path: &PathBuf) -> Result<(), String> {
 
 #[tauri::command]
 fn sql_log_path(app: tauri::AppHandle) -> Result<String, String> {
+    let _work = app_updates::work_lease(&app)?;
     Ok(sql_log_file(&app)?.to_string_lossy().into_owned())
 }
 
 #[tauri::command]
 fn append_sql_log(app: tauri::AppHandle, line: String) -> Result<(), String> {
+    let _work = app_updates::work_lease(&app)?;
     if line.len() > 200_000 {
         return Err("SQL günlük kaydı izin verilen boyutu aşıyor.".into());
     }
@@ -211,6 +217,7 @@ fn append_sql_log(app: tauri::AppHandle, line: String) -> Result<(), String> {
 
 #[tauri::command]
 fn read_config(app: tauri::AppHandle) -> Result<DesktopConfig, String> {
+    let _work = app_updates::work_lease(&app)?;
     let mut config = read_config_settings(&app)?;
     config.connections = secure_vault::read_connections_for_ui(&app)?;
     Ok(config)
@@ -218,6 +225,7 @@ fn read_config(app: tauri::AppHandle) -> Result<DesktopConfig, String> {
 
 #[tauri::command]
 fn write_config(app: tauri::AppHandle, mut config: DesktopConfig) -> Result<(), String> {
+    let _work = app_updates::work_lease(&app)?;
     secure_vault::write_connections(&app, std::mem::take(&mut config.connections))?;
     config.version = config_version();
     write_config_file(&app, &config)
@@ -225,6 +233,7 @@ fn write_config(app: tauri::AppHandle, mut config: DesktopConfig) -> Result<(), 
 
 #[tauri::command]
 fn vault_status(app: tauri::AppHandle) -> Result<secure_vault::VaultStatus, String> {
+    let _work = app_updates::work_lease(&app)?;
     secure_vault::status(&app)
 }
 
@@ -236,29 +245,35 @@ fn cloud_vault_readiness() -> Value {
 
 #[tauri::command]
 fn workspace_read(app: tauri::AppHandle, collection: String, scope: String) -> Result<Vec<Value>, String> {
+    let _work = app_updates::work_lease(&app)?;
     secure_vault::workspace_read(&app, &collection, &scope)
 }
 #[tauri::command]
 fn workspace_write(app: tauri::AppHandle, collection: String, scope: String, items: Vec<Value>) -> Result<Vec<Value>, String> {
+    let _work = app_updates::work_lease(&app)?;
     secure_vault::workspace_write(&app, &collection, &scope, items)
 }
 #[tauri::command]
 fn workspace_import_legacy(app: tauri::AppHandle, collection: String, scope: String, items: Vec<Value>) -> Result<Vec<Value>, String> {
+    let _work = app_updates::work_lease(&app)?;
     secure_vault::workspace_import_legacy(&app, &collection, &scope, items)
 }
 #[tauri::command]
 fn workspace_sync_manifest(app: tauri::AppHandle) -> Result<Value, String> {
+    let _work = app_updates::work_lease(&app)?;
     secure_vault::workspace_sync_manifest(&app)
 }
 
 
 #[tauri::command]
 fn workspace_sync_export(app: tauri::AppHandle) -> Result<Value, String> {
+    let _work = app_updates::work_lease(&app)?;
     secure_vault::workspace_sync_export(&app)
 }
 
 #[tauri::command]
 fn workspace_sync_merge(app: tauri::AppHandle, remote: Value) -> Result<Value, String> {
+    let _work = app_updates::work_lease(&app)?;
     secure_vault::workspace_sync_merge(&app, remote)
 }
 
@@ -268,6 +283,7 @@ async fn database_request(
     state: State<'_, TransactionStore>,
     mut request: DatabaseRequest,
 ) -> Result<Value, String> {
+    let _work = app_updates::work_lease(&app)?;
     let config = read_config_settings(&app)?;
 
     if let Some(connection) = request.connection.as_mut() {
@@ -311,13 +327,28 @@ async fn database_request(
 pub fn run() {
     tauri::Builder::default()
         .manage(TransactionStore::default())
+        .manage(app_updates::UpdateState::default())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.state::<app_updates::UpdateState>().gate.try_read().is_err() { api.prevent_close(); }
+            }
+        })
         .setup(|app| {
-            ensure_secure_config(app.handle()).map_err(std::io::Error::other)?;
+            error_reporting::initialize(app.handle()).map_err(std::io::Error::other)?;
+            ensure_secure_config(app.handle()).map_err(|error| { error_reporting::record_native(app.handle(), "startup"); std::io::Error::other(error) })?;
             window_state::restore_and_track(app).map_err(std::io::Error::other)?;
             developer_tools::initialize(app).map_err(std::io::Error::other)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            app_updates::updater_status,
+            app_updates::check_app_update,
+            app_updates::install_app_update,
+            error_reporting::report_app_error,
+            error_reporting::error_log_path,
+            error_reporting::read_diagnostic_settings,
+            error_reporting::set_error_reporting,
             platform_info,
             config_path,
             sql_log_path,

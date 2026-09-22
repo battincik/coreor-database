@@ -1,4 +1,5 @@
 'use client';
+import { AppUpdateButton } from '@/components/app-update-button';
 
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
@@ -188,6 +189,7 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
       {activeServer?.readOnly && <span className="ml-1 shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[8px] text-amber-300">{t('topbar.readOnly')}</span>}
       <div className="min-w-8 flex-1 self-stretch" data-tauri-drag-region title={t('window.drag')} onDoubleClick={() => void windowAction('maximize')} />
       </div>
+      <AppUpdateButton />
       <DatabaseNotificationBell />
       {platform.os !== 'macos' && <div className="flex shrink-0 items-center border-l border-zinc-800 bg-black/15">
         <button type="button" className={windowButton} onClick={() => void windowAction('minimize')} title={t('window.minimize')} aria-label={t('window.minimize')}><Minus className="h-3.5 w-3.5" strokeWidth={1.7} /></button>

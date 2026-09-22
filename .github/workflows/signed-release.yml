@@ -1,0 +1,64 @@
+name: Signed release candidate
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: signed-release
+  cancel-in-progress: false
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      # Serialize asset/manifest uploads to a shared draft.
+      max-parallel: 1
+      matrix:
+        include:
+          - os: windows-latest
+            args: --bundles nsis
+            target: ''
+          - os: ubuntu-22.04
+            args: --bundles appimage
+            target: ''
+          - os: macos-latest
+            args: --target aarch64-apple-darwin --bundles app,dmg
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            args: --target x86_64-apple-darwin --bundles app,dmg
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      COREOR_UPDATER_PUBLIC_KEY: ${{ vars.COREOR_UPDATER_PUBLIC_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: node scripts/prepare-signed-release.mjs
+      - run: npm run check
+      - run: npm run test:lifecycle
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: Coreor Database v__VERSION__
+          releaseBody: Release candidate. Complete docs/FIRST_RELEASE_CHECKLIST.tr.md before publishing.
+          releaseDraft: true
+          prerelease: false
+          args: --config src-tauri/tauri.release.conf.json ${{ matrix.args }}

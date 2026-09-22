@@ -1,4 +1,5 @@
 'use client';
+import { useTrackedBusy } from '@/lib/useUpdateActivity';
 
 import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -359,7 +360,7 @@ export function DatabaseImportExportModal({
   const [importMode, setImportMode] = useState<'insert' | 'ignore' | 'replace'>('insert');
   const [fileName, setFileName] = useState('');
   const [delimiter, setDelimiter] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useTrackedBusy();
   useModalEscape(open, onClose, busy);
   const [progress, setProgress] = useState({ current: 0, total: 0, affected: 0 });
   const [error, setError] = useState<string | null>(null);

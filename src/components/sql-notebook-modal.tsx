@@ -1,4 +1,5 @@
 'use client';
+import { useTrackedBusy } from '@/lib/useUpdateActivity';
 
 import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -175,7 +176,7 @@ export function SqlNotebookModal({ open, onClose, serverId, accountId, databases
   const [documents, setDocuments] = useState<NotebookDocument[]>([]);
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [runningAll, setRunningAll] = useState(false);
+  const [runningAll, setRunningAll] = useTrackedBusy();
   const [confirmation, setConfirmation] = useState<CoreorConfirmation | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const saveTimer = useRef<number | null>(null);

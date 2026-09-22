@@ -1,5 +1,7 @@
 'use client';
 
+import { updateActivity } from './updateActivity';
+import { reportAppError } from './errorReporting';
 import type { DatabaseApiAction, DatabaseConnectionPayload } from 'types';
 
 export interface DesktopDatabaseRequest {
@@ -62,8 +64,20 @@ function assertDesktopRuntime() {
 
 export async function invokeDesktop<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   assertDesktopRuntime();
-  const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<T>(command, args);
+  const release = updateActivity.begin();
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return await invoke<T>(command, args);
+  } catch (error) {
+    // Database/server failures are expected operational errors, not app defects.
+    if (command === 'database_request') {
+      const operational = error instanceof Error ? error : new Error(String(error));
+      operational.name = 'DatabaseClientError';
+      throw operational;
+    }
+    if (!String(error).includes('UPDATE_')) reportAppError(error, 'native-command');
+    throw error;
+  } finally { release(); }
 }
 
 export function desktopDatabaseRequest<T>(request: DesktopDatabaseRequest): Promise<T> {

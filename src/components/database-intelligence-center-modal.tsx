@@ -1,4 +1,5 @@
 'use client';
+import { useTrackedBusy } from '@/lib/useUpdateActivity';
 
 import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
@@ -150,7 +151,7 @@ export function DatabaseIntelligenceCenterModal({ open, onClose, initialTab = 'p
   const [tableName, setTableName] = useState(selectedTable || '');
   const [tableInfo, setTableInfo] = useState<TableInfo | null>(null);
   const [snapshot, setSnapshot] = useState<DatabasePerformanceSnapshot | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useTrackedBusy();
   useModalEscape(open, onClose, busy);
   const [error, setError] = useState<string | null>(null);
   const [slowThreshold, setSlowThreshold] = useState(1000);

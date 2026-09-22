@@ -57,5 +57,16 @@
     "homepage": "https://github.com/battincik/web.database.coreor.net",
     "license": "Apache-2.0",
     "licenseFile": "../LICENSE"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": [
+        "https://github.com/battincik/web.database.coreor.net/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

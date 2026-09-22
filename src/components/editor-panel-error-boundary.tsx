@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { reportAppError } from '@/lib/errorReporting';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/context/LanguageContext';
@@ -37,6 +38,7 @@ export class EditorPanelErrorBoundary extends React.Component<EditorPanelErrorBo
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
+    reportAppError(error, 'react');
     console.error('[Coreor Database] Editor panel render failed', error, info.componentStack);
   }
 
