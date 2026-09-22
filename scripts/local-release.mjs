@@ -14,6 +14,7 @@ const skipCheck = has('--skip-check');
 const fullCheck = has('--full-check');
 const allowDirty = has('--allow-dirty');
 const publicKeyFile = valueOf('--public-key-file=');
+const publicKeyLiteral = valueOf('--public-key=');
 const privateKeyFile = valueOf('--private-key-file=');
 const outputOverride = valueOf('--output=');
 const bundleOverride = valueOf('--bundles=');
@@ -76,6 +77,78 @@ function resolveKey(envName, filePath, label) {
   const value = fs.readFileSync(resolved, 'utf8').trim();
   if (!value) fail(`${label} file is empty: ${resolved}`);
   return value;
+}
+
+
+function readKeyFile(filePath, label) {
+  const value = fs.readFileSync(filePath, 'utf8').trim();
+  if (!value) fail(label + ' file is empty: ' + filePath);
+  return value;
+}
+
+function publicKeyCandidates(filePath, privateFilePath) {
+  const candidates = [];
+  const add = value => {
+    if (!value) return;
+    const resolved = path.resolve(ROOT, value);
+    if (!candidates.includes(resolved)) candidates.push(resolved);
+  };
+
+  add(filePath);
+  if (filePath) {
+    add(filePath + '.pub');
+    if (/\.pub$/i.test(filePath)) add(filePath.replace(/\.pub$/i, '.key.pub'));
+    if (/\.key$/i.test(filePath)) add(filePath + '.pub');
+  }
+  if (privateFilePath) add(privateFilePath + '.pub');
+  return candidates;
+}
+
+function resolvePublicKey(filePath, privateFilePath) {
+  const fromEnv = process.env.COREOR_UPDATER_PUBLIC_KEY?.trim();
+  if (fromEnv) return fromEnv;
+  if (publicKeyLiteral?.trim()) return publicKeyLiteral.trim();
+
+  const candidates = publicKeyCandidates(filePath, privateFilePath);
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      info('Using updater public key: ' + candidate);
+      return readKeyFile(candidate, 'Updater public key');
+    }
+  }
+
+  if (filePath) {
+    const resolvedInput = path.resolve(ROOT, filePath);
+    const directory = path.dirname(resolvedInput);
+
+    if (fs.existsSync(directory)) {
+      const nearby = fs.readdirSync(directory)
+        .filter(name => name.toLowerCase().endsWith('.key.pub') || name.toLowerCase().endsWith('.pub'))
+        .map(name => path.join(directory, name));
+
+      if (nearby.length === 1) {
+        info('Public key path was not found; using the only public key in the same directory: ' + nearby[0]);
+        return readKeyFile(nearby[0], 'Updater public key');
+      }
+
+      if (nearby.length > 1) {
+        fail(
+          'Updater public key file not found: ' + resolvedInput + '\n' +
+          'Multiple public key files exist in ' + directory + ':\n  - ' + nearby.join('\n  - ') + '\n' +
+          'Pass the exact one with --public-key-file=<path>.'
+        );
+      }
+    }
+
+    fail(
+      'Updater public key file not found: ' + resolvedInput + '\n' +
+      'Tauri signer normally writes the public key next to the private key as "<private-key>.pub" ' +
+      '(for example coreor-updater.key.pub).\n' +
+      (candidates.length ? 'Tried:\n  - ' + candidates.join('\n  - ') : '')
+    );
+  }
+
+  return '';
 }
 
 function walkFiles(directory) {
@@ -175,12 +248,13 @@ function versionChecks() {
 
 const version = versionChecks();
 const plan = platformPlan();
-const publicKey = resolveKey('COREOR_UPDATER_PUBLIC_KEY', publicKeyFile, 'Updater public key');
+const publicKey = resolvePublicKey(publicKeyFile, privateKeyFile);
 
 if (!publicKey) {
   fail(
     'COREOR_UPDATER_PUBLIC_KEY is required for a release build so the installed app can verify future updates. ' +
-    'Set the environment variable or pass --public-key-file=<path>.'
+    'Set the environment variable, pass --public-key=<value>, or pass --public-key-file=<path>. ' +
+    'If your private key is D:\\Secure\\coreor-updater.key, the public key is normally D:\\Secure\\coreor-updater.key.pub.'
   );
 }
 
@@ -299,6 +373,7 @@ if (!installAfterBuild) {
   info('');
   info('Install manually from the folder above, or run the install helper:');
   info('  npm run release:local:install -- --public-key-file=<path-to-public-key>');
+  info('  Example: npm run release:local:install -- --public-key-file="D:\\Secure\\coreor-updater.key.pub"');
   if (!signed) {
     info('');
     info('For N -> N+1 updater artifact testing later:');
