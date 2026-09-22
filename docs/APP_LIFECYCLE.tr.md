@@ -50,10 +50,10 @@ Güvenlik: UI'da aktif IPC, çok adımlı import/export/bakım işleri, bekleyen
 
 ## İmzalı yayın hazırlığı
 
-1. Bakımcı kendi cihazında `npm run tauri signer generate -- -w <guvenli-dizin>/coreor-updater.key` ile kalıcı anahtar çiftini oluşturur; private key yedeklenir, depoya eklenmez.
+1. Kalıcı updater private key `D:\\Secure\\Coreor\\coreor-updater.key`, public key ise `D:\\Secure\\Coreor\\coreor-updater.key.pub` konumunda tutulur. Private key yedeklenir ve depoya eklenmez.
 2. GitHub Actions variable: `COREOR_UPDATER_PUBLIC_KEY` (public key dosyasının içeriği).
 3. GitHub Actions secrets: `TAURI_SIGNING_PRIVATE_KEY`, gerekiyorsa `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
-4. Sürüm `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json` ve lockfile'larda eşit tutulur. Mevcut kaynak sürümü 3.1.0; bu çalışma sürümü yükseltmez.
+4. Sürüm `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json` ve lockfile'larda eşit tutulur. İlk desktop release hedefi `26.9.1`'dir ve `YY.M.RELEASE` politikası kullanılır.
 5. `Signed release candidate` workflow'u elle çalıştırılır. Kontroller başarısızsa yayın durur. NSIS / AppImage / macOS arm64 ve x64 imzalı paketleri ile `latest.json` taslak release'e eklenir. Platformlar manifest yazma yarışını önlemek için sırayla çalışır.
 6. `FIRST_RELEASE_CHECKLIST.tr.md` tamamlandıktan sonra taslak elle yayımlanır. Bu değişiklik herhangi bir release yayımlamaz veya üretim signing key üretmez.
 
