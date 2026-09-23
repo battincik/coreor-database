@@ -3237,6 +3237,8 @@
       "check": "Unable to reach GitHub releases. You can continue using this version.",
       "busy": "Active work or unsaved changes. Finish your work and try again.",
       "transaction": "An open transaction exists. Commit or roll back before retrying.",
+      "manifest": "The published update file or signature is invalid. Automatic installation is unavailable until the release is corrected.",
+      "download": "The update could not be downloaded or its signature could not be verified. Check error.log for details.",
       "install": "Update could not complete. Retry, or check error.log if the problem persists."
     },
     "diagnosticsTitle": "Error reporting",

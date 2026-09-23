@@ -18,6 +18,8 @@ pub struct Frame { pub file: String, pub line: u32, pub column: u32 }
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Report { schema_version: u8, event_id: String, timestamp: String, app_version: String, os: &'static str, arch: &'static str, source: String, kind: String, frames: Vec<Frame> }
+#[derive(Serialize)]
+struct NativeDetails<'a> { stage: &'a str, message: &'a str }
 pub struct Reporter {
     settings: Mutex<DiagnosticSettings>,
     queue: Mutex<VecDeque<(Report, u8)>>,
@@ -34,7 +36,7 @@ fn log_path(app: &AppHandle) -> Result<PathBuf, String> {
     fs::create_dir_all(&dir).map_err(|_| "DIAGNOSTICS_IO_ERROR")?;
     Ok(dir.join("error.log"))
 }
-fn append(app: &AppHandle, report: &Report) -> Result<(), String> {
+fn append(app: &AppHandle, report: &Report, details: Option<&NativeDetails<'_>>) -> Result<(), String> {
     let _guard = IO.get_or_init(|| Mutex::new(())).lock().map_err(|_| "DIAGNOSTICS_LOCK_ERROR")?;
     let path = log_path(app)?;
     if fs::metadata(&path).is_ok_and(|m| m.len() >= 5 * 1024 * 1024) {
@@ -43,11 +45,15 @@ fn append(app: &AppHandle, report: &Report) -> Result<(), String> {
         fs::rename(&path, old).map_err(|_| "DIAGNOSTICS_IO_ERROR")?;
     }
     let mut file = OpenOptions::new().create(true).append(true).open(path).map_err(|_| "DIAGNOSTICS_IO_ERROR")?;
-    serde_json::to_writer(&mut file, report).map_err(|_| "DIAGNOSTICS_IO_ERROR")?;
+    let mut local = serde_json::to_value(report).map_err(|_| "DIAGNOSTICS_IO_ERROR")?;
+    if let Some(details) = details {
+        local["native"] = serde_json::to_value(details).map_err(|_| "DIAGNOSTICS_IO_ERROR")?;
+    }
+    serde_json::to_writer(&mut file, &local).map_err(|_| "DIAGNOSTICS_IO_ERROR")?;
     file.write_all(b"\n").map_err(|_| "DIAGNOSTICS_IO_ERROR")?;
     file.flush().map_err(|_| "DIAGNOSTICS_IO_ERROR".into())
 }
-fn record(app: &AppHandle, input: ErrorInput) -> Result<(), String> {
+fn record(app: &AppHandle, input: ErrorInput, details: Option<&NativeDetails<'_>>) -> Result<(), String> {
     let sources = ["window", "promise", "react", "native-command", "native-panic", "update-install", "startup"];
     let kinds = ["Error", "TypeError", "ReferenceError", "RangeError", "SyntaxError", "URIError", "EvalError", "NativeError"];
     if !sources.contains(&input.source.as_str()) || !kinds.contains(&input.kind.as_str()) { return Err("DIAGNOSTICS_INVALID_EVENT".into()); }
@@ -62,7 +68,7 @@ fn record(app: &AppHandle, input: ErrorInput) -> Result<(), String> {
         f.file.len() <= 96 && f.file.ends_with(".js") && f.file.bytes().all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c))
     }).collect();
     let report = Report { schema_version: 1, event_id: uuid::Uuid::new_v4().to_string(), timestamp: chrono::Utc::now().to_rfc3339(), app_version: app.package_info().version.to_string(), os: std::env::consts::OS, arch: std::env::consts::ARCH, source: input.source, kind: input.kind, frames };
-    append(app, &report)?;
+    append(app, &report, details)?;
     if !cfg!(debug_assertions) {
         let settings = state.settings.lock().map_err(|_| "DIAGNOSTICS_LOCK_ERROR")?;
         if settings.remote_enabled {
@@ -74,10 +80,16 @@ fn record(app: &AppHandle, input: ErrorInput) -> Result<(), String> {
     Ok(())
 }
 pub fn record_native(app: &AppHandle, source: &str) {
-    let _ = record(app, ErrorInput { source: source.into(), kind: "NativeError".into(), frames: Vec::new() });
+    let _ = record(app, ErrorInput { source: source.into(), kind: "NativeError".into(), frames: Vec::new() }, None);
+}
+pub fn record_native_failure(app: &AppHandle, source: &str, stage: &str, error: &str) {
+    // The full library error is useful locally but must never be queued for the server.
+    let message = error.chars().take(2048).collect::<String>();
+    let _ = record(app, ErrorInput { source: source.into(), kind: "NativeError".into(), frames: Vec::new() },
+        Some(&NativeDetails { stage, message: &message }));
 }
 #[tauri::command]
-pub fn report_app_error(app: AppHandle, error: ErrorInput) -> Result<(), String> { record(&app, error) }
+pub fn report_app_error(app: AppHandle, error: ErrorInput) -> Result<(), String> { record(&app, error, None) }
 #[tauri::command]
 pub fn error_log_path(app: AppHandle) -> Result<String, String> { Ok(log_path(&app)?.to_string_lossy().into_owned()) }
 #[tauri::command]

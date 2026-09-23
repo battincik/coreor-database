@@ -62,3 +62,22 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --config src-tauri/tauri.release.conf.json ${{ matrix.args }}
+  verify-release:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify published draft updater manifest and assets
+        run: |
+          version=$(node -p "require('./package.json').version")
+          mkdir -p "$RUNNER_TEMP/updater"
+          gh release download "v$version" --pattern latest.json --dir "$RUNNER_TEMP/updater"
+          gh release view "v$version" --json assets > "$RUNNER_TEMP/updater/assets.json"
+          node scripts/validate-updater-manifest.mjs "$RUNNER_TEMP/updater/latest.json" "$RUNNER_TEMP/updater/assets.json"
