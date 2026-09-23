@@ -57,7 +57,7 @@ export function DatabaseTransactionWorkspaceModal({ open, onClose, serverId, acc
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState<'begin' | 'run' | 'commit' | 'rollback' | null>(null);
   const [closeWarning, setCloseWarning] = useState(false);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
 
   useEffect(() => {
     if (!open) return;
@@ -66,27 +66,14 @@ export function DatabaseTransactionWorkspaceModal({ open, onClose, serverId, acc
 
   useEffect(() => {
     if (!open || !transaction) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
+    const tick = () => setNow(Date.now());
+    const initialTick = window.setTimeout(tick, 0);
+    const timer = window.setInterval(tick, 1000);
+    return () => { window.clearTimeout(initialTick); window.clearInterval(timer); };
   }, [open, transaction]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (event: KeyboardEvent) => {
-      if (matchesShortcut(event, 'runQuery')) {
-        event.preventDefault();
-        void runSql();
-      }
-      if (event.key === 'Escape') requestClose();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  });
 
   const columns = useMemo(() => result?.fields?.map(field => field.name) || Object.keys(result?.rows?.[0] || {}), [result]);
   const remainingSeconds = transaction ? Math.max(0, Math.ceil((new Date(transaction.expiresAt).getTime() - now) / 1000)) : 0;
-
-  if (!open || typeof document === 'undefined') return null;
 
   const begin = async () => {
     if (!serverId || !accountId || transaction || busy) return null;
@@ -185,6 +172,21 @@ export function DatabaseTransactionWorkspaceModal({ open, onClose, serverId, acc
     setError(null);
     setMessage(next ? t('transaction.autocommitOn') : t('transaction.autocommitOff'));
   };
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (event: KeyboardEvent) => {
+      if (matchesShortcut(event, 'runQuery')) {
+        event.preventDefault();
+        void runSql();
+      }
+      if (event.key === 'Escape') requestClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  });
+
+  if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[332] flex items-center justify-center p-2 sm:p-3">

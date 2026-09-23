@@ -10,7 +10,6 @@ import {
   Code2,
   Copy,
   Database,
-  FileClock,
   History,
   Info,
   GripHorizontal,

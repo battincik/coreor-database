@@ -2,7 +2,7 @@
 import { useTrackedBusy } from '@/lib/useUpdateActivity';
 
 import { useModalEscape } from '@/lib/useModalEscape';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowDown, ArrowUp, BarChart2, BookOpen, Code, Copy, Download, FileText, Loader2, Play, Plus, Save, Trash2, X } from 'lucide-react';
 import type { DatabaseCatalogItem, QueryExecutionResult } from 'types';
@@ -165,8 +165,11 @@ function ChartPreview({ rows, config }: { rows: Record<string, unknown>[]; confi
   }
   const total = chartRows.reduce((sum, item) => sum + Math.abs(item.value), 0) || 1;
   const colors = ['#22d3ee', '#34d399', '#a78bfa', '#fbbf24', '#fb7185', '#60a5fa', '#f472b6', '#a3e635'];
-  let cursor = 0;
-  const segments = chartRows.map((item, index) => { const start = cursor; const end = cursor + Math.abs(item.value) / total * 100; cursor = end; return `${colors[index % colors.length]} ${start}% ${end}%`; });
+  const segments = chartRows.map((item, index) => {
+    const start = chartRows.slice(0, index).reduce((sum, previous) => sum + Math.abs(previous.value), 0) / total * 100;
+    const end = start + Math.abs(item.value) / total * 100;
+    return `${colors[index % colors.length]} ${start}% ${end}%`;
+  });
   return <div className="grid gap-4 rounded-lg border border-zinc-800 bg-black/20 p-4 md:grid-cols-[220px_1fr]"><div className="mx-auto h-52 w-52 rounded-full" style={{ background: `conic-gradient(${segments.join(',')})` }} /><div className="grid content-center gap-2 sm:grid-cols-2">{chartRows.map((item, index) => <div key={index} className="flex items-center gap-2 text-[10px]"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors[index % colors.length] }} /><span className="min-w-0 flex-1 truncate text-zinc-400">{item.label}</span><span className="tabular-nums text-zinc-200">{item.value.toLocaleString('tr-TR')}</span></div>)}</div></div>;
 }
 

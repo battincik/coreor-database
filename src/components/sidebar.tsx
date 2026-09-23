@@ -3,7 +3,7 @@
 import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, Braces, Check, ChevronDown, ChevronRight, Circle, Code2, Copy, Database, Download, FileCode2, FunctionSquare, Gauge, HardDrive, KeyRound, ListFilter, LogOut, MoreHorizontal, Network, Plus, RefreshCw, Search, Server, Settings2, ShieldCheck, Sparkles, Table2, Trash2, UserRound, View, Wifi, WifiOff, Wrench, X, Zap } from 'lucide-react';
+import { Activity, Braces, Check, ChevronDown, ChevronRight, Code2, Copy, Database, Download, FileCode2, FunctionSquare, HardDrive, KeyRound, ListFilter, LogOut, MoreHorizontal, Network, Plus, RefreshCw, Search, Server, Settings2, Sparkles, Table2, Trash2, View, Wifi, WifiOff, Wrench, X, Zap } from 'lucide-react';
 import type { DatabaseEngine, DatabaseSchemaObject, DatabaseServerConfig, DatabaseTable, SidebarProps } from 'types';
 import { DatabaseContext } from '@/context/DatabaseContext';
 import { useDesktop } from '@/context/DesktopContext';
@@ -18,7 +18,7 @@ import { useAppContextMenu } from '@/components/app-context-menu';
 import { executeDatabaseQuery, fetchDatabaseObjects, fetchServerTables } from '@/lib/databaseApi';
 import { openQueryTab } from '@/lib/queryWorkspaceEvents';
 import { OPEN_IMPORT_EXPORT_EVENT, OPEN_MAINTENANCE_CENTER_EVENT, OPEN_SETTINGS_MODAL_EVENT } from '@/lib/databaseToolEvents';
-import { databaseEngineDefinition, databaseEngineFamily, databaseEngineLabel, quoteDatabaseIdentifier, qualifiedDatabaseTable } from '@/lib/databaseEngines';
+import {  databaseEngineFamily, databaseEngineLabel, quoteDatabaseIdentifier, qualifiedDatabaseTable } from '@/lib/databaseEngines';
 import { useAppPreferences } from '@/lib/appPreferences';
 import { recalculateDatabaseStorage, recalculateTableStorage } from '@/lib/databaseWorkbenchApi';
 import { useCoreorToast } from '@/components/ui/coreor-toast';
@@ -448,7 +448,6 @@ function RenameDatabaseModal({ state, accountId, onChange, onClose, onRename }: 
 export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatabase, selectedTable }: SidebarProps) {
   const { workspaceKey, user } = useDesktop();
   const { t, language, formatNumber } = useLanguage();
-  const compactCount = useCallback((value: number) => compactCountBase(value, language), [language]);
   const compactBytes = useCallback((value: number | null | undefined) => compactBytesBase(value, language), [language]);
   const compactSize = useCallback((value: string | number | null | undefined) => compactSizeBase(value, language), [language]);
   const objectMetadataText = useCallback((object: DatabaseSchemaObject, detail?: DatabaseTable) => objectMetadataTextBase(object, detail, language, t('query.rows')), [language, t]);
@@ -457,7 +456,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
   const { openContextMenu } = useAppContextMenu();
   const toast = useCoreorToast();
   const { preferences } = useAppPreferences();
-  const { servers, setServers, activeServerId, setActiveServerId, addServer, updateServer, removeServer, loadServers, isAddingServer, isServersLoading } = context;
+  const { servers, setServers, activeServerId, setActiveServerId, addServer, updateServer, removeServer, loadServers, isServersLoading } = context;
   const [search, setSearch] = useState('');
   const [searchTypes, setSearchTypes] = useState<Set<ObjectSearchType>>(new Set(['all']));
   const [searchFilterOpen, setSearchFilterOpen] = useState(false);

@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Code2,
-  Database,
   Download,
   FileClock,
   FileCode2,
@@ -19,10 +18,8 @@ import {
   Play,
   RefreshCw,
   Save,
-  Search,
   ShieldCheck,
   Sparkles,
-  Table2,
   Trash2,
   Wand2,
   X
@@ -31,7 +28,6 @@ import type { DatabaseServerConfig, QueryExecutionResult } from 'types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-select';
-import { CoreorSwitch } from '@/components/ui/coreor-switch';
 import { SqlCode } from '@/components/ui/sql-syntax';
 import { executeDatabaseQuery } from '@/lib/databaseApi';
 import { useLanguage } from '@/context/LanguageContext';

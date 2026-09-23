@@ -1,7 +1,7 @@
 'use client';
 
 import { useModalEscape } from '@/lib/useModalEscape';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Clock3, Copy, Loader2, Lock, RefreshCw, Skull, StopCircle, X } from 'lucide-react';
 import type { DatabaseProcessCenterResponse } from '@/lib/databaseWorkbenchTypes';
@@ -46,7 +46,7 @@ export function DatabaseProcessCenterModal({ open, onClose, serverId, accountId 
   const lastArchivedErrorRef = useRef<string | null>(null);
   useModalEscape(open, onClose, killingId !== null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!serverId || !accountId) return;
     setLoading(true); setError(null);
     try {
@@ -73,16 +73,16 @@ export function DatabaseProcessCenterModal({ open, onClose, serverId, accountId 
       }
     }
     finally { setLoading(false); }
-  };
+  }, [serverId, accountId, t]);
 
-  useEffect(() => { if (open) void load(); }, [open, serverId, accountId]);
+  useEffect(() => { if (open) void load(); }, [open, load]);
   useEffect(() => {
     if (!open || !preferences.autoRefreshProcesses) return;
     const refresh = () => { if (document.visibilityState === 'visible') void load(); };
     const timer = window.setInterval(refresh, Math.max(3, preferences.performanceRefreshSeconds) * 1000);
     document.addEventListener('visibilitychange', refresh);
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
-  }, [open, preferences.autoRefreshProcesses, preferences.performanceRefreshSeconds, serverId, accountId]);
+  }, [open, preferences.autoRefreshProcesses, preferences.performanceRefreshSeconds, load]);
 
   const processes = useMemo(() => {
     const query = filter.trim().toLocaleLowerCase(language);

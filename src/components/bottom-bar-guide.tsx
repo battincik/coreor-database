@@ -4,7 +4,6 @@ import React, { useContext, useMemo, useSyncExternalStore } from 'react';
 import {
   Activity,
   Clock3,
-  Database,
   Gauge,
   HardDrive,
   Info,

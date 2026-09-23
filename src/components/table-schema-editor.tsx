@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   AlertTriangle, ArrowDown, ArrowUp, Check, Database, FileCode2, Key, Link,
-  Loader2, Plus, Save, Settings2, ShieldCheck, Table as TableIcon, Trash2, X
+  Loader2, Plus, Save, Settings2, ShieldCheck, Table as TableIcon, Trash2
 } from 'lucide-react';
 import type {
   DatabaseCatalogItem, TableColumnDefinition, TableColumnInfo, TableForeignKeyDefinition,

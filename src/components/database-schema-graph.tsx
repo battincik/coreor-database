@@ -257,7 +257,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     if (!entries.length) return { minX: 0, minY: 0, maxX: 1200, maxY: 800, width: 1200, height: 800 };
     const minX = Math.min(...entries.map(([, point]) => point.x));
     const minY = Math.min(...entries.map(([, point]) => point.y));
-    const maxX = Math.max(...entries.map(([table, point]) => point.x + CARD_WIDTH));
+    const maxX = Math.max(...entries.map(([, point]) => point.x + CARD_WIDTH));
     const maxY = Math.max(...entries.map(([table, point]) => point.y + nodeHeight(tableInfo[table])));
     return { minX, minY, maxX, maxY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
   }, [positions, tableInfo]);
@@ -278,7 +278,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
           for (const row of rows) {
             const tableName = String(row.tableName || '');
             if (!tableName) continue;
-            const { tableName: _tableName, ...metadata } = row;
+            const metadata = Object.fromEntries(Object.entries(row).filter(([key]) => key !== 'tableName'));
             grouped.set(tableName, [...(grouped.get(tableName) || []), metadata]);
           }
           return grouped;
@@ -320,7 +320,10 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
           return info;
         });
         const failures: string[] = [];
-        for (const entry of results) entry.result ? nextInfo[String(entry.item)] = entry.result : failures.push(String(entry.item));
+        for (const entry of results) {
+          if (entry.result) nextInfo[String(entry.item)] = entry.result;
+          else failures.push(String(entry.item));
+        }
         setTableInfo(nextInfo);
         if (failures.length) setMessage(t('schemaGraph.loadedWithFailures', { loaded: formatNumber(Object.keys(nextInfo).length), failed: formatNumber(failures.length) }));
       }
@@ -425,7 +428,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     if (viewport && entries.length) {
       const minX = Math.min(...entries.map(([, point]) => point.x));
       const minY = Math.min(...entries.map(([, point]) => point.y));
-      const maxX = Math.max(...entries.map(([table, point]) => point.x + CARD_WIDTH));
+      const maxX = Math.max(...entries.map(([, point]) => point.x + CARD_WIDTH));
       const maxY = Math.max(...entries.map(([table, point]) => point.y + nodeHeight(tableInfo[table])));
       const width = Math.max(1, maxX - minX);
       const height = Math.max(1, maxY - minY);

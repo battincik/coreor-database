@@ -3,7 +3,7 @@
 import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Copy, KeyRound, Loader2, Plus, RefreshCw, Save, Shield, Trash2, UserCog, Users, X } from 'lucide-react';
+import { Copy, Loader2, Plus, RefreshCw, Save, Shield, Trash2, UserCog, Users, X } from 'lucide-react';
 import type { DatabaseCatalogItem } from 'types';
 import type { DatabaseAccountInfo, DatabasePrivilegeScope } from '@/lib/databaseWorkbenchTypes';
 import { DATABASE_PRIVILEGES } from '@/lib/databaseWorkbenchTypes';
