@@ -27,7 +27,7 @@ export function AppUpdateButton() {
       title={title}
       aria-label={title}
       onClick={() => void installUpdate()}
-      className="group relative flex h-9 w-10 shrink-0 items-center justify-center border-l border-zinc-800 text-cyan-300 transition hover:bg-cyan-500/[0.07] hover:text-cyan-200 disabled:cursor-not-allowed disabled:text-zinc-700 disabled:hover:bg-transparent"
+      className="group relative flex h-8 w-10 shrink-0 items-center justify-center border-l border-zinc-800 text-cyan-300 transition hover:bg-cyan-500/[0.07] hover:text-cyan-200 disabled:cursor-not-allowed disabled:text-zinc-700 disabled:hover:bg-transparent"
     >
       {update.phase === 'downloading' || update.phase === 'installing'
         ? <Loader2 className="h-4 w-4 animate-spin" />

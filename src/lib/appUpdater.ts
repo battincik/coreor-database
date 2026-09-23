@@ -20,8 +20,12 @@ export async function checkForUpdates() {
   try {
     const result = await invoke<{ enabled: boolean; development: boolean; version: string | null }>('check_app_update');
     set({ phase: !result.enabled ? 'disabled' : result.version ? 'available' : 'idle', version: result.version, development: result.development });
-  } catch {
-    set({ phase: snapshot.version ? 'available' : 'error', error: 'check' });
+  } catch (error) {
+    const reason = String(error);
+    const invalidManifest = reason.includes('UPDATE_MANIFEST_');
+    set({ phase: invalidManifest ? 'error' : snapshot.version ? 'available' : 'error',
+      version: invalidManifest ? null : snapshot.version,
+      error: invalidManifest ? 'manifest' : 'check' });
   }
 }
 export async function installUpdate() {
@@ -33,6 +37,10 @@ export async function installUpdate() {
     await invoke('install_app_update');
   } catch (error) {
     const reason = String(error);
-    set({ phase: 'available', error: reason.includes('UPDATE_OPEN_TRANSACTION') ? 'transaction' : reason.includes('UPDATE_ACTIVE_WORK') ? 'busy' : 'install', progress: null });
+    set({ phase: 'available', error: reason.includes('UPDATE_OPEN_TRANSACTION') ? 'transaction'
+      : reason.includes('UPDATE_ACTIVE_WORK') ? 'busy'
+      : reason.includes('UPDATE_MANIFEST_') ? 'manifest'
+      : reason.includes('UPDATE_DOWNLOAD_FAILED') ? 'download'
+      : 'install', progress: null });
   } finally { release?.(); }
 }
