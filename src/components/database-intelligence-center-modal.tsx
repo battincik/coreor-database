@@ -179,7 +179,7 @@ export function DatabaseIntelligenceCenterModal({ open, onClose, initialTab = 'p
   const tableOptions = useMemo<SearchSelectOption[]>(() => (server?.databases?.find(item => item.name === databaseName)?.tables || []).map(value => ({ value, label: value })), [server, databaseName]);
   const profiles = useMemo(() => profileActivities(activities, serverId), [activities, serverId]);
   const slowProfiles = useMemo(() => profiles.filter(profile => profile.p95Ms >= slowThreshold || profile.maxMs >= slowThreshold).sort((a,b)=>b.p95Ms-a.p95Ms), [profiles, slowThreshold]);
-  const lastBackup = useMemo(() => backupTasks.list().filter(item => item.serverId === serverId && item.status === 'completed' && item.lastRunAt).sort((a,b)=>(b.lastRunAt || '').localeCompare(a.lastRunAt || ''))[0], [serverId, open]);
+  const lastBackup = useMemo(() => backupTasks.list().filter(item => item.serverId === serverId && item.status === 'completed' && item.lastRunAt).sort((a,b)=>(b.lastRunAt || '').localeCompare(a.lastRunAt || ''))[0], [serverId]);
   const backupAge = lastBackup?.lastRunAt ? (Date.now() - new Date(lastBackup.lastRunAt).getTime()) / 3600000 : null;
   const health = useMemo(() => calculateHealthScore(snapshot, activities.filter(item => item.serverId === serverId), backupAge), [snapshot, activities, serverId, backupAge]);
 
@@ -247,11 +247,11 @@ export function DatabaseIntelligenceCenterModal({ open, onClose, initialTab = 'p
   const maskTypeOptions = useMemo<SearchSelectOption[]>(() => MASK_TYPES.map(item => {
     const category = t(item.categoryKey);
     return { value:item.id, label:t(item.labelKey), description:t(item.descriptionKey), badge:category, keywords:[category] };
-  }), [language, t]);
+  }), [t]);
   const mockTypeOptions = useMemo<SearchSelectOption[]>(() => MOCK_DATA_TYPES.map(item => {
     const category = t(item.categoryKey);
     return { value:item.id, label:t(item.labelKey), description:t(item.descriptionKey), badge:category, keywords:[category] };
-  }), [language, t]);
+  }), [t]);
   const categories = useMemo(() => ['all', ...new Set(QUERY_SNIPPETS.map(item => item.categoryKey))], []);
   const visibleSnippets = useMemo(() => QUERY_SNIPPETS.filter(item => {
     const engineMatch = item.engines.includes('all') || item.engines.includes(engine as DatabaseEngine);

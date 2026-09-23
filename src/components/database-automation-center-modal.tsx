@@ -172,11 +172,12 @@ export function DatabaseAutomationCenterModal({ open, onClose, initialTab = 'his
   const serverOptions = useMemo<SearchSelectOption[]>(() => servers.map(item => ({ value: item.id, label: item.name, description: `${item.host}:${item.port}`, badge: item.databaseType })), [servers]);
   const databaseOptions = useMemo<SearchSelectOption[]>(() => (server?.databases || []).map(item => ({ value: item.name, label: item.name, description: t('tableSchema.tableCount',{count:formatNumber(item.tableCount)}) })), [server,t,formatNumber]);
   const tableOptions = useMemo<SearchSelectOption[]>(() => (server?.databases?.find(item => item.name === databaseName)?.tables || []).map(name => ({ value: name, label: name })), [server, databaseName]);
-  const snapshots = useMemo(() => schemaSnapshots.list(), [revision]);
-  const migrations = useMemo(() => migrationDrafts.list(), [revision]);
-  const backups = useMemo(() => backupTasks.list(), [revision]);
-  const approvals = useMemo(() => approvalRequests.list(), [revision]);
-  const preparedSets = useMemo(() => preparedStatementSets.list(), [revision]);
+  void revision;
+  const snapshots = schemaSnapshots.list();
+  const migrations = migrationDrafts.list();
+  const backups = backupTasks.list();
+  const approvals = approvalRequests.list();
+  const preparedSets = preparedStatementSets.list();
 
   if (!open || typeof document === 'undefined') return null;
 

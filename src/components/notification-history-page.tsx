@@ -191,7 +191,7 @@ function NotificationHistoryContent() {
     const next = id && notifications.some(item => item.id === id) ? id : notifications[0]?.id || null;
     setSelectedId(current => current || next);
     if (next) markNotificationRead(next);
-  }, [notifications.length]);
+  }, [notifications]);
 
   const visible = useMemo(() => {
     const search = query.trim().toLocaleLowerCase(language);

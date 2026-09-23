@@ -355,10 +355,12 @@ async function updateCachedDatabases(serverId: string, databases: DatabaseCatalo
 }
 
 export async function fetchDatabaseServers(accountId?: string | null) {
+  void accountId;
   return await readLocalServerProfiles() as DatabaseServerCatalogItem[];
 }
 
 export async function createDatabaseServer(server: DatabaseServerConfig, accountId?: string | null) {
+  void accountId;
   if (!server.connectionTestedAt) throw new Error(translateRuntime('server.connectionTestRequired'));
   const now = new Date().toISOString();
   const engine = server.databaseType ?? 'mysql';
@@ -394,6 +396,7 @@ export async function createDatabaseServer(server: DatabaseServerConfig, account
 }
 
 export async function deleteDatabaseServer(serverId: string, accountId?: string | null) {
+  void accountId;
   return mutateServerProfiles(servers => {
     const existing = servers.find(server => server.id === serverId);
     if (!existing) throw new Error('Silinecek bağlantı profili bulunamadı.');

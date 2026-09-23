@@ -208,7 +208,7 @@ export function SqlNotebookModal({ open, onClose, serverId, accountId, databases
       setLoaded(true);
     });
     return () => { cancelled = true; };
-  }, [open, serverId]);
+  }, [open, serverId, selectedDatabase]);
 
   useEffect(() => {
     if (!loaded || !open) return;

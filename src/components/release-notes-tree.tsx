@@ -223,7 +223,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
       if (!search) return true;
       return `${pullRequest.version} ${pullRequest.number} ${pullRequest.title} ${pullRequest.summary} ${pullRequest.body}`.toLocaleLowerCase(language).includes(search);
     });
-  }, [data, query, statusFilter]);
+  }, [data, query, statusFilter, language]);
 
   const grouped = useMemo(() => {
     const majors = new Map<string, ReleasePullRequest[]>();

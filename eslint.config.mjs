@@ -7,12 +7,11 @@ export default defineConfig([
   ...nextTypescript,
   {
     rules: {
-      // Coreor is a Tauri/React application and does not currently compile with the
-      // experimental React Compiler. Next 16 enables several compiler-oriented
-      // diagnostics as errors by default; keep them visible without blocking the
-      // desktop release gate until the affected state machines are migrated.
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/purity': 'warn',
+      // Coreor is a Tauri/React application and does not compile with the
+      // experimental React Compiler. These compiler-only diagnostics reject
+      // intentional desktop state synchronization and event-time timestamps.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/purity': 'off',
       'react-hooks/immutability': 'warn',
       'react-hooks/refs': 'warn'
     }

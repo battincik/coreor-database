@@ -133,7 +133,7 @@ export function DatabaseMaintenanceModal({
   const cancelRef = useRef(false);
   useModalEscape(open, onClose, running);
 
-  const databases = server?.databases || [];
+  const databases = useMemo(() => server?.databases || [], [server]);
   const database = databases.find(item => item.name === databaseName) || null;
   const definitions = useMemo(() => operationDefinitions(server?.databaseType, t), [server?.databaseType, t]);
   const allowedDefinitions = useMemo(
@@ -142,7 +142,7 @@ export function DatabaseMaintenanceModal({
   );
   const tableOptions = useMemo<SearchSelectOption[]>(
     () => (database?.tables || []).map(table => ({ value: table, label: table, description: t('maintenance.tableTarget') })),
-    [database]
+    [database, t]
   );
   const databaseOptions = useMemo<SearchSelectOption[]>(
     () => databases.map(item => ({
@@ -150,7 +150,7 @@ export function DatabaseMaintenanceModal({
       label: item.name,
       description: t('maintenance.databaseSummary',{tables:formatNumber(item.tableCount),rows:formatNumber(Number(item.totalRows || 0))})
     })),
-    [databases]
+    [databases, formatNumber, t]
   );
 
   useEffect(() => {
@@ -168,7 +168,7 @@ export function DatabaseMaintenanceModal({
     setOverall({ completed: 0, total: 0, success: 0, failed: 0 });
     setTableProgress({});
     setLogs([]);
-  }, [open, initialDatabase, initialTable, server?.id, server?.databaseType, server?.readOnly, t]);
+  }, [open, initialDatabase, initialTable, server?.id, server?.databaseType, server?.readOnly, databases, setRunning, t]);
 
   useEffect(() => {
     if (!databaseName || !database) return;
