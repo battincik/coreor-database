@@ -3,7 +3,7 @@
 use std::{sync::{Arc, Mutex}, time::Duration};
 use base64::Engine;
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_updater::{Update, UpdaterExt};
 use tokio::sync::{OwnedRwLockReadGuard, RwLock};
 
@@ -12,6 +12,53 @@ pub struct UpdateState {
     pub gate: Arc<RwLock<()>>,
     pending: Mutex<Option<Update>>,
     checking: tokio::sync::Mutex<()>,
+    progress: Mutex<UpdateWindowSnapshot>,
+}
+
+#[derive(Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateWindowSnapshot {
+    version: String,
+    phase: String,
+    downloaded: u64,
+    total: Option<u64>,
+}
+
+#[tauri::command]
+pub fn update_window_snapshot(state: State<'_, UpdateState>) -> Result<UpdateWindowSnapshot, String> {
+    state.progress.lock().map(|value| value.clone()).map_err(|_| "UPDATE_STATE_ERROR".into())
+}
+
+fn show_update_window(app: &AppHandle) -> Result<(), String> {
+    let window = match app.get_webview_window("updater") {
+        Some(window) => window,
+        None => WebviewWindowBuilder::new(app, "updater", WebviewUrl::App("updater/index.html".into()))
+            .title("Coreor Database")
+            .inner_size(440.0, 240.0)
+            .resizable(false)
+            .decorations(false)
+            .center()
+            .visible(false)
+            .build()
+            .map_err(|error| error.to_string())?,
+    };
+    window.show().map_err(|error| error.to_string())?;
+    if let Some(main) = app.get_webview_window("main") {
+        if let Err(error) = main.hide() {
+            let _ = window.hide();
+            return Err(error.to_string());
+        }
+    }
+    let _ = window.set_focus();
+    Ok(())
+}
+
+fn restore_main_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("updater") { let _ = window.hide(); }
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.show();
+        let _ = main.set_focus();
+    }
 }
 
 pub fn work_lease(app: &AppHandle) -> Result<OwnedRwLockReadGuard<()>, String> {
@@ -99,23 +146,46 @@ pub async fn install_app_update(app: AppHandle, state: State<'_, UpdateState>) -
         .ok_or("UPDATE_NOT_AVAILABLE")?;
     validate_update(&update).map_err(str::to_string)?;
     update.timeout = Some(Duration::from_secs(15 * 60));
+    *state.progress.lock().map_err(|_| "UPDATE_STATE_ERROR")? = UpdateWindowSnapshot {
+        version: update.version.clone(), phase: "downloading".into(), downloaded: 0, total: None,
+    };
+    show_update_window(&app).map_err(|error| {
+        crate::error_reporting::record_native_failure(&app, "update-install", "update-window", &error);
+        "UPDATE_WINDOW_FAILED"
+    })?;
     let mut downloaded: u64 = 0;
-    let bytes = update.download(
-        |length, total| {
-            downloaded += length as u64;
-            let _ = app.emit("coreor:update-progress", serde_json::json!({"downloaded": downloaded, "total": total}));
-        },
-        || { let _ = app.emit("coreor:update-installing", ()); },
-    ).await.map_err(|error| {
-        crate::error_reporting::record_native_failure(&app, "update-install", "download-or-signature", &error.to_string());
-        "UPDATE_DOWNLOAD_FAILED"
-    })?;
-    // On Windows install() launches the installer and exits the process on success.
-    // On macOS/Linux it returns and the application needs an explicit restart.
-    update.install(&bytes).map_err(|error| {
-        crate::error_reporting::record_native_failure(&app, "update-install", "installer", &error.to_string());
-        "UPDATE_INSTALL_FAILED"
-    })?;
+    let result = async {
+        let bytes = update.download(
+            |length, total| {
+                downloaded += length as u64;
+                if let Ok(mut progress) = state.progress.lock() {
+                    progress.downloaded = downloaded;
+                    progress.total = total;
+                }
+                let _ = app.emit("coreor:update-progress", serde_json::json!({"downloaded": downloaded, "total": total}));
+            },
+            || {
+                if let Ok(mut progress) = state.progress.lock() { progress.phase = "verifying".into(); }
+                let _ = app.emit("coreor:update-verifying", ());
+            },
+        ).await.map_err(|error| {
+            crate::error_reporting::record_native_failure(&app, "update-install", "download-or-signature", &error.to_string());
+            "UPDATE_DOWNLOAD_FAILED".to_string()
+        })?;
+        if let Ok(mut progress) = state.progress.lock() { progress.phase = "installing".into(); }
+        let _ = app.emit("coreor:update-installing", ());
+        // On Windows install() launches the installer and exits the process on success.
+        // On macOS/Linux it returns and the application needs an explicit restart.
+        update.install(&bytes).map_err(|error| {
+            crate::error_reporting::record_native_failure(&app, "update-install", "installer", &error.to_string());
+            "UPDATE_INSTALL_FAILED".to_string()
+        })?;
+        Ok::<(), String>(())
+    }.await;
+    if let Err(error) = result {
+        restore_main_window(&app);
+        return Err(error);
+    }
     #[cfg(not(windows))]
     app.restart();
     #[cfg(windows)]

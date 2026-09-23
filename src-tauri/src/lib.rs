@@ -343,6 +343,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             app_updates::updater_status,
+            app_updates::update_window_snapshot,
             app_updates::check_app_update,
             app_updates::install_app_update,
             error_reporting::report_app_error,

@@ -8,8 +8,15 @@ import { AuthProvider } from '@/context/AuthContext';
 import { DatabaseProvider } from '@/context/DatabaseContext';
 import { LegacyTranslationBridge } from '@/components/legacy-translation-bridge';
 import { DeveloperToolsGate } from '@/components/developer-tools-gate';
+import { usePathname } from 'next/navigation';
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  // The updater is a dedicated webview. It must not initialize database
+  // connections or start another update check while the main window is hidden.
+  if (pathname?.startsWith('/updater')) {
+    return <LanguageProvider>{children}</LanguageProvider>;
+  }
   return (
     <LanguageProvider>
       <AppLifecycle />

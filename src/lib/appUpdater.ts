@@ -2,7 +2,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { useSyncExternalStore } from 'react';
 import { updateActivity } from './updateActivity';
-export type UpdatePhase = 'idle' | 'checking' | 'available' | 'downloading' | 'installing' | 'error' | 'disabled';
+export type UpdatePhase = 'idle' | 'checking' | 'available' | 'downloading' | 'verifying' | 'installing' | 'error' | 'disabled';
 interface UpdateSnapshot { phase: UpdatePhase; version: string | null; progress: number | null; error: string | null; development: boolean }
 const initial: UpdateSnapshot = { phase: 'idle', version: null, progress: null, error: null, development: false };
 let snapshot = initial;
@@ -13,9 +13,10 @@ export function useAppUpdater() { return useSyncExternalStore(subscribe, () => s
 export function setUpdateProgress(downloaded: number, total: number | null) {
   set({ progress: total && total > 0 ? Math.min(100, Math.round(downloaded / total * 100)) : null });
 }
+export function setUpdateVerifying() { set({ phase: 'verifying', progress: 100 }); }
 export function setUpdateInstalling() { set({ phase: 'installing', progress: null }); }
 export async function checkForUpdates() {
-  if (['checking', 'downloading', 'installing'].includes(snapshot.phase)) return;
+  if (['checking', 'downloading', 'verifying', 'installing'].includes(snapshot.phase)) return;
   set({ phase: 'checking', error: null });
   try {
     const result = await invoke<{ enabled: boolean; development: boolean; version: string | null }>('check_app_update');

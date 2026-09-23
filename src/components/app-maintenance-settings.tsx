@@ -108,7 +108,7 @@ export function AppMaintenanceSettings() {
     }
   };
 
-  const updateBusy = ['checking', 'downloading', 'installing'].includes(update.phase);
+  const updateBusy = ['checking', 'downloading', 'verifying', 'installing'].includes(update.phase);
   const statusTone =
     update.phase === 'error'
       ? 'border-red-500/20 bg-red-500/[0.05] text-red-300'
@@ -170,7 +170,7 @@ export function AppMaintenanceSettings() {
         <SettingsRow title={t('updates.status')} description={t('updates.statusDescription')}>
           <div className={`rounded-xl border px-3 py-2 ${statusTone}`}>
             <div className="flex items-center gap-2 text-[10px] font-medium">
-              {update.phase === 'checking' || update.phase === 'downloading' || update.phase === 'installing'
+              {update.phase === 'checking' || update.phase === 'downloading' || update.phase === 'verifying' || update.phase === 'installing'
                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 : update.phase === 'error' || update.phase === 'disabled'
                   ? <AlertTriangle className="h-3.5 w-3.5" />
