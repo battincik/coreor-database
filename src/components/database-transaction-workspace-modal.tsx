@@ -80,6 +80,7 @@ export function DatabaseTransactionWorkspaceModal({ open, onClose, serverId, acc
     setBusy('begin'); setError(null); setMessage(null);
     try {
       const response = await beginDatabaseTransaction(serverId, accountId, databaseName);
+      setNow(Date.now());
       setTransaction(response.transaction);
       setMessage(t('transaction.started'));
       return response.transaction;
@@ -104,6 +105,7 @@ export function DatabaseTransactionWorkspaceModal({ open, onClose, serverId, acc
         if (!activeTransaction) {
           const response = await beginDatabaseTransaction(serverId, accountId, databaseName);
           activeTransaction = response.transaction;
+          setNow(Date.now());
           setTransaction(activeTransaction);
         }
         const response = await executeDatabaseTransactionQuery(serverId, activeTransaction.transactionId, sql, accountId, databaseName);
