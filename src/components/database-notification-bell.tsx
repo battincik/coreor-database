@@ -46,7 +46,7 @@ export function DatabaseNotificationBell() {
   const openNotification = useCallback((id: string) => {
     markNotificationRead(id);
     setOpen(false);
-    router.push(`/editor/notifications/?id=${encodeURIComponent(id)}`);
+    router.push(`/editor/notifications?id=${encodeURIComponent(id)}`);
   }, [router]);
 
   useEffect(() => {
@@ -139,7 +139,7 @@ export function DatabaseNotificationBell() {
           <button
             type="button"
             className="flex h-10 shrink-0 items-center justify-center gap-2 border-t border-zinc-800 text-[9px] font-medium text-cyan-300 hover:bg-cyan-500/[0.04]"
-            onClick={() => { setOpen(false); router.push('/editor/notifications/'); }}
+            onClick={() => { setOpen(false); router.push('/editor/notifications'); }}
           >
             {t('notificationCenter.viewAll')} <ChevronRight className="h-3 w-3" />
           </button>
