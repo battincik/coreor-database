@@ -9,7 +9,6 @@ import {
   AlertTriangle,
   BarChart3,
   BellRing,
-  CheckCircle2,
   ChevronRight,
   Clipboard,
   Database,
@@ -17,17 +16,15 @@ import {
   Gauge,
   HeartPulse,
   Loader2,
-  Play,
   RefreshCw,
   Search,
   ShieldCheck,
   Sparkles,
-  Table2,
   TestTube2,
   Wand2,
   X
 } from 'lucide-react';
-import type { DatabaseEngine, DatabaseServerConfig, QueryExecutionResult, TableInfo } from 'types';
+import type { DatabaseEngine, DatabaseServerConfig, TableInfo } from 'types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CoreorSwitch } from '@/components/ui/coreor-switch';

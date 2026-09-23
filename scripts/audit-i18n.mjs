@@ -57,7 +57,6 @@ function location(source, index) {
 const en = flatten(JSON.parse(await readFile(join(localeDir, 'en.json'), 'utf8')));
 const tr = flatten(JSON.parse(await readFile(join(localeDir, 'tr.json'), 'utf8')));
 const sourceValues = new Set([...Object.values(en), ...Object.values(tr)]);
-const sourceKeys = new Set([...Object.keys(en), ...Object.keys(tr)]);
 const files = await walk(src);
 const missingCatalog = [];
 const missingKeys = [];

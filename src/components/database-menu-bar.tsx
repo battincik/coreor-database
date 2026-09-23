@@ -121,7 +121,7 @@ export function DatabaseMenuBar({ selectedDatabase, selectedTable }: DatabaseMen
       window.removeEventListener(OPEN_SETTINGS_MODAL_EVENT, openSettings); window.removeEventListener('coreor:open-automation-center', openAutomation);
       window.removeEventListener('coreor:open-intelligence-center', openIntelligence); window.removeEventListener(OPEN_MAINTENANCE_CENTER_EVENT, openMaintenance);
     };
-  }, []);
+  }, [setActiveServerId]);
 
   const connect = async () => {
     if (!activeServer || !workspaceKey || busy) return;

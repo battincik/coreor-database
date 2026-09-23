@@ -150,7 +150,7 @@ export function DatabaseNotificationMonitor() {
         onOpen: () => openArchivedNotification(archived.id)
       });
     }
-  }, [activities, preferences.liveNotifications]);
+  }, [activities, preferences.liveNotifications, t]);
 
   useEffect(() => {
     if (!preferences.liveNotifications || !server || !workspaceKey || databaseEngineFamily(server.databaseType) !== 'mysql') return;
@@ -265,7 +265,7 @@ export function DatabaseNotificationMonitor() {
     const timer = window.setInterval(() => void evaluate(), Math.max(3, preferences.performanceRefreshSeconds) * 1000);
     document.addEventListener('visibilitychange', onVisibility);
     return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisibility); };
-  }, [preferences.liveNotifications, preferences.performanceRefreshSeconds, server, workspaceKey]);
+  }, [preferences.liveNotifications, preferences.performanceRefreshSeconds, server, workspaceKey, formatDate, language, t]);
 
   return null;
 }

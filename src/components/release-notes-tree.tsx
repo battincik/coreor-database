@@ -196,7 +196,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
   const [openMajors, setOpenMajors] = useState<Set<string>>(new Set());
   const [openReleases, setOpenReleases] = useState<Set<number>>(new Set());
 
-  const load = useCallback(async (_fresh = false) => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -213,7 +213,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
   }, []);
 
   useEffect(() => {
-    void load(false);
+    void load();
   }, [load]);
 
   const filtered = useMemo(() => {
@@ -278,7 +278,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
         <AlertTriangle className="mx-auto h-6 w-6 text-red-300" />
         <div className="mt-3 text-sm font-semibold">Sürüm geçmişi yüklenemedi</div>
         <p className="mt-2 text-xs text-zinc-500">{error}</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => void load(true)}>
+        <Button variant="outline" size="sm" className="mt-4" onClick={() => void load()}>
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
           Tekrar dene
         </Button>
@@ -297,7 +297,7 @@ export function ReleaseNotesTree({ compact = false, className = '' }: ReleaseNot
             <h2 className={`mt-2 font-semibold tracking-tight ${compact ? 'text-xl' : 'text-3xl'}`}>Coreor Database değişiklik geçmişi</h2>
             <p className="mt-2 max-w-3xl text-[11px] leading-6 text-zinc-400">Her sürüm tek pull request ile ilerler. Bu nedenle sürüm ve PR artık aynı ağaç satırında gösterilir; satırı açtığınızda doğrudan o sürümün tüm ayrıntılarına ulaşırsınız.</p>
           </div>
-          <Button variant="outline" size="sm" className="h-8 text-[10px]" disabled={loading} onClick={() => void load(true)}>
+          <Button variant="outline" size="sm" className="h-8 text-[10px]" disabled={loading} onClick={() => void load()}>
             {loading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1.5 h-3.5 w-3.5" />}Yenile
           </Button>
         </div>

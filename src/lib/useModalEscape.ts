@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 
-let modalSequence = 0;
 const modalStack: string[] = [];
 
 function removeFromStack(id: string) {
@@ -11,14 +10,13 @@ function removeFromStack(id: string) {
 }
 
 export function useModalEscape(open: boolean, onClose: () => void, disabled = false) {
-  const idRef = useRef('');
+  const id = useId();
   const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-  if (!idRef.current) idRef.current = `coreor-modal-${++modalSequence}`;
+
+  useLayoutEffect(() => { closeRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
-    const id = idRef.current;
     removeFromStack(id);
     modalStack.push(id);
 
@@ -35,5 +33,5 @@ export function useModalEscape(open: boolean, onClose: () => void, disabled = fa
       window.removeEventListener('keydown', handler, true);
       removeFromStack(id);
     };
-  }, [open, disabled]);
+  }, [open, disabled, id]);
 }

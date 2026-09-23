@@ -241,7 +241,6 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
   };
   if (!open || typeof document === 'undefined') return null;
 
-  let lastCategory: PaletteItem['category'] | null = null;
   const sqlMode = query.trimStart().startsWith('>');
   return createPortal(
     <div className="fixed inset-0 z-[640] flex items-start justify-center px-4 pt-[10vh]">
@@ -289,8 +288,7 @@ export function DatabaseCommandPalette({ servers, activeServerId, selectedDataba
             </div>
           )}
           {visibleItems.map((item, index) => {
-            const showCategory = lastCategory !== item.category;
-            lastCategory = item.category;
+            const showCategory = index === 0 || visibleItems[index - 1].category !== item.category;
             return (
               <React.Fragment key={item.id}>
                 {showCategory && <div className="px-2 pb-1 pt-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-600">{t(`commandPalette.category.${item.category}`)}</div>}

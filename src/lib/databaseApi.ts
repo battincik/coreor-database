@@ -43,12 +43,6 @@ export interface DatabaseServerCatalogItem extends DatabaseServerConfig {
   databases: DatabaseCatalogItem[];
 }
 
-interface DatabaseErrorPayload {
-  error?: string;
-  message?: string;
-  _meta?: DatabaseQueryMeta;
-}
-
 interface ProfileMutationResult<T> {
   servers: DatabaseServerConfig[];
   result: T;
