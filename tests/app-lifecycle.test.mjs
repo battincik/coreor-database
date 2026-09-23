@@ -28,6 +28,29 @@ test('dirty editor blocks installation even without network traffic', () => {
   assert.throws(() => gate.lock(), /UPDATE_ACTIVE_WORK/);
   clean(); gate.lock()();
 });
+test('activity notifications are deferred, coalesced and releases are idempotent', async () => {
+  const gate = createActivityGate();
+  let notifications = 0;
+  const unsubscribe = gate.subscribe(() => { notifications++; });
+
+  const first = gate.begin();
+  const second = gate.begin();
+  assert.equal(gate.count(), 2);
+  assert.equal(notifications, 0);
+
+  await Promise.resolve();
+  assert.equal(notifications, 1);
+
+  first();
+  first();
+  second();
+  assert.equal(gate.count(), 0);
+  assert.equal(notifications, 1);
+
+  await Promise.resolve();
+  assert.equal(notifications, 2);
+  unsubscribe();
+});
 test('report excludes SQL, credentials, URLs, paths and raw messages; deduplicates', async () => {
   const events = [];
   const { reportAppError } = load('src/lib/errorReporting.ts', { '@tauri-apps/api/core': { invoke: async (...args) => events.push(args) } }, { window: { __TAURI_INTERNALS__: {} } });
