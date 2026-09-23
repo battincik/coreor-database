@@ -3,7 +3,8 @@
   "identifier": "default",
   "description": "Coreor Database cross-platform native window permissions",
   "windows": [
-    "main"
+    "main",
+    "updater"
   ],
   "permissions": [
     "core:default",
