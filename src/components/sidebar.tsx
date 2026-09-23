@@ -189,7 +189,7 @@ function useDatabaseEncodingOptions(server: DatabaseServerConfig | null, account
       if (!cancelled) setError(failure instanceof Error ? failure.message : t('sidebar.databaseOptionsFailed'));
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [server?.id, server?.databaseType, accountId, enabled, t]);
+  }, [server, accountId, enabled, t]);
 
   return { charsets, collations, loading, error };
 }
@@ -599,7 +599,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       }).filter(database => database.databaseOwnMatch || database.objectMatches.length > 0);
       return { ...server, databases, serverOwnMatch };
     }).filter(server => server.serverOwnMatch || Boolean(server.databases?.length)),
-    [servers, normalizedSearch, databaseObjects, searchTypeEnabled]
+    [servers, normalizedSearch, databaseObjects, searchTypeEnabled, language]
   );
 
   const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, value: string, force?: boolean) =>
@@ -720,11 +720,12 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
       }, 250);
       metadataRefreshTimersRef.current.set(key, timer);
     };
+    const refreshTimers = metadataRefreshTimersRef.current;
     window.addEventListener('coreor:database-metadata-invalidated', handleInvalidation);
     return () => {
       window.removeEventListener('coreor:database-metadata-invalidated', handleInvalidation);
-      for (const timer of metadataRefreshTimersRef.current.values()) window.clearTimeout(timer);
-      metadataRefreshTimersRef.current.clear();
+      for (const timer of refreshTimers.values()) window.clearTimeout(timer);
+      refreshTimers.clear();
     };
   }, [servers, refreshMetadata]);
 
@@ -798,7 +799,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         onOpen: () => window.dispatchEvent(new CustomEvent('coreor:open-notification', { detail: { id: notification.id } }))
       });
     }
-  }, [workspaceKey, loadServers, toast]);
+  }, [workspaceKey, loadServers, toast, compactBytes, t]);
 
   const recalculateTableSize = useCallback(async (server: DatabaseServerConfig, database: string, table: string) => {
     if (!workspaceKey) return;
@@ -843,7 +844,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         onOpen: () => window.dispatchEvent(new CustomEvent('coreor:open-notification', { detail: { id: notification.id } }))
       });
     }
-  }, [workspaceKey, loadServers, toast]);
+  }, [workspaceKey, loadServers, toast, compactBytes, language, t]);
 
   const recalculateServerSizes = useCallback(async (server: DatabaseServerConfig) => {
     if (!workspaceKey) return;
@@ -889,7 +890,7 @@ export default function Sidebar({ onDatabaseSelect, onTableSelect, selectedDatab
         onOpen: () => window.dispatchEvent(new CustomEvent('coreor:open-notification', { detail: { id: notification.id } }))
       });
     }
-  }, [workspaceKey, loadServers, toast]);
+  }, [workspaceKey, loadServers, toast, formatNumber, t]);
 
   const serverMenu = (event: React.MouseEvent, server: DatabaseServerConfig) =>
     openContextMenu(

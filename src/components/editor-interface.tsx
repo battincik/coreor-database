@@ -79,7 +79,7 @@ function EditorWorkspace() {
     };
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [activeServer, activeServerId, selectedDatabase, selectedTable, activeTab]);
+  }, [activeServer, activeServerId, selectedDatabase, selectedTable, activeTab, t]);
 
   useEffect(() => {
     const handler = (event: Event) => {

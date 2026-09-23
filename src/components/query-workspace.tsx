@@ -206,7 +206,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
   const [resultHeight, setResultHeight] = useState(300);
 
   const selectedServer = useMemo(() => servers.find(server => server.id === tab.serverId) ?? servers[0] ?? null, [servers, tab.serverId]);
-  const databases = selectedServer?.databases || [];
+  const databases = useMemo(() => selectedServer?.databases || [], [selectedServer]);
   const selectedDatabase = databases.find(database => database.name === tab.databaseName) || null;
   const engine = selectedServer?.databaseType || 'mysql';
   const supportsProtocolSelection = engine === 'mysql' || engine === 'mariadb' || engine === 'tidb';
@@ -282,7 +282,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       })
     );
     return () => { cancelled = true; };
-  }, [preferences.autocomplete, selectedServer?.id, tab.databaseName, accountId, referencedTables, columnCache]);
+  }, [preferences.autocomplete, selectedServer, tab.databaseName, accountId, referencedTables, columnCache]);
 
   const diagnostics = useMemo(() => selectedServer ? analyzeSqlDocument(tab.sql, { engine, currentDatabase: tab.databaseName, databases, tableInfo: columnCache }) : [], [tab.sql, engine, tab.databaseName, databases, columnCache, selectedServer]);
   const diagnosticCounts = useMemo(() => ({ errors: diagnostics.filter(item => item.severity === 'error').length, warnings: diagnostics.filter(item => item.severity === 'warning').length, info: diagnostics.filter(item => item.severity === 'info').length }), [diagnostics]);
@@ -318,7 +318,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     } catch { /* tableInfo remains useful */ }
     schemaSnapshots.add({ id: automationId('snapshot'), serverId: selectedServer.id, databaseName: tab.databaseName, tableName, engine, createdAt: new Date().toISOString(), reason: t('queryWorkspace.snapshotBeforeAlter'), alterSql: statement, createSql, tableInfo });
     migrationDrafts.save({ id: automationId('migration'), serverId: selectedServer.id, databaseName: tab.databaseName, name: `${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}_${tableName}_alter`, createdAt: new Date().toISOString(), upSql: `${statement};`, downSql: createSql ? `-- ${t('queryWorkspace.previousCreateDefinition')}\n${createSql}` : t('queryWorkspace.downSqlManual'), source: 'query', status: 'draft' });
-  }, [preferences.autoSchemaSnapshots, selectedServer, accountId, tab.databaseName, engine]);
+  }, [preferences.autoSchemaSnapshots, selectedServer, accountId, tab.databaseName, engine, t]);
 
   const requiresApproval = useCallback((statement: string) => {
     const type = operationType(statement); if (!type || !preferences.requireSecondApproval) return false;
@@ -329,7 +329,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     window.dispatchEvent(new CustomEvent('coreor:open-automation-center', { detail: { tab: 'approvals' } }));
     onChange({ error: t('queryWorkspace.sentForApproval'), isRunning: false });
     return true;
-  }, [preferences.requireSecondApproval, preferences.productionAlterApproval, selectedServer?.id, tab.databaseName, onChange]);
+  }, [preferences.requireSecondApproval, preferences.productionAlterApproval, selectedServer?.id, tab.databaseName, onChange, t]);
 
   const assertWritable = useCallback((statements: string[]) => {
     const write = statements.find(isWriteStatement);
@@ -338,7 +338,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     onChange({ isRunning: false, error: message });
     toast.show({ variant: 'warning', title: t('queryWorkspace.readOnlyConnection'), description: message, metadata: [{ label: t('queryWorkspace.blockedSql'), value: queryTitle(write) }] });
     return false;
-  }, [selectedServer, onChange, toast]);
+  }, [selectedServer, onChange, toast, t]);
 
   const executeStatements = useCallback(async (statements: string[]) => {
     if (!selectedServer || !accountId || !assertWritable(statements)) return;
@@ -384,7 +384,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       }));
     }
     const first = sets[0]; onChange({ isRunning: false, error: first?.error || null, result: first?.result || null, updatedAt: new Date().toISOString() });
-  }, [selectedServer, accountId, tab.databaseName, tab.sql, executionMode, preferences.queryResultLimit, onChange, requiresApproval, takeSnapshot, assertWritable]);
+  }, [selectedServer, accountId, tab.databaseName, tab.sql, executionMode, preferences.queryResultLimit, onChange, requiresApproval, takeSnapshot, assertWritable, t]);
 
   const executeNow = useCallback(async (skipDryRun = false) => {
     if (!selectedServer || !accountId || tab.isRunning || !tab.sql.trim()) return;
@@ -404,7 +404,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       }
     }
     await executeStatements(statements);
-  }, [selectedServer, accountId, tab.isRunning, tab.sql, tab.databaseName, executionMode, preferences.dryRunMutations, preferences.queryResultLimit, onChange, recordHistory, executeStatements, assertWritable]);
+  }, [selectedServer, accountId, tab.isRunning, tab.sql, tab.databaseName, executionMode, preferences.dryRunMutations, preferences.queryResultLimit, onChange, recordHistory, executeStatements, assertWritable, t]);
 
   const runQuery = useCallback(() => {
     const statements = splitStatements(tab.sql);
@@ -419,7 +419,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       setConfirmation({ title: t('queryWorkspace.safeSqlValidation'), description: t('query.dangerousConfirm'), expectedText: t('queryWorkspace.executeUpper'), sql: tab.sql, confirmLabel: t('queryWorkspace.continueSecurity'), onConfirm: () => void executeNow() }); return;
     }
     void executeNow();
-  }, [preferences.confirmDangerousQueries, tab.sql, executeNow, diagnostics, toast, assertWritable]);
+  }, [preferences.confirmDangerousQueries, tab.sql, executeNow, diagnostics, toast, assertWritable, t]);
 
   useEffect(() => { if (tab.runImmediately && !autoRunHandled.current) { autoRunHandled.current = true; runQuery(); } }, [tab.runImmediately, runQuery]);
   useEffect(() => { autoRunHandled.current = false; }, [tab.id]);

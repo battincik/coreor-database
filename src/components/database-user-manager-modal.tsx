@@ -1,7 +1,7 @@
 'use client';
 
 import { useModalEscape } from '@/lib/useModalEscape';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Copy, Loader2, Plus, RefreshCw, Save, Shield, Trash2, UserCog, Users, X } from 'lucide-react';
 import type { DatabaseCatalogItem } from 'types';
@@ -77,7 +77,8 @@ export function DatabaseUserManagerModal({ open, onClose, serverId, accountId, d
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { if (open) void load(); }, [open, serverId, accountId]);
+  const loadForTarget = useEffectEvent(load);
+  useEffect(() => { if (open) void loadForTarget(); }, [open, serverId, accountId]);
   useEffect(() => {
     if (!selected || !serverId || !accountId) { setGrants([]); return; }
     setUserDraft({ user: selected.user, host: selected.host, password: '', accountLocked: selected.accountLocked, passwordExpired: selected.passwordExpired });

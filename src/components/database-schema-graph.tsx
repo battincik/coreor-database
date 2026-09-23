@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, Code, Columns3, Copy, Database, Focus, KeyRound, Link2, Loader2, Maximize2,
   Move, Plus, RefreshCw, RotateCcw, Table2, Unlink, ZoomIn, ZoomOut
@@ -332,7 +332,8 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { void load(); }, [serverId, databaseName, accountId]);
+  const loadForTarget = useEffectEvent(load);
+  useEffect(() => { void loadForTarget(); }, [serverId, databaseName, accountId]);
   useEffect(() => { if (Object.keys(positions).length) persistPositions(serverId, databaseName, positions); }, [positions, serverId, databaseName]);
   useEffect(() => { panRef.current = pan; }, [pan]);
 

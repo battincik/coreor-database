@@ -1,5 +1,6 @@
 'use client';
 import { AppMaintenanceSettings } from '@/components/app-maintenance-settings';
+import Image from 'next/image';
 
 import { useModalEscape } from '@/lib/useModalEscape';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
@@ -145,7 +146,7 @@ export function DatabaseSettingsModal({ open, onClose, initialTab = 'account' }:
   const activeServer = servers.find(server => server.id === activeServerId) || null;
   const totalDatabases = servers.reduce((sum, server) => sum + (server.databases?.length || 0), 0);
   const totalTables = servers.reduce((sum, server) => sum + (server.databases || []).reduce((value, database) => value + database.tableCount, 0), 0);
-  const device = useMemo(() => ({ platform: `${platformDisplayName(platform.os)} • ${platform.arch}`, language: typeof navigator === 'undefined' ? '—' : navigator.language, online: typeof navigator === 'undefined' ? true : navigator.onLine }), [open, platform.os, platform.arch]);
+  const device = useMemo(() => ({ platform: `${platformDisplayName(platform.os)} • ${platform.arch}`, language: typeof navigator === 'undefined' ? '—' : navigator.language, online: typeof navigator === 'undefined' ? true : navigator.onLine }), [platform.os, platform.arch]);
   if (!mounted || !open) return null;
   const activeTab = TABS.find(item => item.id === tab) || TABS[0];
   const ActiveIcon = activeTab.icon;
@@ -162,7 +163,7 @@ export function DatabaseSettingsModal({ open, onClose, initialTab = 'account' }:
         <main className="flex min-h-0 min-w-0 flex-col overflow-hidden">
           <header className="flex h-16 items-center gap-3 border-b border-zinc-800 px-5"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-800"><ActiveIcon className="h-4 w-4 text-cyan-400" /></span><div className="min-w-0 flex-1"><h2 className="text-sm font-semibold">{t(activeTab.labelKey)}</h2><p className="text-[9px] text-zinc-600">{t(activeTab.descriptionKey)}</p></div><Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button></header>
           <div className="coreor-table-scroll min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-5">
-            {tab === 'account' && <div className="space-y-4"><section className="rounded-2xl border border-cyan-500/15 bg-gradient-to-br from-cyan-500/[0.07] via-transparent to-purple-500/[0.05] p-5"><div className="flex items-center gap-4">{user?.image ? <img src={user.image} alt="" className="h-16 w-16 rounded-2xl border border-zinc-700 object-cover" /> : <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-700"><UserRound className="h-7 w-7" /></div>}<div><h3 className="text-lg font-semibold">{user?.name || t('settingsCatalog.account.userFallback')}</h3><div className="text-[10px] text-zinc-500">{user?.email || t('settingsCatalog.account.emailUnavailable')}</div></div></div><div className="mt-5 grid gap-2 sm:grid-cols-4">{[
+            {tab === 'account' && <div className="space-y-4"><section className="rounded-2xl border border-cyan-500/15 bg-gradient-to-br from-cyan-500/[0.07] via-transparent to-purple-500/[0.05] p-5"><div className="flex items-center gap-4">{user?.image ? <Image src={user.image} alt="" width={64} height={64} unoptimized className="h-16 w-16 rounded-2xl border border-zinc-700 object-cover" /> : <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-700"><UserRound className="h-7 w-7" /></div>}<div><h3 className="text-lg font-semibold">{user?.name || t('settingsCatalog.account.userFallback')}</h3><div className="text-[10px] text-zinc-500">{user?.email || t('settingsCatalog.account.emailUnavailable')}</div></div></div><div className="mt-5 grid gap-2 sm:grid-cols-4">{[
               { icon: GitBranch, label: t('settingsCatalog.account.account'), value: user?.id || workspaceKey?.slice(0, 12) || '—' },
               { icon: Laptop, label: t('settingsCatalog.monitoring.device'), value: device.platform },
               { icon: Wifi, label: t('app.language'), value: device.language },
