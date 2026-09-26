@@ -57,7 +57,7 @@ jobs:
       - run: npm run tauri:build -- ${{ matrix.args }}
       - name: Upload Windows bundles
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           if-no-files-found: error
@@ -66,7 +66,7 @@ jobs:
             src-tauri/target/release/bundle/msi/*.msi
       - name: Upload Linux bundles
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           if-no-files-found: error
@@ -76,7 +76,7 @@ jobs:
             src-tauri/target/release/bundle/appimage/*.AppImage
       - name: Upload macOS bundles
         if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           if-no-files-found: error
