@@ -4,7 +4,15 @@ export function createActivityGate() {
   const blockers = new Set<symbol>();
   const listeners = new Set<() => void>();
   let installing = false;
-  const emit = () => listeners.forEach(listener => listener());
+  let emitQueued = false;
+  const emit = () => {
+    if (emitQueued) return;
+    emitQueued = true;
+    queueMicrotask(() => {
+      emitQueued = false;
+      listeners.forEach(listener => listener());
+    });
+  };
   return {
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     count: () => jobs.size + blockers.size,
