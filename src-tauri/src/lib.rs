@@ -8,7 +8,7 @@ mod window_state;
 
 use database::DatabaseRequest;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::{fs, fs::OpenOptions, io::Write, path::PathBuf, sync::{Mutex, OnceLock}, time::Duration};
 use tauri::{Manager, State};
 use transactions::TransactionStore;
@@ -242,7 +242,6 @@ fn cloud_vault_readiness() -> Value {
     secure_vault::cloud_readiness_metadata()
 }
 
-
 #[tauri::command]
 fn workspace_read(app: tauri::AppHandle, collection: String, scope: String) -> Result<Vec<Value>, String> {
     let _work = app_updates::work_lease(&app)?;
@@ -264,7 +263,6 @@ fn workspace_sync_manifest(app: tauri::AppHandle) -> Result<Value, String> {
     secure_vault::workspace_sync_manifest(&app)
 }
 
-
 #[tauri::command]
 fn workspace_sync_export(app: tauri::AppHandle) -> Result<Value, String> {
     let _work = app_updates::work_lease(&app)?;
@@ -275,6 +273,54 @@ fn workspace_sync_export(app: tauri::AppHandle) -> Result<Value, String> {
 fn workspace_sync_merge(app: tauri::AppHandle, remote: Value) -> Result<Value, String> {
     let _work = app_updates::work_lease(&app)?;
     secure_vault::workspace_sync_merge(&app, remote)
+}
+
+async fn execute_query_batch(mut request: DatabaseRequest, max_rows: usize) -> Result<Value, String> {
+    let connection = request.connection.take().ok_or_else(|| "Bağlantı bilgisi eksik.".to_string())?;
+    let database_name = request.payload.get("database").and_then(Value::as_str).map(ToOwned::to_owned);
+    let statements = request.payload.get("statements")
+        .and_then(Value::as_array)
+        .map(|items| items.iter().filter_map(Value::as_str).map(str::trim).filter(|item| !item.is_empty()).map(ToOwned::to_owned).collect::<Vec<_>>())
+        .unwrap_or_default();
+    if statements.is_empty() {
+        return Err("Çalıştırılacak SQL ifadesi bulunamadı.".into());
+    }
+
+    let requested_limit = request.payload.get("resultLimit").and_then(Value::as_u64).unwrap_or(max_rows as u64) as usize;
+    let result_limit = requested_limit.clamp(1, max_rows.max(1));
+    let execution_mode = match request.payload.get("executionMode").and_then(Value::as_str) {
+        Some("prepared") => database::QueryExecutionMode::Prepared,
+        _ => database::QueryExecutionMode::Text,
+    };
+    let database = database_name.as_deref().or(connection.database.as_deref());
+    let mut native = database::open_native(&connection, database).await?;
+    let mut results = Vec::with_capacity(statements.len());
+
+    for (index, statement) in statements.iter().enumerate() {
+        if connection.read_only && database::is_mutating(statement) {
+            return Ok(json!({
+                "results": results,
+                "error": {
+                    "statementIndex": index + 1,
+                    "message": "Bu bağlantı salt okunur modda."
+                }
+            }));
+        }
+        match database::execute_on_mode(&mut native, statement, result_limit, execution_mode).await {
+            Ok(result) => results.push(json!({ "statementIndex": index + 1, "result": result })),
+            Err(error) => {
+                return Ok(json!({
+                    "results": results,
+                    "error": {
+                        "statementIndex": index + 1,
+                        "message": error
+                    }
+                }));
+            }
+        }
+    }
+
+    Ok(json!({ "results": results }))
 }
 
 #[tauri::command]
@@ -293,6 +339,15 @@ async fn database_request(
             })?;
             connection.password = secure_vault::password_for_server(&app, server_id)?;
         }
+    }
+
+    if request.action == "query-batch" {
+        return tokio::time::timeout(
+            Duration::from_millis(config.query_timeout_ms),
+            execute_query_batch(request, config.max_result_rows),
+        )
+        .await
+        .map_err(|_| "SQL betiği zaman aşımına uğradı.".to_string())?;
     }
 
     if transactions::is_transaction_action(&request.action) {

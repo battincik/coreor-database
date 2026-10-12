@@ -29,6 +29,7 @@ export interface AppPreferences {
   autoRefreshProcesses: boolean;
   confirmDangerousQueries: boolean;
   dryRunMutations: boolean;
+  splitStatementExecution: boolean;
   requireSecondApproval: boolean;
   productionAlterApproval: boolean;
   autoSchemaSnapshots: boolean;
@@ -49,15 +50,15 @@ export interface AppPreferences {
   activityLogInfo: boolean;
 }
 
-const STORAGE_KEY = 'coreor:app-preferences:v9';
-const LEGACY_STORAGE_KEYS = ['coreor:app-preferences:v8', 'coreor:app-preferences:v7', 'coreor:app-preferences:v6', 'coreor:app-preferences:v5', 'coreor:app-preferences:v4', 'coreor:app-preferences:v3'];
+const STORAGE_KEY = 'coreor:app-preferences:v10';
+const LEGACY_STORAGE_KEYS = ['coreor:app-preferences:v9', 'coreor:app-preferences:v8', 'coreor:app-preferences:v7', 'coreor:app-preferences:v6', 'coreor:app-preferences:v5', 'coreor:app-preferences:v4', 'coreor:app-preferences:v3'];
 const listeners = new Set<() => void>();
 const DEFAULTS: AppPreferences = {
   theme: 'amoled', syntaxTheme: 'coreor', fontFamily: 'system', uiFontSize: 12,
   editorFontSize: 13, consoleFontSize: 9, lineHeight: 1.55, compactMode: true,
   sidebarSize: 20, objectExplorerGrouped: true, objectExplorerDetails: true, reducedMotion: false, strongFocusRing: true, highContrastBorders: false,
   dyslexiaSpacing: false, colorBlindMode: 'none', autocomplete: true,
-  autoRefreshProcesses: false, confirmDangerousQueries: true, dryRunMutations: true,
+  autoRefreshProcesses: false, confirmDangerousQueries: true, dryRunMutations: true, splitStatementExecution: false,
   requireSecondApproval: true, productionAlterApproval: true, autoSchemaSnapshots: true,
   queryResultLimit: 5000, importBatchSize: 250, rememberPanelSizes: true, rememberQueryWorkspace: true,
   defaultReadOnlyConnections: false, liveNotifications: true, performanceRefreshSeconds: 10,

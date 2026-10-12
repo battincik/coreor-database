@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/LanguageContext';
 import { DatabaseMenuBar } from '@/components/database-menu-bar';
@@ -173,6 +173,7 @@ function NotificationHistoryContent() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread' | 'warning' | 'error'>('all');
+  const returnToEditor = useCallback(() => router.replace('/editor'), [router]);
 
   useEffect(() => {
     const onEscape = (event: KeyboardEvent) => {
@@ -180,11 +181,11 @@ function NotificationHistoryContent() {
       // Modal Escape handlers run in capture phase and stop propagation first.
       // If only a context menu is open, let the first Escape close that menu.
       if (document.querySelector('[data-coreor-context-menu="true"]')) return;
-      router.push('/editor/');
+      returnToEditor();
     };
     window.addEventListener('keydown', onEscape);
     return () => window.removeEventListener('keydown', onEscape);
-  }, [router]);
+  }, [returnToEditor]);
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('id');
@@ -212,7 +213,7 @@ function NotificationHistoryContent() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-zinc-950 text-zinc-100">
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-zinc-800 px-3">
-        <Button variant="ghost" size="sm" className="h-8 px-2 text-[10px]" onClick={() => router.push('/editor/')}><ArrowLeft className="mr-1.5 h-3.5 w-3.5" />{t('notificationCenter.backToEditor')}</Button>
+        <Button variant="ghost" size="sm" className="h-8 px-2 text-[10px]" onClick={returnToEditor}><ArrowLeft className="mr-1.5 h-3.5 w-3.5" />{t('notificationCenter.backToEditor')}</Button>
         <Bell className="h-4 w-4 text-cyan-400" />
         <div className="min-w-0 flex-1"><div className="text-[12px] font-semibold">{t('notificationCenter.title')}</div><div className="text-[8px] text-zinc-600">{t('notificationCenter.summary', { total: notifications.length, unread })}</div></div>
         <Button variant="ghost" size="sm" className="h-8 text-[9px]" onClick={markAllNotificationsRead}><CheckCheck className="mr-1.5 h-3.5 w-3.5" />{t('notificationCenter.markAllReadShort')}</Button>

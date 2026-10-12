@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import type { DatabaseQueryExecutionMode, DatabaseServerConfig, EditorQueryTab, QueryExecutionResult, TableInfo } from 'types';
 import { executeDatabaseQuery, fetchTableInfo } from '@/lib/databaseApi';
+import { executeDatabaseQueryBatch } from '@/lib/databaseBatchApi';
 import { databaseEngineDefinition, quoteDatabaseIdentifier } from '@/lib/databaseEngines';
 import { useAppContextMenu } from '@/components/app-context-menu';
 import { Button } from '@/components/ui/button';
@@ -228,6 +229,22 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       badge: 'COM_STMT'
     }
   ], [t]);
+  const scriptExecutionOptions = useMemo<SearchSelectOption[]>(() => {
+    const turkish = language.toLocaleLowerCase().startsWith('tr');
+    return [
+      {
+        value: 'session',
+        label: turkish ? 'Tek oturum' : 'Single session',
+        description: turkish ? 'Tüm ifadeleri aynı veritabanı oturumunda sırayla çalıştırır.' : 'Runs all statements sequentially on the same database session.',
+        badge: turkish ? 'Varsayılan' : 'Default'
+      },
+      {
+        value: 'split',
+        label: turkish ? 'Parçalı' : 'Split',
+        description: turkish ? 'Her SQL ifadesini ayrı bağlantı isteği olarak çalıştırır.' : 'Runs each SQL statement as a separate connection request.'
+      }
+    ];
+  }, [language]);
   const queryLimitOptions = useMemo<SearchSelectOption<number>[]>(() => [100, 250, 500, 1000, 2000, 5000, 10000, 25000, 50000].map(value => ({
     value,
     label: t('queryWorkspace.resultLimitRows', { count: formatNumber(value) }),
@@ -386,6 +403,59 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     const first = sets[0]; onChange({ isRunning: false, error: first?.error || null, result: first?.result || null, updatedAt: new Date().toISOString() });
   }, [selectedServer, accountId, tab.databaseName, tab.sql, executionMode, preferences.queryResultLimit, onChange, requiresApproval, takeSnapshot, assertWritable, t]);
 
+  const executeBatchStatements = useCallback(async (statements: string[]) => {
+    if (!selectedServer || !accountId || !assertWritable(statements)) return;
+    onChange({ isRunning: true, error: null, runImmediately: false, serverId: selectedServer.id });
+    const locations = locateStatements(tab.sql, statements);
+    for (const statement of statements) {
+      if (requiresApproval(statement)) return;
+      await takeSnapshot(statement);
+    }
+
+    const sets: ResultSet[] = [];
+    let metadataRefreshRequested = false;
+    let metadataDatabase: string | null = tab.databaseName;
+    try {
+      const response = await executeDatabaseQueryBatch(selectedServer.id, statements, accountId, tab.databaseName, {
+        executionMode,
+        resultLimit: preferences.queryResultLimit,
+        statementStartLines: locations.map(item => item.startLine)
+      });
+      for (const item of response.results || []) {
+        const index = Math.max(0, item.statementIndex - 1);
+        const statement = statements[index] || '';
+        sets.push({ id: createId('result'), sql: statement, label: t('queryWorkspace.resultNumber', { number: item.statementIndex }), result: item.result, error: null });
+        const refreshScope = metadataMutationScope(statement, tab.databaseName);
+        if (refreshScope !== undefined) {
+          metadataRefreshRequested = true;
+          if (refreshScope === null) metadataDatabase = null;
+        }
+      }
+      if (response.error) {
+        const index = Math.max(0, response.error.statementIndex - 1);
+        sets.push({
+          id: createId('result'),
+          sql: statements[index] || '',
+          label: t('queryWorkspace.resultNumber', { number: response.error.statementIndex }),
+          result: null,
+          error: response.error.message
+        });
+      }
+    } catch (error) {
+      sets.push({ id: createId('result'), sql: tab.sql, label: t('queryWorkspace.result'), result: null, error: error instanceof Error ? error.message : t('queryWorkspace.queryFailed') });
+    }
+
+    setResultSets(sets); setActiveResultId(sets[0]?.id || null);
+    if (metadataRefreshRequested) {
+      window.dispatchEvent(new CustomEvent('coreor:database-metadata-invalidated', {
+        detail: { serverId: selectedServer.id, databaseName: metadataDatabase }
+      }));
+    }
+    const failed = sets.find(item => item.error);
+    const first = sets[0];
+    onChange({ isRunning: false, error: failed?.error || null, result: first?.result || null, updatedAt: new Date().toISOString() });
+  }, [selectedServer, accountId, assertWritable, onChange, tab.sql, tab.databaseName, requiresApproval, takeSnapshot, executionMode, preferences.queryResultLimit, t]);
+
   const executeNow = useCallback(async (skipDryRun = false) => {
     if (!selectedServer || !accountId || tab.isRunning || !tab.sql.trim()) return;
     const statements = splitStatements(tab.sql); recordHistory(tab.sql);
@@ -403,8 +473,9 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
         return;
       }
     }
-    await executeStatements(statements);
-  }, [selectedServer, accountId, tab.isRunning, tab.sql, tab.databaseName, executionMode, preferences.dryRunMutations, preferences.queryResultLimit, onChange, recordHistory, executeStatements, assertWritable, t]);
+    if (preferences.splitStatementExecution || statements.length === 1) await executeStatements(statements);
+    else await executeBatchStatements(statements);
+  }, [selectedServer, accountId, tab.isRunning, tab.sql, tab.databaseName, executionMode, preferences.dryRunMutations, preferences.splitStatementExecution, preferences.queryResultLimit, onChange, recordHistory, executeStatements, executeBatchStatements, assertWritable, t]);
 
   const runQuery = useCallback(() => {
     const statements = splitStatements(tab.sql);
@@ -505,6 +576,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       <div className="w-48 shrink-0"><SearchSelect value={selectedServer?.id || ''} options={serverOptions} onValueChange={serverId => onChange({ serverId: serverId || null, databaseName: null, executionMode: 'text', result: null })} triggerClassName="h-7 min-h-7" showDescriptionInTrigger={false}/></div>
       <div className="w-52 shrink-0"><SearchSelect value={tab.databaseName || ''} options={databaseOptions} onValueChange={databaseName => onChange({ databaseName: databaseName || null, result: null })} triggerClassName="h-7 min-h-7" showDescriptionInTrigger={false}/></div>
       {supportsProtocolSelection && <div className="w-44 shrink-0"><SearchSelect value={executionMode} options={executionModeOptions} onValueChange={value => onChange({ executionMode: value === 'prepared' ? 'prepared' : 'text', result: null })} triggerClassName="h-7 min-h-7 font-mono" showDescriptionInTrigger={false}/></div>}
+      <div className="w-40 shrink-0"><SearchSelect value={preferences.splitStatementExecution ? 'split' : 'session'} options={scriptExecutionOptions} onValueChange={value => setPreferences({ splitStatementExecution: value === 'split' })} triggerClassName="h-7 min-h-7" showDescriptionInTrigger={false}/></div>
       <div className="w-40 shrink-0"><SearchSelect key={`query-limit-${preferences.queryResultLimit}`} value={preferences.queryResultLimit} options={queryLimitOptions} onValueChange={value => setPreferences({ queryResultLimit: value })} triggerClassName="h-7 min-h-7 font-mono" showDescriptionInTrigger={false}/></div>
       <span className="ml-auto flex items-center gap-2 text-[9px] text-zinc-600">{selectedServer?.readOnly && <span className="rounded bg-amber-500/10 px-2 py-1 text-amber-300">READ ONLY</span>}<span className={preferences.dryRunMutations ? 'text-emerald-400' : ''}>Dry-run {preferences.dryRunMutations ? t('queryWorkspace.enabled') : t('queryWorkspace.disabled')}</span><span>•</span><span>{preferences.autoSchemaSnapshots ? t('query.snapshotEnabled') : t('queryWorkspace.snapshotOff')}</span></span>
     </div>
