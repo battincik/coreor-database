@@ -1,54 +1,32 @@
 /* Large workbench dialogs should never behave like full-screen sheets on desktop.
-   Keep adaptive outer gutters while preserving each modal's own max-width/max-height. */
+   Apply the gutter to every centered overlay so newly added workbench modals inherit it too. */
 @media (min-width: 768px) {
-  body > div.fixed.inset-0:is(
-    [class*="z-[320]"],
-    [class*="z-[325]"],
-    [class*="z-[329]"],
-    [class*="z-[332]"],
-    [class*="z-[340]"],
-    [class*="z-[350]"]
-  ) {
+  body > div.fixed.inset-0.flex.items-center.justify-center {
     padding: clamp(20px, 3.5vw, 56px) !important;
   }
 
-  body > div.fixed.inset-0:is(
-    [class*="z-[320]"],
-    [class*="z-[325]"],
-    [class*="z-[329]"],
-    [class*="z-[332]"],
-    [class*="z-[340]"],
-    [class*="z-[350]"]
-  ) > div.relative {
+  body > div.fixed.inset-0.flex.items-center.justify-center > div.relative[class*="100vw"] {
     width: calc(100vw - clamp(40px, 7vw, 112px)) !important;
-    height: calc(100dvh - clamp(40px, 7vw, 112px)) !important;
     min-width: 0 !important;
+  }
+
+  body > div.fixed.inset-0.flex.items-center.justify-center > div.relative[class*="100dvh"] {
+    height: calc(100dvh - clamp(40px, 7vw, 112px)) !important;
     min-height: 0 !important;
   }
 }
 
-/* Short laptop/macOS windows need slightly tighter gutters without losing content. */
+/* Short laptop/macOS windows need tighter gutters without losing usable content. */
 @media (min-width: 768px) and (max-height: 760px) {
-  body > div.fixed.inset-0:is(
-    [class*="z-[320]"],
-    [class*="z-[325]"],
-    [class*="z-[329]"],
-    [class*="z-[332]"],
-    [class*="z-[340]"],
-    [class*="z-[350]"]
-  ) {
+  body > div.fixed.inset-0.flex.items-center.justify-center {
     padding: clamp(12px, 2.5vh, 24px) !important;
   }
 
-  body > div.fixed.inset-0:is(
-    [class*="z-[320]"],
-    [class*="z-[325]"],
-    [class*="z-[329]"],
-    [class*="z-[332]"],
-    [class*="z-[340]"],
-    [class*="z-[350]"]
-  ) > div.relative {
+  body > div.fixed.inset-0.flex.items-center.justify-center > div.relative[class*="100vw"] {
     width: calc(100vw - clamp(24px, 5vh, 48px)) !important;
+  }
+
+  body > div.fixed.inset-0.flex.items-center.justify-center > div.relative[class*="100dvh"] {
     height: calc(100dvh - clamp(24px, 5vh, 48px)) !important;
   }
 }
