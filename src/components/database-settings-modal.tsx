@@ -1,5 +1,6 @@
 'use client';
 import { AppMaintenanceSettings } from '@/components/app-maintenance-settings';
+import { AppUpdateSettings } from '@/components/app-update-settings';
 import Image from 'next/image';
 
 import { useModalEscape } from '@/lib/useModalEscape';
@@ -20,6 +21,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  DownloadCloud,
   RotateCcw,
   Server,
   Settings2,
@@ -50,7 +52,7 @@ import { SearchSelect, type SearchSelectOption } from '@/components/ui/search-se
 import { useLanguage } from '@/context/LanguageContext';
 import { APP_VERSION_LABEL } from '@/lib/appVersion';
 
-export type DatabaseSettingsTab = 'account' | 'organizations' | 'servers' | 'appearance' | 'accessibility' | 'query' | 'query-log' | 'security' | 'advanced' | 'whats-new';
+export type DatabaseSettingsTab = 'account' | 'organizations' | 'servers' | 'appearance' | 'accessibility' | 'query' | 'query-log' | 'security' | 'advanced' | 'updates' | 'whats-new';
 type SettingsIcon = React.ComponentType<{ className?: string }>;
 
 interface DatabaseSettingsModalProps {
@@ -69,6 +71,7 @@ const TABS: Array<{ id: DatabaseSettingsTab; labelKey: string; descriptionKey: s
   { id:'query-log', labelKey:'settingsCatalog.tabs.queryLog', descriptionKey:'settingsCatalog.tabs.queryLogDescription', icon:Terminal },
   { id:'security', labelKey:'settingsCatalog.tabs.security', descriptionKey:'settingsCatalog.tabs.securityDescription', icon:ShieldCheck },
   { id:'advanced', labelKey:'settingsCatalog.tabs.advanced', descriptionKey:'settingsCatalog.tabs.advancedDescription', icon:SlidersHorizontal },
+  { id:'updates', labelKey:'updates.tabTitle', descriptionKey:'updates.tabDescription', icon:DownloadCloud },
   { id:'whats-new', labelKey:'settingsCatalog.tabs.about', descriptionKey:'settingsCatalog.tabs.aboutDescription', icon:Sparkles }
 ];
 const THEME_DEFS = [
@@ -193,6 +196,7 @@ export function DatabaseSettingsModal({ open, onClose, initialTab = 'account' }:
     onConfirm: () => { setPreferences({ developerToolsEnabled: true }); }
   });
 }} label={preferences.developerToolsEnabled ? t('settingsCatalog.developer.enabled') : t('settingsCatalog.developer.disabled')} /></Row><Row title={t('settingsCatalog.developer.operations')} description={t('settingsCatalog.developer.operationsDescription')}><Button variant="outline" className="w-full" onClick={() => window.dispatchEvent(new CustomEvent('coreor:open-automation-center', { detail: { tab: 'history' } }))}>{t('settingsCatalog.developer.openOperations')}</Button></Row></Section></div>}
+            {tab === 'updates' && <AppUpdateSettings />}
             {tab === 'whats-new' && <ReleaseNotesTree compact />}
           </div>
         </main>
