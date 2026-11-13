@@ -8,7 +8,7 @@ export function createActivityGate() {
   const emit = () => {
     if (emitQueued) return;
     emitQueued = true;
-    queueMicrotask(() => {
+    Promise.resolve().then(() => {
       emitQueued = false;
       listeners.forEach(listener => listener());
     });

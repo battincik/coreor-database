@@ -33,7 +33,9 @@ try {
     ['tauri', 'icon', sourceIcon, '--output', outputDir],
     {
       stdio: 'inherit',
-      shell: false
+      // Windows Node.js rejects direct .cmd process spawning; the npm shim
+      // needs the command processor. Arguments here are trusted local paths.
+      shell: process.platform === 'win32'
     }
   );
 
