@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { normalizeUpdaterPublicKey } from './updater-public-key.mjs';
 
 const read = path => fs.readFileSync(path, 'utf8');
 const pkg = JSON.parse(read('package.json'));
@@ -48,5 +49,16 @@ if (!/^\d{2}\.(?:[1-9]|1[0-2])\.[1-9]\d*$/.test(pkg.version)) {
 if (!read('CHANGELOG.md').includes(`## [${pkg.version}]`)) {
   throw new Error(`CHANGELOG.md does not contain a ${pkg.version} release section. Prepare version bumps with npm run version:prepare X.Y.Z before editing version files manually.`);
 }
+
+// The base Tauri configuration intentionally leaves updater.pubkey empty in dev.
+// Release builds must embed the validated public key into their config overlay.
+// This public key is safe to embed; the private signing key must remain in GitHub Secrets.
+const publicKey = normalizeUpdaterPublicKey(process.env.COREOR_UPDATER_PUBLIC_KEY);
+const releaseConfigFile = 'src-tauri/tauri.release.conf.json';
+const releaseConfig = JSON.parse(read(releaseConfigFile));
+releaseConfig.plugins ??= {};
+releaseConfig.plugins.updater ??= {};
+releaseConfig.plugins.updater.pubkey = publicKey;
+fs.writeFileSync(releaseConfigFile, JSON.stringify(releaseConfig, null, 2) + '\\n');
 
 console.log(`Signed release prerequisites ready for ${pkg.version}.`);
