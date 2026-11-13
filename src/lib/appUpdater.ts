@@ -15,18 +15,20 @@ export function setUpdateProgress(downloaded: number, total: number | null) {
 }
 export function setUpdateVerifying() { set({ phase: 'verifying', progress: 100 }); }
 export function setUpdateInstalling() { set({ phase: 'installing', progress: null }); }
-export async function checkForUpdates() {
-  if (['checking', 'downloading', 'verifying', 'installing'].includes(snapshot.phase)) return;
+export async function checkForUpdates(): Promise<boolean> {
+  if (['checking', 'downloading', 'verifying', 'installing'].includes(snapshot.phase)) return false;
   set({ phase: 'checking', error: null });
   try {
     const result = await invoke<{ enabled: boolean; development: boolean; version: string | null }>('check_app_update');
     set({ phase: !result.enabled ? 'disabled' : result.version ? 'available' : 'idle', version: result.version, development: result.development });
+    return result.enabled && Boolean(result.version);
   } catch (error) {
     const reason = String(error);
     const invalidManifest = reason.includes('UPDATE_MANIFEST_');
     set({ phase: invalidManifest ? 'error' : snapshot.version ? 'available' : 'error',
       version: invalidManifest ? null : snapshot.version,
       error: invalidManifest ? 'manifest' : 'check' });
+    return false;
   }
 }
 export async function installUpdate() {

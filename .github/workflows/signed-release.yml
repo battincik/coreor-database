@@ -61,6 +61,7 @@ jobs:
           releaseBody: Release candidate. Complete docs/FIRST_RELEASE_CHECKLIST.tr.md before publishing.
           releaseDraft: true
           prerelease: false
+          updaterJsonPreferNsis: true
           args: --config src-tauri/tauri.release.conf.json ${{ matrix.args }}
   verify-release:
     needs: release

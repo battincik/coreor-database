@@ -32,11 +32,13 @@ Başarı: herhangi bir 2xx. Yanıt gövdesi kullanılmaz. Sunucu `eventId` ile t
 
 ## Güncelleme
 
-Kaynak: `https://github.com/battincik/coreor-database/releases/latest/download/latest.json`.
+Birincil kaynak: `https://api.coreor.net/v1/desktop-updates/stable/{target}/{arch}/{currentVersion}`.
+Yedek: `https://github.com/battincik/coreor-database/releases/latest/download/latest.json`.
+API `200` ile imzalı sürüm bilgisi veya `204` ile yeni sürüm bulunmadığı yanıtını verir. API erişim hatalarında GitHub kaynağı denenir. İndirilen paketin imzası istemcideki Tauri public key ile doğrulanır; sunucu hiçbir zaman private key tutmaz.
 
 Depo şu anda private; public olunca yayınlanmış stable release ve dosyaları tokensız erişilebilir olmalı. Kaynak deposunun görünürlüğü bu değişiklikte değiştirilmez. Taslak release güncelleme kaynağına görünmez. Private depo/404/offline kontrol hatası açılışı engellemez; başlangıç ekranı en fazla 12 saniye görünür. Native metadata kontrolü 10 saniyede timeout olur.
 
-Başlangıçta otomatik kontrol yapılır. Sonrasında varsayılan 60 dakika; 15/30/60/120/240 dakika seçenekleri vardır. Yeni sürümde topbar'da yeşil indirme simgesi çıkar. Kullanıcı simgeden veya ayarlardan kurmayı başlatır. Açılış kontrolü kendiliğinden kurulum başlatmaz.
+Başlangıçta otomatik kontrol yapılır. Varsayılan `Açılışta otomatik yükle` açıksa uygun yeni sürüm uygulama başında indirilir ve yeniden başlatılır. Aktif işlem, açık transaction veya kaydedilmemiş değişiklik varsa otomatik yükleme yapılmaz; kullanıcı daha sonra simgeden veya ayarlardan elle başlatabilir. Otomatik yükleme ayarlardan kapatılabilir. Sonraki kontroller varsayılan 60 dakika (15/30/60/120/240 seçenekleri) aralığında yapılır; açık çalışma sırasında kendiliğinden yükleme başlamaz.
 
 İstemci imzalı paketi indirir, doğrular ve mevcut kurulum üzerine uygular. Windows'ta Tauri NSIS updater `passive` mod kullanır; kullanıcı ayrı EXE seçmez, kaldırıp yeniden kurmaz. Sistem izinlerine göre UAC/kurulum ilerleme penceresi görülebilir. Bu bir delta patch sistemi değildir: yeni uygulama paketi indirilir. Başarılı kurulumdan sonra yeni sürüm açılır. Kimlik `net.coreor.database` ve veri dizinleri korunmalıdır.
 

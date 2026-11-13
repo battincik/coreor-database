@@ -158,6 +158,16 @@ export function AppMaintenanceSettings() {
         title={t('updates.updateTitle')}
         description={t('updates.updateDescription')}
       >
+        <SettingsRow title={t('updates.autoInstall')} description={t('updates.autoInstallDescription')}>
+          <div className="flex min-h-9 items-center">
+            <CoreorSwitch
+              checked={preferences.autoInstallUpdates}
+              onCheckedChange={autoInstallUpdates => setPreferences({ autoInstallUpdates })}
+              label={t('updates.autoInstall')}
+            />
+          </div>
+        </SettingsRow>
+
         <SettingsRow title={t('updates.interval')} description={t('updates.intervalDescription')}>
           <SearchSelect
             value={preferences.updateCheckMinutes}
