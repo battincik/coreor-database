@@ -1,6 +1,6 @@
 {
   "name": "coreor-database",
-  "version": "26.9.4",
+  "version": "26.11.1",
   "private": true,
   "engines": {
     "node": ">=20.9.0"
