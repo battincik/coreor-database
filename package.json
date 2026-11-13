@@ -33,7 +33,7 @@
     "i18n:registry:check": "node scripts/generate-locale-registry.mjs --check",
     "i18n:audit:strict": "node scripts/audit-i18n.mjs --strict-direct",
     "test:lifecycle": "node --test tests/app-lifecycle.test.mjs",
-    "test:updater": "node --test tests/updater-manifest.test.mjs",
+    "test:updater": "node --test tests/updater-manifest.test.mjs tests/updater-public-key.test.mjs",
     "version:prepare": "node scripts/version-prepare.mjs",
     "release:local": "node scripts/local-release.mjs",
     "release:local:install": "node scripts/local-release.mjs --install",
