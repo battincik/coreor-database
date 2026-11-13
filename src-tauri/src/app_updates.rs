@@ -70,10 +70,18 @@ fn enabled() -> bool {
     !cfg!(debug_assertions) && option_env!("COREOR_UPDATER_PUBLIC_KEY").is_some_and(|key| !key.trim().is_empty())
 }
 
-fn validate_update_metadata(version: &str, url: &str, signature: &str) -> Result<(), &'static str> {
-    let release_url = format!("https://github.com/battincik/coreor-database/releases/download/v{version}/");
-    if !url.starts_with(&release_url) {
-        return Err("UPDATE_MANIFEST_URL_MISMATCH");
+fn validate_update_metadata(url: &str, signature: &str) -> Result<(), &'static str> {
+    // Do not tie the updater binary to a specific host. The API may move
+    // artifacts to a CDN; the embedded Tauri key authenticates their contents.
+    let parsed = reqwest::Url::parse(url).map_err(|_| "UPDATE_MANIFEST_INVALID_URL")?;
+    if parsed.scheme() != "https" || parsed.host_str().is_none()
+        || !parsed.username().is_empty() || parsed.password().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err("UPDATE_MANIFEST_INVALID_URL");
+    }
+    if matches!(parsed.host_str(), Some("localhost" | "127.0.0.1" | "::1")) {
+        return Err("UPDATE_MANIFEST_INVALID_URL");
     }
     // The .sig artifact is base64-encoded minisign text. A SHA-256 digest
     // may look plausible in the manifest but cannot authenticate a bundle.
@@ -87,7 +95,7 @@ fn validate_update_metadata(version: &str, url: &str, signature: &str) -> Result
 }
 
 fn validate_update(update: &Update) -> Result<(), &'static str> {
-    validate_update_metadata(&update.version, update.download_url.as_str(), &update.signature)
+    validate_update_metadata(update.download_url.as_str(), &update.signature)
 }
 
 #[derive(Serialize)]
@@ -108,7 +116,8 @@ pub async fn check_app_update(app: AppHandle, state: State<'_, UpdateState>) -> 
     if !enabled() { return Ok(updater_status()); }
     let _check = state.checking.try_lock().map_err(|_| "UPDATE_CHECK_BUSY")?;
     let _lease = work_lease(&app)?;
-    *state.pending.lock().map_err(|_| "UPDATE_STATE_ERROR")? = None;
+    // Keep a previously checked update if the network fails. Do not discard
+    // a valid, signed pending release until a subsequent check succeeds.
     let update = app.updater_builder()
         .pubkey(option_env!("COREOR_UPDATER_PUBLIC_KEY").unwrap_or_default())
         .timeout(Duration::from_secs(10))
@@ -213,12 +222,13 @@ mod tests {
     fn debug_build_disables_installation() { if cfg!(debug_assertions) { assert!(!enabled()); } }
     #[test]
     fn rejects_the_broken_release_manifest() {
-        let url = "https://github.com/battincik/coreor-database/releases/download/v26.9.2/Coreor.Database_26.9.2_x64-setup.exe";
+        let good_url = "https://cdn.example.com/coreor-database/v26.11.1/app-setup.exe";
         let hash = "a1a91fff4c4c6a2cd1dfe858c6102c90cf54e51347de5eea037a790363bdd4b2";
-        assert_eq!(validate_update_metadata("26.9.3", url, hash), Err("UPDATE_MANIFEST_URL_MISMATCH"));
-        let correct_url = "https://github.com/battincik/coreor-database/releases/download/v26.9.3/Coreor.Database_26.9.3_x64-setup.exe";
-        assert_eq!(validate_update_metadata("26.9.3", correct_url, hash), Err("UPDATE_MANIFEST_INVALID_SIGNATURE"));
+        assert_eq!(validate_update_metadata(good_url, hash), Err("UPDATE_MANIFEST_INVALID_SIGNATURE"));
         let signature = base64::engine::general_purpose::STANDARD.encode("untrusted comment: signature\nexample");
-        assert!(validate_update_metadata("26.9.3", correct_url, &signature).is_ok());
+        assert!(validate_update_metadata(good_url, &signature).is_ok());
+        assert_eq!(validate_update_metadata("http://cdn.example.com/app.exe", &signature), Err("UPDATE_MANIFEST_INVALID_URL"));
+        assert_eq!(validate_update_metadata("https://admin:token@cdn.example.com/app.exe", &signature), Err("UPDATE_MANIFEST_INVALID_URL"));
+        assert_eq!(validate_update_metadata("https://localhost/app.exe", &signature), Err("UPDATE_MANIFEST_INVALID_URL"));
     }
 }
