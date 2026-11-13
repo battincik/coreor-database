@@ -59,6 +59,6 @@ const releaseConfig = JSON.parse(read(releaseConfigFile));
 releaseConfig.plugins ??= {};
 releaseConfig.plugins.updater ??= {};
 releaseConfig.plugins.updater.pubkey = publicKey;
-fs.writeFileSync(releaseConfigFile, JSON.stringify(releaseConfig, null, 2) + '\\n');
+fs.writeFileSync(releaseConfigFile, JSON.stringify(releaseConfig, null, 2) + '\n');
 
 console.log(`Signed release prerequisites ready for ${pkg.version}.`);
