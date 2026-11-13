@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Accessibility,
+  DownloadCloud,
   Database,
   Monitor,
   Server,
@@ -12,7 +13,7 @@ import {
 } from 'lucide-react';
 
 export const settingsItems = [
-  { category: 'databaseSettings', items: ['account', 'servers', 'appearance', 'accessibility', 'querySettings', 'security', 'advanced', 'whatsNew'] }
+  { category: 'databaseSettings', items: ['account', 'servers', 'appearance', 'accessibility', 'querySettings', 'security', 'advanced', 'updates', 'whatsNew'] }
 ];
 
 export const iconMap: Record<string, React.ReactNode> = {
@@ -23,6 +24,7 @@ export const iconMap: Record<string, React.ReactNode> = {
   querySettings: <Terminal className="h-4 w-4" />,
   security: <ShieldCheck className="h-4 w-4" />,
   advanced: <Settings2 className="h-4 w-4" />,
+  updates: <DownloadCloud className="h-4 w-4" />,
   whatsNew: <Sparkles className="h-4 w-4" />,
   database: <Database className="h-4 w-4" />
 };
@@ -35,5 +37,6 @@ export const routeMap: Record<string, string> = {
   querySettings: '/editor/settings/query',
   security: '/editor/settings/security',
   advanced: '/editor/settings/advanced',
+  updates: '/editor/settings/updates',
   whatsNew: '/editor/settings/whats-new'
 };

@@ -3,8 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { useSyncExternalStore } from 'react';
 import { updateActivity } from './updateActivity';
 export type UpdatePhase = 'idle' | 'checking' | 'available' | 'downloading' | 'verifying' | 'installing' | 'error' | 'disabled';
-interface UpdateSnapshot { phase: UpdatePhase; version: string | null; progress: number | null; error: string | null; development: boolean }
-const initial: UpdateSnapshot = { phase: 'idle', version: null, progress: null, error: null, development: false };
+interface UpdateSnapshot { phase: UpdatePhase; version: string | null; progress: number | null; error: string | null; development: boolean; checkedAt: number | null }
+const initial: UpdateSnapshot = { phase: 'idle', version: null, progress: null, error: null, development: false, checkedAt: null };
 let snapshot = initial;
 const listeners = new Set<() => void>();
 function set(patch: Partial<UpdateSnapshot>) { snapshot = { ...snapshot, ...patch }; listeners.forEach(fn => fn()); }
@@ -20,14 +20,14 @@ export async function checkForUpdates(): Promise<boolean> {
   set({ phase: 'checking', error: null });
   try {
     const result = await invoke<{ enabled: boolean; development: boolean; version: string | null }>('check_app_update');
-    set({ phase: !result.enabled ? 'disabled' : result.version ? 'available' : 'idle', version: result.version, development: result.development });
+    set({ phase: !result.enabled ? 'disabled' : result.version ? 'available' : 'idle', version: result.version, development: result.development, checkedAt: Date.now() });
     return result.enabled && Boolean(result.version);
   } catch (error) {
     const reason = String(error);
     const invalidManifest = reason.includes('UPDATE_MANIFEST_');
     set({ phase: invalidManifest ? 'error' : snapshot.version ? 'available' : 'error',
       version: invalidManifest ? null : snapshot.version,
-      error: invalidManifest ? 'manifest' : 'check' });
+      error: invalidManifest ? 'manifest' : 'check', checkedAt: Date.now() });
     return false;
   }
 }

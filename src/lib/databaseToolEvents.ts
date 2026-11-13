@@ -17,7 +17,7 @@ export interface OpenMaintenanceCenterDetail {
 }
 
 export interface OpenSettingsModalDetail {
-  tab?: 'account' | 'servers' | 'appearance' | 'accessibility' | 'query' | 'security' | 'advanced' | 'whats-new';
+  tab?: 'account' | 'servers' | 'appearance' | 'accessibility' | 'query' | 'security' | 'advanced' | 'updates' | 'whats-new';
 }
 
 export function dispatchDatabaseTool(eventName: string, detail?: unknown) {

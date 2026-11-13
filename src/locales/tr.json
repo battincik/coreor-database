@@ -3215,6 +3215,16 @@
     }
   },
   "updates": {
+    "tabTitle": "Güncellemeler",
+    "tabDescription": "Sürüm, durum ve güncelleme tercihleri",
+    "installedVersion": "Yüklü sürüm",
+    "detectedVersion": "Algılanan yeni sürüm",
+    "lastCheck": "Son kontrol denemesi",
+    "notCheckedYet": "Henüz kontrol edilmedi",
+    "desktopOnly": "Güncelleme kontrolü yalnızca masaüstü uygulamasında kullanılabilir.",
+    "progressUnknown": "İndirme bilgisi bekleniyor…",
+    "preferencesTitle": "Güncelleme tercihleri",
+    "signatureNotice": "Paketler yüklenmeden önce uygulamadaki imza anahtarıyla doğrulanır. Aktif SQL işlemleri ve kaydedilmemiş değişiklikler korunur.",
     "settingsTitle": "Güncellemeler ve hata raporlama",
     "reporting": "Uygulama hatalarını otomatik bildir",
     "reportingDescription": "Uygulama hataları Coreor’a gönderilir. SQL, parolalar ve sorgu sonuçları gönderilmez. Kapalıyken error.log tutulmaya devam eder.",

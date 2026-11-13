@@ -3215,6 +3215,16 @@
     }
   },
   "updates": {
+    "tabTitle": "Updates",
+    "tabDescription": "Version, status, and update preferences",
+    "installedVersion": "Installed version",
+    "detectedVersion": "Detected new version",
+    "lastCheck": "Last check attempt",
+    "notCheckedYet": "Not checked yet",
+    "desktopOnly": "Update checks are available only in the desktop application.",
+    "progressUnknown": "Waiting for download details…",
+    "preferencesTitle": "Update preferences",
+    "signatureNotice": "Packages are verified using the app's update signing key before installation. Active SQL operations and unsaved work are protected.",
     "settingsTitle": "Updates and error reporting",
     "reporting": "Automatically report application errors",
     "reportingDescription": "Application errors are sent to Coreor. SQL, passwords and query results are excluded. Local error.log remains enabled when reporting is off.",
