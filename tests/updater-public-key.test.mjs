@@ -19,5 +19,5 @@ test('rejects an empty key, a bare minisign body, a path, and invalid base64', (
 
 test('rejects an encoded incomplete key with missing comment', () => {
   const bodyOnly = Buffer.from('RWTX5qZvdPSepDGWg2bz8n6ArQnBMwgQK1geVosorcbLzcunD+KJ+cYe').toString('base64');
-  assert.throws(() => normalizeUpdaterPublicKey(bodyOnly), /FULL \\.pub file/);
+  assert.throws(() => normalizeUpdaterPublicKey(bodyOnly), /expected the FULL/);
 });
