@@ -32,7 +32,8 @@ Başarı: herhangi bir 2xx. Yanıt gövdesi kullanılmaz. Sunucu `eventId` ile t
 
 ## Güncelleme
 
-Birincil kaynak: `https://api.coreor.net/v1/desktop-updates/stable/{target}/{arch}/{currentVersion}`.
+Birincil kaynak: `https://api.coreor.net/v1/coreor-database/desktop-updates/stable/{target}/{arch}/{currentVersion}`.
+Bu ürün adı rotanın bir parçasıdır; diğer masaüstü uygulamaları ayrı ürün adı ve imzalı paket akışlarıyla aynı API'yi kullanır.
 Yedek: `https://github.com/battincik/coreor-database/releases/latest/download/latest.json`.
 API `200` ile imzalı sürüm bilgisi veya `204` ile yeni sürüm bulunmadığı yanıtını verir. API erişim hatalarında GitHub kaynağı denenir. İndirilen paketin imzası istemcideki Tauri public key ile doğrulanır; sunucu hiçbir zaman private key tutmaz.
 

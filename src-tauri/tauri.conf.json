@@ -62,7 +62,7 @@
     "updater": {
       "pubkey": "",
       "endpoints": [
-        "https://api.coreor.net/v1/desktop-updates/stable/{{target}}/{{arch}}/{{current_version}}",
+        "https://api.coreor.net/v1/coreor-database/desktop-updates/stable/{{target}}/{{arch}}/{{current_version}}",
         "https://github.com/battincik/coreor-database/releases/latest/download/latest.json"
       ],
       "windows": {
