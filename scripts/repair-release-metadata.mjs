@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { validateUpdaterManifest } from './validate-updater-manifest.mjs';
 
 export function canonicalManifest(manifest, release, repo) {
@@ -25,7 +26,7 @@ export function canonicalManifest(manifest, release, repo) {
   return { manifest: result, rewritten: count };
 }
 
-const runningAsScript = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href;
+const runningAsScript = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (runningAsScript) {
   const repo = process.env.GITHUB_REPOSITORY || 'battincik/coreor-database';
   const token = process.env.GH_TOKEN;
