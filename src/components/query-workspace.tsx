@@ -42,6 +42,7 @@ import { toSqlLiteral } from '@/lib/queryWorkspaceEvents';
 import { matchesShortcut } from '@/lib/shortcuts';
 import { approvalRequests, automationId, migrationDrafts, schemaSnapshots } from '@/lib/databaseAutomation';
 import { analyzeSqlDocument, type SqlDiagnostic } from '@/lib/sqlLanguageServer';
+import { parseSqlScript } from '@/lib/sqlScriptParser';
 import { useCoreorToast } from '@/components/ui/coreor-toast';
 import { migrateLegacyWorkspaceCollection, readWorkspaceCollection, writeWorkspaceCollection } from '@/lib/nativeWorkspaceStore';
 import { useLanguage } from '@/context/LanguageContext';
@@ -88,19 +89,7 @@ function queryTitle(sql: string) { const text = sql.replace(/\s+/g, ' ').trim();
 function formatSql(source: string) { return source.trim().replace(/\s+(FROM|WHERE|LEFT JOIN|RIGHT JOIN|INNER JOIN|GROUP BY|HAVING|ORDER BY|LIMIT|VALUES|SET)\s+/gi, '\n$1\n  ').replace(/\s+(AND|OR)\s+/gi, '\n  $1 '); }
 
 function splitStatements(sql: string) {
-  const result: string[] = []; let current = ''; let quote: string | null = null; let comment = false;
-  for (let index = 0; index < sql.length; index += 1) {
-    const char = sql[index]; const next = sql[index + 1];
-    if (!quote && char === '-' && next === '-') comment = true;
-    if (comment && char === '\n') comment = false;
-    if (!comment && (char === "'" || char === '"' || char === '`')) {
-      if (quote === char && sql[index - 1] !== '\\') quote = null; else if (!quote) quote = char;
-    }
-    if (char === ';' && !quote && !comment) { if (current.trim()) result.push(current.trim()); current = ''; }
-    else current += char;
-  }
-  if (current.trim()) result.push(current.trim());
-  return result;
+  return parseSqlScript(sql).statements.map(statement => statement.sql);
 }
 
 function locateStatements(sql: string, statements: string[]) {
@@ -383,7 +372,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
             statementStartLine: locations[index]?.startLine,
             statementIndex: index + 1,
             statementCount: statements.length,
-            executionMode,
+            executionMode: /^(?:CREATE|ALTER)\s+(?:PROCEDURE|FUNCTION|TRIGGER|EVENT)\b/i.test(statement.replace(/^(?:(?:--[^\n]*|#[^\n]*|\/\*[\s\S]*?\*\/)\s*)+/, '')) ? 'text' : executionMode,
             resultLimit: preferences.queryResultLimit,
             activityOrigin: 'user'
           }
@@ -422,7 +411,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     let metadataDatabase: string | null = tab.databaseName;
     try {
       const response = await executeDatabaseQueryBatch(selectedServer.id, statements, accountId, tab.databaseName, {
-        executionMode,
+        executionMode: statements.some(statement => /\b(?:CREATE|ALTER)\s+(?:PROCEDURE|FUNCTION|TRIGGER|EVENT)\b/i.test(statement)) ? 'text' : executionMode,
         resultLimit: preferences.queryResultLimit,
         statementStartLines: locations.map(item => item.startLine)
       });
@@ -463,7 +452,14 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
 
   const executeNow = useCallback(async (skipDryRun = false) => {
     if (!selectedServer || !accountId || tab.isRunning || !tab.sql.trim()) return;
-    const statements = splitStatements(tab.sql); recordHistory(tab.sql);
+    const parsed = parseSqlScript(tab.sql, supportsProtocolSelection);
+    if (parsed.errors.length) {
+      onChange({ isRunning: false, error: parsed.errors[0] });
+      toast.show({ variant: 'error', title: t('queryWorkspace.queryFailed'), description: parsed.errors[0] });
+      return;
+    }
+    const statements = parsed.statements.map(item => item.sql); recordHistory(tab.sql);
+    if (!statements.length) return;
     if (!assertWritable(statements)) return;
     if (!skipDryRun && preferences.dryRunMutations && statements.length === 1) {
       const mutation = parseMutation(statements[0]);
@@ -480,10 +476,18 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     }
     if (preferences.splitStatementExecution || statements.length === 1) await executeStatements(statements);
     else await executeBatchStatements(statements);
-  }, [selectedServer, accountId, tab.isRunning, tab.sql, tab.databaseName, executionMode, preferences.dryRunMutations, preferences.splitStatementExecution, preferences.queryResultLimit, onChange, recordHistory, executeStatements, executeBatchStatements, assertWritable, t]);
+  }, [selectedServer, accountId, tab.isRunning, tab.sql, tab.databaseName, executionMode, supportsProtocolSelection, preferences.dryRunMutations, preferences.splitStatementExecution, preferences.queryResultLimit, onChange, recordHistory, executeStatements, executeBatchStatements, assertWritable, toast, t]);
 
   const runQuery = useCallback(() => {
-    const statements = splitStatements(tab.sql);
+    const script = parseSqlScript(tab.sql, supportsProtocolSelection);
+    if (script.errors.length) {
+      const message = script.errors[0];
+      onChange({ error: message, isRunning: false });
+      toast.show({ variant: 'error', title: t('queryWorkspace.queryFailed'), description: message });
+      return;
+    }
+    const statements = script.statements.map(item => item.sql);
+    if (!statements.length) return;
     if (!assertWritable(statements)) return;
     const blockingDiagnostics = diagnostics.filter(item => item.severity === 'error' && ['UNTERMINATED_STRING','UNEXPECTED_PAREN','UNCLOSED_PAREN','MISSING_WHERE','ENGINE_SYNTAX'].includes(item.code));
     if (blockingDiagnostics.length) {
@@ -498,7 +502,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       setConfirmation({ title: t('queryWorkspace.safeSqlValidation'), description: t('query.dangerousConfirm'), expectedText: t('queryWorkspace.executeUpper'), sql: tab.sql, confirmLabel: t('queryWorkspace.continueSecurity'), onConfirm: () => void executeNow() }); return;
     }
     void executeNow();
-  }, [preferences.confirmDangerousQueries, preferences.confirmAlterStatements, tab.sql, executeNow, diagnostics, toast, assertWritable, t]);
+  }, [preferences.confirmDangerousQueries, preferences.confirmAlterStatements, tab.sql, executeNow, diagnostics, toast, assertWritable, onChange, supportsProtocolSelection, t]);
 
   useEffect(() => { if (tab.runImmediately && !autoRunHandled.current) { autoRunHandled.current = true; runQuery(); } }, [tab.runImmediately, runQuery]);
   useEffect(() => { autoRunHandled.current = false; }, [tab.id]);
@@ -602,7 +606,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
         </div>
         <div className="flex min-h-0 shrink-0 flex-col border-t border-zinc-800 bg-black/20" style={{ height: resultCollapsed ? 36 : resultHeight }}>
           {!resultCollapsed && <div role="separator" aria-orientation="horizontal" aria-label={t('queryWorkspace.resizeResults')} className="group flex h-1.5 shrink-0 cursor-row-resize touch-none items-center justify-center bg-zinc-950 hover:bg-cyan-500/10" onPointerDown={startResultResize}><GripHorizontal className="h-3 w-3 text-zinc-800 transition group-hover:text-cyan-500" /></div>}
-          <div className="coreor-hide-scrollbar flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-zinc-800 px-2 text-[10px] text-zinc-500"><Terminal className="h-3.5 w-3.5"/>{resultSets.length > 1 ? resultSets.map(item => <button key={item.id} onClick={() => setActiveResultId(item.id)} className={`rounded px-2 py-1 ${activeSet?.id === item.id ? 'bg-cyan-500/10 text-cyan-300' : 'hover:bg-zinc-900'}`}>{item.label}{item.error ? ` • ${t('common.error')}` : item.dryRun ? ` ${t('queryWorkspace.preview')}` : ''}</button>) : <span>{activeSet?.dryRun ? t('queryWorkspace.dryRunResult') : t('queryWorkspace.result')}</span>}{timings && <span className="ml-auto flex shrink-0 items-center gap-1.5 font-mono text-[9px] text-zinc-600">
+          <div className="flex max-h-36 min-h-9 shrink-0 flex-wrap items-center gap-x-1 gap-y-1 overflow-y-auto border-b border-zinc-800 px-2 py-1 text-[10px] text-zinc-500"><Terminal className="h-3.5 w-3.5"/>{resultSets.length > 1 ? resultSets.map(item => <button key={item.id} onClick={() => setActiveResultId(item.id)} className={`shrink-0 rounded px-2 py-1 ${activeSet?.id === item.id ? 'bg-cyan-500/10 text-cyan-300' : 'hover:bg-zinc-900'}`}>{item.label}{item.error ? ` • ${t('common.error')}` : item.dryRun ? ` ${t('queryWorkspace.preview')}` : ''}</button>) : <span>{activeSet?.dryRun ? t('queryWorkspace.dryRunResult') : t('queryWorkspace.result')}</span>}{timings && <span className="ml-auto flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-[9px] text-zinc-600">
             <span title={t('queryWorkspace.timingQueryDescription')}>{t('queryWorkspace.timingQuery')} <b className="font-medium text-zinc-400">{timingText(timings.queryRoundTripMs)} ms</b></span>
             <span>•</span>
             <span>{t('queryWorkspace.timingFetch')} <b className="font-medium text-zinc-400">{timingText(timings.fetchDecodeMs)} ms</b></span>
