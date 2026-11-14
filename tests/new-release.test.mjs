@@ -9,8 +9,8 @@ test('all application version sources match the new release', () => {
   assert.equal(version,'26.11.3');
   assert.equal(JSON.parse(fs.readFileSync('package-lock.json','utf8')).packages[''].version,version);
   assert.equal(JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8')).version,version);
-  assert.match(fs.readFileSync('src-tauri/Cargo.toml','utf8'), /version = "26\\.11\\.3"/);
-  assert.match(fs.readFileSync('src/lib/appVersion.ts','utf8'), /APP_VERSION = '26\\.11\\.3'/);
+  assert.ok(fs.readFileSync('src-tauri/Cargo.toml','utf8').includes('version = "26.11.3"'));
+  assert.ok(fs.readFileSync('src/lib/appVersion.ts','utf8').includes("APP_VERSION = '26.11.3'"));
 });
 test('draft manifest rewrites GitHub asset API IDs to public release URLs', () => {
   const asset={name:'Coreor.Database_26.11.3_x64-setup.exe',id:100};
