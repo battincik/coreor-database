@@ -42,11 +42,10 @@ for (let page = 1; page <= 10; page += 1) {
   release = batch.find(item => item.tag_name === `v${version}`);
   if (release || batch.length < 100) break;
 }
-if (!release) throw new Error(`Release v${version} not found through GitHub API (including drafts).`);
-if (!release.draft) throw new Error(`Release v${version} is no longer a draft; inspect published release separately.`);
+if (!release) throw new Error(`Release v${version} not visible through GitHub API. Ensure the workflow has contents: write permission for draft visibility, or publish the release before verification.`);
 const asset = release.assets.find(item => item.name === 'latest.json');
 if (!asset) throw new Error(`Draft release v${version} has no latest.json asset.`);
 const manifest = await downloadAsset(asset.id);
 const errors = validateUpdaterManifest(manifest, release.assets, version);
 if (errors.length) throw new Error(`Updater manifest validation failed:\n${errors.join('\n')}`);
-console.log(`Verified draft release v${version}: ${release.assets.length} assets, ${Object.keys(manifest.platforms).length} updater platform(s).`);
+console.log(`Verified ${release.draft ? 'draft' : 'published'} release v${version}: ${release.assets.length} assets, ${Object.keys(manifest.platforms).length} updater platform(s).`);

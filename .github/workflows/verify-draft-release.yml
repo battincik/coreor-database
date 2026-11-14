@@ -2,7 +2,8 @@ name: Verify draft release
 on:
   workflow_dispatch:
 permissions:
-  contents: read
+  # GitHub REST API hides draft releases from tokens without write access.
+  contents: write
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -13,5 +14,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Verify existing draft release without rebuilding platforms
+      - name: Verify existing draft or published release without rebuilding platforms
         run: node scripts/verify-draft-release.mjs
