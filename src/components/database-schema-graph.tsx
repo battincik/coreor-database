@@ -361,7 +361,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     const observer = new ResizeObserver(measure);
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, []);
+  }, [loading, databaseName, accountId]);
   useEffect(() => () => {
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
   }, []);
