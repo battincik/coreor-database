@@ -1,0 +1,26 @@
+name: Repair v26.11.3 published updater downloads
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/repair-published-v26-11-3.mjs
+permissions:
+  contents: write
+concurrency:
+  group: repair-v26-11-3-public-downloads
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.COREOR_RELEASE_ADMIN_TOKEN || secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify signed manifest URL recovery rules
+        run: node --test tests/repair-published-v26-11-3.test.mjs
+      - name: Reassociate existing v26.11.3 release and repair manifest
+        run: node scripts/repair-published-v26-11-3.mjs
