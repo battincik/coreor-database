@@ -1,6 +1,12 @@
 name: Repair and verify release
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/repair-release-metadata.mjs
+      - docs/releases/v26.11.1.md
+      - docs/releases/v26.11.2.md
 permissions:
   # GitHub REST API hides draft releases from tokens without write access.
   contents: write
