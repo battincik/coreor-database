@@ -76,5 +76,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Repair draft updater manifest URLs and release notes
+        run: node scripts/repair-release-metadata.mjs
       - name: Verify draft updater manifest and assets via GitHub API
         run: node scripts/verify-draft-release.mjs

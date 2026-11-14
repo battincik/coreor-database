@@ -1,4 +1,4 @@
-name: Verify draft release
+name: Repair and verify release
 on:
   workflow_dispatch:
 permissions:
@@ -14,5 +14,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Repair release manifest URL and update release notes
+        run: node scripts/repair-release-metadata.mjs
       - name: Verify existing draft or published release without rebuilding platforms
         run: node scripts/verify-draft-release.mjs
