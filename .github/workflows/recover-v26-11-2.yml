@@ -1,10 +1,6 @@
 name: Recover v26.11.2 updater release
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - scripts/recover-published-release.mjs
 permissions:
   contents: write
 concurrency:
@@ -14,7 +10,7 @@ jobs:
   recover:
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.COREOR_RELEASE_ADMIN_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,5 +18,15 @@ jobs:
           node-version: 22
       - name: Test released asset and URL normalization
         run: node --test tests/recover-published-release.test.mjs
+      - name: Verify v26.11.2 tag exists on the original release commit
+        env:
+          EXPECTED_SOURCE_SHA: 33749df96458c7dd4659ddd0fe326487a9f7fdc3
+        run: |
+          git fetch origin tag v26.11.2 || { echo "::error::Missing v26.11.2 tag. Create it locally at $EXPECTED_SOURCE_SHA and push it before retrying."; exit 1; }
+          actual="$(git rev-list -n 1 v26.11.2)"
+          if [ "$actual" != "$EXPECTED_SOURCE_SHA" ]; then
+            echo "::error::v26.11.2 points to $actual, expected $EXPECTED_SOURCE_SHA"
+            exit 1
+          fi
       - name: Repair v26.11.2 tag and updater manifest in-place
         run: node scripts/recover-published-release.mjs

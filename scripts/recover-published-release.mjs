@@ -89,8 +89,13 @@ if (isMain) {
     throw new Error(`${TAG} already points to a different commit; refusing to retag`);
   }
   if (!existingTag) {
-    await json('/git/refs', 'POST', { ref: `refs/tags/${TAG}`, sha: EXPECTED_SOURCE_SHA });
-    console.log(`Created ${TAG} from original release commit`);
+    // Some organizations prohibit GitHub Actions tokens from creating refs even
+    // with contents:write. Fail before mutating the published release.
+    throw new Error(
+      `Missing Git tag ${TAG}. The GitHub Actions token cannot create tags in this repository. ` +
+      `On your trusted workstation run: git fetch origin && git tag ${TAG} ${EXPECTED_SOURCE_SHA} && git push origin ${TAG}. ` +
+      'Then rerun "Recover v26.11.2 updater release".'
+    );
   }
 
   if (release.tag_name !== TAG) {
