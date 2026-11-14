@@ -28,6 +28,7 @@ export interface AppPreferences {
   autocomplete: boolean;
   autoRefreshProcesses: boolean;
   confirmDangerousQueries: boolean;
+  confirmAlterStatements: boolean;
   dryRunMutations: boolean;
   splitStatementExecution: boolean;
   requireSecondApproval: boolean;
@@ -59,7 +60,7 @@ const DEFAULTS: AppPreferences = {
   editorFontSize: 13, consoleFontSize: 9, lineHeight: 1.55, compactMode: true,
   sidebarSize: 20, objectExplorerGrouped: true, objectExplorerDetails: true, reducedMotion: false, strongFocusRing: true, highContrastBorders: false,
   dyslexiaSpacing: false, colorBlindMode: 'none', autocomplete: true,
-  autoRefreshProcesses: false, confirmDangerousQueries: true, dryRunMutations: true, splitStatementExecution: false,
+  autoRefreshProcesses: false, confirmDangerousQueries: true, confirmAlterStatements: true, dryRunMutations: true, splitStatementExecution: false,
   requireSecondApproval: true, productionAlterApproval: true, autoSchemaSnapshots: true,
   queryResultLimit: 5000, importBatchSize: 250, rememberPanelSizes: true, rememberQueryWorkspace: true,
   defaultReadOnlyConnections: false, liveNotifications: true, performanceRefreshSeconds: 10,
@@ -108,6 +109,7 @@ function normalize(value: Partial<AppPreferences> | null | undefined): AppPrefer
     performanceRefreshSeconds: normalizeRefresh(source.performanceRefreshSeconds),
     activityLogLimit: normalizeActivityLogLimit(source.activityLogLimit),
     updateCheckMinutes: [15, 30, 60, 120, 240].includes(Number(source.updateCheckMinutes)) ? Number(source.updateCheckMinutes) : 60,
+    confirmAlterStatements: typeof source.confirmAlterStatements === 'boolean' ? source.confirmAlterStatements : DEFAULTS.confirmAlterStatements,
     autoInstallUpdates: typeof source.autoInstallUpdates === 'boolean' ? source.autoInstallUpdates : DEFAULTS.autoInstallUpdates
   };
 }

@@ -1312,6 +1312,12 @@
     "openDatabase": "Open database"
   },
   "queryWorkspace": {
+    "suggestionsToggle": "SQL suggestions",
+    "toggleSuggestionsHelp": "Toggle SQL autocomplete suggestions",
+    "alterApprovalToggle": "ALTER approval",
+    "toggleAlterHelp": "Toggle confirmation dialog and second approval for ALTER queries",
+    "alterApprovalSetting": "Require confirmation for ALTER",
+    "alterApprovalDescription": "When disabled, ALTER statements skip the dangerous-query dialog and second approval. Other risky statements, read-only connections, and permissions are unchanged.",
     "resultsHere": "Results will appear here.",
     "resizeResults": "Resize results panel",
     "snapshotBeforeAlter": "Automatic snapshot before ALTER",

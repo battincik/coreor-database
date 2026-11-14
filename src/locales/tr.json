@@ -1312,6 +1312,12 @@
     "openDatabase": "Veritabanını aç"
   },
   "queryWorkspace": {
+    "suggestionsToggle": "SQL önerileri",
+    "toggleSuggestionsHelp": "SQL otomatik tamamlama önerilerini aç veya kapat",
+    "alterApprovalToggle": "ALTER onayı",
+    "toggleAlterHelp": "ALTER sorguları için onay penceresini ve ikinci onayı aç veya kapat",
+    "alterApprovalSetting": "ALTER için onay iste",
+    "alterApprovalDescription": "Kapalıyken ALTER ifadelerinde tehlikeli sorgu onayı ve ikinci onay istenmez. Diğer riskli sorgular, salt okunur bağlantılar ve yetkiler etkilenmez.",
     "resultsHere": "Sonuçlar burada gösterilir.",
     "resizeResults": "Sonuç paneli yüksekliğini değiştir",
     "snapshotBeforeAlter": "ALTER öncesi otomatik snapshot",
