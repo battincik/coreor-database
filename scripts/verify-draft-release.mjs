@@ -39,7 +39,7 @@ async function downloadAsset(id) {
 let release;
 for (let page = 1; page <= 10; page += 1) {
   const batch = await api(`/releases?per_page=100&page=${page}`);
-  release = batch.find(item => item.tag_name === `v${version}`);
+  release = batch.find(item => item.tag_name === `v${version}`) || batch.find(item => item.draft && item.name === `Coreor Database v${version}` && item.assets?.some(asset => asset.name === 'latest.json'));
   if (release || batch.length < 100) break;
 }
 if (!release) throw new Error(`Release v${version} not visible through GitHub API. Ensure the workflow has contents: write permission for draft visibility, or publish the release before verification.`);
