@@ -1737,6 +1737,13 @@
     "deleteDraftWarning": "Koşulu doğrulamadan çalıştırmayın."
   },
   "schemaGraph": {
+    "restoreInitial": "İlk yerleşime dön",
+    "layoutSettings": "Yerleşim seçenekleri",
+    "layoutMode": "Yerleşim düzeni",
+    "maxTables": "Maksimum tablo sayısı",
+    "limitOption": "{count} tablo",
+    "layoutHint": "Bir düzen seçip Otomatik yerleşim'e basın. Konumlar veritabanına özel kaydedilir; hiçbir tablo üst üste gelemez.",
+    "layouts": {"relations":"İlişki hiyerarşisi","horizontal":"Yatay akış","vertical":"Dikey akış","matrix":"Dengeli ızgara","compact":"Yoğun yerleşim","radial":"Radyal harita"},
     "autoLayout": "Otomatik yerleşim",
     "fit": "Sığdır",
     "center": "Merkezle",
