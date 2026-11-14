@@ -26,6 +26,7 @@ jobs:
       - run: npm run test:updater
       - run: npm run test:release
       - run: npm run test:schema
+      - run: npm run test:sql-script
       - run: npm run locks:check
       - run: npm run architecture:check
       - run: npm run i18n:check
