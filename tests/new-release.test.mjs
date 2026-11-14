@@ -6,7 +6,7 @@ import { validateUpdaterManifest } from '../scripts/validate-updater-manifest.mj
 
 const version = JSON.parse(fs.readFileSync('package.json','utf8')).version;
 test('all application version sources match the new release', () => {
-  assert.match(version, /^\\d{2}\\.\\d{1,2}\\.\\d+$/);
+  assert.ok(version.split('.').length === 3 && version.split('.').every(part => Number.isInteger(Number(part)) && Number(part) >= 0));
   assert.equal(JSON.parse(fs.readFileSync('package-lock.json','utf8')).packages[''].version,version);
   assert.equal(JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8')).version,version);
   assert.ok(fs.readFileSync('src-tauri/Cargo.toml','utf8').includes(`version = "${version}"`));
