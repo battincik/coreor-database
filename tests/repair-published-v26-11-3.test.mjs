@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeRecoveryManifest } from '../scripts/recover-published-release.mjs';
+import { normalizeRecoveryManifest } from '../scripts/repair-published-v26-11-3.mjs';
 const assets = [
   { id: 745863093, name: 'Coreor.Database_26.11.3_x64-setup.exe' },
   { id: 1, name: 'Coreor.Database_26.11.3_amd64.AppImage' },
