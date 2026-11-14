@@ -1737,6 +1737,7 @@
     "deleteDraftWarning": "Do not run before verifying the condition."
   },
   "schemaGraph": {
+    "columnCount": "{count} columns",
     "restoreInitial": "Restore initial layout",
     "layoutSettings": "Layout options",
     "layoutMode": "Layout arrangement",
