@@ -4,6 +4,8 @@ Notable changes to Coreor Database are tracked here.
 
 ## [Unreleased]
 
+## [26.11.2] - 2026-11-14
+
 ## [26.11.1] - 2026-11-13
 
 ## [26.9.4] - 2026-09-23
