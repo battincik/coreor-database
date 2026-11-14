@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - scripts/repair-published-v26-11-3.mjs
+      - tests/repair-published-v26-11-3.test.mjs
 permissions:
   contents: write
 concurrency:
