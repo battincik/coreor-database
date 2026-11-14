@@ -7,7 +7,26 @@ concurrency:
   group: signed-release
   cancel-in-progress: false
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require a pre-created release tag on the exact selected commit
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          tag="v${version}"
+          echo "Verifying ${tag} matches ${GITHUB_SHA}"
+          git fetch origin "refs/tags/${tag}:refs/tags/${tag}" || { echo "::error::Tag ${tag} is missing. Push it from a trusted workstation before running release."; exit 1; }
+          actual=$(git rev-list -n 1 "${tag}")
+          test "${actual}" = "${GITHUB_SHA}" || { echo "::error::Tag ${tag} points to ${actual}, expected ${GITHUB_SHA}"; exit 1; }
+          echo "Release tag ${tag} is valid"
   release:
+    needs: preflight
     strategy:
       fail-fast: false
       # Serialize asset/manifest uploads to a shared draft.
@@ -52,13 +71,14 @@ jobs:
       - run: node scripts/prepare-signed-release.mjs
       - run: npm run check
       - run: npm run test:lifecycle
+      - run: npm run test:release
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
           releaseName: Coreor Database v__VERSION__
-          releaseBody: Release candidate. Complete docs/FIRST_RELEASE_CHECKLIST.tr.md before publishing.
+          releaseBody: Coreor Database v__VERSION__ — büyük şema performansı, yeni yerleşimler, SQL editörü tercihleri ve imzalı güncelleme altyapısı. Bu taslak doğrulanmadan yayımlanmaz.
           releaseDraft: true
           prerelease: false
           updaterJsonPreferNsis: true

@@ -65,28 +65,8 @@ if (runningAsScript) {
   if (current?.draft && current.tag_name !== `v${version}`) console.log(`Draft temporarily tagged ${current.tag_name}; canonicalizing URLs to v${version}`);
   if (!current) throw new Error(`Release v${version} not found`);
 
-  // Update release notes for the two existing November releases, without publishing.
-  for (const target of [
-    { tag: 'v26.11.1', file: 'docs/releases/v26.11.1.md' },
-    { tag: 'v26.11.2', file: 'docs/releases/v26.11.2.md' }
-  ]) {
-    const release = releases.find(r => r.tag_name === target.tag);
-    if (!release || !fs.existsSync(target.file)) continue;
-    const body = fs.readFileSync(target.file, 'utf8').trim();
-    if (release.body?.trim() !== body) {
-      await apiJson(`/releases/${release.id}`, {
-        method:'PATCH',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ body })
-      });
-      console.log(`Updated notes: ${target.tag}`);
-    }
-  }
-
-  if (!current.draft) {
-    console.log(`v${version} is published: no updater manifest replacement permitted`);
-    process.exit(0);
-  }
+  if (!current.draft) throw new Error(`Release v${version} is already published; refusing to modify it`);
+  if (current.tag_name !== `v${version}`) throw new Error(`Release draft tag ${current.tag_name} must equal v${version}. Do not publish untagged drafts.`);
   const asset = current.assets.find(a => a.name === 'latest.json');
   if (!asset) throw new Error('latest.json not found in release');
   const response = await request(`/releases/assets/${asset.id}`, { headers:{Accept:'application/octet-stream'} });

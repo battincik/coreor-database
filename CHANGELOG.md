@@ -4,6 +4,16 @@ Notable changes to Coreor Database are tracked here.
 
 ## [Unreleased]
 
+## [26.11.3] - 2026-11-14
+
+### Güncelleme altyapısı
+- Yeni v26.11.3 imzalı masaüstü sürümüne geçildi; v26.11.2 yayını ve dosyaları değiştirilmez.
+- Release başlatılmadan önce v26.11.3 Git etiketinin seçilen commit'e işaret etmesi zorunlu hâle getirildi. Böylece geçici untagged etiketli yayının tekrarı önlenir.
+- Tauri tarafından oluşturulan latest.json indirme adresleri GitHub'ın kalıcı sürüm bağlantılarına dönüştürülüp imza ve asset eşleşmesi doğrulanır.
+- Ayrı doğrulama ve otomatik testler, bozuk release manifestinin yayımlanmasını engeller.
+- Yeni sürüm mevcut şema optimizasyonları, gelişmiş yerleşimler ve SQL editörü tercihlerini içerir.
+
+
 ## [26.11.2] - 2026-11-14
 
 ## [26.11.1] - 2026-11-13

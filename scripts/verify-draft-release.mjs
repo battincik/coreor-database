@@ -42,7 +42,9 @@ for (let page = 1; page <= 10; page += 1) {
   release = batch.find(item => item.tag_name === `v${version}`) || batch.find(item => item.draft && item.name === `Coreor Database v${version}` && item.assets?.some(asset => asset.name === 'latest.json'));
   if (release || batch.length < 100) break;
 }
-if (!release) throw new Error(`Release v${version} not visible through GitHub API. Ensure the workflow has contents: write permission for draft visibility, or publish the release before verification.`);
+if (!release) throw new Error(`Release v${version} not visible through GitHub API.`);
+if (release.tag_name !== `v${version}`) throw new Error(`Wrong release tag ${release.tag_name}: expected v${version}.`);
+if (!release.draft) throw new Error('This candidate has already been published; expected a draft.');
 const asset = release.assets.find(item => item.name === 'latest.json');
 if (!asset) throw new Error(`Draft release v${version} has no latest.json asset.`);
 const manifest = await downloadAsset(asset.id);
