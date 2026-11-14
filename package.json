@@ -21,7 +21,7 @@
     "native:check": "npm run icons:ensure && cargo check --locked --manifest-path src-tauri/Cargo.toml",
     "i18n:check": "npm run i18n:registry:check && node scripts/validate-locales.mjs",
     "architecture:check": "node scripts/assert-native-client.mjs",
-    "check": "npm run test:lifecycle && npm run test:updater && npm run locks:check && npm run architecture:check && npm run i18n:check && npm run i18n:audit && npm run lint && npm run typecheck && npm run ui:build && npm run native:check",
+    "check": "npm run test:lifecycle && npm run test:updater && npm run test:schema && npm run locks:check && npm run architecture:check && npm run i18n:check && npm run i18n:audit && npm run lint && npm run typecheck && npm run ui:build && npm run native:check",
     "locks:generate": "node scripts/prepare-lockfiles.mjs",
     "locks:check": "node scripts/assert-lockfiles.mjs",
     "profile:windows": "npm run profile",
@@ -37,7 +37,8 @@
     "version:prepare": "node scripts/version-prepare.mjs",
     "release:local": "node scripts/local-release.mjs",
     "release:local:install": "node scripts/local-release.mjs --install",
-    "release:local:signed": "node scripts/local-release.mjs --signed"
+    "release:local:signed": "node scripts/local-release.mjs --signed",
+    "test:schema": "node --experimental-strip-types --test tests/schema-layout.test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.3",
