@@ -495,8 +495,9 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       return;
     }
     const dangerous = statements.some(statement =>
-      (isAlterStatement(statement) && !preferences.confirmAlterStatements) ||
-      (!isAlterStatement(statement) && (operationType(statement) || (/^(UPDATE|DELETE)\b/i.test(statement) && !/\bWHERE\b/i.test(statement))))
+      isAlterStatement(statement)
+        ? preferences.confirmAlterStatements && Boolean(operationType(statement))
+        : Boolean(operationType(statement) || (/^(UPDATE|DELETE)\b/i.test(statement) && !/\bWHERE\b/i.test(statement)))
     );
     if (preferences.confirmDangerousQueries && dangerous) {
       setConfirmation({ title: t('queryWorkspace.safeSqlValidation'), description: t('query.dangerousConfirm'), expectedText: t('queryWorkspace.executeUpper'), sql: tab.sql, confirmLabel: t('queryWorkspace.continueSecurity'), onConfirm: () => void executeNow() }); return;
