@@ -1737,6 +1737,13 @@
     "deleteDraftWarning": "Do not run before verifying the condition."
   },
   "schemaGraph": {
+    "restoreInitial": "Restore initial layout",
+    "layoutSettings": "Layout options",
+    "layoutMode": "Layout arrangement",
+    "maxTables": "Maximum tables",
+    "limitOption": "{count} tables",
+    "layoutHint": "Select a layout and click Auto layout. Positions are saved per database and cards cannot overlap.",
+    "layouts": {"relations":"Relationship hierarchy","horizontal":"Horizontal flow","vertical":"Vertical flow","matrix":"Balanced grid","compact":"Compact layout","radial":"Radial map"},
     "autoLayout": "Auto layout",
     "fit": "Fit",
     "center": "Center",
