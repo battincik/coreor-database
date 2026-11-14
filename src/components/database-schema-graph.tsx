@@ -43,8 +43,6 @@ interface GraphEdge {
 const CARD_WIDTH = 278;
 const HEADER_HEIGHT = 40;
 const ROW_HEIGHT = 26;
-const NODE_GAP_X = 96;
-const NODE_GAP_Y = 84;
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 2.6;
 const TABLE_LIMIT_OPTIONS = [25, 50, 100, 200, 300, 500] as const;
