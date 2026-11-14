@@ -173,6 +173,9 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
   const nodeDragRef = useRef<NodeDrag | null>(null);
   const canvasPanRef = useRef<CanvasPan | null>(null);
   const loadRequestRef = useRef(0);
+  const frameRef = useRef<number | null>(null);
+  const pendingPointerRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const [viewportSize, setViewportSize] = useState({ width: 1200, height: 800 });
   const loadedScopeRef = useRef<string | null>(null);
   const database = catalog.find(item => item.name === databaseName) || null;
   const [tableLimit, setTableLimit] = useState(100);
@@ -214,6 +217,30 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     return { minX, minY, maxX, maxY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
   }, [positions, tableInfo]);
   const canvasSize = useMemo(() => ({ width: Math.max(1800, bounds.maxX + 500), height: Math.max(1100, bounds.maxY + 500) }), [bounds]);
+  const nodeHeights = useMemo(() => heightsFor(Object.keys(tableInfo), tableInfo), [tableInfo]);
+
+  // Cull cards outside the view instead of mounting thousands of column buttons.
+  // Bounds use actual column heights; compact rendering is purely visual and does
+  // not change the overlap geometry or saved positions.
+  const visibleNames = useMemo(() => {
+    const margin = 240;
+    const minX = (-pan.x - margin) / zoom;
+    const minY = (-pan.y - margin) / zoom;
+    const maxX = (viewportSize.width - pan.x + margin) / zoom;
+    const maxY = (viewportSize.height - pan.y + margin) / zoom;
+    return Object.keys(tableInfo).filter(name => {
+      const point = positions[name];
+      return point && point.x <= maxX && point.x + CARD_WIDTH >= minX &&
+        point.y <= maxY && point.y + (nodeHeights[name] || 66) >= minY;
+    });
+  }, [positions, pan.x, pan.y, zoom, viewportSize, tableInfo, nodeHeights]);
+  const visibleSet = useMemo(() => new Set(visibleNames), [visibleNames]);
+  // At overview zoom, keep every card's full spatial footprint, but skip the
+  // individual column buttons. Detail returns automatically when zooming in.
+  const overviewMode = zoom < 0.48;
+  const visibleEdges = useMemo(() => edges.filter(edge =>
+    visibleSet.has(edge.source.table) && visibleSet.has(edge.target.table)
+  ), [edges, visibleSet]);
 
   const updatePan = (next: Point) => { panRef.current = next; setPan(next); };
 
@@ -322,6 +349,22 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     if (typeof window !== 'undefined') localStorage.setItem(settingsKey(serverId, databaseName), JSON.stringify({ tableLimit, mode: layoutMode }));
   }, [serverId, databaseName, tableLimit, layoutMode]);
   useEffect(() => { panRef.current = pan; }, [pan]);
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const measure = () => setViewportSize(previous => {
+      const width = viewport.clientWidth;
+      const height = viewport.clientHeight;
+      return width === previous.width && height === previous.height ? previous : { width, height };
+    });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => () => {
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+  }, []);
 
   const screenToWorld = (clientX: number, clientY: number) => {
     const rect = viewportRef.current?.getBoundingClientRect();
@@ -347,24 +390,37 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const movePointer = (event: React.PointerEvent<HTMLDivElement>) => {
-    const nodeDrag = nodeDragRef.current;
-    if (nodeDrag && event.pointerId === nodeDrag.pointerId) {
-      const world = screenToWorld(event.clientX, event.clientY);
-      setPositions(previous => {
-        const proposed = { x: world.x - nodeDrag.offsetX, y: world.y - nodeDrag.offsetY };
-        return hasCollision(nodeDrag.table, proposed, previous, heightsFor(Object.keys(previous), tableInfo))
-          ? previous : { ...previous, [nodeDrag.table]: proposed };
-      });
+  const flushPointerMove = () => {
+    frameRef.current = null;
+    const move = pendingPointerRef.current;
+    pendingPointerRef.current = null;
+    if (!move) return;
+    const dragged = nodeDragRef.current;
+    if (dragged && dragged.pointerId === move.pointerId) {
+      const world = screenToWorld(move.x, move.y);
+      const proposed = { x: world.x - dragged.offsetX, y: world.y - dragged.offsetY };
+      setPositions(previous => hasCollision(dragged.table, proposed, previous, nodeHeights)
+        ? previous : { ...previous, [dragged.table]: proposed });
       return;
     }
-    const canvasPan = canvasPanRef.current;
-    if (canvasPan && event.pointerId === canvasPan.pointerId) {
-      updatePan({ x: canvasPan.originX + event.clientX - canvasPan.startX, y: canvasPan.originY + event.clientY - canvasPan.startY });
+    const canvas = canvasPanRef.current;
+    if (canvas && canvas.pointerId === move.pointerId) {
+      updatePan({ x: canvas.originX + move.x - canvas.startX, y: canvas.originY + move.y - canvas.startY });
     }
   };
 
+  const movePointer = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (nodeDragRef.current?.pointerId !== event.pointerId &&
+        canvasPanRef.current?.pointerId !== event.pointerId) return;
+    pendingPointerRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+    if (frameRef.current === null) frameRef.current = requestAnimationFrame(flushPointerMove);
+  };
+
   const finishPointer = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (pendingPointerRef.current?.pointerId === event.pointerId) {
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+      flushPointerMove();
+    }
     if (nodeDragRef.current?.pointerId === event.pointerId) { nodeDragRef.current = null; setDraggingTable(null); }
     if (canvasPanRef.current?.pointerId === event.pointerId) { canvasPanRef.current = null; setPanning(false); }
   };
@@ -591,7 +647,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
       <div className="absolute left-0 top-0 origin-top-left will-change-transform" style={{ width: canvasSize.width, height: canvasSize.height, transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})` }}>
         <svg className="pointer-events-none absolute inset-0 z-0 overflow-visible" width={canvasSize.width} height={canvasSize.height}>
           <defs><marker id="coreor-schema-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="rgba(34,211,238,.75)" /></marker></defs>
-          {edges.map(edge => {
+          {visibleEdges.map(edge => {
             const sourcePosition = positions[edge.source.table];
             const targetPosition = positions[edge.target.table];
             if (!sourcePosition || !targetPosition || !tableInfo[edge.target.table]) return null;
@@ -618,14 +674,15 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
           })}
         </svg>
 
-        {Object.entries(tableInfo).map(([tableName, info]) => {
+        {visibleNames.map(tableName => {
+          const info = tableInfo[tableName];
           const position = positions[tableName] || { x: 0, y: 0 };
-          const primaryColumns = new Set(info.indexes.filter(index => index.Key_name === 'PRIMARY').map(index => index.Column_name));
-          const uniqueColumns = new Set(info.indexes.filter(index => index.Non_unique === '0' && index.Key_name !== 'PRIMARY').map(index => index.Column_name));
-          const foreignColumns = new Set(info.foreignKeys.map(item => item.COLUMN_NAME));
-          return <section data-schema-node="true" key={tableName} className={`absolute z-10 overflow-hidden rounded-xl border bg-zinc-950/96 shadow-xl backdrop-blur ${draggingTable === tableName ? 'cursor-grabbing border-cyan-400 shadow-cyan-950/50' : 'border-zinc-700/90'}`} style={{ left: position.x, top: position.y, width: CARD_WIDTH }} onPointerDown={event => beginNodeDrag(event, tableName)} onDoubleClick={() => onOpenTable?.(tableName)} onContextMenu={event => openNodeMenu(event, tableName)}>
+          const primaryColumns = overviewMode ? new Set<string>() : new Set(info.indexes.filter(index => index.Key_name === 'PRIMARY').map(index => index.Column_name));
+          const uniqueColumns = overviewMode ? new Set<string>() : new Set(info.indexes.filter(index => index.Non_unique === '0' && index.Key_name !== 'PRIMARY').map(index => index.Column_name));
+          const foreignColumns = overviewMode ? new Set<string>() : new Set(info.foreignKeys.map(item => item.COLUMN_NAME));
+          return <section data-schema-node="true" key={tableName} className={`absolute z-10 overflow-hidden rounded-xl border bg-zinc-950/96 shadow-md ${draggingTable === tableName ? 'cursor-grabbing border-cyan-400 shadow-cyan-950/50' : 'border-zinc-700/90'}`} style={{ left: position.x, top: position.y, width: CARD_WIDTH }} onPointerDown={event => beginNodeDrag(event, tableName)} onDoubleClick={() => onOpenTable?.(tableName)} onContextMenu={event => openNodeMenu(event, tableName)}>
             <header className="flex h-10 cursor-grab items-center gap-2 border-b border-zinc-800 bg-zinc-900/95 px-2 active:cursor-grabbing"><Table2 className="h-3.5 w-3.5 text-cyan-400" /><span className="min-w-0 flex-1 truncate text-[11px] font-semibold">{tableName}</span><span className="rounded bg-black/30 px-1.5 py-0.5 text-[8px] uppercase text-zinc-500">{info.table.engine || 'table'}</span></header>
-            <div>{info.columns.map(column => {
+            {overviewMode ? <div className="flex items-start px-2 py-2 text-[9px] text-zinc-500" style={{ minHeight: Math.max(26, info.columns.length) * ROW_HEIGHT }}><span>{t('schemaGraph.columnCount', { count: info.columns.length })}</span></div> : <div>{info.columns.map(column => {
               const isSource = source?.table === tableName && source.column === column.Field;
               const isTarget = target?.table === tableName && target.column === column.Field;
               const isKey = primaryColumns.has(column.Field);
@@ -633,7 +690,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
                 {isKey ? <KeyRound className="h-3 w-3 shrink-0 text-amber-400" /> : foreignColumns.has(column.Field) ? <Link2 className="h-3 w-3 shrink-0 text-cyan-400" /> : uniqueColumns.has(column.Field) ? <Columns3 className="h-3 w-3 shrink-0 text-red-300" /> : <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-700" />}
                 <span className={`min-w-0 flex-1 truncate ${isKey ? 'font-semibold text-amber-100' : 'text-zinc-300'}`}>{column.Field}</span><span className={`max-w-[112px] truncate font-mono text-[8px] ${typeTone(column.Type)}`}>{column.Type.toUpperCase()}</span>{column.Null === 'YES' && <span className="text-[7px] text-zinc-700">N</span>}
               </button>;
-            })}</div>
+            })}</div>}
             {info.table.comment && <footer className="truncate border-t border-zinc-800 bg-black/20 px-2 py-1.5 text-[8px] text-zinc-600" title={info.table.comment}>{info.table.comment}</footer>}
           </section>;
         })}
