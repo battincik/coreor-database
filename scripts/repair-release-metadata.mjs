@@ -13,7 +13,7 @@ export function canonicalManifest(manifest, release, repo) {
     const url = new URL(item.url);
     const apiAssetPrefix = `https://api.github.com/repos/${repo}/releases/assets/`;
     let filename;
-    if (item.url.startsWith(apiAssetPrefix) && /^\\d+$/.test(item.url.slice(apiAssetPrefix.length))) {
+    if (item.url.startsWith(apiAssetPrefix) && /^\d+$/.test(item.url.slice(apiAssetPrefix.length))) {
       const id = Number(item.url.slice(apiAssetPrefix.length));
       filename = release.assets.find(asset => asset.id === id)?.name;
       if (!filename) throw new Error(`${platform}: GitHub asset ID ${id} is not part of this release`);
