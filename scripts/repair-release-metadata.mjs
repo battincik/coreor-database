@@ -4,19 +4,19 @@ import { validateUpdaterManifest } from './validate-updater-manifest.mjs';
 
 export function canonicalManifest(manifest, release, repo) {
   const prefix = `https://github.com/${repo}/releases/download/`;
-  const target = `${prefix}${encodeURIComponent(release.tag_name)}/`;
+  const target = `${prefix}v${encodeURIComponent(manifest.version)}/`;
   const assets = new Set(release.assets.map(a => a.name));
   let count = 0;
   const result = structuredClone(manifest);
   if (!result.platforms || typeof result.platforms !== 'object') throw new Error('Missing platforms');
   for (const [platform, item] of Object.entries(result.platforms)) {
     const url = new URL(item.url);
-    if (!item.url.startsWith(prefix)) throw new Error(`${platform}: unexpected download origin`);
+    if (!item.url.startsWith(prefix)) throw new Error(`${platform}: unexpected download origin: ${item.url}`);
     const filename = decodeURIComponent(url.pathname.slice(url.pathname.lastIndexOf('/') + 1));
     if (!assets.has(filename)) throw new Error(`${platform}: missing release asset ${filename}`);
     if (item.url !== target + encodeURIComponent(filename)) {
       const versionPart = item.url.slice(prefix.length).split('/')[0];
-      if (!release.draft || !versionPart.startsWith('untagged-')) {
+      if (!release.draft || !(versionPart.startsWith('untagged-') || versionPart.startsWith('v'))) {
         throw new Error(`${platform}: refuses to rewrite non-draft, non-untagged URL`);
       }
       item.url = target + encodeURIComponent(filename);
@@ -54,7 +54,8 @@ if (runningAsScript) {
     releases.push(...rows);
     if (rows.length < 100) break;
   }
-  const current = releases.find(r => r.tag_name === `v${version}`);
+  const current = releases.find(r => r.tag_name === `v${version}`) || releases.find(r => r.draft && r.name === `Coreor Database v${version}` && r.assets.some(a => a.name === 'latest.json'));
+  if (current?.draft && current.tag_name !== `v${version}`) console.log(`Draft temporarily tagged ${current.tag_name}; canonicalizing URLs to v${version}`);
   if (!current) throw new Error(`Release v${version} not found`);
 
   // Update release notes for the two existing November releases, without publishing.
