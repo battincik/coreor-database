@@ -1,0 +1,26 @@
+name: Recover v26.11.2 updater release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/recover-published-release.mjs
+permissions:
+  contents: write
+concurrency:
+  group: recover-v26-11-2
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test released asset and URL normalization
+        run: node --test tests/recover-published-release.test.mjs
+      - name: Repair v26.11.2 tag and updater manifest in-place
+        run: node scripts/recover-published-release.mjs
