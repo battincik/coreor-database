@@ -1,6 +1,12 @@
-name: Verify draft release
+name: Repair and verify release
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/repair-release-metadata.mjs
+      - docs/releases/v26.11.1.md
+      - docs/releases/v26.11.2.md
 permissions:
   # GitHub REST API hides draft releases from tokens without write access.
   contents: write
@@ -14,5 +20,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Test release manifest repair rules
+        run: node --test tests/release-metadata.test.mjs
+      - name: Repair release manifest URL and update release notes
+        run: node scripts/repair-release-metadata.mjs
       - name: Verify existing draft or published release without rebuilding platforms
         run: node scripts/verify-draft-release.mjs
