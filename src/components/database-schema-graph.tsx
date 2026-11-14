@@ -313,7 +313,10 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     setLayoutReady(true);
   }, [tableInfo, tableNames, serverId, databaseName, tableLimit]);
   useEffect(() => {
-    if (layoutReady && loadedScopeRef.current === `${serverId}:${databaseName}:${tableLimit}` && Object.keys(positions).length) persistPositions(serverId, databaseName, positions);
+    if (!layoutReady || loadedScopeRef.current !== `${serverId}:${databaseName}:${tableLimit}` || !Object.keys(positions).length) return;
+    // Debounce pointer-move writes for larger schemas; explicit layout changes save immediately.
+    const timer = window.setTimeout(() => persistPositions(serverId, databaseName, positions), 200);
+    return () => window.clearTimeout(timer);
   }, [positions, serverId, databaseName, tableLimit, layoutReady]);
   useEffect(() => {
     if (typeof window !== 'undefined') localStorage.setItem(settingsKey(serverId, databaseName), JSON.stringify({ tableLimit, mode: layoutMode }));
