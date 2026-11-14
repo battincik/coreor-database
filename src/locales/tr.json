@@ -1737,6 +1737,7 @@
     "deleteDraftWarning": "Koşulu doğrulamadan çalıştırmayın."
   },
   "schemaGraph": {
+    "columnCount": "{count} sütun",
     "restoreInitial": "İlk yerleşime dön",
     "layoutSettings": "Yerleşim seçenekleri",
     "layoutMode": "Yerleşim düzeni",
