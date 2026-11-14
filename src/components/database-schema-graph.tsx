@@ -172,6 +172,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
   const panRef = useRef<Point>({ x: 32, y: 32 });
   const nodeDragRef = useRef<NodeDrag | null>(null);
   const canvasPanRef = useRef<CanvasPan | null>(null);
+  const loadRequestRef = useRef(0);
   const database = catalog.find(item => item.name === databaseName) || null;
   const [tableLimit, setTableLimit] = useState(100);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('relations');
@@ -216,7 +217,8 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
   const updatePan = (next: Point) => { panRef.current = next; setPan(next); };
 
   const load = async () => {
-    if (!accountId || !database || loading) return;
+    if (!accountId || !database) return;
+    const requestId = ++loadRequestRef.current;
     setLoading(true); setError(null); setMessage(null); setLoadedCount(0);
     setPositions(loadPositions(serverId, databaseName, tableNames));
     setLayoutReady(false);
@@ -224,6 +226,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     const nextInfo: Record<string, TableInfo> = {};
     try {
       const overview = await fetchSchemaOverview(serverId, databaseName, accountId);
+      if (requestId !== loadRequestRef.current) return;
       if (overview.supported) {
         const group = (rows: Array<Record<string, unknown>>) => {
           const grouped = new Map<string, Array<Record<string, unknown>>>();
@@ -268,7 +271,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
       } else {
         const results = await loadWithConcurrency(tableNames, 4, async tableName => {
           const info = await fetchTableInfo(serverId, databaseName, tableName, accountId);
-          setLoadedCount(previous => previous + 1);
+          if (requestId === loadRequestRef.current) setLoadedCount(previous => previous + 1);
           return info;
         });
         const failures: string[] = [];
@@ -276,12 +279,15 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
           if (entry.result) nextInfo[String(entry.item)] = entry.result;
           else failures.push(String(entry.item));
         }
+        if (requestId !== loadRequestRef.current) return;
         setTableInfo(nextInfo);
         if (failures.length) setMessage(t('schemaGraph.loadedWithFailures', { loaded: formatNumber(Object.keys(nextInfo).length), failed: formatNumber(failures.length) }));
       }
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : t('schemaGraph.loadFailed'));
-    } finally { setLoading(false); }
+      if (requestId === loadRequestRef.current) setError(failure instanceof Error ? failure.message : t('schemaGraph.loadFailed'));
+    } finally {
+      if (requestId === loadRequestRef.current) setLoading(false);
+    }
   };
 
   const loadForTarget = useEffectEvent(load);
