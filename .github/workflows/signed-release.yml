@@ -75,10 +75,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Verify published draft updater manifest and assets
-        run: |
-          version=$(node -p "require('./package.json').version")
-          mkdir -p "$RUNNER_TEMP/updater"
-          gh release download "v$version" --pattern latest.json --dir "$RUNNER_TEMP/updater"
-          gh release view "v$version" --json assets > "$RUNNER_TEMP/updater/assets.json"
-          node scripts/validate-updater-manifest.mjs "$RUNNER_TEMP/updater/latest.json" "$RUNNER_TEMP/updater/assets.json"
+      - name: Verify draft updater manifest and assets via GitHub API
+        run: node scripts/verify-draft-release.mjs
