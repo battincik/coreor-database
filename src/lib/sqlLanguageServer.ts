@@ -143,7 +143,15 @@ export function analyzeSqlDocument(sql: string, context: SqlLanguageContext): Sq
   }
   if (depth > 0) diagnostics.push(diagnostic('paren-open', 'error', 'UNCLOSED_PAREN', `${depth} parantez kapatılmamış.`, Math.max(0, sql.lastIndexOf('(')), sql.length));
 
-  const references = findTableReferences(masked);
+  // Routine bodies and MySQL DELIMITER scripts contain procedural SQL that is
+  // not a single query. Catalog heuristics must not flag IF/END or system
+  // information_schema references as unknown user tables.
+  const isRoutineScript = /(?:^|\n)\s*DELIMITER\b/i.test(sql)
+    || /\bCREATE\s+(?:DEFINER\s*=\s*[^\s]+\s+)?(?:PROCEDURE|FUNCTION|TRIGGER|EVENT)\b/i.test(masked);
+  const references = isRoutineScript ? [] : findTableReferences(masked).filter(reference =>
+    !['information_schema', 'performance_schema', 'mysql', 'sys'].includes((reference.databaseName || '').toLowerCase())
+    && !/^(?:IF|NOT|EXISTS)$/i.test(reference.tableName)
+  );
   for (const reference of references) {
     if (!tableExists(context, reference)) diagnostics.push(diagnostic(`table:${reference.start}`, 'error', 'UNKNOWN_TABLE', `${reference.databaseName ? `${reference.databaseName}.` : ''}${reference.tableName} yerel katalogda bulunamadı.`, reference.start, reference.end, 'Kataloğu yenileyin veya tablo adını kontrol edin.'));
   }
