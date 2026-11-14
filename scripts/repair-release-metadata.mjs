@@ -11,15 +11,22 @@ export function canonicalManifest(manifest, release, repo) {
   if (!result.platforms || typeof result.platforms !== 'object') throw new Error('Missing platforms');
   for (const [platform, item] of Object.entries(result.platforms)) {
     const url = new URL(item.url);
-    if (!item.url.startsWith(prefix)) throw new Error(`${platform}: unexpected download origin: ${item.url}`);
-    const filename = decodeURIComponent(url.pathname.slice(url.pathname.lastIndexOf('/') + 1));
+    const apiAssetPrefix = `https://api.github.com/repos/${repo}/releases/assets/`;
+    let filename;
+    if (item.url.startsWith(apiAssetPrefix) && /^\\d+$/.test(item.url.slice(apiAssetPrefix.length))) {
+      const id = Number(item.url.slice(apiAssetPrefix.length));
+      filename = release.assets.find(asset => asset.id === id)?.name;
+      if (!filename) throw new Error(`${platform}: GitHub asset ID ${id} is not part of this release`);
+    } else if (item.url.startsWith(prefix)) {
+      filename = decodeURIComponent(url.pathname.slice(url.pathname.lastIndexOf('/') + 1));
+    } else {
+      throw new Error(`${platform}: unexpected download origin: ${item.url}`);
+    }
     if (!assets.has(filename)) throw new Error(`${platform}: missing release asset ${filename}`);
-    if (item.url !== target + encodeURIComponent(filename)) {
-      const versionPart = item.url.slice(prefix.length).split('/')[0];
-      if (!release.draft || !(versionPart.startsWith('untagged-') || versionPart.startsWith('v'))) {
-        throw new Error(`${platform}: refuses to rewrite non-draft, non-untagged URL`);
-      }
-      item.url = target + encodeURIComponent(filename);
+    const canonical = target + encodeURIComponent(filename);
+    if (item.url !== canonical) {
+      if (!release.draft) throw new Error(`${platform}: refuses to rewrite URLs on a published release`);
+      item.url = canonical;
       count++;
     }
   }
