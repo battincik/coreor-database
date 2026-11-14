@@ -14,6 +14,7 @@ import { CoreorConfirmModal, type CoreorConfirmation } from '@/components/ui/cor
 import { useAppContextMenu } from '@/components/app-context-menu';
 import { openQueryTab, qualifiedSqlName, quoteSqlIdentifier } from '@/lib/queryWorkspaceEvents';
 import { useLanguage } from '@/context/LanguageContext';
+import { arrangeSchema, separateNodes, hasCollision, type LayoutMode } from '@/lib/schemaLayout';
 
 interface DatabaseSchemaGraphProps {
   serverId: string;
@@ -42,11 +43,10 @@ interface GraphEdge {
 const CARD_WIDTH = 278;
 const HEADER_HEIGHT = 40;
 const ROW_HEIGHT = 26;
-const NODE_GAP_X = 96;
-const NODE_GAP_Y = 84;
-const MIN_ZOOM = 0.22;
+const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 2.6;
-const MAX_TABLES = 100;
+const TABLE_LIMIT_OPTIONS = [25, 50, 100, 200, 300, 500] as const;
+const LAYOUT_MODES: LayoutMode[] = ['relations', 'horizontal', 'vertical', 'matrix', 'compact', 'radial'];
 const FK_RULES: Array<NonNullable<TableForeignKeyDefinition['onDelete']>> = ['RESTRICT', 'CASCADE', 'SET NULL', 'NO ACTION'];
 function createFkOptions(t: (key: string) => string): SearchSelectOption<NonNullable<TableForeignKeyDefinition['onDelete']>>[] {
   return FK_RULES.map(rule => ({
@@ -68,98 +68,40 @@ function nodeHeight(info?: TableInfo) {
   return HEADER_HEIGHT + Math.max(1, info?.columns.length || 1) * ROW_HEIGHT + (info?.table.comment ? 28 : 0);
 }
 
-function defaultPositions(tableNames: string[]) {
-  const columns = Math.max(2, Math.ceil(Math.sqrt(Math.max(1, tableNames.length))));
-  return Object.fromEntries(tableNames.map((table, index) => [table, {
-    x: 70 + (index % columns) * (CARD_WIDTH + NODE_GAP_X),
-    y: 70 + Math.floor(index / columns) * (330 + NODE_GAP_Y)
-  }]));
+function heightsFor(names: string[], info: Record<string, TableInfo>) {
+  return Object.fromEntries(names.map(name => [name, nodeHeight(info[name])]));
 }
-
-function automaticPositions(tableNames: string[], tableInfo: Record<string, TableInfo>, edges: GraphEdge[]) {
-  if (!tableNames.length) return {};
-  const known = new Set(tableNames);
-  const parents = new Map<string, Set<string>>();
-  const neighbors = new Map<string, Set<string>>();
-  for (const table of tableNames) { parents.set(table, new Set()); neighbors.set(table, new Set()); }
-  for (const edge of edges) {
-    if (!known.has(edge.source.table) || !known.has(edge.target.table) || edge.source.table === edge.target.table) continue;
-    parents.get(edge.source.table)?.add(edge.target.table);
-    neighbors.get(edge.source.table)?.add(edge.target.table);
-    neighbors.get(edge.target.table)?.add(edge.source.table);
-  }
-
-  const rank = new Map<string, number>(tableNames.map(table => [table, 0] as const));
-  for (let pass = 0; pass < tableNames.length; pass += 1) {
-    let changed = false;
-    for (const table of tableNames) {
-      const dependencies = parents.get(table);
-      if (!dependencies?.size) continue;
-      const candidate = Math.min(tableNames.length - 1, Math.max(...[...dependencies].map(parent => (rank.get(parent) || 0) + 1)));
-      if (candidate > (rank.get(table) || 0)) { rank.set(table, candidate); changed = true; }
-    }
-    if (!changed) break;
-  }
-
-  const usedRanks = [...new Set([...rank.values()])].sort((a, b) => a - b);
-  const compactRank = new Map<number, number>(usedRanks.map((value, index) => [value, index] as const));
-  for (const table of tableNames) rank.set(table, compactRank.get(rank.get(table) || 0) || 0);
-
-  const layers = new Map<number, string[]>();
-  for (const table of tableNames) {
-    const layer = rank.get(table) || 0;
-    layers.set(layer, [...(layers.get(layer) || []), table]);
-  }
-
-  const order = new Map<string, number>();
-  for (const layer of [...layers.keys()].sort((a, b) => a - b)) {
-    const items = layers.get(layer) || [];
-    items.sort((left, right) => {
-      const score = (table: string) => {
-        const linked = [...(neighbors.get(table) || [])].filter(item => order.has(item));
-        return linked.length ? linked.reduce((sum, item) => sum + (order.get(item) || 0), 0) / linked.length : Number.MAX_SAFE_INTEGER;
-      };
-      const leftScore = score(left);
-      const rightScore = score(right);
-      return leftScore !== rightScore ? leftScore - rightScore : left.localeCompare(right);
-    });
-    items.forEach((table, index) => order.set(table, index));
-  }
-
-  const result: Record<string, Point> = {};
-  for (const layer of [...layers.keys()].sort((a, b) => a - b)) {
-    let y = 72;
-    for (const table of layers.get(layer) || []) {
-      result[table] = { x: 72 + layer * (CARD_WIDTH + 160), y };
-      y += nodeHeight(tableInfo[table]) + 96;
-    }
-  }
-
-  const isolated = tableNames.filter(table => !(neighbors.get(table)?.size));
-  if (isolated.length > 8) {
-    const connected = tableNames.filter(table => neighbors.get(table)?.size);
-    const connectedMaxX = connected.length ? Math.max(...connected.map(table => result[table]?.x || 72)) : -CARD_WIDTH - 160;
-    const startX = connectedMaxX + CARD_WIDTH + 220;
-    const rowsPerColumn = Math.max(5, Math.ceil(Math.sqrt(isolated.length)));
-    isolated.forEach((table, index) => {
-      const column = Math.floor(index / rowsPerColumn);
-      const row = index % rowsPerColumn;
-      let y = 72;
-      for (let i = 0; i < row; i += 1) y += nodeHeight(tableInfo[isolated[column * rowsPerColumn + i]]) + 96;
-      result[table] = { x: startX + column * (CARD_WIDTH + 160), y };
-    });
-  }
-  return result;
+function defaultPositions(names: string[], info: Record<string, TableInfo> = {}) {
+  return arrangeSchema(names.map(name => ({ name, height: nodeHeight(info[name]) })), [], 'matrix');
 }
-
-function loadPositions(serverId: string, databaseName: string, tableNames: string[]) {
+function automaticPositions(names: string[], info: Record<string, TableInfo>, edges: GraphEdge[], mode: LayoutMode) {
+  return arrangeSchema(
+    names.map(name => ({ name, height: nodeHeight(info[name]) })),
+    edges.map(edge => ({ source: edge.source.table, target: edge.target.table })),
+    mode
+  );
+}
+function settingsKey(serverId: string, databaseName: string) {
+  return `coreor:schema-graph-settings:${serverId}:${databaseName}:v1`;
+}
+function savedSettings(serverId: string, databaseName: string): { tableLimit: number; mode: LayoutMode } {
+  if (typeof window === 'undefined') return { tableLimit: 100, mode: 'relations' };
+  try {
+    const value = JSON.parse(localStorage.getItem(settingsKey(serverId, databaseName)) || '{}');
+    return {
+      tableLimit: TABLE_LIMIT_OPTIONS.includes(value.tableLimit) ? value.tableLimit : 100,
+      mode: LAYOUT_MODES.includes(value.mode) ? value.mode : 'relations'
+    };
+  } catch { return { tableLimit: 100, mode: 'relations' }; }
+}
+function loadPositions(serverId: string, databaseName: string, tableNames: string[], info: Record<string, TableInfo> = {}) {
   if (typeof window === 'undefined') return defaultPositions(tableNames);
   try {
     const stored = JSON.parse(window.localStorage.getItem(storageKey(serverId, databaseName)) || '{}') as Record<string, Point>;
-    const defaults = defaultPositions(tableNames);
-    return Object.fromEntries(tableNames.map(table => [table, stored[table] && Number.isFinite(stored[table].x) && Number.isFinite(stored[table].y) ? stored[table] : defaults[table]]));
+    const defaults = defaultPositions(tableNames, info);
+    return separateNodes(Object.fromEntries(tableNames.map(table => [table, stored[table] && Number.isFinite(stored[table].x) && Number.isFinite(stored[table].y) ? stored[table] : defaults[table]])), heightsFor(tableNames, info));
   } catch {
-    return defaultPositions(tableNames);
+    return defaultPositions(tableNames, info);
   }
 }
 
@@ -230,8 +172,21 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
   const panRef = useRef<Point>({ x: 32, y: 32 });
   const nodeDragRef = useRef<NodeDrag | null>(null);
   const canvasPanRef = useRef<CanvasPan | null>(null);
+  const loadRequestRef = useRef(0);
+  const frameRef = useRef<number | null>(null);
+  const pendingPointerRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const [viewportSize, setViewportSize] = useState({ width: 1200, height: 800 });
+  const loadedScopeRef = useRef<string | null>(null);
   const database = catalog.find(item => item.name === databaseName) || null;
-  const tableNames = useMemo(() => (database?.tables || []).slice(0, MAX_TABLES), [database]);
+  const [tableLimit, setTableLimit] = useState(100);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('relations');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [layoutReady, setLayoutReady] = useState(false);
+  const tableNames = useMemo(() => (database?.tables || []).slice(0, tableLimit), [database, tableLimit]);
+  const modeOptions = useMemo<SearchSelectOption<LayoutMode>[]>(() =>
+    LAYOUT_MODES.map(value => ({ value, label: t(`schemaGraph.layouts.${value}`) })), [t]);
+  const limitOptions = useMemo<SearchSelectOption<number>[]>(() =>
+    TABLE_LIMIT_OPTIONS.map(value => ({ value, label: t('schemaGraph.limitOption', { count: value }) })), [t]);
   const [tableInfo, setTableInfo] = useState<Record<string, TableInfo>>({});
   const [positions, setPositions] = useState<Record<string, Point>>({});
   const [zoom, setZoom] = useState(0.9);
@@ -262,16 +217,45 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     return { minX, minY, maxX, maxY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
   }, [positions, tableInfo]);
   const canvasSize = useMemo(() => ({ width: Math.max(1800, bounds.maxX + 500), height: Math.max(1100, bounds.maxY + 500) }), [bounds]);
+  const nodeHeights = useMemo(() => heightsFor(Object.keys(tableInfo), tableInfo), [tableInfo]);
+
+  // Cull cards outside the view instead of mounting thousands of column buttons.
+  // Bounds use actual column heights; compact rendering is purely visual and does
+  // not change the overlap geometry or saved positions.
+  const visibleNames = useMemo(() => {
+    const margin = 240;
+    const minX = (-pan.x - margin) / zoom;
+    const minY = (-pan.y - margin) / zoom;
+    const maxX = (viewportSize.width - pan.x + margin) / zoom;
+    const maxY = (viewportSize.height - pan.y + margin) / zoom;
+    return Object.keys(tableInfo).filter(name => {
+      const point = positions[name];
+      return point && point.x <= maxX && point.x + CARD_WIDTH >= minX &&
+        point.y <= maxY && point.y + (nodeHeights[name] || 66) >= minY;
+    });
+  }, [positions, pan.x, pan.y, zoom, viewportSize, tableInfo, nodeHeights]);
+  const visibleSet = useMemo(() => new Set(visibleNames), [visibleNames]);
+  // At overview zoom, keep every card's full spatial footprint, but skip the
+  // individual column buttons. Detail returns automatically when zooming in.
+  const overviewMode = zoom < 0.48;
+  const visibleEdges = useMemo(() => edges.filter(edge =>
+    visibleSet.has(edge.source.table) && visibleSet.has(edge.target.table)
+  ), [edges, visibleSet]);
 
   const updatePan = (next: Point) => { panRef.current = next; setPan(next); };
 
   const load = async () => {
-    if (!accountId || !database || loading) return;
+    if (!accountId || !database) return;
+    const requestId = ++loadRequestRef.current;
+    loadedScopeRef.current = null;
     setLoading(true); setError(null); setMessage(null); setLoadedCount(0);
     setPositions(loadPositions(serverId, databaseName, tableNames));
+    setLayoutReady(false);
+    setTableInfo({});
     const nextInfo: Record<string, TableInfo> = {};
     try {
       const overview = await fetchSchemaOverview(serverId, databaseName, accountId);
+      if (requestId !== loadRequestRef.current) return;
       if (overview.supported) {
         const group = (rows: Array<Record<string, unknown>>) => {
           const grouped = new Map<string, Array<Record<string, unknown>>>();
@@ -312,11 +296,12 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
           };
         }
         setLoadedCount(Object.keys(nextInfo).length);
+        loadedScopeRef.current = `${serverId}:${databaseName}:${tableLimit}`;
         setTableInfo(nextInfo);
       } else {
         const results = await loadWithConcurrency(tableNames, 4, async tableName => {
           const info = await fetchTableInfo(serverId, databaseName, tableName, accountId);
-          setLoadedCount(previous => previous + 1);
+          if (requestId === loadRequestRef.current) setLoadedCount(previous => previous + 1);
           return info;
         });
         const failures: string[] = [];
@@ -324,18 +309,62 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
           if (entry.result) nextInfo[String(entry.item)] = entry.result;
           else failures.push(String(entry.item));
         }
+        if (requestId !== loadRequestRef.current) return;
+        loadedScopeRef.current = `${serverId}:${databaseName}:${tableLimit}`;
         setTableInfo(nextInfo);
         if (failures.length) setMessage(t('schemaGraph.loadedWithFailures', { loaded: formatNumber(Object.keys(nextInfo).length), failed: formatNumber(failures.length) }));
       }
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : t('schemaGraph.loadFailed'));
-    } finally { setLoading(false); }
+      if (requestId === loadRequestRef.current) setError(failure instanceof Error ? failure.message : t('schemaGraph.loadFailed'));
+    } finally {
+      if (requestId === loadRequestRef.current) setLoading(false);
+    }
   };
 
   const loadForTarget = useEffectEvent(load);
-  useEffect(() => { void loadForTarget(); }, [serverId, databaseName, accountId]);
-  useEffect(() => { if (Object.keys(positions).length) persistPositions(serverId, databaseName, positions); }, [positions, serverId, databaseName]);
+  useEffect(() => {
+    const settings = savedSettings(serverId, databaseName);
+    setTableLimit(settings.tableLimit);
+    setLayoutMode(settings.mode);
+  }, [serverId, databaseName]);
+  useEffect(() => { void loadForTarget(); }, [serverId, databaseName, accountId, tableLimit]);
+  useEffect(() => {
+    if (loadedScopeRef.current !== `${serverId}:${databaseName}:${tableLimit}` || !Object.keys(tableInfo).length) return;
+    setPositions(previous => {
+      const names = tableNames.filter(name => tableInfo[name]);
+      const fallback = defaultPositions(names, tableInfo);
+      const desired = Object.fromEntries(names.map(name => [name, previous[name] || fallback[name]]));
+      const safe = separateNodes(desired, heightsFor(names, tableInfo));
+      return JSON.stringify(safe) === JSON.stringify(previous) ? previous : safe;
+    });
+    setLayoutReady(true);
+  }, [tableInfo, tableNames, serverId, databaseName, tableLimit]);
+  useEffect(() => {
+    if (!layoutReady || loadedScopeRef.current !== `${serverId}:${databaseName}:${tableLimit}` || !Object.keys(positions).length) return;
+    // Debounce pointer-move writes for larger schemas; explicit layout changes save immediately.
+    const timer = window.setTimeout(() => persistPositions(serverId, databaseName, positions), 200);
+    return () => window.clearTimeout(timer);
+  }, [positions, serverId, databaseName, tableLimit, layoutReady]);
+  useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem(settingsKey(serverId, databaseName), JSON.stringify({ tableLimit, mode: layoutMode }));
+  }, [serverId, databaseName, tableLimit, layoutMode]);
   useEffect(() => { panRef.current = pan; }, [pan]);
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const measure = () => setViewportSize(previous => {
+      const width = viewport.clientWidth;
+      const height = viewport.clientHeight;
+      return width === previous.width && height === previous.height ? previous : { width, height };
+    });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [loading, databaseName, accountId]);
+  useEffect(() => () => {
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+  }, []);
 
   const screenToWorld = (clientX: number, clientY: number) => {
     const rect = viewportRef.current?.getBoundingClientRect();
@@ -361,20 +390,37 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const movePointer = (event: React.PointerEvent<HTMLDivElement>) => {
-    const nodeDrag = nodeDragRef.current;
-    if (nodeDrag && event.pointerId === nodeDrag.pointerId) {
-      const world = screenToWorld(event.clientX, event.clientY);
-      setPositions(previous => ({ ...previous, [nodeDrag.table]: { x: world.x - nodeDrag.offsetX, y: world.y - nodeDrag.offsetY } }));
+  const flushPointerMove = () => {
+    frameRef.current = null;
+    const move = pendingPointerRef.current;
+    pendingPointerRef.current = null;
+    if (!move) return;
+    const dragged = nodeDragRef.current;
+    if (dragged && dragged.pointerId === move.pointerId) {
+      const world = screenToWorld(move.x, move.y);
+      const proposed = { x: world.x - dragged.offsetX, y: world.y - dragged.offsetY };
+      setPositions(previous => hasCollision(dragged.table, proposed, previous, nodeHeights)
+        ? previous : { ...previous, [dragged.table]: proposed });
       return;
     }
-    const canvasPan = canvasPanRef.current;
-    if (canvasPan && event.pointerId === canvasPan.pointerId) {
-      updatePan({ x: canvasPan.originX + event.clientX - canvasPan.startX, y: canvasPan.originY + event.clientY - canvasPan.startY });
+    const canvas = canvasPanRef.current;
+    if (canvas && canvas.pointerId === move.pointerId) {
+      updatePan({ x: canvas.originX + move.x - canvas.startX, y: canvas.originY + move.y - canvas.startY });
     }
   };
 
+  const movePointer = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (nodeDragRef.current?.pointerId !== event.pointerId &&
+        canvasPanRef.current?.pointerId !== event.pointerId) return;
+    pendingPointerRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+    if (frameRef.current === null) frameRef.current = requestAnimationFrame(flushPointerMove);
+  };
+
   const finishPointer = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (pendingPointerRef.current?.pointerId === event.pointerId) {
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+      flushPointerMove();
+    }
     if (nodeDragRef.current?.pointerId === event.pointerId) { nodeDragRef.current = null; setDraggingTable(null); }
     if (canvasPanRef.current?.pointerId === event.pointerId) { canvasPanRef.current = null; setPanning(false); }
   };
@@ -419,7 +465,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
   };
 
   const resetLayout = () => {
-    const next = automaticPositions(tableNames, tableInfo, edges);
+    const next = automaticPositions(tableNames, tableInfo, edges, layoutMode);
     setPositions(next);
     persistPositions(serverId, databaseName, next);
     setSelectedEdge(null); setSource(null); setTarget(null);
@@ -445,8 +491,26 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     }
   };
 
+  const restoreInitialLayout = () => {
+    const next = defaultPositions(tableNames, tableInfo);
+    setPositions(next);
+    persistPositions(serverId, databaseName, next);
+    setSelectedEdge(null); setSource(null); setTarget(null);
+    const viewport = viewportRef.current;
+    if (viewport) {
+      const minX = Math.min(...Object.values(next).map(point => point.x));
+      const minY = Math.min(...Object.values(next).map(point => point.y));
+      const maxX = Math.max(...Object.values(next).map(point => point.x + CARD_WIDTH));
+      const maxY = Math.max(...Object.entries(next).map(([name, point]) => point.y + nodeHeight(tableInfo[name])));
+      const nextZoom = clamp(Math.min((viewport.clientWidth - 96) / Math.max(1, maxX - minX), (viewport.clientHeight - 96) / Math.max(1, maxY - minY), 1.25), MIN_ZOOM, MAX_ZOOM);
+      setZoom(nextZoom);
+      updatePan({ x: (viewport.clientWidth - (maxX - minX) * nextZoom) / 2 - minX * nextZoom, y: (viewport.clientHeight - (maxY - minY) * nextZoom) / 2 - minY * nextZoom });
+    }
+  };
+
   const openCanvasMenu = (event: React.MouseEvent) => openContextMenu(event, [
     { id: 'auto-layout', label: t('schemaGraph.autoLayout'), icon: Move, onSelect: resetLayout },
+    { id: 'restore', label: t('schemaGraph.restoreInitial'), icon: RotateCcw, onSelect: restoreInitialLayout },
     { id: 'fit', label: t('schemaGraph.fitAll'), icon: Maximize2, onSelect: fit },
     { id: 'zoom-100', label: t('schemaGraph.zoom100'), icon: RotateCcw, onSelect: () => zoomAt(1) },
     { id: 'center', label: t('schemaGraph.centerSelected'), icon: Focus, onSelect: centerSelected },
@@ -550,6 +614,8 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
     <div className="coreor-hide-scrollbar flex min-h-10 shrink-0 items-center gap-1.5 overflow-x-auto border-b border-zinc-800 bg-zinc-950/95 px-2 py-1">
       <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => void load()} disabled={loading}><RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />{t('common.refresh')}</Button>
       <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={resetLayout}><RotateCcw className="mr-1.5 h-3.5 w-3.5" />{t('schemaGraph.autoLayout')}</Button>
+      <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={restoreInitialLayout}>{t('schemaGraph.restoreInitial')}</Button>
+      <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => setSettingsOpen(open => !open)}>{t('schemaGraph.layoutSettings')}</Button>
       <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={fit}><Maximize2 className="mr-1.5 h-3.5 w-3.5" />{t('schemaGraph.fit')}</Button>
       <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={centerSelected}><Focus className="mr-1.5 h-3.5 w-3.5" />{t('schemaGraph.center')}</Button>
       <div className="mx-1 h-5 w-px bg-zinc-800" />
@@ -559,7 +625,12 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
       <div className="ml-auto flex shrink-0 items-center gap-2 text-[10px] text-zinc-600"><Move className="h-3.5 w-3.5" />{t('schemaGraph.interactionHint')}</div>
     </div>
 
-    {(error || message || tableNames.length < (database.tables || []).length) && <div className={`shrink-0 border-b px-3 py-1.5 text-[10px] ${error ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-amber-500/20 bg-amber-500/[0.08] text-amber-200'}`}>{error || message || t('schemaGraph.tableLimit', { count: formatNumber(MAX_TABLES) })}</div>}
+    {settingsOpen && <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-zinc-800 bg-zinc-950 px-3 py-2">
+      <div className="w-52"><span className="mb-1 block text-[9px] text-zinc-500">{t('schemaGraph.layoutMode')}</span><SearchSelect value={layoutMode} options={modeOptions} onValueChange={setLayoutMode} dropdownMinWidth={280} /></div>
+      <div className="w-44"><span className="mb-1 block text-[9px] text-zinc-500">{t('schemaGraph.maxTables')}</span><SearchSelect value={tableLimit} options={limitOptions} onValueChange={setTableLimit} dropdownMinWidth={240} /></div>
+      <span className="max-w-sm text-[9px] leading-4 text-zinc-500">{t('schemaGraph.layoutHint')}</span>
+    </div>}
+    {(error || message || tableNames.length < (database.tables || []).length) && <div className={`shrink-0 border-b px-3 py-1.5 text-[10px] ${error ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-amber-500/20 bg-amber-500/[0.08] text-amber-200'}`}>{error || message || t('schemaGraph.tableLimit', { count: formatNumber(tableLimit) })}</div>}
 
     {(source || selectedEdge) && <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b border-zinc-800 bg-zinc-950/80 px-3 py-1.5 text-[10px]">{selectedEdge ? <><Link2 className="h-4 w-4 text-cyan-400" /><span className="font-medium">{selectedEdge.name}</span><span className="text-zinc-500">{selectedEdge.source.table}.{selectedEdge.source.column} → {selectedEdge.target.table}.{selectedEdge.target.column}</span><span className="rounded bg-zinc-900 px-2 py-1 text-zinc-500">DELETE {selectedEdge.onDelete}</span><span className="rounded bg-zinc-900 px-2 py-1 text-zinc-500">UPDATE {selectedEdge.onUpdate}</span><Button size="sm" variant="ghost" className="ml-auto h-7 text-[10px] text-red-400" disabled={savingLink} onClick={() => void removeSelectedEdge()}><Unlink className="mr-1.5 h-3.5 w-3.5" />{t('schemaGraph.removeConnection')}</Button></> : <><Link2 className="h-4 w-4 text-cyan-400" /><span className="rounded bg-cyan-500/10 px-2 py-1 text-cyan-200">{source?.table}.{source?.column}</span><span className="text-zinc-600">→</span>{target ? <span className="rounded bg-emerald-500/10 px-2 py-1 text-emerald-200">{target.table}.{target.column}</span> : <span className="text-zinc-500">{t('schemaGraph.selectTargetColumn')}</span>}{target && <><input value={constraintName} onChange={event => setConstraintName(event.target.value)} className="h-8 w-60 rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-[10px]" placeholder={t('schemaGraph.constraintName')} /><div className="w-44"><SearchSelect value={onDelete} options={fkOptions} onValueChange={setOnDelete} triggerClassName="h-8 min-h-8 rounded-lg px-2 [&>span]:py-0" showDescriptionInTrigger={false} dropdownMinWidth={440} /></div><div className="w-44"><SearchSelect value={onUpdate} options={fkOptions} onValueChange={setOnUpdate} triggerClassName="h-8 min-h-8 rounded-lg px-2 [&>span]:py-0" showDescriptionInTrigger={false} dropdownMinWidth={440} /></div><Button size="sm" className="h-8 text-[10px]" disabled={readOnly || !constraintName.trim() || savingLink || source?.table === target.table} onClick={() => void createForeignKey()}>{savingLink ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Link2 className="mr-1.5 h-3.5 w-3.5" />}{t('schemaGraph.createConnection')}</Button></>}<Button size="sm" variant="ghost" className="ml-auto h-7 text-[10px]" onClick={() => { setSource(null); setTarget(null); }}>{t('common.cancel')}</Button></>}</div>}
 
@@ -576,7 +647,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
       <div className="absolute left-0 top-0 origin-top-left will-change-transform" style={{ width: canvasSize.width, height: canvasSize.height, transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})` }}>
         <svg className="pointer-events-none absolute inset-0 z-0 overflow-visible" width={canvasSize.width} height={canvasSize.height}>
           <defs><marker id="coreor-schema-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="rgba(34,211,238,.75)" /></marker></defs>
-          {edges.map(edge => {
+          {visibleEdges.map(edge => {
             const sourcePosition = positions[edge.source.table];
             const targetPosition = positions[edge.target.table];
             if (!sourcePosition || !targetPosition || !tableInfo[edge.target.table]) return null;
@@ -603,14 +674,15 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
           })}
         </svg>
 
-        {Object.entries(tableInfo).map(([tableName, info]) => {
+        {visibleNames.map(tableName => {
+          const info = tableInfo[tableName];
           const position = positions[tableName] || { x: 0, y: 0 };
-          const primaryColumns = new Set(info.indexes.filter(index => index.Key_name === 'PRIMARY').map(index => index.Column_name));
-          const uniqueColumns = new Set(info.indexes.filter(index => index.Non_unique === '0' && index.Key_name !== 'PRIMARY').map(index => index.Column_name));
-          const foreignColumns = new Set(info.foreignKeys.map(item => item.COLUMN_NAME));
-          return <section data-schema-node="true" key={tableName} className={`absolute z-10 overflow-hidden rounded-xl border bg-zinc-950/96 shadow-xl backdrop-blur ${draggingTable === tableName ? 'cursor-grabbing border-cyan-400 shadow-cyan-950/50' : 'border-zinc-700/90'}`} style={{ left: position.x, top: position.y, width: CARD_WIDTH }} onPointerDown={event => beginNodeDrag(event, tableName)} onDoubleClick={() => onOpenTable?.(tableName)} onContextMenu={event => openNodeMenu(event, tableName)}>
+          const primaryColumns = overviewMode ? new Set<string>() : new Set(info.indexes.filter(index => index.Key_name === 'PRIMARY').map(index => index.Column_name));
+          const uniqueColumns = overviewMode ? new Set<string>() : new Set(info.indexes.filter(index => index.Non_unique === '0' && index.Key_name !== 'PRIMARY').map(index => index.Column_name));
+          const foreignColumns = overviewMode ? new Set<string>() : new Set(info.foreignKeys.map(item => item.COLUMN_NAME));
+          return <section data-schema-node="true" key={tableName} className={`absolute z-10 overflow-hidden rounded-xl border bg-zinc-950/96 shadow-md ${draggingTable === tableName ? 'cursor-grabbing border-cyan-400 shadow-cyan-950/50' : 'border-zinc-700/90'}`} style={{ left: position.x, top: position.y, width: CARD_WIDTH }} onPointerDown={event => beginNodeDrag(event, tableName)} onDoubleClick={() => onOpenTable?.(tableName)} onContextMenu={event => openNodeMenu(event, tableName)}>
             <header className="flex h-10 cursor-grab items-center gap-2 border-b border-zinc-800 bg-zinc-900/95 px-2 active:cursor-grabbing"><Table2 className="h-3.5 w-3.5 text-cyan-400" /><span className="min-w-0 flex-1 truncate text-[11px] font-semibold">{tableName}</span><span className="rounded bg-black/30 px-1.5 py-0.5 text-[8px] uppercase text-zinc-500">{info.table.engine || 'table'}</span></header>
-            <div>{info.columns.map(column => {
+            {overviewMode ? <div className="flex items-start px-2 py-2 text-[9px] text-zinc-500" style={{ minHeight: Math.max(26, info.columns.length) * ROW_HEIGHT }}><span>{t('schemaGraph.columnCount', { count: info.columns.length })}</span></div> : <div>{info.columns.map(column => {
               const isSource = source?.table === tableName && source.column === column.Field;
               const isTarget = target?.table === tableName && target.column === column.Field;
               const isKey = primaryColumns.has(column.Field);
@@ -618,7 +690,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
                 {isKey ? <KeyRound className="h-3 w-3 shrink-0 text-amber-400" /> : foreignColumns.has(column.Field) ? <Link2 className="h-3 w-3 shrink-0 text-cyan-400" /> : uniqueColumns.has(column.Field) ? <Columns3 className="h-3 w-3 shrink-0 text-red-300" /> : <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-700" />}
                 <span className={`min-w-0 flex-1 truncate ${isKey ? 'font-semibold text-amber-100' : 'text-zinc-300'}`}>{column.Field}</span><span className={`max-w-[112px] truncate font-mono text-[8px] ${typeTone(column.Type)}`}>{column.Type.toUpperCase()}</span>{column.Null === 'YES' && <span className="text-[7px] text-zinc-700">N</span>}
               </button>;
-            })}</div>
+            })}</div>}
             {info.table.comment && <footer className="truncate border-t border-zinc-800 bg-black/20 px-2 py-1.5 text-[8px] text-zinc-600" title={info.table.comment}>{info.table.comment}</footer>}
           </section>;
         })}

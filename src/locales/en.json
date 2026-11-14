@@ -1312,6 +1312,12 @@
     "openDatabase": "Open database"
   },
   "queryWorkspace": {
+    "suggestionsToggle": "SQL suggestions",
+    "toggleSuggestionsHelp": "Toggle SQL autocomplete suggestions",
+    "alterApprovalToggle": "ALTER approval",
+    "toggleAlterHelp": "Toggle confirmation dialog and second approval for ALTER queries",
+    "alterApprovalSetting": "Require confirmation for ALTER",
+    "alterApprovalDescription": "When disabled, ALTER statements skip the dangerous-query dialog and second approval. Other risky statements, read-only connections, and permissions are unchanged.",
     "resultsHere": "Results will appear here.",
     "resizeResults": "Resize results panel",
     "snapshotBeforeAlter": "Automatic snapshot before ALTER",
@@ -1737,6 +1743,14 @@
     "deleteDraftWarning": "Do not run before verifying the condition."
   },
   "schemaGraph": {
+    "columnCount": "{count} columns",
+    "restoreInitial": "Restore initial layout",
+    "layoutSettings": "Layout options",
+    "layoutMode": "Layout arrangement",
+    "maxTables": "Maximum tables",
+    "limitOption": "{count} tables",
+    "layoutHint": "Select a layout and click Auto layout. Positions are saved per database and cards cannot overlap.",
+    "layouts": {"relations":"Relationship hierarchy","horizontal":"Horizontal flow","vertical":"Vertical flow","matrix":"Balanced grid","compact":"Compact layout","radial":"Radial map"},
     "autoLayout": "Auto layout",
     "fit": "Fit",
     "center": "Center",

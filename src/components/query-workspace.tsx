@@ -123,6 +123,10 @@ function metadataMutationScope(sql: string, currentDatabase: string | null) {
   return currentDatabase;
 }
 
+function isAlterStatement(sql: string) {
+  return /^ALTER\b/i.test(sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim());
+}
+
 function operationType(sql: string) {
   const clean = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
   if (/^DROP\s+(TABLE|DATABASE)\b/i.test(clean)) return 'drop' as const;
@@ -339,6 +343,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
 
   const requiresApproval = useCallback((statement: string) => {
     const type = operationType(statement); if (!type || !preferences.requireSecondApproval) return false;
+    if (isAlterStatement(statement) && !preferences.confirmAlterStatements) return false;
     if (type === 'production-alter' && !preferences.productionAlterApproval) return false;
     const approved = approvalRequests.list().find(item => item.serverId === selectedServer?.id && item.databaseName === tab.databaseName && item.sql.trim() === statement.trim() && item.status === 'approved');
     if (approved) { approvalRequests.remove(approved.id); return false; }
@@ -346,7 +351,7 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
     window.dispatchEvent(new CustomEvent('coreor:open-automation-center', { detail: { tab: 'approvals' } }));
     onChange({ error: t('queryWorkspace.sentForApproval'), isRunning: false });
     return true;
-  }, [preferences.requireSecondApproval, preferences.productionAlterApproval, selectedServer?.id, tab.databaseName, onChange, t]);
+  }, [preferences.requireSecondApproval, preferences.productionAlterApproval, preferences.confirmAlterStatements, selectedServer?.id, tab.databaseName, onChange, t]);
 
   const assertWritable = useCallback((statements: string[]) => {
     const write = statements.find(isWriteStatement);
@@ -485,12 +490,15 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       toast.show({ variant: 'error', title: t('query.errorStopped'), description: blockingDiagnostics[0].message, metadata: [{ label: t('notificationCenter.code'), value: blockingDiagnostics[0].code }, { label: t('queryWorkspace.totalErrors'), value: blockingDiagnostics.length }] });
       return;
     }
-    const dangerous = statements.some(statement => operationType(statement) || (/^(UPDATE|DELETE)\b/i.test(statement) && !/\bWHERE\b/i.test(statement)));
+    const dangerous = statements.some(statement =>
+      (isAlterStatement(statement) && !preferences.confirmAlterStatements) ||
+      (!isAlterStatement(statement) && (operationType(statement) || (/^(UPDATE|DELETE)\b/i.test(statement) && !/\bWHERE\b/i.test(statement))))
+    );
     if (preferences.confirmDangerousQueries && dangerous) {
       setConfirmation({ title: t('queryWorkspace.safeSqlValidation'), description: t('query.dangerousConfirm'), expectedText: t('queryWorkspace.executeUpper'), sql: tab.sql, confirmLabel: t('queryWorkspace.continueSecurity'), onConfirm: () => void executeNow() }); return;
     }
     void executeNow();
-  }, [preferences.confirmDangerousQueries, tab.sql, executeNow, diagnostics, toast, assertWritable, t]);
+  }, [preferences.confirmDangerousQueries, preferences.confirmAlterStatements, tab.sql, executeNow, diagnostics, toast, assertWritable, t]);
 
   useEffect(() => { if (tab.runImmediately && !autoRunHandled.current) { autoRunHandled.current = true; runQuery(); } }, [tab.runImmediately, runQuery]);
   useEffect(() => { autoRunHandled.current = false; }, [tab.id]);
@@ -572,6 +580,8 @@ export function QueryWorkspace({ tab, servers, accountId, onChange, onDuplicate 
       <Button variant="ghost" size="icon" className={`h-7 w-7 ${isFavorite ? 'text-amber-300' : ''}`} onClick={toggleFavorite}>{isFavorite ? <Star className="h-3.5 w-3.5 fill-current"/> : <StarOff className="h-3.5 w-3.5"/>}</Button>
       <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setLibrary(library === 'history' ? null : 'history')}><History className="mr-1 h-3.5 w-3.5"/>{t('query.history')}</Button>
       <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setLibrary(library === 'favorites' ? null : 'favorites')}><BookOpen className="mr-1 h-3.5 w-3.5"/>{t('query.favorites')}</Button>
+      <button type="button" aria-pressed={preferences.autocomplete} title={t('queryWorkspace.toggleSuggestionsHelp')} className={`flex h-7 shrink-0 items-center rounded px-2 text-[9px] ${preferences.autocomplete ? 'bg-cyan-500/10 text-cyan-300' : 'text-zinc-500 hover:bg-zinc-900'}`} onClick={() => { setPreferences({ autocomplete: !preferences.autocomplete }); setSuggestionsOpen(false); }}>{t('queryWorkspace.suggestionsToggle')}</button>
+      <button type="button" aria-pressed={!preferences.confirmAlterStatements} title={t('queryWorkspace.toggleAlterHelp')} className={`flex h-7 shrink-0 items-center rounded px-2 text-[9px] ${!preferences.confirmAlterStatements ? 'bg-amber-500/10 text-amber-300' : 'text-zinc-500 hover:bg-zinc-900'}`} onClick={() => setPreferences({ confirmAlterStatements: !preferences.confirmAlterStatements })}>{t('queryWorkspace.alterApprovalToggle')}</button>
       <button type="button" className="flex h-7 items-center gap-1 rounded px-2 text-[9px] text-zinc-500 hover:bg-zinc-900" onClick={() => setDiagnosticsOpen(previous => !previous)}><CheckCircle2 className="h-3.5 w-3.5 text-cyan-400"/>LSP <span className={diagnosticCounts.errors ? 'text-red-400' : 'text-emerald-400'}>{diagnosticCounts.errors}</span>/<span className="text-amber-400">{diagnosticCounts.warnings}</span></button>
       <div className="w-48 shrink-0"><SearchSelect value={selectedServer?.id || ''} options={serverOptions} onValueChange={serverId => onChange({ serverId: serverId || null, databaseName: null, executionMode: 'text', result: null })} triggerClassName="h-7 min-h-7" showDescriptionInTrigger={false}/></div>
       <div className="w-52 shrink-0"><SearchSelect value={tab.databaseName || ''} options={databaseOptions} onValueChange={databaseName => onChange({ databaseName: databaseName || null, result: null })} triggerClassName="h-7 min-h-7" showDescriptionInTrigger={false}/></div>

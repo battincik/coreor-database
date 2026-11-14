@@ -24,6 +24,7 @@ jobs:
       - run: npm ci
       - run: npm run test:lifecycle
       - run: npm run test:updater
+      - run: npm run test:schema
       - run: npm run locks:check
       - run: npm run architecture:check
       - run: npm run i18n:check

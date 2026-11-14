@@ -1312,6 +1312,12 @@
     "openDatabase": "Veritabanını aç"
   },
   "queryWorkspace": {
+    "suggestionsToggle": "SQL önerileri",
+    "toggleSuggestionsHelp": "SQL otomatik tamamlama önerilerini aç veya kapat",
+    "alterApprovalToggle": "ALTER onayı",
+    "toggleAlterHelp": "ALTER sorguları için onay penceresini ve ikinci onayı aç veya kapat",
+    "alterApprovalSetting": "ALTER için onay iste",
+    "alterApprovalDescription": "Kapalıyken ALTER ifadelerinde tehlikeli sorgu onayı ve ikinci onay istenmez. Diğer riskli sorgular, salt okunur bağlantılar ve yetkiler etkilenmez.",
     "resultsHere": "Sonuçlar burada gösterilir.",
     "resizeResults": "Sonuç paneli yüksekliğini değiştir",
     "snapshotBeforeAlter": "ALTER öncesi otomatik snapshot",
@@ -1737,6 +1743,14 @@
     "deleteDraftWarning": "Koşulu doğrulamadan çalıştırmayın."
   },
   "schemaGraph": {
+    "columnCount": "{count} sütun",
+    "restoreInitial": "İlk yerleşime dön",
+    "layoutSettings": "Yerleşim seçenekleri",
+    "layoutMode": "Yerleşim düzeni",
+    "maxTables": "Maksimum tablo sayısı",
+    "limitOption": "{count} tablo",
+    "layoutHint": "Bir düzen seçip Otomatik yerleşim'e basın. Konumlar veritabanına özel kaydedilir; hiçbir tablo üst üste gelemez.",
+    "layouts": {"relations":"İlişki hiyerarşisi","horizontal":"Yatay akış","vertical":"Dikey akış","matrix":"Dengeli ızgara","compact":"Yoğun yerleşim","radial":"Radyal harita"},
     "autoLayout": "Otomatik yerleşim",
     "fit": "Sığdır",
     "center": "Merkezle",
