@@ -173,6 +173,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
   const nodeDragRef = useRef<NodeDrag | null>(null);
   const canvasPanRef = useRef<CanvasPan | null>(null);
   const loadRequestRef = useRef(0);
+  const loadedScopeRef = useRef<string | null>(null);
   const database = catalog.find(item => item.name === databaseName) || null;
   const [tableLimit, setTableLimit] = useState(100);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('relations');
@@ -219,6 +220,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
   const load = async () => {
     if (!accountId || !database) return;
     const requestId = ++loadRequestRef.current;
+    loadedScopeRef.current = null;
     setLoading(true); setError(null); setMessage(null); setLoadedCount(0);
     setPositions(loadPositions(serverId, databaseName, tableNames));
     setLayoutReady(false);
@@ -267,6 +269,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
           };
         }
         setLoadedCount(Object.keys(nextInfo).length);
+        loadedScopeRef.current = `${serverId}:${databaseName}:${tableLimit}`;
         setTableInfo(nextInfo);
       } else {
         const results = await loadWithConcurrency(tableNames, 4, async tableName => {
@@ -280,6 +283,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
           else failures.push(String(entry.item));
         }
         if (requestId !== loadRequestRef.current) return;
+        loadedScopeRef.current = `${serverId}:${databaseName}:${tableLimit}`;
         setTableInfo(nextInfo);
         if (failures.length) setMessage(t('schemaGraph.loadedWithFailures', { loaded: formatNumber(Object.keys(nextInfo).length), failed: formatNumber(failures.length) }));
       }
@@ -298,7 +302,7 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
   }, [serverId, databaseName]);
   useEffect(() => { void loadForTarget(); }, [serverId, databaseName, accountId, tableLimit]);
   useEffect(() => {
-    if (!Object.keys(tableInfo).length) return;
+    if (loadedScopeRef.current !== `${serverId}:${databaseName}:${tableLimit}` || !Object.keys(tableInfo).length) return;
     setPositions(previous => {
       const names = tableNames.filter(name => tableInfo[name]);
       const fallback = defaultPositions(names, tableInfo);
@@ -307,10 +311,10 @@ export function DatabaseSchemaGraph({ serverId, databaseName, accountId, catalog
       return JSON.stringify(safe) === JSON.stringify(previous) ? previous : safe;
     });
     setLayoutReady(true);
-  }, [tableInfo, tableNames]);
+  }, [tableInfo, tableNames, serverId, databaseName, tableLimit]);
   useEffect(() => {
-    if (layoutReady && Object.keys(positions).length) persistPositions(serverId, databaseName, positions);
-  }, [positions, serverId, databaseName, layoutReady]);
+    if (layoutReady && loadedScopeRef.current === `${serverId}:${databaseName}:${tableLimit}` && Object.keys(positions).length) persistPositions(serverId, databaseName, positions);
+  }, [positions, serverId, databaseName, tableLimit, layoutReady]);
   useEffect(() => {
     if (typeof window !== 'undefined') localStorage.setItem(settingsKey(serverId, databaseName), JSON.stringify({ tableLimit, mode: layoutMode }));
   }, [serverId, databaseName, tableLimit, layoutMode]);
