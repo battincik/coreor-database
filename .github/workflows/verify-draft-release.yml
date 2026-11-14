@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: 22
       - name: Test release manifest repair rules
-        run: node --test tests/release-metadata.test.mjs
+        run: npm run test:release
       - name: Repair release manifest URL and update release notes
         run: node scripts/repair-release-metadata.mjs
       - name: Verify existing draft or published release without rebuilding platforms
