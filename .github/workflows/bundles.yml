@@ -10,7 +10,35 @@ permissions:
   contents: read
 
 jobs:
+  validate:
+    name: Validate sources once
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('package-lock.json', 'next.config.*', 'tsconfig.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('package-lock.json', 'next.config.*', 'tsconfig.json') }}-
+      - run: npm run check
   bundle:
+    needs: validate
     name: Bundle (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -53,7 +81,13 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
-      - run: npm run check
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ matrix.target || 'native' }}-${{ hashFiles('package-lock.json', 'next.config.*', 'tsconfig.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ matrix.target || 'native' }}-${{ hashFiles('package-lock.json', 'next.config.*', 'tsconfig.json') }}-
       - run: npm run tauri:build -- ${{ matrix.args }}
       - name: Upload Windows bundles
         if: runner.os == 'Windows'
