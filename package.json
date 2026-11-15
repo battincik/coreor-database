@@ -9,7 +9,7 @@
     "dev": "npm run tauri:dev",
     "ui:dev": "node scripts/clean-next-cache.mjs && next dev --turbopack",
     "build": "npm run tauri:build",
-    "ui:build": "node scripts/clean-next-cache.mjs && tsc --noEmit && next build --turbopack",
+    "ui:build": "tsc --noEmit && next build --turbopack",
     "tauri": "tauri",
     "tauri:dev": "npm run icons:ensure && tauri dev",
     "tauri:build": "npm run icons:ensure && tauri build",
@@ -39,7 +39,8 @@
     "release:local:install": "node scripts/local-release.mjs --install",
     "release:local:signed": "node scripts/local-release.mjs --signed",
     "test:schema": "node --experimental-strip-types --test tests/schema-layout.test.mjs",
-    "test:release": "node --test tests/release-metadata.test.mjs tests/new-release.test.mjs"
+    "test:release": "node --test tests/release-metadata.test.mjs tests/new-release.test.mjs",
+    "ui:build:clean": "node scripts/clean-next-cache.mjs && npm run ui:build"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.3",
