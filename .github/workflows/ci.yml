@@ -22,6 +22,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('package-lock.json', 'next.config.*', 'tsconfig.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('package-lock.json', 'next.config.*', 'tsconfig.json') }}-
       - run: npm run test:lifecycle
       - run: npm run test:updater
       - run: npm run test:release
@@ -58,6 +65,6 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - run: npm run architecture:check
-      - run: npm run native:check
+      # Cargo tests and the final native Tauri build also compile the Rust crate.
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml --lib app_updates::tests
       - run: npm run tauri:build -- --no-bundle
