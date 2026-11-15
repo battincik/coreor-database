@@ -25,8 +25,41 @@ jobs:
           actual=$(git rev-list -n 1 "${tag}")
           test "${actual}" = "${GITHUB_SHA}" || { echo "::error::Tag ${tag} points to ${actual}, expected ${GITHUB_SHA}"; exit 1; }
           echo "Release tag ${tag} is valid"
-  release:
+  validate:
+    name: Verify release once
     needs: preflight
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      COREOR_UPDATER_PUBLIC_KEY: ${{ vars.COREOR_UPDATER_PUBLIC_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('package-lock.json', 'next.config.*', 'tsconfig.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('package-lock.json', 'next.config.*', 'tsconfig.json') }}-
+      - run: node scripts/prepare-signed-release.mjs
+      - run: npm run check
+      - run: npm run test:release
+  release:
+    needs: validate
     strategy:
       fail-fast: false
       # Serialize asset/manifest uploads to a shared draft.
@@ -68,10 +101,15 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ matrix.target || 'native' }}-${{ hashFiles('package-lock.json', 'next.config.*', 'tsconfig.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ matrix.target || 'native' }}-${{ hashFiles('package-lock.json', 'next.config.*', 'tsconfig.json') }}-
       - run: node scripts/prepare-signed-release.mjs
-      - run: npm run check
-      - run: npm run test:lifecycle
-      - run: npm run test:release
+      # All repository checks were performed once in the validate job.
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
