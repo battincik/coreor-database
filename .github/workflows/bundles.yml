@@ -30,7 +30,7 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - name: Restore Next.js build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .next/cache
           key: next-${{ runner.os }}-${{ hashFiles('package-lock.json', 'next.config.*', 'tsconfig.json') }}-${{ github.sha }}
@@ -82,7 +82,7 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - name: Restore Next.js build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .next/cache
           key: next-${{ runner.os }}-${{ matrix.target || 'native' }}-${{ hashFiles('package-lock.json', 'next.config.*', 'tsconfig.json') }}-${{ github.sha }}
